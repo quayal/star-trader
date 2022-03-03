@@ -5,10 +5,14 @@ import java.util.Random;
 public class Dice {
 
 	public static int roll2D() {
-		int upperBound = 6;
-		Random random = new Random();
-		int first = random.nextInt(upperBound) + 1;
-		int second = random.nextInt(upperBound) + 1;
-		return first + second;
+		return roll1D() + roll1D();
+	}
+
+	public static int roll3D() {
+		return roll2D() + roll1D();
+	}
+
+	public static int roll1D() {
+		return new Random().nextInt(6) + 1;
 	}
 }
