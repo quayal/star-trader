@@ -9,36 +9,86 @@ import static dev.adriangrzebyk.trader.domain.Goods.*;
 public enum StarSystem {
 	GAMMA_LEPORIS(
 			"Gamma Leporis",
-			Collections.singletonList(POLY),
+			StarSystem::gammaLeporisPrices,
 			StarSystem::gammaLeporisIndicators
 			),
 	TAU_CETI("Tau Ceti",
-			 List.of(POLY, ISO),
+			StarSystem::tauCetiPrices,
 			StarSystem::tauCetiIndicators
 	),
 	EPSILON_ERIDANI("Epsilon Eridani",
-			List.of(Goods.values()),
+			StarSystem::epsilonEridaniPrices,
 			StarSystem::epsilonEridaniIndicators),
 	BETA_HYDRI("Beta Hydri",
-			List.of(Goods.values()),
+			StarSystem::betaHydriPrices,
 			StarSystem::betaHydriIndicators),
 	MU_HERCULIS("Mu Herculis",
-			List.of(POLY, ISO, CHIPS),
+			StarSystem::muHerculisPrices,
 			StarSystem::muHerculisIndicators),
 	SIGMA_DRACONIS("Sigma Draconis",
-			List.of(Goods.values()),
+			StarSystem::sigmaDraconisPrices,
 			StarSystem::sigmaDraconisIndicators);
 
 	private final String name;
-	private final Set<Goods> goods;
+	private final Map<Goods, Integer> goodsPrices;
 	private final Map<Goods, Integer> indicators;
 
 
-	StarSystem(String name, Collection<Goods> goods, Supplier<Map<Goods, Integer>> indicatorsSupplier) {
+	StarSystem(String name, Supplier<Map<Goods, Integer>> goodsSupplier, Supplier<Map<Goods, Integer>> indicatorsSupplier) {
 		this.name = name;
-		this.goods = new HashSet<>(goods);
+		this.goodsPrices = goodsSupplier.get();
 		this.indicators = indicatorsSupplier.get();
 	}
+
+	private static HashMap<Goods, Integer> gammaLeporisPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 2);
+		return map;
+	}
+
+	private static HashMap<Goods, Integer> tauCetiPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 6);
+		map.put(ISO, 4);
+		return map;
+	}
+
+	private static HashMap<Goods, Integer> epsilonEridaniPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 5);
+		map.put(ISO, 10);
+		map.put(FOOD, 14);
+		map.put(CHIPS, 17);
+		return map;
+	}
+
+	private static HashMap<Goods, Integer> betaHydriPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 6);
+		map.put(ISO, 10);
+		map.put(FOOD, 15);
+		map.put(CHIPS, 18);
+		return map;
+	}
+
+	private static HashMap<Goods, Integer> muHerculisPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 8);
+		map.put(ISO, 11);
+		map.put(CHIPS, -12);
+		return map;
+	}
+
+	private static HashMap<Goods, Integer> sigmaDraconisPrices() {
+		HashMap<Goods, Integer> map = new HashMap<>();
+		map.put(POLY, 8);
+		map.put(ISO, 4);
+		map.put(FOOD, 10);
+		map.put(CHIPS, 14);
+		return map;
+	}
+
+
 
 	private static HashMap<Goods, Integer> gammaLeporisIndicators() {
 		HashMap<Goods, Integer> map = new HashMap<>();
@@ -73,10 +123,9 @@ public enum StarSystem {
 
 	private static HashMap<Goods, Integer> muHerculisIndicators() {
 		HashMap<Goods, Integer> map = new HashMap<>();
-		map.put(POLY, -7);
-		map.put(ISO, -7);
-		map.put(FOOD, -8);
-		map.put(CHIPS, -9);
+		map.put(POLY, -9);
+		map.put(ISO, 1);
+		map.put(CHIPS, -4);
 		return map;
 	}
 
@@ -91,5 +140,9 @@ public enum StarSystem {
 
 	public Integer getIndicator(Goods goods) {
 		return indicators.get(goods);
+	}
+
+	public Integer getPrice(Goods goods) {
+		return goodsPrices.get(goods);
 	}
 }

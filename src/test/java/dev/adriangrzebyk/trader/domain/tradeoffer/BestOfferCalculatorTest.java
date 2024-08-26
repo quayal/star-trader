@@ -16,8 +16,6 @@ class BestOfferCalculatorTest {
 
 	private final BestOfferCalculator bestOfferCalculator = new BestOfferCalculator();
 
-
-
 	private Map<Goods, Integer> preparePrices() {
 		Map<Goods, Integer> prices = new HashMap<>();
 		prices.put(POLY, 7);
@@ -76,7 +74,7 @@ class BestOfferCalculatorTest {
 			10,
 			0);
 
-	private TradeOffer betaPolySellEightWithHigerInitiative = new TradeOffer(
+	private final TradeOffer betaPolySellEightWithHigerInitiative = new TradeOffer(
 			new Player("Adrian"),
 			BETA_HYDRI,
 			POLY,

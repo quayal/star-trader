@@ -10,7 +10,8 @@ class SDCalculatorTest {
 	@ParameterizedTest
 	@MethodSource("provideTestData")
 	void getPriceModifier(int sDIndicator, int priceModifier) {
-		assertThat(SDCalculator.getPriceModifier(sDIndicator)).isEqualTo(priceModifier);
+		SDCalculator sdCalculator = new SDCalculator();
+		assertThat(sdCalculator.getPriceModifier(sDIndicator)).isEqualTo(priceModifier);
 	}
 
 	private static Object[][] provideTestData() {
