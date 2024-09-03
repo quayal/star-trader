@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 import static dev.adriangrzebyk.trader.domain.OfferType.BUY;
 import static dev.adriangrzebyk.trader.domain.OfferType.SELL;
-
+@Service
 class BestOfferCalculator {
 
     TradeOffer getWinningOffer(StarSystem system, Goods goods, Set<TradeOffer> offers, int diceRoll) {

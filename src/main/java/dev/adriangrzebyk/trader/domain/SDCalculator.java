@@ -1,14 +1,13 @@
 package dev.adriangrzebyk.trader.domain;
 
 import lombok.NoArgsConstructor;
+import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import static java.lang.Math.abs;
+import static java.util.Comparator.naturalOrder;
 
+@Service
 @NoArgsConstructor
 public class SDCalculator {
 
@@ -52,25 +51,35 @@ public class SDCalculator {
         indicatorByModifier.put(16, -5);
         indicatorByModifier.put(17, -5);
         indicatorByModifier.put(18, -6);
-    }
 
+    }
 
     int getPriceModifier(int sDIndicator) {
         return indicatorByModifier.get(sDIndicator);
     }
 
-    public int getHighestAbsoluteSDIndicatorByModifier(int priceModifier) {
+    public int getIndicatorForBuying(int priceModifier) {
+
+        return getIndicatorsForModifier(priceModifier)
+                .stream()
+                .min(naturalOrder())
+                .orElseThrow(() -> new RuntimeException("Can't find indicator for the given price modifier: " + priceModifier));
+    }
+
+    public int getIndicatorForSelling(int priceModifier) {
+
+        return getIndicatorsForModifier(priceModifier)
+                .stream()
+                .max(naturalOrder())
+                .orElseThrow(() -> new RuntimeException("Can't find indicator for the given price modifier: " + priceModifier));
+    }
+
+    private Set<Integer> getIndicatorsForModifier(int priceModifier) {
         Set<Integer> indicators = new HashSet<>();
         indicatorByModifier.forEach((indicator, modifier) -> {
             if (modifier == priceModifier)
                 indicators.add(indicator);
         });
-        return indicators
-                .stream()
-                .max((lower, higher) -> {
-                    if (lower.equals(higher)) return 0;
-                    if (abs(lower) < abs(higher)) return -1;
-                    return 1;
-                }).orElseThrow(() -> new RuntimeException("Can't find indicator for the given price modifier: " + priceModifier));
+        return indicators;
     }
 }

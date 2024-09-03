@@ -1,12 +1,15 @@
 package dev.adriangrzebyk.trader.domain.tradeoffer;
 
 import dev.adriangrzebyk.trader.domain.Goods;
+import dev.adriangrzebyk.trader.domain.OfferType;
 import dev.adriangrzebyk.trader.domain.SDCalculator;
 import dev.adriangrzebyk.trader.domain.StarSystem;
 import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import static java.lang.Math.abs;
 
+@Service
 @AllArgsConstructor
 class TransactionAmountCalculator {
     private final SDCalculator sdCalculator;
@@ -22,8 +25,14 @@ class TransactionAmountCalculator {
 
         int priceModifier = askingPrice - currentPrice;
 
-        int indicator = sdCalculator.getHighestAbsoluteSDIndicatorByModifier(priceModifier);
+        int indicator;
 
-        return abs(indicator) + abs(supplyDemand);
+        if (winningOffer.offerType().equals(OfferType.SELL)) {
+            indicator = sdCalculator.getIndicatorForSelling(priceModifier);
+            return abs(supplyDemand) + indicator;
+        } else {
+            indicator = sdCalculator.getIndicatorForBuying(priceModifier);
+            return supplyDemand - indicator;
+        }
     }
 }
