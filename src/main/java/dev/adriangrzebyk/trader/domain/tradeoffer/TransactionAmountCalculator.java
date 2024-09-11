@@ -7,8 +7,6 @@ import dev.adriangrzebyk.trader.domain.StarSystem;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import static java.lang.Math.abs;
-
 @Service
 @AllArgsConstructor
 class TransactionAmountCalculator {
@@ -29,7 +27,7 @@ class TransactionAmountCalculator {
 
         if (winningOffer.offerType().equals(OfferType.SELL)) {
             indicator = sdCalculator.getIndicatorForSelling(priceModifier);
-            return abs(supplyDemand) + indicator;
+            return indicator - supplyDemand;
         } else {
             indicator = sdCalculator.getIndicatorForBuying(priceModifier);
             return supplyDemand - indicator;

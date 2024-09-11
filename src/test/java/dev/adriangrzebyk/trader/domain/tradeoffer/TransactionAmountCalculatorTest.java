@@ -15,22 +15,46 @@ class TransactionAmountCalculatorTest {
     TransactionAmountCalculator transactionAmountCalculator = new TransactionAmountCalculator(new SDCalculator());
 
     @Test
-    void shouldGivePositiveAmountForBuyOffer() {
-
+    void validBuyOfferWithPositiveSDAndPositivePriceModifier() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
-                SIGMA_DRACONIS,
-                ISO,
+                GAMMA_LEPORIS,
+                POLY,
                 BUY,
-                8,
+                1,
                 1);
 
-        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 8)).isEqualTo(18);
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 8)).isEqualTo(7);
     }
 
     @Test
-    void shouldGivePositiveAmountForSellOffer() {
+    void validBuyOfferWithPositiveSDAndNegativePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                EPSILON_ERIDANI,
+                ISO,
+                BUY,
+                9,
+                1);
 
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 10)).isEqualTo(1);
+    }
+
+    @Test
+    void validBuyOfferWithNegativeSDAndPositivePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                TAU_CETI,
+                ISO,
+                BUY,
+                6,
+                1);
+
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 7)).isEqualTo(3);
+    }
+
+    @Test
+    void validSellOfferWithNegativeSDAndNegativePriceModifier() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
                 SIGMA_DRACONIS,
@@ -40,12 +64,36 @@ class TransactionAmountCalculatorTest {
                 1);
 
         assertThat(transactionAmountCalculator.getAmountToTrade(offer, 3)).isEqualTo(12);
-
     }
 
     @Test
-    void shouldGiveNegativeAmountForBuyOffer() {
+    void validSellOfferWithNegativeSDAndPositivePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                EPSILON_ERIDANI,
+                POLY,
+                SELL,
+                6,
+                1);
 
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 4)).isEqualTo(1);
+    }
+
+    @Test
+    void validSellOfferWithPositiveSDAndNegativePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                MU_HERCULIS,
+                CHIPS,
+                SELL,
+                9,
+                1);
+
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 12)).isEqualTo(2);
+    }
+
+    @Test
+    void invalidBuyOfferWithPositiveSDAndNegativePriceModifier() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
                 SIGMA_DRACONIS,
@@ -58,8 +106,46 @@ class TransactionAmountCalculatorTest {
     }
 
     @Test
-    void shouldGiveNegativeAmountForSellOffer() {
+    void invalidBuyOfferWithNegativeSDAndNegativePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                SIGMA_DRACONIS,
+                CHIPS,
+                BUY,
+                12,
+                1);
 
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 4)).isEqualTo(-9);
+    }
+
+    @Test
+    void invalidBuyOfferWithNegativeSDAndPositivePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                SIGMA_DRACONIS,
+                CHIPS,
+                BUY,
+                15,
+                1);
+
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 4)).isEqualTo(-1);
+    }
+
+    @Test
+    void invalidBuyOfferForPositiveSDAndNegativePriceModifierMatchingSD() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                EPSILON_ERIDANI,
+                FOOD,
+                BUY,
+                13,
+                1);
+
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 10)).isEqualTo(0);
+    }
+
+    @Test
+    void invalidSellOfferWithNegativeSDAndPositivePriceModifier() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
                 MU_HERCULIS,
@@ -73,21 +159,35 @@ class TransactionAmountCalculatorTest {
     }
 
     @Test
-    void shouldGiveZeroForBuyOffer() {
-
+    void invalidSellOfferWithPositiveSDAndPositivePriceModifier() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
-                EPSILON_ERIDANI,
+                SIGMA_DRACONIS,
                 FOOD,
-                BUY,
-                13,
+                SELL,
+                11,
                 1);
 
-        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 10)).isEqualTo(0);
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 8)).isEqualTo(-7);
+
     }
 
     @Test
-    void shouldGiveZeroForSellOffer() {
+    void invalidSellOfferWithPositiveSDAndNegativePriceModifier() {
+        TradeOffer offer = new TradeOffer(
+                new Player("tester"),
+                SIGMA_DRACONIS,
+                FOOD,
+                SELL,
+                9,
+                1);
+
+        assertThat(transactionAmountCalculator.getAmountToTrade(offer, 8)).isEqualTo(-1);
+
+    }
+
+    @Test
+    void invalidSellOfferForNegativeSDAndNegativePriceModifierMatchingSD() {
         TradeOffer offer = new TradeOffer(
                 new Player("tester"),
                 TAU_CETI,

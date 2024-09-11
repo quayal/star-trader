@@ -8,34 +8,31 @@ import static dev.adriangrzebyk.trader.domain.Goods.*;
 
 public enum StarSystem {
 	GAMMA_LEPORIS(
-			"Gamma Leporis",
 			StarSystem::gammaLeporisPrices,
 			StarSystem::gammaLeporisIndicators
 			),
-	TAU_CETI("Tau Ceti",
+	TAU_CETI(
 			StarSystem::tauCetiPrices,
 			StarSystem::tauCetiIndicators
 	),
-	EPSILON_ERIDANI("Epsilon Eridani",
+	EPSILON_ERIDANI(
 			StarSystem::epsilonEridaniPrices,
 			StarSystem::epsilonEridaniIndicators),
-	BETA_HYDRI("Beta Hydri",
+	BETA_HYDRI(
 			StarSystem::betaHydriPrices,
 			StarSystem::betaHydriIndicators),
-	MU_HERCULIS("Mu Herculis",
+	MU_HERCULIS(
 			StarSystem::muHerculisPrices,
 			StarSystem::muHerculisIndicators),
-	SIGMA_DRACONIS("Sigma Draconis",
+	SIGMA_DRACONIS(
 			StarSystem::sigmaDraconisPrices,
 			StarSystem::sigmaDraconisIndicators);
 
-	private final String name;
 	private final Map<Goods, Integer> goodsPrices;
 	private final Map<Goods, Integer> indicators;
 
 
-	StarSystem(String name, Supplier<Map<Goods, Integer>> goodsSupplier, Supplier<Map<Goods, Integer>> indicatorsSupplier) {
-		this.name = name;
+	StarSystem(Supplier<Map<Goods, Integer>> goodsSupplier, Supplier<Map<Goods, Integer>> indicatorsSupplier) {
 		this.goodsPrices = goodsSupplier.get();
 		this.indicators = indicatorsSupplier.get();
 	}
@@ -75,7 +72,7 @@ public enum StarSystem {
 		HashMap<Goods, Integer> map = new HashMap<>();
 		map.put(POLY, 8);
 		map.put(ISO, 11);
-		map.put(CHIPS, -12);
+		map.put(CHIPS, 12);
 		return map;
 	}
 
