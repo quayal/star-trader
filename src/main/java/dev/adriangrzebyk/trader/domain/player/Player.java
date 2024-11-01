@@ -1,4 +1,9 @@
-package dev.adriangrzebyk.trader.domain;
+package dev.adriangrzebyk.trader.domain.player;
+
+import dev.adriangrzebyk.trader.domain.Loan;
+import dev.adriangrzebyk.trader.domain.MarketPosition;
+import dev.adriangrzebyk.trader.domain.Ship;
+import dev.adriangrzebyk.trader.domain.Warehouse;
 
 import java.util.Set;
 

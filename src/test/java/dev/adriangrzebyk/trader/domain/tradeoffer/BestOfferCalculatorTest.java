@@ -1,7 +1,6 @@
 package dev.adriangrzebyk.trader.domain.tradeoffer;
 
 import dev.adriangrzebyk.trader.domain.Goods;
-import dev.adriangrzebyk.trader.domain.Player;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -34,48 +33,48 @@ class BestOfferCalculatorTest {
 		return indicators;
 	}
 
-	private final TradeOffer betaPolyBuyNine = new TradeOffer(
-			new Player("Adrian"),
+	private final TradeOffer betaPolyBuyNine = new TradeOffer(1,
+			1,
 			BETA_HYDRI,
 			POLY,
 			BUY,
 			9,
 			0);
 
-	private final TradeOffer betaPolyBuyTen = new TradeOffer(
-			new Player("Mateusz"),
+	private final TradeOffer betaPolyBuyTen = new TradeOffer(1,
+			2,
 			BETA_HYDRI,
 			POLY,
 			BUY,
 			10,
 			1);
 
-	private final TradeOffer betaPolySellSeven = new TradeOffer(
-			new Player("Adrian"),
+	private final TradeOffer betaPolySellSeven = new TradeOffer(1,
+			1,
 			BETA_HYDRI,
 			POLY,
 			SELL,
 			7,
 			0);
 
-	private final TradeOffer betaPolySellEight = new TradeOffer(
-			new Player("Mateusz"),
+	private final TradeOffer betaPolySellEight = new TradeOffer(1,
+			2,
 			BETA_HYDRI,
 			POLY,
 			SELL,
 			8,
 			1);
 
-	private final TradeOffer betaPolyBuyTenWithHigherInitiative = new TradeOffer(
-			new Player("Adrian"),
+	private final TradeOffer betaPolyBuyTenWithHigherInitiative = new TradeOffer(1,
+			1,
 			BETA_HYDRI,
 			POLY,
 			BUY,
 			10,
 			0);
 
-	private final TradeOffer betaPolySellEightWithHigerInitiative = new TradeOffer(
-			new Player("Adrian"),
+	private final TradeOffer betaPolySellEightWithHigherInitiative = new TradeOffer(1,
+			1,
 			BETA_HYDRI,
 			POLY,
 			SELL,
@@ -106,9 +105,8 @@ class BestOfferCalculatorTest {
 
 	@Test
 	void shouldChooseTheHighestInitiativeForSellOffersIfPricesAreEqual() {
-		Set<TradeOffer> offers = Set.of(betaPolyBuyNine, betaPolySellEight, betaPolySellEightWithHigerInitiative);
+		Set<TradeOffer> offers = Set.of(betaPolyBuyNine, betaPolySellEight, betaPolySellEightWithHigherInitiative);
 		TradeOffer result = bestOfferCalculator.getWinningOffer(BETA_HYDRI, POLY, offers, 7);
-		assertThat(result).isEqualTo(betaPolySellEightWithHigerInitiative);
-
+		assertThat(result).isEqualTo(betaPolySellEightWithHigherInitiative);
 	}
 }

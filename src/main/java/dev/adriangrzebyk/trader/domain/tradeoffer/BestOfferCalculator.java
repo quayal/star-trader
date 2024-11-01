@@ -16,19 +16,13 @@ class BestOfferCalculator {
         int indicator = diceRoll + system.getIndicator(goods);
         TradeOffer winning;
 
-        // pass only the offers for the goods in this system -- you only call it for system and goods
-        Set<TradeOffer> offersForGoods = offers.stream()
-                .filter(tradeOffer -> tradeOffer.goods() == goods)
-                .filter(tradeOffer -> tradeOffer.system() == system)
-                .collect(Collectors.toSet());
-
         if (indicator >= 0) {
-            winning = offersForGoods.stream()
+            winning = offers.stream()
                     .filter(tradeOffer -> tradeOffer.offerType() == BUY)
                     .reduce(this::getBetterBuy)
                     .orElseThrow(RuntimeException::new);
         } else {
-            winning = offersForGoods.stream()
+            winning = offers.stream()
                     .filter(tradeOffer -> tradeOffer.offerType() == SELL)
                     .reduce(this::getBetterSell)
                     .orElseThrow(RuntimeException::new);

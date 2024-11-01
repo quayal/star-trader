@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.domain.tradeoffer;
 
-import dev.adriangrzebyk.trader.domain.Player;
+import dev.adriangrzebyk.trader.domain.player.Player;
 import dev.adriangrzebyk.trader.domain.SDCalculator;
 import org.junit.jupiter.api.Test;
 
@@ -16,8 +16,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validBuyOfferWithPositiveSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 GAMMA_LEPORIS,
                 POLY,
                 BUY,
@@ -29,8 +29,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validBuyOfferWithPositiveSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 EPSILON_ERIDANI,
                 ISO,
                 BUY,
@@ -42,8 +42,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validBuyOfferWithNegativeSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 TAU_CETI,
                 ISO,
                 BUY,
@@ -55,8 +55,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validSellOfferWithNegativeSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 CHIPS,
                 SELL,
@@ -68,8 +68,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validSellOfferWithNegativeSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 EPSILON_ERIDANI,
                 POLY,
                 SELL,
@@ -81,8 +81,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void validSellOfferWithPositiveSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 MU_HERCULIS,
                 CHIPS,
                 SELL,
@@ -94,8 +94,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidBuyOfferWithPositiveSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 ISO,
                 BUY,
@@ -107,8 +107,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidBuyOfferWithNegativeSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 CHIPS,
                 BUY,
@@ -120,8 +120,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidBuyOfferWithNegativeSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 CHIPS,
                 BUY,
@@ -133,8 +133,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidBuyOfferForPositiveSDAndNegativePriceModifierMatchingSD() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 EPSILON_ERIDANI,
                 FOOD,
                 BUY,
@@ -146,8 +146,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidSellOfferWithNegativeSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 MU_HERCULIS,
                 POLY,
                 SELL,
@@ -160,8 +160,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidSellOfferWithPositiveSDAndPositivePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 FOOD,
                 SELL,
@@ -174,8 +174,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidSellOfferWithPositiveSDAndNegativePriceModifier() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 SIGMA_DRACONIS,
                 FOOD,
                 SELL,
@@ -188,8 +188,8 @@ class TransactionAmountCalculatorTest {
 
     @Test
     void invalidSellOfferForNegativeSDAndNegativePriceModifierMatchingSD() {
-        TradeOffer offer = new TradeOffer(
-                new Player("tester"),
+        TradeOffer offer = new TradeOffer(1,
+                1,
                 TAU_CETI,
                 POLY,
                 SELL,
