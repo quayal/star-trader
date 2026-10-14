@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Star Trader &mdash; Submit Trade Offer</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #0b0e17;
+			--panel: #141a2a;
+			--border: #26314a;
+			--text: #e6ebf5;
+			--muted: #8a93a8;
+			--accent: #5fb3ff;
+			--buy: #4fd48c;
+			--sell: #ff8a65;
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: var(--bg);
+			color: var(--text);
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			display: flex;
+			justify-content: center;
+			padding: 2.5rem 1rem;
+		}
+		main { width: 100%; max-width: 640px; }
+		h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+		p.subtitle { color: var(--muted); margin-top: 0; margin-bottom: 1.5rem; }
+		form, .offers {
+			background: var(--panel);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 1.5rem;
+			margin-bottom: 1.5rem;
+		}
+		label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem; margin-top: 1rem; }
+		label:first-of-type { margin-top: 0; }
+		select, input {
+			width: 100%;
+			padding: 0.6rem 0.7rem;
+			border-radius: 8px;
+			border: 1px solid var(--border);
+			background: #0f1424;
+			color: var(--text);
+			font-size: 0.95rem;
+		}
+		.offer-type-toggle { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+		.offer-type-toggle label {
+			flex: 1;
+			margin: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.4rem;
+			padding: 0.6rem;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			cursor: pointer;
+			color: var(--text);
+		}
+		.offer-type-toggle input { width: auto; }
+		button {
+			margin-top: 1.5rem;
+			width: 100%;
+			padding: 0.75rem;
+			border: none;
+			border-radius: 8px;
+			background: var(--accent);
+			color: #06101c;
+			font-weight: 600;
+			font-size: 1rem;
+			cursor: pointer;
+		}
+		button:disabled { opacity: 0.6; cursor: not-allowed; }
+		#message {
+			margin-top: 1rem;
+			font-size: 0.9rem;
+			min-height: 1.2em;
+		}
+		#message.error { color: #ff6b6b; }
+		#message.success { color: var(--buy); }
+		table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+		th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); }
+		th { color: var(--muted); font-weight: 500; }
+		.tag { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+		.tag.buy { background: rgba(79, 212, 140, 0.15); color: var(--buy); }
+		.tag.sell { background: rgba(255, 138, 101, 0.15); color: var(--sell); }
+		.empty { color: var(--muted); font-size: 0.9rem; }
+	</style>
+</head>
+<body>
+<main>
+	<h1>Submit a Trade Offer</h1>
+	<p class="subtitle">Pick a star system, then only the goods it actually trades, a price from 1&ndash;20, and buy or sell.</p>
+
+	<form id="offer-form">
+		<label for="playerName">Player name</label>
+		<input id="playerName" name="playerName" type="text" maxlength="40" required placeholder="Adrian">
+
+		<label for="system">Star system</label>
+		<select id="system" name="system" required></select>
+
+		<label for="goods">Goods</label>
+		<select id="goods" name="goods" required></select>
+
+		<label for="price">Price</label>
+		<select id="price" name="price" required></select>
+
+		<label>Offer type</label>
+		<div class="offer-type-toggle" id="offerType"></div>
+
+		<button type="submit">Submit offer</button>
+		<div id="message"></div>
+	</form>
+
+	<section class="offers">
+		<h1 style="font-size: 1.1rem;">Submitted offers</h1>
+		<div id="offers-table"></div>
+	</section>
+</main>
+
+<script>
+	let options = null;
+
+	const systemSelect = document.getElementById('system');
+	const goodsSelect = document.getElementById('goods');
+	const priceSelect = document.getElementById('price');
+	const offerTypeContainer = document.getElementById('offerType');
+	const form = document.getElementById('offer-form');
+	const messageEl = document.getElementById('message');
+	const offersTable = document.getElementById('offers-table');
+
+	async function loadOptions() {
+		const response = await fetch('/api/options');
+		options = await response.json();
+
+		systemSelect.innerHTML = options.starSystems
+			.map(s => `<option value="${s.name}">${s.displayName}</option>`)
+			.join('');
+
+		priceSelect.innerHTML = '';
+		for (let price = options.minPrice; price <= options.maxPrice; price++) {
+			const opt = document.createElement('option');
+			opt.value = String(price);
+			opt.textContent = String(price);
+			priceSelect.appendChild(opt);
+		}
+
+		offerTypeContainer.innerHTML = options.offerTypes
+			.map((type, i) => `
+				<label>
+					<input type="radio" name="offerType" value="${type}" ${i === 0 ? 'checked' : ''}>
+					${type}
+				</label>
+			`)
+			.join('');
+
+		populateGoods();
+	}
+
+	function populateGoods() {
+		const system = options.starSystems.find(s => s.name === systemSelect.value);
+		const goods = system ? system.goods : [];
+		goodsSelect.innerHTML = goods.map(g => `<option value="${g}">${g}</option>`).join('');
+	}
+
+	systemSelect.addEventListener('change', populateGoods);
+
+	function renderOffers(offers) {
+		if (!offers.length) {
+			offersTable.innerHTML = '<p class="empty">No offers submitted yet.</p>';
+			return;
+		}
+		const rows = offers
+			.slice()
+			.reverse()
+			.map(o => `
+				<tr>
+					<td>${o.playerName}</td>
+					<td>${o.systemDisplayName}</td>
+					<td>${o.goods}</td>
+					<td>${o.price}</td>
+					<td><span class="tag ${o.offerType.toLowerCase()}">${o.offerType}</span></td>
+				</tr>
+			`)
+			.join('');
+		offersTable.innerHTML = `
+			<table>
+				<thead>
+					<tr><th>Player</th><th>System</th><th>Goods</th><th>Price</th><th>Type</th></tr>
+				</thead>
+				<tbody>${rows}</tbody>
+			</table>
+		`;
+	}
+
+	async function loadOffers() {
+		const response = await fetch('/api/trade-offers');
+		renderOffers(await response.json());
+	}
+
+	function showMessage(text, isError) {
+		messageEl.textContent = text;
+		messageEl.className = isError ? 'error' : 'success';
+	}
+
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const formData = new FormData(form);
+		const payload = {
+			playerName: formData.get('playerName'),
+			system: formData.get('system'),
+			goods: formData.get('goods'),
+			offerType: formData.get('offerType'),
+			price: Number(formData.get('price')),
+		};
+
+		const submitButton = form.querySelector('button');
+		submitButton.disabled = true;
+		try {
+			const response = await fetch('/api/trade-offers', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
+			if (!response.ok) {
+				const problem = await response.text();
+				throw new Error(problem || `Request failed with status ${response.status}`);
+			}
+			showMessage('Offer submitted.', false);
+			await loadOffers();
+		} catch (err) {
+			showMessage(err.message, true);
+		} finally {
+			submitButton.disabled = false;
+		}
+	});
+
+	(async function init() {
+		await loadOptions();
+		await loadOffers();
+	})();
+</script>
+</body>
+</html>
