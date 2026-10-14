@@ -17,7 +17,7 @@ class DiceTest {
 	fun shouldGenerateRandom3DRoll() {
 		repeat(100) {
 			val result = Dice.roll3D()
-			assertThat(result).isGreaterThan(3).isLessThan(19)
+			assertThat(result).isGreaterThan(2).isLessThan(19)
 		}
 	}
 }
