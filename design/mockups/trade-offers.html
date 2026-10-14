@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Trader — Market</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="space-backdrop"></div>
+<div class="app-shell">
+
+	<aside class="sidebar">
+		<div class="brand">ST</div>
+		<nav class="nav-stack">
+			<a class="nav-item" href="index.html">
+				<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+				<span class="nav-label">Deck</span>
+			</a>
+			<a class="nav-item" href="ships.html">
+				<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c2.5 2 4 5.5 4 9.5 0 2-1 4-1 4h-6s-1-2-1-4C8 7.5 9.5 4 12 2Z"/><path d="M9 15l-2.5 2.5M15 15l2.5 2.5M10 19.5c.6.8 1.3 1.5 2 1.5s1.4-.7 2-1.5"/><circle cx="12" cy="10" r="1.4"/></svg>
+				<span class="nav-label">Fleet</span>
+			</a>
+			<a class="nav-item" href="warehouses.html">
+				<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5-9-5Z"/><path d="M3 9v8l9 5 9-5V9"/><path d="M12 14v8"/></svg>
+				<span class="nav-label">Depots</span>
+			</a>
+			<a class="nav-item" href="factories.html">
+				<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V11l5 3v-3l5 3v-3l5 3v7H3Z"/><path d="M7 21v-4M12 21v-4M17 21v-4"/></svg>
+				<span class="nav-label">Industry</span>
+			</a>
+			<a class="nav-item active" href="trade-offers.html">
+				<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M17 7l-3-3M17 7l-3 3"/><path d="M20 17H7M7 17l3-3M7 17l3 3"/></svg>
+				<span class="nav-label">Market</span>
+			</a>
+		</nav>
+		<div class="sidebar-foot">STAR TRADER OS v0.3</div>
+	</aside>
+
+	<header class="topbar">
+		<div class="topbar-title">
+			<h1>Trade Exchange</h1>
+			<p>Place and manage offers across the known systems</p>
+		</div>
+		<div class="topbar-stats">
+			<div class="chip"><span class="dot"></span> Systems online: 6/6</div>
+			<div class="chip">Credits <strong>48,210 CR</strong></div>
+			<div class="chip">Cycle <strong>128</strong></div>
+			<div class="avatar">AG</div>
+		</div>
+	</header>
+
+	<main class="main">
+		<div class="breadcrumb">Operations <span>/ Market</span></div>
+		<div class="page-head">
+			<div>
+				<h2>Trade Offers</h2>
+				<div class="sub">The highest bid or lowest ask wins each system/goods pair when the cycle resolves.</div>
+			</div>
+		</div>
+
+		<!-- market ticker -->
+		<div class="panel">
+			<div class="panel-body" style="padding: .8rem 1.25rem; display:flex; gap:1.75rem; flex-wrap:wrap;">
+				<div style="display:flex; align-items:center; gap:.5rem;">
+					<span class="goods-icon goods-CHIPS">CH</span>
+					<div><div style="font-size:.78rem; color:var(--text-dim);">CHIPS</div><div style="font-family:var(--font-display); font-weight:700;">17 CR <span style="color:var(--green); font-size:.78rem; font-family:var(--font-body);">▲4.2%</span></div></div>
+				</div>
+				<div style="display:flex; align-items:center; gap:.5rem;">
+					<span class="goods-icon goods-FOOD">FD</span>
+					<div><div style="font-size:.78rem; color:var(--text-dim);">FOOD</div><div style="font-family:var(--font-display); font-weight:700;">14 CR <span style="color:var(--red); font-size:.78rem; font-family:var(--font-body);">▼1.1%</span></div></div>
+				</div>
+				<div style="display:flex; align-items:center; gap:.5rem;">
+					<span class="goods-icon goods-ISO">IS</span>
+					<div><div style="font-size:.78rem; color:var(--text-dim);">ISO</div><div style="font-family:var(--font-display); font-weight:700;">11 CR <span style="color:var(--green); font-size:.78rem; font-family:var(--font-body);">▲0.6%</span></div></div>
+				</div>
+				<div style="display:flex; align-items:center; gap:.5rem;">
+					<span class="goods-icon goods-POLY">PL</span>
+					<div><div style="font-size:.78rem; color:var(--text-dim);">POLY</div><div style="font-family:var(--font-display); font-weight:700;">8 CR <span style="color:var(--text-dim); font-size:.78rem; font-family:var(--font-body);">— 0.0%</span></div></div>
+				</div>
+			</div>
+		</div>
+
+		<div style="display:grid; grid-template-columns: 360px 1fr; gap:1.5rem; align-items:start;">
+
+			<!-- Place offer -->
+			<div class="panel" style="margin:0;">
+				<div class="panel-head"><h3>Place Offer</h3></div>
+				<div class="panel-body">
+					<div class="field">
+						<label>Star system</label>
+						<select>
+							<option>Gamma Leporis</option>
+							<option>Tau Ceti</option>
+							<option selected>Epsilon Eridani</option>
+							<option>Beta Hydri</option>
+							<option>Mu Herculis</option>
+							<option>Sigma Draconis</option>
+						</select>
+					</div>
+					<div class="field">
+						<label>Goods</label>
+						<select>
+							<option>POLY</option>
+							<option>ISO</option>
+							<option selected>FOOD</option>
+							<option>CHIPS</option>
+						</select>
+					</div>
+					<div class="field">
+						<label>Offer type</label>
+						<div class="segmented">
+							<button class="sel-buy active">Buy</button>
+							<button class="sel-sell">Sell</button>
+						</div>
+					</div>
+					<div class="field">
+						<label>Price (1–20 CR)</label>
+						<input type="number" min="1" max="20" value="14">
+					</div>
+					<div class="field">
+						<label>Quantity</label>
+						<input type="number" min="1" value="500">
+					</div>
+					<div class="hr"></div>
+					<div style="display:flex; justify-content:space-between; font-size:.82rem; color:var(--text-dim); margin-bottom:1rem;">
+						<span>Your position at Epsilon Eridani / FOOD</span>
+						<span class="badge badge-purple">Wholesaler</span>
+					</div>
+					<button class="btn btn-primary" style="width:100%; justify-content:center;">Submit offer</button>
+				</div>
+			</div>
+
+			<!-- Offers list -->
+			<div class="panel" style="margin:0;" data-tab-scope>
+				<div class="panel-head">
+					<h3>Active Offers</h3>
+					<div class="tabs" data-tabs>
+						<button class="tab active" data-target="mine">My Offers</button>
+						<button class="tab" data-target="all">All Offers</button>
+						<button class="tab" data-target="history">Resolved</button>
+					</div>
+				</div>
+				<div class="panel-body pad-0">
+
+					<div data-tab-panel="mine" class="scroll-x">
+						<table class="data-table">
+							<thead>
+								<tr><th>System</th><th>Goods</th><th>Type</th><th>Price</th><th>Qty</th><th>Status</th><th></th></tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>Epsilon Eridani</td>
+									<td><span class="goods-icon goods-FOOD" style="margin-right:.4rem;">FD</span>FOOD</td>
+									<td><span class="badge badge-green">Buy</span></td>
+									<td>14 CR</td>
+									<td>500 u</td>
+									<td><span class="pill">Open · resolves in 1 cycle</span></td>
+									<td><button class="icon-btn" title="Cancel offer"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+								</tr>
+								<tr>
+									<td>Tau Ceti</td>
+									<td><span class="goods-icon goods-POLY" style="margin-right:.4rem;">PL</span>POLY</td>
+									<td><span class="badge badge-amber">Sell</span></td>
+									<td>9 CR</td>
+									<td>1,200 u</td>
+									<td><span class="pill">Open · resolves in 1 cycle</span></td>
+									<td><button class="icon-btn" title="Cancel offer"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+								</tr>
+								<tr>
+									<td>Mu Herculis</td>
+									<td><span class="goods-icon goods-CHIPS" style="margin-right:.4rem;">CH</span>CHIPS</td>
+									<td><span class="badge badge-green">Buy</span></td>
+									<td>12 CR</td>
+									<td>300 u</td>
+									<td><span class="badge badge-red">Outbid</span></td>
+									<td><button class="icon-btn" title="Cancel offer"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+								</tr>
+								<tr>
+									<td>Sigma Draconis</td>
+									<td><span class="goods-icon goods-ISO" style="margin-right:.4rem;">IS</span>ISO</td>
+									<td><span class="badge badge-amber">Sell</span></td>
+									<td>8 CR</td>
+									<td>900 u</td>
+									<td><span class="pill">Open · resolves in 1 cycle</span></td>
+									<td><button class="icon-btn" title="Cancel offer"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+
+					<div data-tab-panel="all" class="scroll-x" style="display:none;">
+						<table class="data-table">
+							<thead>
+								<tr><th>Player</th><th>System</th><th>Goods</th><th>Type</th><th>Price</th><th>Qty</th></tr>
+							</thead>
+							<tbody>
+								<tr><td>Adrian</td><td>Epsilon Eridani</td><td>FOOD</td><td><span class="badge badge-green">Buy</span></td><td>14 CR</td><td>500 u</td></tr>
+								<tr><td>Nyra Vosk</td><td>Epsilon Eridani</td><td>FOOD</td><td><span class="badge badge-green">Buy</span></td><td>13 CR</td><td>700 u</td></tr>
+								<tr><td>K. Odessa</td><td>Tau Ceti</td><td>POLY</td><td><span class="badge badge-amber">Sell</span></td><td>10 CR</td><td>400 u</td></tr>
+								<tr><td>Adrian</td><td>Tau Ceti</td><td>POLY</td><td><span class="badge badge-amber">Sell</span></td><td>9 CR</td><td>1,200 u</td></tr>
+								<tr><td>Rin Castellan</td><td>Mu Herculis</td><td>CHIPS</td><td><span class="badge badge-green">Buy</span></td><td>13 CR</td><td>250 u</td></tr>
+								<tr><td>Adrian</td><td>Mu Herculis</td><td>CHIPS</td><td><span class="badge badge-green">Buy</span></td><td>12 CR</td><td>300 u</td></tr>
+							</tbody>
+						</table>
+					</div>
+
+					<div data-tab-panel="history" class="scroll-x" style="display:none;">
+						<table class="data-table">
+							<thead>
+								<tr><th>Cycle</th><th>System</th><th>Goods</th><th>Winning offer</th><th>Price</th><th>Your result</th></tr>
+							</thead>
+							<tbody>
+								<tr><td class="dim">127</td><td>Beta Hydri</td><td>FOOD</td><td>Adrian</td><td>15 CR</td><td><span class="badge badge-green">Won</span></td></tr>
+								<tr><td class="dim">127</td><td>Gamma Leporis</td><td>POLY</td><td>K. Odessa</td><td>3 CR</td><td><span class="badge badge-muted">Lost</span></td></tr>
+								<tr><td class="dim">126</td><td>Sigma Draconis</td><td>ISO</td><td>Adrian</td><td>8 CR</td><td><span class="badge badge-green">Won</span></td></tr>
+								<tr><td class="dim">126</td><td>Epsilon Eridani</td><td>CHIPS</td><td>Nyra Vosk</td><td>18 CR</td><td><span class="badge badge-muted">Lost</span></td></tr>
+							</tbody>
+						</table>
+					</div>
+
+				</div>
+			</div>
+		</div>
+
+		<div class="panel" style="margin-top:1.5rem;">
+			<div class="panel-head"><div><h3>Your Market Position</h3><div class="sub">Competitive standing per system &amp; goods, based on your recent offers</div></div></div>
+			<div class="panel-body scroll-x">
+				<table class="data-table">
+					<thead><tr><th>System</th><th>Goods</th><th>Position</th><th>Note</th></tr></thead>
+					<tbody>
+						<tr><td>Epsilon Eridani</td><td><span class="goods-icon goods-FOOD" style="margin-right:.4rem;">FD</span>FOOD</td><td><span class="badge badge-purple">Wholesaler</span></td><td class="dim">Consistent mid-size volume, stable pricing</td></tr>
+						<tr><td>Tau Ceti</td><td><span class="goods-icon goods-POLY" style="margin-right:.4rem;">PL</span>POLY</td><td><span class="badge badge-cyan">Dictator</span></td><td class="dim">You set the price here — no serious competition</td></tr>
+						<tr><td>Mu Herculis</td><td><span class="goods-icon goods-CHIPS" style="margin-right:.4rem;">CH</span>CHIPS</td><td><span class="badge badge-muted">Retailer</span></td><td class="dim">Small volume, frequently outbid</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</main>
+</div>
+<script src="shared.js"></script>
+</body>
+</html>

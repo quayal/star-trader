@@ -1,0 +1,8 @@
+version = 2
+
+prepare = [
+  ["./gradlew", "--no-daemon", "build", "-x", "test"],
+]
+
+[preview]
+command = ["./gradlew", "--no-daemon", "bootRun"]
