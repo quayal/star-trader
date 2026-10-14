@@ -5,8 +5,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.MediaType
-import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.test.web.servlet.client.RestTestClient
 import pl.adriangrzebyk.trader.domain.Goods
 import pl.adriangrzebyk.trader.domain.OfferType
 import pl.adriangrzebyk.trader.domain.StarSystem
@@ -20,16 +21,16 @@ class TradeOfferControllerTest {
 	@LocalServerPort
 	private var port: Int = 0
 
-	private lateinit var webTestClient: WebTestClient
+	private lateinit var restTestClient: RestTestClient
 
 	@BeforeEach
 	fun setUp() {
-		webTestClient = WebTestClient.bindToServer().baseUrl("http://localhost:$port").build()
+		restTestClient = RestTestClient.bindToServer().baseUrl("http://localhost:$port").build()
 	}
 
 	@Test
 	fun shouldExposeOptionsForBuildingTheForm() {
-		val options = webTestClient.get().uri("/api/options")
+		val options = restTestClient.get().uri("/api/options")
 			.exchange()
 			.expectStatus().isOk
 			.expectBody(TradeOfferOptions::class.java)
@@ -54,9 +55,9 @@ class TradeOfferControllerTest {
 			price = 10,
 		)
 
-		val view = webTestClient.post().uri("/api/trade-offers")
+		val view = restTestClient.post().uri("/api/trade-offers")
 			.contentType(MediaType.APPLICATION_JSON)
-			.bodyValue(request)
+			.body(request)
 			.exchange()
 			.expectStatus().isCreated
 			.expectBody(TradeOfferView::class.java)
@@ -69,14 +70,29 @@ class TradeOfferControllerTest {
 		assertThat(view.offerType).isEqualTo(OfferType.BUY)
 		assertThat(view.price).isEqualTo(10)
 
-		val offers = webTestClient.get().uri("/api/trade-offers")
+		val offers = restTestClient.get().uri("/api/trade-offers")
 			.exchange()
 			.expectStatus().isOk
-			.expectBodyList(TradeOfferView::class.java)
+			.expectBody(object : ParameterizedTypeReference<List<TradeOfferView>>() {})
 			.returnResult()
 			.responseBody!!
 
 		assertThat(offers).contains(view)
+	}
+
+	@Test
+	fun shouldAcceptATradeOfferSubmittedWithoutATurnLikeTheBrowserFormDoes() {
+		val rawRequest = """
+			{"playerName":"Adrian","system":"TAU_CETI","goods":"POLY","offerType":"BUY","price":10}
+		""".trimIndent()
+
+		restTestClient.post().uri("/api/trade-offers")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(rawRequest)
+			.exchange()
+			.expectStatus().isCreated
+			.expectBody(TradeOfferView::class.java)
+			.value { assertThat(it!!.turn).isEqualTo(1) }
 	}
 
 	@Test
@@ -89,9 +105,9 @@ class TradeOfferControllerTest {
 			price = 5,
 		)
 
-		webTestClient.post().uri("/api/trade-offers")
+		restTestClient.post().uri("/api/trade-offers")
 			.contentType(MediaType.APPLICATION_JSON)
-			.bodyValue(request)
+			.body(request)
 			.exchange()
 			.expectStatus().isBadRequest
 	}
@@ -106,9 +122,9 @@ class TradeOfferControllerTest {
 			price = 21,
 		)
 
-		webTestClient.post().uri("/api/trade-offers")
+		restTestClient.post().uri("/api/trade-offers")
 			.contentType(MediaType.APPLICATION_JSON)
-			.bodyValue(request)
+			.body(request)
 			.exchange()
 			.expectStatus().isBadRequest
 	}
