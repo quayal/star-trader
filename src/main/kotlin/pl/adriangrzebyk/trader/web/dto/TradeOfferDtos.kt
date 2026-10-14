@@ -11,9 +11,11 @@ data class TradeOfferRequest(
 	val goods: Goods? = null,
 	val offerType: OfferType? = null,
 	val price: Int? = null,
+	val turn: Int = 1,
 )
 
 data class TradeOfferView(
+	val turn: Int,
 	val initiative: Int,
 	val playerName: String,
 	val system: StarSystem,
@@ -24,6 +26,7 @@ data class TradeOfferView(
 ) {
 	companion object {
 		fun from(offer: TradeOffer): TradeOfferView = TradeOfferView(
+			turn = offer.turn,
 			initiative = offer.initiative,
 			playerName = offer.player?.name.orEmpty(),
 			system = requireNotNull(offer.system),
@@ -34,6 +37,11 @@ data class TradeOfferView(
 		)
 	}
 }
+
+data class TransactionView(
+	val offer: TradeOfferView,
+	val amount: Int,
+)
 
 data class StarSystemOption(
 	val name: String,

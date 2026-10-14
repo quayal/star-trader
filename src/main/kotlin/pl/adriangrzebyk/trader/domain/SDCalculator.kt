@@ -43,4 +43,11 @@ internal object SDCalculator {
 	)
 
 	fun getPriceModifier(sDIndicator: Int): Int? = indicatorByModifier[sDIndicator]
+
+	fun getIndicatorForBuying(priceModifier: Int): Int = indicatorsForModifier(priceModifier).min()
+
+	fun getIndicatorForSelling(priceModifier: Int): Int = indicatorsForModifier(priceModifier).max()
+
+	private fun indicatorsForModifier(priceModifier: Int): List<Int> =
+		indicatorByModifier.filterValues { it == priceModifier }.keys.toList()
 }

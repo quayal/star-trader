@@ -1,6 +1,7 @@
 package pl.adriangrzebyk.trader.domain
 
 data class TradeOffer(
+	val turn: Int = 1,
 	val player: Player? = null,
 	val system: StarSystem? = null,
 	val goods: Goods? = null,
