@@ -4,5 +4,5 @@ enum class Goods {
 	CHIPS,
 	FOOD,
 	ISO,
-	POLY,
+	POLY
 }
