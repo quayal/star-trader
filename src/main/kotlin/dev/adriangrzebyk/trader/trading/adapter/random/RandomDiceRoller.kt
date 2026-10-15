@@ -1,8 +1,8 @@
 package dev.adriangrzebyk.trader.trading.adapter.random
 
-import kotlin.random.Random
-import org.springframework.stereotype.Component
 import dev.adriangrzebyk.trader.trading.DiceRoller
+import org.springframework.stereotype.Component
+import kotlin.random.Random
 
 @Component
 class RandomDiceRoller : DiceRoller {

@@ -1,9 +1,9 @@
 package dev.adriangrzebyk.trader.trading
 
+import dev.adriangrzebyk.trader.trading.adapter.memory.InMemoryTradeOfferBook
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import dev.adriangrzebyk.trader.trading.adapter.memory.InMemoryTradeOfferBook
 
 class TradeDeskTest {
 

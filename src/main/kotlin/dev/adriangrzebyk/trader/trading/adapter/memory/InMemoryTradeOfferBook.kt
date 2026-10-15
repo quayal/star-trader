@@ -1,9 +1,9 @@
 package dev.adriangrzebyk.trader.trading.adapter.memory
 
-import java.util.concurrent.CopyOnWriteArrayList
-import org.springframework.stereotype.Component
 import dev.adriangrzebyk.trader.trading.TradeOffer
 import dev.adriangrzebyk.trader.trading.TradeOfferBook
+import org.springframework.stereotype.Component
+import java.util.concurrent.CopyOnWriteArrayList
 
 @Component
 class InMemoryTradeOfferBook : TradeOfferBook {

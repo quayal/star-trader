@@ -1,5 +1,12 @@
 package dev.adriangrzebyk.trader.trading.adapter.web
 
+import dev.adriangrzebyk.trader.trading.DiceRoller
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.InvalidTradeOfferException
+import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.trading.TradeDesk
+import dev.adriangrzebyk.trader.trading.TradeOfferBook
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -10,13 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
-import dev.adriangrzebyk.trader.trading.DiceRoller
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.InvalidTradeOfferException
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
-import dev.adriangrzebyk.trader.trading.TradeDesk
-import dev.adriangrzebyk.trader.trading.TradeOfferBook
 
 @RestController
 @RequestMapping("/api")
@@ -62,11 +62,7 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 	}
 
 	@GetMapping("/trade-offers/resolve")
-	fun resolve(
-		@RequestParam(defaultValue = "1") turn: Int,
-		@RequestParam system: StarSystem,
-		@RequestParam goods: Goods,
-	): TransactionView {
+	fun resolve(@RequestParam(defaultValue = "1") turn: Int, @RequestParam system: StarSystem, @RequestParam goods: Goods): TransactionView {
 		val result = tradeDesk.resolve(turn, system, goods)
 			?: throw ResponseStatusException(
 				HttpStatus.NOT_FOUND,
@@ -77,6 +73,5 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 	}
 
 	@ExceptionHandler(ResponseStatusException::class)
-	fun handleInvalidRequest(ex: ResponseStatusException): ResponseEntity<String> =
-		ResponseEntity.status(ex.statusCode).body(ex.reason)
+	fun handleInvalidRequest(ex: ResponseStatusException): ResponseEntity<String> = ResponseEntity.status(ex.statusCode).body(ex.reason)
 }

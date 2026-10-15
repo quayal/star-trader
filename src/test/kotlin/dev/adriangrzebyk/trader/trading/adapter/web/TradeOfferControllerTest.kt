@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.trading.adapter.web
 
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -8,9 +11,6 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.client.RestTestClient
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TradeOfferControllerTest {

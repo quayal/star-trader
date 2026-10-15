@@ -1,10 +1,6 @@
 package dev.adriangrzebyk.trader.trading
 
-enum class StarSystem(
-	val displayName: String,
-	private val goodsPrices: Map<Goods, Int>,
-	private val indicators: Map<Goods, Int>,
-) {
+enum class StarSystem(val displayName: String, private val goodsPrices: Map<Goods, Int>, private val indicators: Map<Goods, Int>) {
 	GAMMA_LEPORIS(
 		"Gamma Leporis",
 		mapOf(Goods.POLY to 2),

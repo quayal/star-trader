@@ -38,16 +38,9 @@ data class TradeOfferView(
 	}
 }
 
-data class TransactionView(
-	val offer: TradeOfferView,
-	val amount: Int,
-)
+data class TransactionView(val offer: TradeOfferView, val amount: Int)
 
-data class StarSystemOption(
-	val name: String,
-	val displayName: String,
-	val goods: List<Goods>,
-)
+data class StarSystemOption(val name: String, val displayName: String, val goods: List<Goods>)
 
 data class TradeOfferOptions(
 	val starSystems: List<StarSystemOption>,
