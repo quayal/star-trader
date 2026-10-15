@@ -12,6 +12,8 @@ Star Trader — an online, browser-based adaptation of a classic 1980s trading/s
 
 Product direction, confirmed decisions, business rules and open risks live in `.ai/specs/product-brief.md` — read it before making product or architecture decisions, not just code.
 
+Engineering standards and architecture conventions (package structure, hexagonal/DDD boundaries, testing rules) live in `.ai/engineering-standards.md` — read it before writing or restructuring any code.
+
 ## Working practices
 
 - **Plan before implementing.** For non-trivial work that means the spec described below; even inside a spec, think the approach through before touching code. If an implementation goes sideways, stop and re-plan rather than patching your way through a plan that's already proven wrong.
