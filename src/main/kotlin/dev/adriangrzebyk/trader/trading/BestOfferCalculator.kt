@@ -13,17 +13,15 @@ class BestOfferCalculator {
 		}
 	}
 
-	private fun betterBuy(offer: TradeOffer, other: TradeOffer): TradeOffer =
-		if (offer.price != other.price) {
-			if (offer.price < other.price) other else offer
-		} else {
-			if (offer.initiative < other.initiative) offer else other
-		}
+	private fun betterBuy(offer: TradeOffer, other: TradeOffer): TradeOffer = if (offer.price != other.price) {
+		if (offer.price < other.price) other else offer
+	} else {
+		if (offer.initiative < other.initiative) offer else other
+	}
 
-	private fun betterSell(offer: TradeOffer, other: TradeOffer): TradeOffer =
-		if (offer.price != other.price) {
-			if (offer.price < other.price) offer else other
-		} else {
-			if (offer.initiative < other.initiative) offer else other
-		}
+	private fun betterSell(offer: TradeOffer, other: TradeOffer): TradeOffer = if (offer.price != other.price) {
+		if (offer.price < other.price) offer else other
+	} else {
+		if (offer.initiative < other.initiative) offer else other
+	}
 }
