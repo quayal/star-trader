@@ -18,6 +18,7 @@ Engineering standards and architecture conventions (package structure, hexagonal
 
 - **Plan before implementing.** For non-trivial work that means the spec described below; even inside a spec, think the approach through before touching code. If an implementation goes sideways, stop and re-plan rather than patching your way through a plan that's already proven wrong.
 - **Verify before declaring done.** Run `./gradlew build` / `./gradlew test` and actually exercise the change — "should work" is not verification.
+- **Never merge into `main` locally.** All changes land on `main` via a pull request on GitHub and must pass the required CI checks there first — don't `git merge`/`git rebase` onto a local `main` and push the result, even as a solo-dev convenience. The point of CI is that "it passes" is a fact GitHub checked, not a claim an agent made locally.
 - **Confirm which checkout you're in.** This project is worked on from several git worktrees at once (one per dispatched task) plus the main checkout. Before writing a spec, committing, or editing a shared file like this one, check `git status`/`pwd` — never assume another worktree's or the main checkout's state matches yours.
 
 ## The `.ai/` directory
