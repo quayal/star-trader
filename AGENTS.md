@@ -12,6 +12,12 @@ Star Trader — an online, browser-based adaptation of a classic 1980s trading/s
 
 Product direction, confirmed decisions, business rules and open risks live in `.ai/specs/product-brief.md` — read it before making product or architecture decisions, not just code.
 
+## Working practices
+
+- **Plan before implementing.** For non-trivial work that means the spec described below; even inside a spec, think the approach through before touching code. If an implementation goes sideways, stop and re-plan rather than patching your way through a plan that's already proven wrong.
+- **Verify before declaring done.** Run `./gradlew build` / `./gradlew test` and actually exercise the change — "should work" is not verification.
+- **Confirm which checkout you're in.** This project is worked on from several git worktrees at once (one per dispatched task) plus the main checkout. Before writing a spec, committing, or editing a shared file like this one, check `git status`/`pwd` — never assume another worktree's or the main checkout's state matches yours.
+
 ## The `.ai/` directory
 
 This repository uses `.ai/` as structured, long-term memory for both specs and AI run history. Keep this structure up to date; don't put spec or run material anywhere else.
@@ -51,7 +57,8 @@ This project does spec-driven development (SDD): non-trivial work is described i
 Long-term memory for findings, gotchas and improvements — the kind of thing worth remembering after fixing a bug or hitting something non-obvious, so the next session (human or AI) doesn't rediscover it the hard way.
 
 - Skim `.ai/lessons.md` before debugging something that feels like it could be a repeat, or before starting non-trivial work in an area that might have past gotchas.
-- After fixing a bug or learning something worth keeping, add a short entry to the top of `.ai/lessons.md` (newest first): date, one-line summary, enough context to be useful later.
+- After fixing a bug, learning something worth keeping, or being corrected by the user, add a short entry to the top of `.ai/lessons.md` (newest first): date, one-line summary, enough context to be useful later.
+- If a correction reveals a rule every future session should follow — not just a one-off gotcha — add it to this file directly instead of leaving it only in `lessons.md`; keep sharpening these rules until the same mistake stops recurring.
 - If a lesson needs more than a few lines, write the full account in `.ai/lessons/YYYY-MM-DD-slug.md` and link it from the short entry in `lessons.md`.
 - Don't delete or rewrite past lesson entries to tidy up; if a lesson is later found wrong or superseded, add a new entry saying so.
 
