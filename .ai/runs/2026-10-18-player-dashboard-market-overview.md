@@ -58,4 +58,4 @@ and any new endpoint (reuses `/api/options`).
 
 ### Phase 2: Dashboard as the root page
 
-- [ ] 2.1 Move trade-offer form to `trade-offers.html`; add dashboard `index.html`
+- [x] 2.1 Move trade-offer form to `trade-offers.html`; add dashboard `index.html` — f52bf44
