@@ -26,8 +26,14 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 
 	@GetMapping("/options")
 	fun options(): TradeOfferOptions = TradeOfferOptions(
-		starSystems = StarSystem.entries.map {
-			StarSystemOption(name = it.name, displayName = it.displayName, goods = it.goods.sorted())
+		starSystems = StarSystem.entries.map { system ->
+			val goods = system.goods.sorted()
+			StarSystemOption(
+				name = system.name,
+				displayName = system.displayName,
+				goods = goods,
+				market = goods.map { GoodsMarket(goods = it, price = system.getPrice(it), indicator = system.getIndicator(it)) },
+			)
 		},
 		offerTypes = OfferType.entries,
 		minPrice = TradeDesk.MIN_PRICE,
