@@ -54,7 +54,7 @@ and any new endpoint (reuses `/api/options`).
 
 ### Phase 1: Market data over HTTP
 
-- [ ] 1.1 Extend `StarSystemOption` with per-good price/indicator + test
+- [x] 1.1 Extend `StarSystemOption` with per-good price/indicator + test — 5446e8d
 
 ### Phase 2: Dashboard as the root page
 
