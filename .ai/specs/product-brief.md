@@ -178,6 +178,8 @@ Problems and Target group have no independent evidence — this is explicitly an
 
 The core trade-resolution rules (R08, R09) are confirmed and ready to build. The economic-consequence rules (R10, R11 — money, market position, sell-capped inventory) are also confirmed, but R10's sell-cap cannot actually be implemented until Q03 (whether the `ships.html`/`warehouses.html` capacity sketch is the real inventory model, and its actual numbers) is answered in its own discovery session; building R08/R09/money-and-position-without-the-cap is possible in the meantime if the creator chooses to sequence it that way.
 
+**Maintainer waiver, 2026-10-20:** `om-backlog`'s readiness gate reads the Problems/Target-group `[ASSUMPTION]` tags above and refuses to file Scope/Now implementation work, offering only a demand-validation research backlog instead. The creator, as maintainer and sole decider, waives that gate for this brief: demand validation is deliberately out of scope for this pre-launch solo project (see Target group, Problems), not an oversight, and `om-backlog` may file the Scope/Now epics directly. This waiver covers evidentiary readiness only — it does not waive any `active`-status requirement on individual Decisions/Rules, and open questions (Q01, Q03/Q06, Q04, Q07) still apply per their own blocking/non-blocking status.
+
 ## Collection plan
 
 None. All material needed for this session's decision (the architecture skeleton) came from the repository and the creator's own choices; no external material was requested.
