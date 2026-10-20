@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-10-18: Never `pkill -f` by the app's main class name (`StarTraderApplicationKt`) to stop a local `bootRun` — this repo is worked on from several worktrees at once, and the main class name is identical across all of them, so the pattern matches and kills *any* running instance, not just the one you started. Killed another worktree's dev server on port 3000 this way while manually verifying a UI change. Always capture and kill by the exact PID of the process you launched (`$!` / a PID file), never a name/pattern match, in this sandbox.
+
 - **2026-10-15 — `git push`/`pull` over HTTPS fails in this sandbox until `gh auth setup-git` is run.** `gh` is pre-authenticated (browser/passkey login), but plain `git` doesn't use that login on its own — it tries legacy username/password auth, which GitHub no longer accepts, so pushes fail with errors like "could not read Username" even though `gh auth status` shows logged in. Fix: run `gh auth setup-git` once per sandbox. It writes **per-host** credential config (`credential."https://github.com".helper`, `credential."https://gist.github.com".helper`), not the generic `credential.helper` key — so `git config --get credential.helper` will look empty even after it's correctly set; check with `git config --get-all 'credential.https://github.com.helper'` or just test with `git fetch` instead.
 
 <!-- Add new entries above this line, newest first. -->

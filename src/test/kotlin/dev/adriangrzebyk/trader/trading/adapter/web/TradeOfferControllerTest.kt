@@ -43,6 +43,22 @@ class TradeOfferControllerTest {
 	}
 
 	@Test
+	fun shouldExposeLiveMarketDataForEverySystemGood() {
+		val options = restTestClient.get().uri("/api/options")
+			.exchange()
+			.expectStatus().isOk
+			.expectBody(TradeOfferOptions::class.java)
+			.returnResult()
+			.responseBody!!
+
+		val epsilonEridani = options.starSystems.first { it.name == StarSystem.EPSILON_ERIDANI.name }
+		val expectedMarket = StarSystem.EPSILON_ERIDANI.goods.map {
+			GoodsMarket(goods = it, price = StarSystem.EPSILON_ERIDANI.getPrice(it), indicator = StarSystem.EPSILON_ERIDANI.getIndicator(it))
+		}
+		assertThat(epsilonEridani.market).containsExactlyInAnyOrderElementsOf(expectedMarket)
+	}
+
+	@Test
 	fun shouldAcceptAValidTradeOffer() {
 		val request = TradeOfferRequest(
 			playerName = "Adrian",

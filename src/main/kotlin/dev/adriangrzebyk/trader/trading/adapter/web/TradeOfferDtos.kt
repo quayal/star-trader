@@ -40,7 +40,9 @@ data class TradeOfferView(
 
 data class TransactionView(val offer: TradeOfferView, val amount: Int)
 
-data class StarSystemOption(val name: String, val displayName: String, val goods: List<Goods>)
+data class GoodsMarket(val goods: Goods, val price: Int, val indicator: Int)
+
+data class StarSystemOption(val name: String, val displayName: String, val goods: List<Goods>, val market: List<GoodsMarket>)
 
 data class TradeOfferOptions(
 	val starSystems: List<StarSystemOption>,
