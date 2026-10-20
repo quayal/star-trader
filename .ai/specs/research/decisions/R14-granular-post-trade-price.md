@@ -1,0 +1,7 @@
+# R14 — Post-trade reference price moves granularly; the transaction itself settles at the winner's price
+
+- Date, owner: 2026-10-20, creator
+- Context and the options weighed: the creator proposed that after a trade, the system's indicator moves toward -18 (buy) or +18 (sell) and the resulting price-modifier gives the new price. Algebraic check against `TransactionAmountCalculator`/`SDCalculator` confirmed that at full exercise of R13's maximum, this lands exactly on the winning offer's own price — not merely bounded by it. The creator then clarified the move must be granular: a partial exercise (R13) should move the indicator, and thus the reference price, only by the amount actually executed, not jump straight to the bid/ask price.
+- Decision and why: the system's indicator shifts by exactly the executed amount, one step per unit, toward -18 (buy) or +18 (sell); the new reference price is `current price + price-modifier(new indicator)`. Separately, the creator confirmed the actual transaction — what the winner pays or receives for the executed units — is always at their own stated bid/ask price, regardless of where the reference price lands. These are two distinct prices: the market's going-forward reference price, and this trade's settlement price.
+- Consequences, and what would make us revisit it: this is what makes R13's "right, not forced amount" meaningful — exercising less of the right produces a smaller, proportionate market move instead of an all-or-nothing jump.
+- Status: active

@@ -15,6 +15,7 @@
     "risk": ["risk-low", "risk-medium", "risk-high"]
   },
   "qaGate": true,
+  "discovery": { "enabled": true, "roles": { "domainExpert": false, "designer": false } },
   "ci": { "maxWaitMinutes": 40 },
   "engine": { "loopStepThreshold": 20, "executorTier": "standard", "stepReview": "final" },
   "paths": {

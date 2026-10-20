@@ -1,0 +1,7 @@
+# R18 — Trading resolves sequentially, in an order the initiative holder set during Bidding
+
+- Date, owner: 2026-10-20, creator
+- Context and the options weighed: asked whether the Trading phase resolves all pending system+good pairs automatically (in some fixed order, e.g. alphabetical), or needs an explicit action to advance. The creator revealed an existing but unspecified board-game mechanism: a player holds "turn initiative," decided during Bidding, unrelated to the trade offers themselves. Then asked whether the initiative holder sets the whole order up front, or picking rotates among players.
+- Decision and why: during Trading, every system+good with pending offers resolves one at a time; the complete order is set up front by whichever player holds that turn's initiative (not a rotating/drafting pick). Each resolution — winner, tradeable amount (R13), price move (R14), market-position change (R11) — is immediately visible to all players.
+- Consequences, and what would make us revisit it: how the initiative holder is actually determined (random? rotating per turn? something else?) was not asked in this session and remains open (Q03 in the brief... tracked as Q05). This "turn initiative" is a distinct concept from `TradeOffer.initiative` (the existing per-offer submission-sequence number used only to break price ties within one resolution) — worth keeping the naming distinct in code to avoid confusion.
+- Status: active
