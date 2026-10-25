@@ -8,5 +8,5 @@ class FakeOneTimeCodeStore : OneTimeCodeStore {
 		codesByEmail[email] = code
 	}
 
-	override fun codeFor(email: String): String? = codesByEmail[email]
+	fun storedCodeFor(email: String): String? = codesByEmail[email]
 }

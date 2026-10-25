@@ -12,6 +12,4 @@ class InMemoryOneTimeCodeStore : OneTimeCodeStore {
 	override fun store(email: String, code: String) {
 		codesByEmail[email] = code
 	}
-
-	override fun codeFor(email: String): String? = codesByEmail[email]
 }

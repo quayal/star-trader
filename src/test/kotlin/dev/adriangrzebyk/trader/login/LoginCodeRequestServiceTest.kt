@@ -20,7 +20,7 @@ class LoginCodeRequestServiceTest {
 
 		service.requestCode(request)
 
-		assertThat(codeStore.codeFor("adrian@example.com")).isEqualTo("483920")
+		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("483920")
 		assertThat(codeSender.sent).containsExactly(
 			FakeOneTimeCodeSender.SentCode(email = "adrian@example.com", playerName = "Adrian", code = "483920"),
 		)
@@ -33,7 +33,7 @@ class LoginCodeRequestServiceTest {
 		assertThatThrownBy { service.requestCode(request) }
 			.isInstanceOf(InvalidLoginRequestException::class.java)
 
-		assertThat(codeStore.codeFor("not-an-email")).isNull()
+		assertThat(codeStore.storedCodeFor("not-an-email")).isNull()
 		assertThat(codeSender.sent).isEmpty()
 	}
 
@@ -46,6 +46,6 @@ class LoginCodeRequestServiceTest {
 		firstService.requestCode(request)
 		secondService.requestCode(request)
 
-		assertThat(codeStore.codeFor("adrian@example.com")).isEqualTo("222222")
+		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("222222")
 	}
 }
