@@ -79,7 +79,7 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 - **A value changed after a poll** → add `.flash` once. Never a ticker, pulse or loop (A04).
 - **A color means something** → put the word or number next to it (WCAG 1.4.1). S/D shows `S/D −7`, a badge says "Outbid".
 - **Red text** → check which red: Sell column, danger status or S/D bad. They share a hue and are told apart by placement (tokens.md flag 4).
-- **S/D color** → compute buy chance = P(2d6 + indicator ≥ 0) and step it: ≥ 95% easy, ≥ 70% fair, ≥ 40% hard, else bad (boundaries sit between the discrete 2d6 outcomes). Never hard-code indicator endpoints (conflict 48). Stepped vs smooth is undecided (Gap 1); both are on `/design-system.html`.
+- **S/D color** → compute buy chance = P(2d6 + indicator ≥ 0) and step it: ≥ 95% easy, ≥ 70% fair, ≥ 40% hard, else bad (boundaries sit between the discrete 2d6 outcomes). Never hard-code indicator endpoints (conflict 48). Always stepped, never a smooth blend (creator decision 2026-10-28, Gap 1).
 - **A button is disabled** → say why next to it.
 - **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17).
 - **A feature isn't implemented** (fuel, hull, repair, ETA, upgrades) → show nothing for it (R01.4, R02.1).

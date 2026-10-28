@@ -187,11 +187,11 @@
 		</div>
 	</section>
 
-	<!-- ── S/D: stepped vs smooth (Gap 1, for the creator's decision) ── -->
+	<!-- ── S/D: stepped by buy chance (Gap 1, decided 2026-10-28) ── -->
 	<section>
-		<h2>S/D indicator: stepped or smooth?</h2>
+		<h2>S/D indicator</h2>
 		<p class="intro">Color follows the buy chance on 2d6 (roll + indicator ≥ 0), never fixed indicator endpoints (R03.5,
-			conflict 48). The number always stays visible. Pick one; this comparison is for that decision.</p>
+			conflict 48). Four steps: easy, fair, hard, bad. The number always stays visible.</p>
 		<div class="panel table-wrap">
 			<table class="data-table" id="sd-ladder"></table>
 		</div>
@@ -199,7 +199,7 @@
 
 	<section>
 		<h2>S/D on the live market</h2>
-		<p class="intro">Real systems and indicators from <code>/api/options</code>, in both modes.</p>
+		<p class="intro">Real systems and indicators from <code>/api/options</code>.</p>
 		<div class="panel table-wrap" id="sd-live"><p class="empty">Loading market&hellip;</p></div>
 	</section>
 </div>
@@ -297,13 +297,12 @@
 		const c = buyChance(indicator);
 		return `
 			<td class="num">${Math.round(c * 100)}%</td>
-			<td><span class="sd-value" data-step="${step(c)}">S/D ${signed(indicator)}</span> <span class="caption">${step(c)}</span></td>
-			<td><span class="sd-value sd-value--smooth" style="--buy-chance: ${(c * 100).toFixed(1)}%">S/D ${signed(indicator)}</span></td>`;
+			<td><span class="sd-value" data-step="${step(c)}">S/D ${signed(indicator)}</span> <span class="caption">${step(c)}</span></td>`;
 	};
 	const ladder = [];
 	for (let i = 1; i >= -12; i--) ladder.push(i);
 	document.getElementById('sd-ladder').innerHTML = `
-		<thead><tr><th class="num">Indicator</th><th class="num">Buy chance</th><th>Stepped (current pick)</th><th>Smooth</th></tr></thead>
+		<thead><tr><th class="num">Indicator</th><th class="num">Buy chance</th><th>S/D</th></tr></thead>
 		<tbody>${ladder.map(i => `<tr><td class="num">${signed(i)}</td>${sdCells(i)}</tr>`).join('')}</tbody>`;
 
 	(async function loadLiveMarket() {
@@ -316,7 +315,7 @@
 				<tr><td>${s.displayName}</td><td class="good good--${m.goods.toLowerCase()}">${m.goods}</td>
 				<td class="num">${m.price} CR</td>${sdCells(m.indicator)}</tr>`));
 			target.innerHTML = `<table class="data-table">
-				<thead><tr><th>System</th><th>Goods</th><th class="num">Price</th><th class="num">Buy chance</th><th>Stepped</th><th>Smooth</th></tr></thead>
+				<thead><tr><th>System</th><th>Goods</th><th class="num">Price</th><th class="num">Buy chance</th><th>S/D</th></tr></thead>
 				<tbody>${rows.join('')}</tbody></table>`;
 		} catch (err) {
 			target.innerHTML = `<p class="empty">Live market unavailable (${err.message}). Run the app with <code>./gradlew bootRun</code>.</p>`;

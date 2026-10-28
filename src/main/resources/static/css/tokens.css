@@ -57,7 +57,7 @@
 	--good-food: var(--lime-400);           /* R04.1 */
 	--good-iso: var(--violet-400);          /* R04.1 */
 
-	/* S/D scale, stepped by buy chance (R03.5; stepped is a pick, Gap 1). Only on the S/D value. */
+	/* S/D scale, stepped by buy chance (R03.5; stepped chosen by the creator 2026-10-28, Gap 1). Only on the S/D value. */
 	--sd-easy: var(--green-400);            /* R03.5 — buy chance ≥ 97% */
 	--sd-fair: var(--amber-400);            /* R03.5 — buy chance 72–92% */
 	--sd-hard: var(--orange-400);           /* R03.5 — buy chance 42–58% */

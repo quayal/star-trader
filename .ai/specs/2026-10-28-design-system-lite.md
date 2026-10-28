@@ -107,6 +107,7 @@ AGENTS.md                 changed: one line linking docs/design-system.md
 - Fonts are the Google Fonts latin subsets (Orbitron variable 400–900; Rajdhani 400/500/600/700), with each family's `OFL-*.txt` beside them instead of one shared `OFL.txt`, since the two have different copyright lines.
 - Added `--space-hairline` (4 px, from the tokens.md scale but without a named role there), `--text-heading` (24 px, in the scale but unnamed), `--border-width`, `--focus-ring-width` and `--tint-buy/-sell`. All are marked pick/proposal in `tokens.css`.
 - `trade-offers.html` really does list every player's offers (A03). Left as is and flagged, as planned.
+- After comparing the two on the reference page, the creator chose **stepped** S/D (Gap 1 resolved, 2026-10-28). The smooth variant was removed from `components.css` and the page.
 
 ## 📋 Phasing
 

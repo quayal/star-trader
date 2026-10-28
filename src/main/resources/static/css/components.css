@@ -199,13 +199,11 @@ h1, h2, h3 {
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 }
-/* Stepped (tokens.md pick) — set data-step from buy chance, never from fixed indicator endpoints (conflict 48) */
+/* Stepped (creator decision 2026-10-28, Gap 1) — set data-step from buy chance, never from fixed indicator endpoints (conflict 48) */
 .sd-value[data-step="easy"] { color: var(--sd-easy); }
 .sd-value[data-step="fair"] { color: var(--sd-fair); }
 .sd-value[data-step="hard"] { color: var(--sd-hard); }
 .sd-value[data-step="bad"] { color: var(--sd-bad); }
-/* Smooth (alternative under review, Gap 1) — set --buy-chance as a percentage 0%–100% */
-.sd-value--smooth { color: color-mix(in oklch, var(--sd-easy) var(--buy-chance), var(--sd-bad)); }
 
 /* ── Cargo meter (R01.3): "used / capacity u" plus a thin bar ── */
 .cargo-meter { display: grid; gap: var(--space-hairline); }
