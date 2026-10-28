@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Trader — Dashboard and system prototype</title>
+<style>
+	/* Neutral discovery wireframe: system font, grayscale, borders. No brand styling. */
+	* { box-sizing: border-box; }
+	body { margin: 0; font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.4; color: #111; background: #f4f4f4; }
+	a { color: #111; }
+	:focus-visible { outline: 3px solid #000; outline-offset: 2px; }
+	.proto-banner { background: #222; color: #fff; padding: 6px 12px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+	.proto-banner strong { margin-right: auto; }
+	.test-panel { background: #e2e2e2; border-bottom: 1px solid #999; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px; }
+	.test-panel fieldset { border: 1px dashed #777; padding: 4px 8px; margin: 0; display: flex; gap: 8px; align-items: center; }
+	.test-panel legend { font-weight: 600; padding: 0 4px; }
+	.app { display: grid; grid-template-columns: 150px 1fr; min-height: calc(100vh - 90px); }
+	.rail { background: #ddd; border-right: 1px solid #999; padding: 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+	.rail a, .rail span { display: block; padding: 8px; border: 1px solid transparent; text-decoration: none; }
+	.rail a[aria-current="page"] { border-color: #000; font-weight: 700; background: #fff; }
+	.rail span { color: #555; font-size: 13px; }
+	main { padding: 12px 16px; min-width: 0; }
+	.topbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; border: 1px solid #999; background: #fff; padding: 8px 12px; margin-bottom: 12px; }
+	.topbar .phase { font-weight: 700; }
+	.topbar .spacer { margin-left: auto; }
+	.layout { display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; gap: 12px; align-items: start; }
+	.panel { border: 1px solid #999; background: #fff; padding: 10px 12px; margin-bottom: 12px; }
+	.panel h2, .panel h3 { font-size: 15px; margin: 0 0 8px; }
+	.map-panel svg { width: 100%; height: auto; display: block; }
+	.muted { color: #555; font-size: 13px; }
+	ul.plain { list-style: none; margin: 0; padding: 0; }
+	ul.plain li { padding: 6px 0; border-bottom: 1px solid #ddd; }
+	ul.plain li:last-child { border-bottom: 0; }
+	table { width: 100%; border-collapse: collapse; }
+	th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
+	th { font-size: 13px; color: #444; }
+	.num { text-align: right; font-variant-numeric: tabular-nums; }
+	button, select, input { font: inherit; }
+	button { padding: 6px 12px; border: 1px solid #333; background: #fff; cursor: pointer; min-height: 32px; }
+	button.primary { background: #333; color: #fff; }
+	button:disabled { opacity: .5; cursor: not-allowed; }
+	label { display: block; font-weight: 600; font-size: 13px; margin: 8px 0 4px; }
+	select, input[type=number] { padding: 6px; border: 1px solid #555; background: #fff; min-height: 32px; width: 100%; }
+	.inline { display: flex; gap: 12px; }
+	.inline label { font-weight: 400; display: flex; gap: 4px; align-items: center; margin: 0; }
+	.error { color: #000; font-weight: 600; border-left: 4px solid #000; padding-left: 6px; margin-top: 6px; }
+	.notice { border: 1px dashed #333; padding: 8px; background: #fafafa; margin: 8px 0; }
+	.status { min-height: 1.4em; margin-top: 6px; }
+	.tag { display: inline-block; border: 1px solid #333; padding: 0 6px; font-size: 12px; }
+	.tag.you { background: #333; color: #fff; }
+	.hidden { display: none !important; }
+	.back { display: inline-block; margin-bottom: 8px; }
+	.node-link:focus-visible circle { stroke-width: 4; }
+	@media (max-width: 900px) {
+		.layout { grid-template-columns: 1fr; }
+		.layout .map-col { order: -1; }
+	}
+	@media (max-width: 600px) {
+		.app { grid-template-columns: 1fr; }
+		.rail { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid #999; }
+	}
+</style>
+</head>
+<body>
+<div class="proto-banner">
+	<strong>Discovery prototype. Simulated data.</strong>
+	<button type="button" id="reset">Reset</button>
+</div>
+
+<div class="test-panel" aria-label="Test state controls (not part of the product)">
+	<fieldset>
+		<legend>Test state: density</legend>
+		<label><input type="radio" name="density" value="minimal"> Minimal</label>
+		<label><input type="radio" name="density" value="standard" checked> Standard</label>
+		<label><input type="radio" name="density" value="dense"> Dense</label>
+	</fieldset>
+	<fieldset>
+		<legend>Test state: phase</legend>
+		<label><input type="radio" name="phase" value="bidding" checked> Bidding</label>
+		<label><input type="radio" name="phase" value="jumps"> Ship-jumps</label>
+		<label><input type="radio" name="phase" value="trading"> Trading</label>
+	</fieldset>
+	<fieldset>
+		<legend>Test state: conditions</legend>
+		<button type="button" id="sim-loading">Simulate loading</button>
+		<button type="button" id="sim-poll-fail">Simulate failed refresh</button>
+		<button type="button" id="sim-denied">Simulate not in this game</button>
+	</fieldset>
+</div>
+
+<div class="app">
+	<nav class="rail" aria-label="Main">
+		<a href="#dashboard" id="nav-dashboard">Deck</a>
+		<span>Fleet — not in this prototype</span>
+		<span>Offers — not in this prototype</span>
+	</nav>
+
+	<main>
+		<div id="sr-status" class="hidden" role="status" aria-live="polite"></div>
+
+		<!-- Global conditions -->
+		<section id="screen-loading" class="hidden" aria-labelledby="loading-h">
+			<h1 id="loading-h" tabindex="-1">Loading game…</h1>
+			<p class="muted">Fetching the latest game state.</p>
+		</section>
+
+		<section id="screen-denied" class="hidden" aria-labelledby="denied-h">
+			<h1 id="denied-h" tabindex="-1">You're not a player in this game</h1>
+			<p>This game exists, but your account didn't join it, so its state isn't shown.</p>
+			<p><button type="button" id="denied-back">Back to the simulated game</button></p>
+		</section>
+
+		<section id="screen-unknown" class="hidden" aria-labelledby="unknown-h">
+			<h1 id="unknown-h" tabindex="-1">This screen doesn't exist</h1>
+			<p>The link may be out of date.</p>
+			<p><a href="#dashboard">Go to the Deck</a></p>
+		</section>
+
+		<!-- Dashboard + map -->
+		<section id="screen-dashboard" class="hidden" aria-labelledby="dash-h">
+			<h1 id="dash-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px">Deck</h1>
+			<div class="topbar" id="topbar"></div>
+			<div id="poll-fail" class="notice hidden" role="alert">
+				Couldn't refresh the game. Showing the state from 12 seconds ago.
+				<button type="button" id="poll-retry">Retry now</button>
+			</div>
+			<div class="layout">
+				<div class="left-col" id="left-col"></div>
+				<div class="map-col">
+					<div class="panel map-panel">
+						<h2>Map — six systems, every pair connected</h2>
+						<div id="map"></div>
+						<p class="muted" id="map-legend"></p>
+					</div>
+					<div id="phase-action"></div>
+				</div>
+				<div class="right-col" id="right-col"></div>
+			</div>
+		</section>
+
+		<!-- System details -->
+		<section id="screen-system" class="hidden" aria-labelledby="sys-h">
+			<a class="back" href="#dashboard">← Back to Deck</a>
+			<h1 id="sys-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px"></h1>
+			<div class="topbar" id="sys-topbar"></div>
+			<div class="layout" style="grid-template-columns: minmax(0, 2fr) 1fr">
+				<div>
+					<div class="panel">
+						<h2>Market</h2>
+						<table id="sys-market"></table>
+						<p class="muted">S/D band comes from the chance a buy wins: 2d6 + S/D ≥ 0. Easy ≥ 95%, fair ≥ 70%, hard ≥ 40%, otherwise bad.</p>
+					</div>
+					<div class="panel" id="sys-offer"></div>
+				</div>
+				<div>
+					<div class="panel">
+						<h2>Ships here</h2>
+						<ul class="plain" id="sys-ships"></ul>
+					</div>
+					<div class="panel">
+						<h2>Your offers here this turn</h2>
+						<ul class="plain" id="sys-my-offers"></ul>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+</div>
+
+<script>
+'use strict';
+
+// ── Fixtures (fictitious; systems and S/D values mirror the game's six systems) ──
+const SYSTEMS = [
+	{ id: 'gamma-leporis', name: 'Gamma Leporis', x: 300, y: 50, market: [['POLY', 2, 1]] },
+	{ id: 'tau-ceti', name: 'Tau Ceti', x: 520, y: 150, market: [['ISO', 4, -9], ['POLY', 6, -10]] },
+	{ id: 'epsilon-eridani', name: 'Epsilon Eridani', x: 520, y: 330, market: [['CHIPS', 17, -9], ['FOOD', 14, -8], ['ISO', 10, -7], ['POLY', 5, -7]] },
+	{ id: 'beta-hydri', name: 'Beta Hydri', x: 300, y: 420, market: [['CHIPS', 18, -10], ['FOOD', 15, -9], ['ISO', 10, -8], ['POLY', 6, -8]] },
+	{ id: 'mu-herculis', name: 'Mu Herculis', x: 80, y: 330, market: [['CHIPS', 12, -4], ['ISO', 11, 1], ['POLY', 8, -9]] },
+	{ id: 'sigma-draconis', name: 'Sigma Draconis', x: 80, y: 150, market: [['CHIPS', 14, -8], ['FOOD', 10, -3], ['ISO', 4, -1], ['POLY', 8, -5]] },
+];
+const PLAYERS = [
+	{ id: 'you', corp: 'Orion Freight', short: 'You' },
+	{ id: 'vega', corp: 'Vega Lines', short: 'VL' },
+	{ id: 'kessler', corp: 'Kessler Cargo', short: 'KC' },
+	{ id: 'altair', corp: 'Altair Trade Co.', short: 'AT' },
+];
+const START_SHIPS = [
+	{ id: 's1', name: 'Wayfarer', owner: 'you', at: 'tau-ceti', cargo: 2100, good: 'POLY' },
+	{ id: 's2', name: 'Lantern', owner: 'you', at: 'epsilon-eridani', cargo: 0, good: null },
+	{ id: 's3', name: 'Meridian', owner: 'you', at: 'beta-hydri', cargo: 800, good: 'ISO' },
+	{ id: 'v1', name: 'Halcyon', owner: 'vega', at: 'tau-ceti' },
+	{ id: 'v2', name: 'Bright Reach', owner: 'vega', at: 'gamma-leporis' },
+	{ id: 'v3', name: 'Corvid', owner: 'vega', at: 'sigma-draconis' },
+	{ id: 'k1', name: 'Ironside', owner: 'kessler', at: 'epsilon-eridani' },
+	{ id: 'k2', name: 'Tallow', owner: 'kessler', at: 'epsilon-eridani' },
+	{ id: 'k3', name: 'Ostrava', owner: 'kessler', at: 'mu-herculis' },
+	{ id: 'a1', name: 'Kestrel', owner: 'altair', at: 'beta-hydri' },
+	{ id: 'a2', name: 'Seventh Sun', owner: 'altair', at: 'mu-herculis' },
+	{ id: 'a3', name: 'Dunmore', owner: 'altair', at: 'sigma-draconis' },
+];
+const CAPACITY = 3000;     // [ASSUMPTION A1] placeholder until Q06
+const START_MONEY = 1240;  // [ASSUMPTION A1] placeholder until Q06
+const RESULTS = [          // previous turn's public resolutions (R18)
+	'Tau Ceti · POLY — roll 7 + S/D −10 = −3 → SELL won: Kessler Cargo at 5 CR, traded 4 u',
+	'Epsilon Eridani · FOOD — roll 9 + S/D −8 = +1 → BUY won: you at 15 CR, traded 6 u',
+	'Mu Herculis · ISO — roll 4 + S/D +1 = +5 → BUY won: Altair Trade Co. at 12 CR, traded 3 u',
+];
+const JUMP_ORDER = ['vega', 'you', 'kessler', 'altair']; // set by this turn's initiative holder (R20, R21)
+
+let state;
+function initialState() {
+	return {
+		phase: 'bidding',
+		density: 'standard',
+		ships: START_SHIPS.map(s => ({ ...s })),
+		offers: [],
+		bid: null,
+		done: false,
+		jumpsMade: 1, // Vega Lines already jumped; it's your turn
+		loading: false,
+		pollFail: false,
+		denied: false,
+	};
+}
+
+// ── Helpers ──
+const $ = id => document.getElementById(id);
+const sys = id => SYSTEMS.find(s => s.id === id);
+const player = id => PLAYERS.find(p => p.id === id);
+const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+function buyChance(sd) {
+	let ways = 0;
+	for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + sd >= 0) ways++;
+	return ways / 36;
+}
+function band(c) { return c >= 0.95 ? 'easy' : c >= 0.70 ? 'fair' : c >= 0.40 ? 'hard' : 'bad'; }
+function el(tag, attrs = {}, ...children) {
+	const node = document.createElement(tag);
+	for (const [k, v] of Object.entries(attrs)) {
+		if (k === 'class') node.className = v;
+		else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+		else node.setAttribute(k, v);
+	}
+	for (const c of children.flat()) if (c != null) node.append(c.nodeType ? c : document.createTextNode(String(c)));
+	return node;
+}
+function announce(text) { const s = $('sr-status'); s.textContent = ''; setTimeout(() => { s.textContent = text; }, 10); }
+const phaseName = { bidding: 'Bidding', jumps: 'Ship-jumps', trading: 'Trading' };
+
+// ── Top bar ──
+function renderTopbar(target) {
+	target.replaceChildren();
+	target.append(el('span', {}, 'Turn 4'));
+	let phaseText = phaseName[state.phase];
+	if (state.phase === 'bidding') phaseText += state.done ? ' — you signalled done (you can still add offers)' : ' — 0:45 left';
+	if (state.phase === 'jumps') {
+		const next = JUMP_ORDER[state.jumpsMade];
+		phaseText += next ? (next === 'you' ? ' — your turn to jump' : ` — ${player(next).corp} is choosing`) : ' — all jumps done';
+	}
+	if (state.phase === 'trading') phaseText += ' — resolving 2 of 7';
+	target.append(el('span', { class: 'phase' }, phaseText));
+	target.append(el('span', {}, `Money: ${state.moneyText()}`));
+	if (state.density !== 'minimal') target.append(el('span', { class: 'muted' }, 'Initiative: Vega Lines'));
+	if (state.phase === 'bidding') {
+		target.append(el('span', { class: 'spacer' }));
+		target.append(el('button', { type: 'button', class: 'primary', onclick: () => { state.done = true; announce('Marked done for Bidding. You can still add offers until Bidding closes.'); render(); }, ...(state.done ? { disabled: '' } : {}) }, state.done ? 'Done ✓' : "I'm done bidding"));
+	}
+}
+
+// ── Map ──
+function renderMap() {
+	const NS = 'http://www.w3.org/2000/svg';
+	const svg = document.createElementNS(NS, 'svg');
+	svg.setAttribute('viewBox', '-60 0 720 ' + (state.density === 'dense' ? 540 : 480));
+	svg.setAttribute('role', 'group');
+	svg.setAttribute('aria-label', 'Map of six star systems. Each system is a link to its details.');
+	const mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+	// 15 edges: every pair (R19/R20: jump anywhere)
+	for (let i = 0; i < SYSTEMS.length; i++) for (let j = i + 1; j < SYSTEMS.length; j++) {
+		svg.append(mk('line', { x1: SYSTEMS[i].x, y1: SYSTEMS[i].y, x2: SYSTEMS[j].x, y2: SYSTEMS[j].y, stroke: '#bbb', 'stroke-width': 1 }));
+	}
+	for (const s of SYSTEMS) {
+		const here = state.ships.filter(sh => sh.at === s.id);
+		const mine = here.filter(sh => sh.owner === 'you');
+		const others = here.filter(sh => sh.owner !== 'you');
+		const a = mk('a', { href: `#system-${s.id}`, class: 'node-link', 'aria-label': `${s.name}: ${mine.length} of your ships, ${others.length} other ships. Open system details.` });
+		a.append(mk('circle', { cx: s.x, cy: s.y, r: 18, fill: '#fff', stroke: '#000', 'stroke-width': 2 }));
+		const label = mk('text', { x: s.x, y: s.y - 26, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700 });
+		label.textContent = s.name;
+		a.append(label);
+		// Ship markers: own = filled, others = outlined with owner initials
+		let lineY = s.y + 36;
+		if (state.density === 'minimal') {
+			const t = mk('text', { x: s.x, y: lineY, 'text-anchor': 'middle', 'font-size': 13 });
+			t.textContent = `${mine.length} yours · ${others.length} others`;
+			a.append(t);
+		} else {
+			const markers = here.map(sh => sh.owner === 'you' ? '■ ' + sh.name : '□ ' + player(sh.owner).short);
+			const t = mk('text', { x: s.x, y: lineY, 'text-anchor': 'middle', 'font-size': 13 });
+			t.textContent = markers.join('  ') || 'no ships';
+			a.append(t);
+		}
+		if (state.density === 'dense') {
+			for (const [g, p, sd] of s.market) {
+				lineY += 16;
+				const t = mk('text', { x: s.x, y: lineY, 'text-anchor': 'middle', 'font-size': 12, fill: '#444' });
+				t.textContent = `${g} ${p} CR · ${band(buyChance(sd))}`;
+				a.append(t);
+			}
+		}
+		svg.append(a);
+	}
+	$('map').replaceChildren(svg);
+	$('map-legend').textContent = state.density === 'minimal'
+		? 'Counts of ships per system. Select a system for details.'
+		: '■ your ship (name)   □ another player\'s ship (initials). Select a system for details.'
+			+ (state.density === 'dense' ? ' Under each system: price and buy band per good.' : '');
+}
+
+// ── Side panels ──
+function fleetPanel() {
+	const mine = state.ships.filter(s => s.owner === 'you');
+	return el('div', { class: 'panel' },
+		el('h2', {}, 'Your fleet'),
+		el('ul', { class: 'plain' }, mine.map(s => el('li', {},
+			el('strong', {}, s.name), ' — ', el('a', { href: `#system-${s.at}` }, sys(s.at).name),
+			el('div', { class: 'muted' }, `Cargo ${s.cargo.toLocaleString('en')} / ${CAPACITY.toLocaleString('en')} u${s.good ? ' · ' + s.good : ''}`)))));
+}
+function offersPanel() {
+	const body = state.offers.length
+		? el('ul', { class: 'plain' }, state.offers.map(o => el('li', {},
+			`${o.type} ${o.good} at ${o.price} CR — ${sys(o.system).name}`,
+			el('div', { class: 'muted' }, offerStatus(o)))))
+		: el('p', { class: 'muted' }, state.phase === 'bidding' ? 'No offers yet this turn. Open a system on the map to place one.' : 'You placed no offers this turn.');
+	const panel = el('div', { class: 'panel' }, el('h2', {}, 'Your offers this turn'), body);
+	if (state.bid != null) panel.append(el('p', { class: 'muted' }, `Initiative bid: ${state.bid} CR (paid when Bidding closes, win or lose)`));
+	panel.append(el('p', { class: 'muted' }, 'Only you can see these until Trading resolves them.'));
+	return panel;
+}
+function offerStatus(o) {
+	if (state.phase !== 'trading') return 'Hidden from other players · waiting for Trading';
+	return o.system === 'tau-ceti' ? 'Resolved: lost to a better offer' : 'Waiting for its turn in Trading';
+}
+function resultsPanel() {
+	return el('div', { class: 'panel' }, el('h2', {}, state.phase === 'trading' ? 'Trading results so far' : 'Last turn\'s trading results'),
+		el('ul', { class: 'plain' }, RESULTS.map(r => el('li', {}, r))));
+}
+function playersPanel() {
+	return el('div', { class: 'panel' }, el('h2', {}, 'Players'),
+		el('table', {},
+			el('thead', {}, el('tr', {}, el('th', {}, 'Corporation'), el('th', { class: 'num' }, 'Ships'), el('th', {}, 'Money'))),
+			el('tbody', {}, PLAYERS.map(p => el('tr', {},
+				el('td', {}, p.corp, p.id === 'you' ? ' ' : '', p.id === 'you' ? el('span', { class: 'tag you' }, 'you') : null),
+				el('td', { class: 'num' }, state.ships.filter(s => s.owner === p.id).length),
+				el('td', {}, p.id === 'you' ? state.moneyText() : 'private'))))),
+		el('p', { class: 'muted' }, 'Money is private to each player (house rule).'));
+}
+
+// ── Phase action under the map ──
+function phaseAction() {
+	const box = $('phase-action');
+	box.replaceChildren();
+	if (state.phase === 'bidding') {
+		const err = el('p', { class: 'error hidden', id: 'bid-err' });
+		const input = el('input', { type: 'number', id: 'bid-input', min: '0', step: '1', inputmode: 'numeric', 'aria-describedby': 'bid-help bid-err' });
+		const form = el('form', { novalidate: '' },
+			el('h2', {}, 'Bid for initiative'),
+			el('p', { class: 'muted', id: 'bid-help' }, `Every bidder pays their own bid, win or lose. Highest bid + d2 wins. You have ${state.moneyText()}.`),
+			el('label', { for: 'bid-input' }, 'Your bid (CR)'), input, err,
+			el('p', {}, el('button', { type: 'submit' }, state.bid == null ? 'Place bid' : 'Change bid')));
+		form.addEventListener('submit', e => {
+			e.preventDefault();
+			const raw = input.value.trim();
+			const v = Number(raw);
+			let msg = '';
+			if (raw === '' || !Number.isInteger(v)) msg = 'Enter a whole number of credits, 0 or more.';
+			else if (v < 0) msg = 'A bid can\'t be negative. Enter 0 to bid nothing.';
+			else if (v > START_MONEY) msg = `You have ${state.moneyText()}. Enter ${START_MONEY} or less.`;
+			if (msg) { err.textContent = msg; err.classList.remove('hidden'); input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+			state.bid = v;
+			announce(`Initiative bid placed: ${v} CR.`);
+			render();
+		});
+		box.append(el('div', { class: 'panel' }, form));
+	} else if (state.phase === 'jumps') {
+		const next = JUMP_ORDER[state.jumpsMade];
+		const panel = el('div', { class: 'panel' }, el('h2', {}, 'Ship-jumps'),
+			el('p', { class: 'muted' }, 'Order: ' + JUMP_ORDER.map((p, i) => (i < state.jumpsMade ? '✓ ' : '') + player(p).corp).join(' → ')));
+		if (next === 'you') {
+			const shipSel = el('select', { id: 'jump-ship' }, state.ships.filter(s => s.owner === 'you').map(s => el('option', { value: s.id }, `${s.name} (at ${sys(s.at).name})`)));
+			const destSel = el('select', { id: 'jump-dest' }, SYSTEMS.map(s => el('option', { value: s.id }, s.name)));
+			const err = el('p', { class: 'error hidden' });
+			const form = el('form', { novalidate: '' },
+				el('p', {}, 'Your turn: pick one ship and any system. The jump is instant.'),
+				el('label', { for: 'jump-ship' }, 'Ship'), shipSel,
+				el('label', { for: 'jump-dest' }, 'Destination'), destSel, err,
+				el('p', {}, el('button', { type: 'submit', class: 'primary' }, 'Jump')));
+			form.addEventListener('submit', e => {
+				e.preventDefault();
+				const ship = state.ships.find(s => s.id === shipSel.value);
+				if (ship.at === destSel.value) { err.textContent = `${ship.name} is already at ${sys(ship.at).name}. Pick another destination.`; err.classList.remove('hidden'); destSel.focus(); return; }
+				ship.at = destSel.value;
+				state.jumpsMade++;
+				announce(`${ship.name} jumped to ${sys(ship.at).name}.`);
+				render();
+			});
+			panel.append(form);
+		} else {
+			panel.append(el('p', {}, next ? `Waiting for ${player(next).corp}.` : 'All ships have jumped. Trading starts next.'));
+		}
+		box.append(panel);
+	} else {
+		box.append(el('div', { class: 'panel' }, el('h2', {}, 'Now resolving'),
+			el('p', {}, 'Epsilon Eridani · CHIPS — roll 8 + S/D −9 = −1 → SELL wins'),
+			el('p', { class: 'muted' }, 'Order set by Vega Lines (initiative). 5 resolutions left.')));
+	}
+}
+
+// ── Dashboard ──
+function renderDashboard() {
+	renderTopbar($('topbar'));
+	$('poll-fail').classList.toggle('hidden', !state.pollFail);
+	renderMap();
+	phaseAction();
+	const left = $('left-col'), right = $('right-col');
+	left.replaceChildren(); right.replaceChildren();
+	if (state.density === 'minimal') {
+		left.classList.add('hidden'); right.classList.add('hidden');
+		return;
+	}
+	left.classList.remove('hidden'); right.classList.remove('hidden');
+	left.append(fleetPanel());
+	right.append(offersPanel());
+	if (state.density === 'dense') {
+		left.append(playersPanel());
+		right.append(resultsPanel());
+	}
+}
+
+// ── System details ──
+function renderSystem(id) {
+	const s = sys(id);
+	$('sys-h').textContent = s.name;
+	renderTopbar($('sys-topbar'));
+	const tier = good => (s.id === 'tau-ceti' && good === 'POLY') ? 'Wholesaler' : 'Retailer'; // [ASSUMPTION A3]
+	$('sys-market').replaceChildren(
+		el('thead', {}, el('tr', {}, el('th', {}, 'Goods'), el('th', { class: 'num' }, 'Price'), el('th', {}, 'S/D'), el('th', { class: 'num' }, 'Buy chance'), el('th', {}, 'Your position'))),
+		el('tbody', {}, s.market.map(([g, p, sd]) => {
+			const c = buyChance(sd);
+			return el('tr', {}, el('td', {}, el('strong', {}, g)), el('td', { class: 'num' }, `${p} CR`),
+				el('td', {}, `${signed(sd)} (${band(c)})`), el('td', { class: 'num' }, `${Math.round(c * 100)}%`), el('td', {}, tier(g)));
+		})));
+	const here = state.ships.filter(sh => sh.at === s.id);
+	$('sys-ships').replaceChildren(...(here.length ? here.map(sh => el('li', {}, sh.name, ' — ',
+		sh.owner === 'you' ? el('span', { class: 'tag you' }, 'you') : player(sh.owner).corp,
+		sh.owner === 'you' ? el('div', { class: 'muted' }, `Cargo ${sh.cargo.toLocaleString('en')} / ${CAPACITY.toLocaleString('en')} u`) : null))
+		: [el('li', { class: 'muted' }, 'No ships here.')]));
+	const mineHere = state.offers.filter(o => o.system === s.id);
+	$('sys-my-offers').replaceChildren(...(mineHere.length ? mineHere.map(o => el('li', {}, `${o.type} ${o.good} at ${o.price} CR`)) : [el('li', { class: 'muted' }, 'None.')]));
+	renderOfferForm(s, here.some(sh => sh.owner === 'you'));
+}
+
+function renderOfferForm(s, hasShip) {
+	const box = $('sys-offer');
+	box.replaceChildren(el('h2', {}, 'Place an offer'));
+	if (state.phase !== 'bidding') {
+		box.append(el('p', {}, `Offers can only be placed during Bidding. Current phase: ${phaseName[state.phase]}.`));
+		return;
+	}
+	if (!hasShip) box.append(el('p', { class: 'notice' }, 'You have no ship here. If a buy wins, the goods are lost; a sell has nothing to draw from. A ship can still jump here before Trading.'));
+	const goodSel = el('select', { id: 'offer-good' }, s.market.map(([g]) => el('option', { value: g }, g)));
+	const priceIn = el('input', { type: 'number', id: 'offer-price', min: '1', max: '20', step: '1', 'aria-describedby': 'offer-price-help offer-err' });
+	const err = el('p', { class: 'error hidden', id: 'offer-err' });
+	const status = el('p', { class: 'status' });
+	const form = el('form', { novalidate: '' },
+		el('label', { for: 'offer-good' }, 'Goods'), goodSel,
+		el('label', { for: 'offer-price' }, 'Price (CR)'), priceIn,
+		el('p', { class: 'muted', id: 'offer-price-help' }, 'Any whole number from 1 to 20.'),
+		el('fieldset', { style: 'border:0;padding:0;margin:8px 0' },
+			el('legend', { style: 'font-weight:600;font-size:13px' }, 'Type'),
+			el('div', { class: 'inline' },
+				el('label', {}, el('input', { type: 'radio', name: 'offer-type', value: 'BUY', checked: '' }), 'Buy'),
+				el('label', {}, el('input', { type: 'radio', name: 'offer-type', value: 'SELL' }), 'Sell'))),
+		err,
+		el('button', { type: 'submit', class: 'primary' }, 'Place offer'),
+		status);
+	const validate = () => {
+		const raw = priceIn.value.trim(), v = Number(raw);
+		const msg = raw === '' ? 'Enter a price.' : (!Number.isInteger(v) || v < 1 || v > 20) ? 'Price must be a whole number from 1 to 20.' : '';
+		err.textContent = msg; err.classList.toggle('hidden', !msg);
+		if (msg) priceIn.setAttribute('aria-invalid', 'true'); else priceIn.removeAttribute('aria-invalid');
+		return msg ? null : v;
+	};
+	priceIn.addEventListener('blur', () => { if (priceIn.value.trim() !== '') validate(); });
+	form.addEventListener('submit', e => {
+		e.preventDefault();
+		const v = validate();
+		if (v == null) { priceIn.focus(); return; }
+		const type = form.querySelector('input[name=offer-type]:checked').value;
+		state.offers.push({ system: s.id, good: goodSel.value, price: v, type });
+		renderSystem(s.id);
+		const st = $('sys-offer').querySelector('.status');
+		st.textContent = `Offer placed: ${type} ${goodSel.value} at ${v} CR. It's hidden from other players until Trading.`;
+		announce(st.textContent);
+	});
+	box.append(form);
+}
+
+// ── Routing ──
+const SCREENS = ['screen-loading', 'screen-denied', 'screen-unknown', 'screen-dashboard', 'screen-system'];
+function show(screenId, headingId, focus) {
+	for (const id of SCREENS) $(id).classList.toggle('hidden', id !== screenId);
+	$('nav-dashboard').toggleAttribute('aria-current', screenId === 'screen-dashboard');
+	if (screenId === 'screen-dashboard') $('nav-dashboard').setAttribute('aria-current', 'page');
+	if (focus) $(headingId).focus();
+}
+function render(focus = false) {
+	if (state.loading) return show('screen-loading', 'loading-h', focus);
+	if (state.denied) return show('screen-denied', 'denied-h', focus);
+	const hash = location.hash.replace(/^#/, '') || 'dashboard';
+	if (hash === 'dashboard') { renderDashboard(); return show('screen-dashboard', 'dash-h', focus); }
+	const m = hash.match(/^system-([a-z-]+)$/);
+	if (m && sys(m[1])) { renderSystem(m[1]); return show('screen-system', 'sys-h', focus); }
+	show('screen-unknown', 'unknown-h', focus);
+}
+
+// ── Test-state controls ──
+document.querySelectorAll('input[name=density]').forEach(r => r.addEventListener('change', () => { state.density = r.value; render(); announce(`Density: ${r.value}.`); }));
+document.querySelectorAll('input[name=phase]').forEach(r => r.addEventListener('change', () => { state.phase = r.value; render(); announce(`Phase: ${phaseName[r.value]}.`); }));
+$('sim-loading').addEventListener('click', () => {
+	state.loading = true; render(true);
+	setTimeout(() => { state.loading = false; render(true); announce('Game loaded.'); }, 800);
+});
+$('sim-poll-fail').addEventListener('click', () => { state.pollFail = true; location.hash = '#dashboard'; render(); announce("Couldn't refresh the game."); });
+$('poll-retry').addEventListener('click', () => { state.pollFail = false; render(); announce('Game refreshed.'); });
+$('sim-denied').addEventListener('click', () => { state.denied = true; render(true); });
+$('denied-back').addEventListener('click', () => { state.denied = false; location.hash = '#dashboard'; render(true); });
+$('reset').addEventListener('click', () => {
+	state = makeState();
+	document.querySelector('input[name=density][value=standard]').checked = true;
+	document.querySelector('input[name=phase][value=bidding]').checked = true;
+	if (location.hash !== '#dashboard') location.hash = '#dashboard'; else render(true);
+	announce('Prototype reset to the start.');
+});
+
+function makeState() {
+	const s = initialState();
+	s.moneyText = () => `${START_MONEY.toLocaleString('en')} CR`; // bids are paid when Bidding closes (R21)
+	return s;
+}
+state = makeState();
+window.addEventListener('hashchange', () => render(true));
+render();
+</script>
+</body>
+</html>

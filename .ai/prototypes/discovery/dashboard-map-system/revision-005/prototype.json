@@ -1,0 +1,22 @@
+{
+  "format": "discovery-prototype-v1",
+  "skill": "om-mockup-prototype",
+  "slug": "dashboard-map-system",
+  "revision": 5,
+  "revisionPath": ".ai/prototypes/discovery/dashboard-map-system/revision-005",
+  "previousRevision": ".ai/prototypes/discovery/dashboard-map-system/revision-004",
+  "brief": ".ai/specs/product-brief.md",
+  "flow": "Player's turn: Deck with map, system details, Trading, Game log",
+  "panelReport": null,
+  "verification": "not-run",
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "25e9fe79fef3567bd6839ff79fbe844827ca18f51c49859ba4800aca9690eba9"
+    },
+    {
+      "path": "README.md",
+      "sha256": "91a410b30833b76c216f0ee553af58dc0a2a8dad0c8a18c47ab5e63c444dab7e"
+    }
+  ]
+}
