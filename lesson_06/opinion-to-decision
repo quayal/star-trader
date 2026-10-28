@@ -1,0 +1,106 @@
+# Task
+
+Turn my references into a decisions file from which an agent and a developer can
+derive principles, tokens and components. My descriptions use everyday language.
+Your job is to translate them into observations and decisions, not judge them or
+replace them with your own.
+
+# Context
+
+- Product and users: Players playing an online space trading game
+- Brief or research results: .ai/specs/product-brief.md
+- References: html mockups linked at the end of this prompt
+
+# How to work
+
+1. Read the brief and open every screenshot. If you cannot open a link, write
+   “link, not opened” and rely only on my description. Without a screenshot, an
+   observation is a paraphrase: mark what is unknown and ask for a screenshot.
+2. Separate three things for each reference:
+   - Observation: what is visible, described so two people would draw the same thing.
+     Not “nice colors”, but e.g. “one saturated color covering the entire panel,
+     ink-colored text, no gradient”.
+   - Keep: one to three traits to bring into the product.
+   - Do not keep: what we reject from this reference. Always fill this in, even
+     if I left it empty, and mark it as a proposal.
+3. Give each trait its own row and ID (e.g. R01.1, R01.2) and a family: color,
+   typography, composition and density, components, motion and response, tone of
+   voice. This gives each token precise provenance. Dislikes are decisions too:
+   record what we do instead (e.g. “not warm enough” → warm grays), not just rejection.
+4. Connect each reference to the product: why does this trait suit our users or
+   the product’s purpose? If you cannot justify it, say so. A reference with no
+   connection to the product is taste, not a decision.
+5. From my words, propose 3 to 5 character words and as many anti-character words.
+   Derive the anti-character from negative references.
+6. For negative references, describe the signature: specific elements that make
+   this appearance recognizable on screen and in code. Always add a “generic AI
+   appearance” negative reference, unless one of mine already covers it; then merge them.
+7. Look in the brief and research for negative references based on user knowledge,
+   not taste (e.g. a user says “I do not want a course, I want an answer”, so we
+   reject progress bars and certificates). Mark these as proposals.
+8. Check consistency: where references contradict one another (e.g. two palettes,
+   dense versus spacious), list the conflict and propose a resolution. Do not decide alone.
+9. Do not invent references or values I did not supply. If something is missing
+   (e.g. no reference says anything about typography), ask; mark suggestions as proposals.
+
+# Questions before saving
+
+Before saving the file, ask me questions, at most five at once. List each proposal
+you added separately so I can accept or reject them individually, not as a bundle.
+Ask about:
+- descriptions too general to verify on screen,
+- contradictions between references,
+- families with no reference,
+- every proposal you added yourself.
+
+# Output
+
+File lesson_06/reference.md with this structure:
+
+# References: Star Trader
+
+Date, who selected them. Character words (confirmed). Anti-character (confirmed).
+
+## References
+| # | Reference | Source | Selected by | Observation | Keep | Do not keep | Do instead | Why it suits the product | Family | Weight | Status (proposed / accepted) |
+
+## Negative references
+| # | Appearance | Why not | Signature to avoid | Source (taste / research / proposal) |
+
+## Conflicts and resolutions
+| Conflict | References | Resolution | Decided by |
+
+## Gaps
+Families with no references and unanswered questions.
+
+## Images
+List files beside this document. Names: R01-krotki-opis.png.
+
+Nothing in this file is a rule yet. Principles and tokens are derived from this
+file in the next step, and I approve each of them separately.
+
+# Cards
+
+## R01
+Source: design/mockups/ships.html
+I like: Clean and sci fi design; digital, terminal-like font; glow; clear info regarding cargo;
+I dislike: not needed info like fuel (not in the game); info re position of ships isn't visible very good (in top three most important info about ships)
+How strongly: must have 
+
+
+## R02
+Source: design/mockups/factories.html
+I like: output of factories, where they're located; 
+I dislike: warehouses and factories on separate screens (per game design these are strongly connected; could be on one screen); also, cargo space of ships visiting a star system should be seen as visible
+How strongly: must have
+
+
+## R03
+Source: design/mockups/index.html
+I like: One glance overview; can move to detail screens using left hand shortcut tabs; feeling of control deck and center of operations; 
+I dislike: the map of systems looks like a solar system; doesn't make sense. I'd rather have it like a graph of six systems connected to each other; with the most important info re system visible at first glance
+How strongly: must have
+
+## A01
+Source: src/main/resources/static/index.html
+I do not want this because: horribly generic; just dry info on navy background. Doesn't give the vibe of sci fi trading empire
