@@ -1,0 +1,38 @@
+# Task
+
+Translate approved decisions from the references file into design system tokens.
+Do not save files until I approve the proposal. After approval, save the table and
+both lists below it to lekcja-06/tokens.md.
+
+# Context
+
+- References file: lekcja-06/reference.md
+
+# How to work
+
+1. Take the accepted decisions: what we keep, what we do instead and resolved
+   conflicts. For each, decide whether it is a token (a value: color, spacing,
+   radius, shadow, font, animation duration), a principle (when to use something)
+   or a component trait.
+2. Write tokens in three layers:
+   - raw values (palette, scale), used only in the token file,
+   - meanings named by purpose, e.g. action-primary, surface-card, text-muted,
+     space-section, never by appearance, e.g. blue-500,
+   - component tokens only where a component needs its own value.
+3. Give the provenance of each semantic token: the reference ID or decision it follows.
+4. Spacing: one scale (e.g. 4, 8, 12, 16, 24, 32, 48) mapped to relationships:
+   within a group, between groups, inside a panel, between sections.
+5. Color: check contrast for every text/background pair we will use. Report the
+   result. Flag pairs below 4.5 : 1 (text) and 3 : 1 (interface elements) and propose a fix.
+6. If tokens already exist, map decisions to existing names first. Propose a new
+   token only if no existing one fits. If current names describe appearance
+   (e.g. bg-white-0), treat them as the raw layer and propose semantic names above them.
+7. If the project has a dark theme, check both themes.
+8. If I change a value, recalculate contrast before saving and show pairs that
+   dropped below the threshold.
+
+# Output
+
+Table: token | layer | value | provenance | where to use | where not to use.
+Below it: a list of color pairs with contrast ratios and a list of decisions that
+are not tokens (principles, component traits).
