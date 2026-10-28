@@ -65,7 +65,7 @@
 			<div style="font-family: var(--font-display); font-size: var(--text-display)">Cycle 12 <span class="caption">display · 32</span></div>
 			<div style="font-family: var(--font-display); font-size: var(--text-heading)">Command Deck <span class="caption">heading · 24</span></div>
 			<div style="font-family: var(--font-display); font-size: var(--text-title)">Tau Ceti <span class="caption">title · 20</span></div>
-			<div style="font-size: var(--text-value)">Price 6 CR · S/D −10 <span class="caption">value · 16</span></div>
+			<div style="font-size: var(--text-value)">Price 6 HT · S/D −10 <span class="caption">value · 16</span></div>
 			<div style="font-size: var(--text-body)">Your offers stay hidden from other players until Trading resolves them. <span class="caption">body · 14</span></div>
 			<div style="font-size: var(--text-caption); color: var(--text-muted)">Submitted in Bidding, cycle 12 <span class="caption">caption · 12</span></div>
 		</div>
@@ -313,7 +313,7 @@
 			const { starSystems } = await response.json();
 			const rows = starSystems.flatMap(s => s.market.map(m => `
 				<tr><td>${s.displayName}</td><td class="good good--${m.goods.toLowerCase()}">${m.goods}</td>
-				<td class="num">${m.price} CR</td>${sdCells(m.indicator)}</tr>`));
+				<td class="num">${m.price} HT</td>${sdCells(m.indicator)}</tr>`));
 			target.innerHTML = `<table class="data-table">
 				<thead><tr><th>System</th><th>Goods</th><th class="num">Price</th><th class="num">Buy chance</th><th>S/D</th></tr></thead>
 				<tbody>${rows.join('')}</tbody></table>`;

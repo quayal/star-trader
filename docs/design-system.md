@@ -109,3 +109,8 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 - Layout of the existing pages is unchanged (they still have A01's structure) and the Deck page overflows at 320 px (fixed 220 px sidebar). The redesign waits for mockups (reference.md Gap 5).
 - `trade-offers.html` still lists every player's submitted offers, which A03 forbids once Bidding is real. Product change, tracked separately.
 - No icons yet; no icon set chosen.
+- The prototype accepted 2026-10-28 (`.ai/prototypes/discovery/dashboard-map-system/revision-013/`) needs these design-system changes before the redesign:
+  - **Five market levels instead of four S/D steps** (brief D08): high supply, moderate supply, in balance, moderate demand, high demand. The extremes are bright, the moderate levels muted, and "in balance" is grey. `tokens.css` has only `--sd-easy/fair/hard/bad`.
+  - **A price-direction arrow on every price**: ↑ ↗ → ↘ ↓. It is the non-colour cue, so colour never carries the meaning alone.
+  - **A map node holds its goods and prices inside a larger circle** and is laid out as a flat-topped hexagon ring.
+  - **The money unit is HT.**
