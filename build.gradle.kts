@@ -54,3 +54,8 @@ val checkTokens by tasks.registering(Exec::class) {
 tasks.named("check") {
 	dependsOn(checkTokens)
 }
+
+// Serve static files straight from src/ during bootRun so prototype and page edits show on refresh.
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	sourceResources(sourceSets.main.get())
+}
