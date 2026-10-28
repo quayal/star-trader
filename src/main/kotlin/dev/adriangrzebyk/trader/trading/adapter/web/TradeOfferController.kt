@@ -9,7 +9,6 @@ import dev.adriangrzebyk.trader.trading.TradeDesk
 import dev.adriangrzebyk.trader.trading.TradeOfferBook
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -77,7 +76,4 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 
 		return TransactionView(offer = TradeOfferView.from(requireNotNull(result.tradeOffer)), amount = result.amount)
 	}
-
-	@ExceptionHandler(ResponseStatusException::class)
-	fun handleInvalidRequest(ex: ResponseStatusException): ResponseEntity<String> = ResponseEntity.status(ex.statusCode).body(ex.reason)
 }
