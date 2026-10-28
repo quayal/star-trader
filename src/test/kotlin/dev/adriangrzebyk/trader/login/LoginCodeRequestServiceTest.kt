@@ -48,4 +48,44 @@ class LoginCodeRequestServiceTest {
 
 		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("222222")
 	}
+
+	@Test
+	fun shouldNormalizeTheEmailBeforeStoringAndSending() {
+		service.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", " Adrian@Example.com "))
+
+		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("483920")
+		assertThat(codeSender.sent.single().email).isEqualTo("adrian@example.com")
+	}
+
+	@Test
+	fun shouldRejectAnEmailContainingWhitespaceOrLineBreaks() {
+		listOf("a b@c.com", "victim@x.com\nINFO forged", "a@b.com\r\nBcc: x@y.com").forEach {
+			assertThatThrownBy { service.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", it)) }
+				.isInstanceOf(InvalidLoginRequestException::class.java)
+		}
+		assertThat(codeSender.sent).isEmpty()
+	}
+
+	@Test
+	fun shouldRejectBlankNames() {
+		assertThatThrownBy { service.requestCode(LoginCodeRequest(" ", "Adrian Star Traders", "adrian@example.com")) }
+			.isInstanceOf(InvalidLoginRequestException::class.java)
+		assertThatThrownBy { service.requestCode(LoginCodeRequest("Adrian", " ", "adrian@example.com")) }
+			.isInstanceOf(InvalidLoginRequestException::class.java)
+	}
+
+	@Test
+	fun shouldKeepThePreviousCodeWhenSendingFails() {
+		val failingSender = object : OneTimeCodeSender {
+			override fun send(email: String, playerName: String, code: String) = throw IllegalStateException("provider down")
+		}
+		service.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", "adrian@example.com"))
+
+		assertThatThrownBy {
+			LoginCodeRequestService(FakeOneTimeCodeGenerator("999999"), failingSender, codeStore)
+				.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", "adrian@example.com"))
+		}.isInstanceOf(IllegalStateException::class.java)
+
+		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("483920")
+	}
 }

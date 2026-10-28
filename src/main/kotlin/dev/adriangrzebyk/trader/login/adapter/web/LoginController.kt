@@ -8,7 +8,6 @@ import dev.adriangrzebyk.trader.login.OneTimeCodeSender
 import dev.adriangrzebyk.trader.login.OneTimeCodeStore
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -23,28 +22,14 @@ class LoginController(codeGenerator: OneTimeCodeGenerator, codeSender: OneTimeCo
 
 	@PostMapping("/login/request-code")
 	fun requestCode(@RequestBody request: LoginCodeRequestDto): ResponseEntity<Void> {
-		val playerName = request.playerName?.trim()
-		if (playerName.isNullOrEmpty()) {
-			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Player name is required")
-		}
-		val corporationName = request.corporationName?.trim()
-		if (corporationName.isNullOrEmpty()) {
-			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Corporation name is required")
-		}
-		val email = request.email?.trim()
-		if (email.isNullOrEmpty()) {
-			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required")
-		}
-
 		try {
-			loginCodeRequestService.requestCode(LoginCodeRequest(playerName, corporationName, email))
+			loginCodeRequestService.requestCode(
+				LoginCodeRequest(request.playerName.orEmpty(), request.corporationName.orEmpty(), request.email.orEmpty()),
+			)
 		} catch (ex: InvalidLoginRequestException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build()
 	}
-
-	@ExceptionHandler(ResponseStatusException::class)
-	fun handleInvalidRequest(ex: ResponseStatusException): ResponseEntity<String> = ResponseEntity.status(ex.statusCode).body(ex.reason)
 }

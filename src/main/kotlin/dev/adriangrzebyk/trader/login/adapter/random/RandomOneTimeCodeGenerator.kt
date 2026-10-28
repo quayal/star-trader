@@ -2,14 +2,17 @@ package dev.adriangrzebyk.trader.login.adapter.random
 
 import dev.adriangrzebyk.trader.login.OneTimeCodeGenerator
 import org.springframework.stereotype.Component
-import kotlin.random.Random
+import java.security.SecureRandom
 
 @Component
 class RandomOneTimeCodeGenerator : OneTimeCodeGenerator {
 
-	override fun generate(): String = (0 until CODE_LENGTH).joinToString("") { Random.nextInt(0, 10).toString() }
+	private val random = SecureRandom()
+
+	override fun generate(): String = random.nextInt(CODE_BOUND).toString().padStart(CODE_LENGTH, '0')
 
 	companion object {
 		private const val CODE_LENGTH = 6
+		private const val CODE_BOUND = 1_000_000
 	}
 }

@@ -7,16 +7,28 @@ class LoginCodeRequestService(
 ) {
 
 	fun requestCode(request: LoginCodeRequest) {
-		if (!isValidEmail(request.email)) {
+		val playerName = request.playerName.trim()
+		if (playerName.isEmpty()) {
+			throw InvalidLoginRequestException("Player name is required")
+		}
+		if (request.corporationName.isBlank()) {
+			throw InvalidLoginRequestException("Corporation name is required")
+		}
+		val email = request.email.trim().lowercase()
+		if (!isValidEmail(email)) {
 			throw InvalidLoginRequestException("Email address is invalid")
 		}
 
 		val code = codeGenerator.generate()
-		codeStore.store(request.email, code)
-		codeSender.send(request.email, request.playerName, code)
+		// Send first: a failed send must not invalidate the player's previous code.
+		codeSender.send(email, playerName, code)
+		codeStore.store(email, code)
 	}
 
 	private fun isValidEmail(email: String): Boolean {
+		if (email.any { it.isWhitespace() || it.isISOControl() }) {
+			return false
+		}
 		val atIndex = email.indexOf('@')
 		if (atIndex <= 0 || atIndex == email.length - 1) {
 			return false
