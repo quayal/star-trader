@@ -41,3 +41,16 @@ kotlin {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+
+val checkTokens by tasks.registering(Exec::class) {
+	description = "Fails when a color literal appears in the static frontend outside css/tokens.css."
+	group = "verification"
+	inputs.dir("src/main/resources/static")
+	inputs.file("scripts/check-tokens.sh")
+	outputs.upToDateWhen { false }
+	commandLine("bash", "scripts/check-tokens.sh")
+}
+
+tasks.named("check") {
+	dependsOn(checkTokens)
+}

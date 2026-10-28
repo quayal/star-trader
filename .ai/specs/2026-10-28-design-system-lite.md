@@ -100,6 +100,14 @@ AGENTS.md                 changed: one line linking docs/design-system.md
 1. Is a token swap on the two existing pages wanted now, or should they stay untouched until the redesign? **Default: swap**, so the token check can be on from day one.
 2. Should the S/D scale on the reference page show stepped steps only (the tokens.md pick), or stepped and smooth side by side for the creator to choose (Gap 1)? **Default: both, labelled.**
 
+**Resolved 2026-10-28 (creator):** 1 — swap both pages to the new tokens and fonts now. 2 — show both.
+
+## Implementation notes (2026-10-28)
+
+- Fonts are the Google Fonts latin subsets (Orbitron variable 400–900; Rajdhani 400/500/600/700), with each family's `OFL-*.txt` beside them instead of one shared `OFL.txt`, since the two have different copyright lines.
+- Added `--space-hairline` (4 px, from the tokens.md scale but without a named role there), `--text-heading` (24 px, in the scale but unnamed), `--border-width`, `--focus-ring-width` and `--tint-buy/-sell`. All are marked pick/proposal in `tokens.css`.
+- `trade-offers.html` really does list every player's offers (A03). Left as is and flagged, as planned.
+
 ## 📋 Phasing
 
 One PR. Small enough that splitting adds overhead without reducing risk.

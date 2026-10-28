@@ -4,25 +4,12 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Star Trader &mdash; Command Deck</title>
+	<link rel="stylesheet" href="css/fonts.css">
+	<link rel="stylesheet" href="css/tokens.css">
+	<link rel="stylesheet" href="css/components.css">
 	<style>
-		:root {
-			color-scheme: dark;
-			--bg: #0b0e17;
-			--panel: #141a2a;
-			--border: #26314a;
-			--text: #e6ebf5;
-			--muted: #8a93a8;
-			--accent: #5fb3ff;
-			--buy: #4fd48c;
-			--sell: #ff8a65;
-		}
-		* { box-sizing: border-box; }
 		body {
-			margin: 0;
 			min-height: 100vh;
-			background: var(--bg);
-			color: var(--text);
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 			display: grid;
 			grid-template-columns: 220px 1fr;
 			grid-template-rows: auto 1fr;
@@ -30,67 +17,56 @@
 		}
 		.sidebar {
 			grid-area: sidebar;
-			background: var(--panel);
-			border-right: 1px solid var(--border);
-			padding: 1.5rem 1rem;
+			background: var(--surface-panel);
+			border-right: var(--border-width) solid var(--border-subtle);
+			padding: var(--space-between-groups) var(--space-panel);
 			display: flex;
 			flex-direction: column;
-			gap: 0.3rem;
+			gap: var(--space-hairline);
 		}
-		.brand { font-weight: 700; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 1.5rem; }
-		.nav-item {
-			display: block;
-			padding: 0.6rem 0.8rem;
-			border-radius: 8px;
-			color: var(--muted);
-			text-decoration: none;
-			font-size: 0.9rem;
+		.brand {
+			font-family: var(--font-display);
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			color: var(--accent-selected);
+			margin-bottom: var(--space-between-groups);
 		}
-		.nav-item:hover { background: #0f1424; color: var(--text); }
-		.nav-item.active { background: #0f1424; color: var(--text); font-weight: 600; }
 		.topbar {
 			grid-area: topbar;
-			border-bottom: 1px solid var(--border);
-			padding: 1.5rem 2rem;
+			border-bottom: var(--border-width) solid var(--border-subtle);
+			padding: var(--space-between-groups) var(--space-section);
 		}
-		.topbar h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
-		.topbar p { color: var(--muted); margin: 0; font-size: 0.9rem; }
-		main { grid-area: main; padding: 2rem; }
-		.panel {
-			background: var(--panel);
-			border: 1px solid var(--border);
-			border-radius: 12px;
-			padding: 1.5rem;
-		}
-		.panel h2 { margin-top: 0; font-size: 1.1rem; }
+		.topbar h1 { font-size: var(--text-heading); margin-bottom: var(--space-hairline); }
+		.topbar p { color: var(--text-muted); margin: 0; }
+		main { grid-area: main; padding: var(--space-section); }
+		.panel h2 { font-size: var(--text-title); margin-bottom: var(--space-panel); }
 		.market-grid {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-			gap: 1rem;
+			gap: var(--space-panel);
 		}
 		.system-card {
-			border: 1px solid var(--border);
-			border-radius: 10px;
-			padding: 1rem;
-			background: #0f1424;
+			border: var(--border-width) solid var(--border-subtle);
+			border-radius: var(--radius-panel);
+			padding: var(--space-panel);
+			background: var(--surface-page);
 		}
-		.system-card h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+		.system-card h3 { font-size: var(--text-value); margin-bottom: var(--space-related); }
 		.goods-row {
 			display: flex;
 			justify-content: space-between;
-			font-size: 0.85rem;
-			padding: 0.3rem 0;
-			border-bottom: 1px solid var(--border);
+			font-size: var(--text-value);
+			padding: var(--space-hairline) 0;
+			border-bottom: var(--border-width) solid var(--border-subtle);
 		}
 		.goods-row:last-child { border-bottom: none; }
-		.goods-name { color: var(--muted); }
-		.empty { color: var(--muted); font-size: 0.9rem; }
+		.goods-name { color: var(--text-muted); }
 	</style>
 </head>
 <body>
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
-	<a class="nav-item active" href="index.html">Deck</a>
+	<a class="nav-item" aria-current="page" href="index.html">Deck</a>
 	<a class="nav-item" href="trade-offers.html">Market</a>
 </aside>
 

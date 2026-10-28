@@ -4,124 +4,57 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Star Trader &mdash; Trade Offers</title>
+	<link rel="stylesheet" href="css/fonts.css">
+	<link rel="stylesheet" href="css/tokens.css">
+	<link rel="stylesheet" href="css/components.css">
 	<style>
-		:root {
-			color-scheme: dark;
-			--bg: #0b0e17;
-			--panel: #141a2a;
-			--border: #26314a;
-			--text: #e6ebf5;
-			--muted: #8a93a8;
-			--accent: #5fb3ff;
-			--buy: #4fd48c;
-			--sell: #ff8a65;
-		}
-		* { box-sizing: border-box; }
 		body {
-			margin: 0;
 			min-height: 100vh;
-			background: var(--bg);
-			color: var(--text);
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 			display: flex;
 			justify-content: center;
-			padding: 2.5rem 1rem;
+			padding: var(--space-section) var(--space-panel);
 		}
 		main { width: 100%; max-width: 640px; }
-		a.back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
-		a.back-link:hover { text-decoration: underline; }
-		h1 { font-size: 1.5rem; margin-bottom: 0.25rem; margin-top: 1rem; }
-		p.subtitle { color: var(--muted); margin-top: 0; margin-bottom: 1.5rem; }
-		form, .offers {
-			background: var(--panel);
-			border: 1px solid var(--border);
-			border-radius: 12px;
-			padding: 1.5rem;
-			margin-bottom: 1.5rem;
-		}
-		label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem; margin-top: 1rem; }
-		label:first-of-type { margin-top: 0; }
-		select, input {
-			width: 100%;
-			padding: 0.6rem 0.7rem;
-			border-radius: 8px;
-			border: 1px solid var(--border);
-			background: #0f1424;
-			color: var(--text);
-			font-size: 0.95rem;
-		}
-		.offer-type-toggle { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
-		.offer-type-toggle label {
-			flex: 1;
-			margin: 0;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 0.4rem;
-			padding: 0.6rem;
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			cursor: pointer;
-			color: var(--text);
-		}
-		.offer-type-toggle input { width: auto; }
-		button {
-			margin-top: 1.5rem;
-			width: 100%;
-			padding: 0.75rem;
-			border: none;
-			border-radius: 8px;
-			background: var(--accent);
-			color: #06101c;
-			font-weight: 600;
-			font-size: 1rem;
-			cursor: pointer;
-		}
-		button:disabled { opacity: 0.6; cursor: not-allowed; }
-		#message {
-			margin-top: 1rem;
-			font-size: 0.9rem;
-			min-height: 1.2em;
-		}
-		#message.error { color: #ff6b6b; }
-		#message.success { color: var(--buy); }
-		table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-		th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); }
-		th { color: var(--muted); font-weight: 500; }
-		.tag { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-		.tag.buy { background: rgba(79, 212, 140, 0.15); color: var(--buy); }
-		.tag.sell { background: rgba(255, 138, 101, 0.15); color: var(--sell); }
-		.empty { color: var(--muted); font-size: 0.9rem; }
+		h1 { font-size: var(--text-heading); margin: var(--space-panel) 0 var(--space-hairline); }
+		h2 { font-size: var(--text-title); margin-bottom: var(--space-panel); }
+		p.subtitle { color: var(--text-muted); margin: 0 0 var(--space-between-groups); }
+		.panel { margin-bottom: var(--space-between-groups); }
+		.field-label { margin-top: var(--space-panel); }
+		form > .field-label:first-child { margin-top: 0; }
+		.offer-type-toggle { display: flex; gap: var(--space-group); }
+		.offer-type-toggle .choice { flex: 1; }
+		form .btn { margin-top: var(--space-between-groups); width: 100%; }
+		.message { margin-top: var(--space-panel); }
 	</style>
 </head>
 <body>
 <main>
-	<a class="back-link" href="index.html">&larr; Back to Deck</a>
+	<a class="link" href="index.html">&larr; Back to Deck</a>
 	<h1>Submit a Trade Offer</h1>
 	<p class="subtitle">Pick a star system, then only the goods it actually trades, a price from 1&ndash;20, and buy or sell.</p>
 
-	<form id="offer-form">
-		<label for="playerName">Player name</label>
-		<input id="playerName" name="playerName" type="text" maxlength="40" required placeholder="Adrian">
+	<form id="offer-form" class="panel">
+		<label class="field-label" for="playerName">Player name</label>
+		<input class="control" id="playerName" name="playerName" type="text" maxlength="40" required placeholder="Adrian">
 
-		<label for="system">Star system</label>
-		<select id="system" name="system" required></select>
+		<label class="field-label" for="system">Star system</label>
+		<select class="control" id="system" name="system" required></select>
 
-		<label for="goods">Goods</label>
-		<select id="goods" name="goods" required></select>
+		<label class="field-label" for="goods">Goods</label>
+		<select class="control" id="goods" name="goods" required></select>
 
-		<label for="price">Price</label>
-		<select id="price" name="price" required></select>
+		<label class="field-label" for="price">Price</label>
+		<select class="control" id="price" name="price" required></select>
 
-		<label>Offer type</label>
-		<div class="offer-type-toggle" id="offerType"></div>
+		<span class="field-label" id="offerTypeLabel">Offer type</span>
+		<div class="offer-type-toggle" id="offerType" role="radiogroup" aria-labelledby="offerTypeLabel"></div>
 
-		<button type="submit">Submit offer</button>
-		<div id="message"></div>
+		<button class="btn" type="submit">Submit offer</button>
+		<div id="message" class="message" role="status"></div>
 	</form>
 
-	<section class="offers">
-		<h1 style="font-size: 1.1rem;">Submitted offers</h1>
+	<section class="panel">
+		<h2>Submitted offers</h2>
 		<div id="offers-table"></div>
 	</section>
 </main>
@@ -155,7 +88,7 @@
 
 		offerTypeContainer.innerHTML = options.offerTypes
 			.map((type, i) => `
-				<label>
+				<label class="choice">
 					<input type="radio" name="offerType" value="${type}" ${i === 0 ? 'checked' : ''}>
 					${type}
 				</label>
@@ -186,15 +119,15 @@
 					<td>${o.playerName}</td>
 					<td>${o.systemDisplayName}</td>
 					<td>${o.goods}</td>
-					<td>${o.price}</td>
-					<td><span class="tag ${o.offerType.toLowerCase()}">${o.offerType}</span></td>
+					<td class="num">${o.price}</td>
+					<td class="trade trade--${o.offerType.toLowerCase()}">${o.offerType}</td>
 				</tr>
 			`)
 			.join('');
 		offersTable.innerHTML = `
-			<table>
+			<table class="data-table">
 				<thead>
-					<tr><th>Player</th><th>System</th><th>Goods</th><th>Price</th><th>Type</th></tr>
+					<tr><th>Player</th><th>System</th><th>Goods</th><th class="num">Price</th><th>Type</th></tr>
 				</thead>
 				<tbody>${rows}</tbody>
 			</table>
@@ -208,7 +141,7 @@
 
 	function showMessage(text, isError) {
 		messageEl.textContent = text;
-		messageEl.className = isError ? 'error' : 'success';
+		messageEl.className = isError ? 'message message--error' : 'message message--success';
 	}
 
 	form.addEventListener('submit', async (event) => {

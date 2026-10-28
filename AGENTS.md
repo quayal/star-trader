@@ -14,6 +14,8 @@ Product direction, confirmed decisions, business rules and open risks live in `.
 
 Engineering standards and architecture conventions (package structure, hexagonal/DDD boundaries, testing rules) live in `.ai/engineering-standards.md` — read it before writing or restructuring any code.
 
+The frontend design system (tokens, shared CSS classes, what to avoid) is summarized in `docs/design-system.md` — read it before building or restyling any screen. Color literals belong only in `static/css/tokens.css`; `./gradlew check` fails otherwise.
+
 ## Working practices
 
 - **Plan before implementing.** For non-trivial work that means the spec described below; even inside a spec, think the approach through before touching code. If an implementation goes sideways, stop and re-plan rather than patching your way through a plan that's already proven wrong.
