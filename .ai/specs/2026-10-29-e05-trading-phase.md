@@ -71,8 +71,8 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 
 1. [s03] [R34] The trader whose turn it is sees: amount pre-filled with max; a whole number 1..max, else inline error "Enter a whole number from 1 to {max}." with focus. Help: "You pay your offer price, {price} HT each. Trading more leaves less for others."
 2. [—] [R12] A buy's max is first reduced to what you can afford.
-3. [s03] [R42] With the amount, you choose which of your ships at that system loads or unloads, and may split the amount across them. Each ship is listed with what it carries and its free bulky space: "Wayfarer — POLY 4, CHIPS 12 · bulky 4 / 10 used". A sell is capped by what those ships hold of that good (R10).
-4. [s03] [R42, R16, R23] POLY and ISO take one cargo space per unit, 10 per ship; CHIPS and FOOD take none. Bulky units beyond the chosen ships' free space are lost; with no ship there, everything bought is lost. Before confirming: "Only {n} u fit in the ships you chose; the rest will be lost."
+3. [s03] [R42] With the amount, you choose which of your ships at that system loads or unloads, and may split the amount across them. Each ship is listed with what it carries and its cargo space used: "Wayfarer — POLY 4, CHIPS 12 · cargo 4 / 10 used". A sell is capped by what those ships hold of that good (R10).
+4. [s03] [R42, R16, R23] POLY and ISO take one cargo space per unit, 10 per ship; CHIPS and FOOD take none. POLY and ISO units beyond the chosen ships' free cargo space are lost; with no ship there, everything bought is lost. Before confirming: "Only {n} u fit in the ships you chose; the rest will be lost."
 5. [—] If the max after R12/R10 is 0, the trader is shown why ("You can't afford any units at 15 HT") and their offer is done with no units traded (proposed).
 6. [s03, s04] [R25] Each trade is public: "{corp} {bought | sold} {n} u at {price} HT each".
 7. [s01 top bar] [R29] Your money updates; nobody else sees it.

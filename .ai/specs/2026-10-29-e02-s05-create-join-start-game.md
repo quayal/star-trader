@@ -36,7 +36,7 @@ After the start, `/#game/{id}` shows the Deck (s01). s10 (sign in) is E01-S03.
 
 8. [s12] [R41] Only the creator sees **Start game**. With fewer than 2 players it is disabled, with the reason next to it: "At least 2 players are needed to start" (proposed minimum).
 9. [—] [R41] Starting closes joining: `POST /api/games/{id}/join` returns `409` with "This game has already started".
-10. [—] [R40] At the start every player gets 300 HT and 2 empty ships. Each ship is placed at the Port of a random system; a player's two ships are in different systems. Other players' ships may share a system. Each ship holds 10 bulky units (R42). Nobody holds a market position.
+10. [—] [R40] At the start every player gets 300 HT and 2 empty ships. Each ship is placed at the Port of a random system; a player's two ships are in different systems. Other players' ships may share a system. Each ship has 10 cargo spaces (R42). Nobody holds a market position.
 11. [—] [R41] The game moves to turn 1, Bidding, and every client in the lobby goes to the Deck (s01) on its next poll.
 12. [API] `POST /api/games/{id}/start` — creator only (`403` otherwise), `409` if already started or fewer than 2 players. Random placement goes through a port with a fake, so tests can fix it (engineering standards §4).
 13. [s04] The first log entries are "Game started: {n} players, {turns} turns" and each ship's starting system: "Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; …".
@@ -55,7 +55,7 @@ After the start, `/#game/{id}` shows the Deck (s01). s10 (sign in) is E01-S03.
 
 ## 📝 Decisions in play
 
-R39/R41 (length chosen at creation, start by creator), R40 (300 HT, 2 ships, random Ports, empty, no positions), R42 (10 bulky units per ship), R01 (games isolated), D09 (no timers), D10 (design system).
+R39/R41 (length chosen at creation, start by creator), R40 (300 HT, 2 ships, random Ports, empty, no positions), R42 (10 cargo spaces per ship), R01 (games isolated), D09 (no timers), D10 (design system).
 
 ## ❓ Open questions
 
