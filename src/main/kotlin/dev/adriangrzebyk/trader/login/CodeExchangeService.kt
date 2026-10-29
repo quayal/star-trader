@@ -24,6 +24,5 @@ class CodeExchangeService(
 
 	private fun isExpired(stored: StoredCode): Boolean = !clock.now().isBefore(stored.issuedAt.plus(OneTimeCode.TTL))
 
-	private fun matches(expected: String, actual: String): Boolean =
-		MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())
+	private fun matches(expected: String, actual: String): Boolean = MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())
 }
