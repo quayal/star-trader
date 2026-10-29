@@ -94,8 +94,17 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 ### E05-S07 — The turn ends
 
 1. [s03] When the queue is empty and nothing is pending: "All goods resolved. The next turn starts with Bidding."
-2. [—] [N06] The turn number increases and the phase becomes Bidding. Offers that didn't trade expire (proposed).
+2. [—] [N06, R39] Unless it was turn 20, the turn number increases and the phase becomes Bidding. Offers that didn't trade expire (proposed).
 3. [s04] The new turn starts a new group in the log.
+
+### E05-S08 — The game ends after turn 20
+
+1. [—] [R39] When turn 20's Trading has resolved its last good, the game ends. No further turns start.
+2. [s09] [R39] Every player is taken to "Game over": each player's final money, highest first, and the winner. Only cash counts; ships, factories, warehouses and goods are not valued.
+3. [s09] [R39] Final money is shown for everyone, the one point where R29 (money private) doesn't apply.
+4. [s09] [R39] Players tied on money share the win: "Vega Lines and Kessler Cargo win with 2,310 HT" (proposed).
+5. [s04] The log ends with "Game over: {winner} wins with {money} HT".
+6. [s01–s04] After the game ends, every action is gone; the board, system screens and log stay readable.
 
 ## 📝 States checklist (Trading)
 
@@ -115,26 +124,24 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 | Goods lost (overflow or no ship) | s03 | S04-4 | **no** |
 | Someone the game waits for is away | s03 | S01-8 (D09) | yes |
 | Turn ends | s03 | S07 | yes |
-| End of game | — | — | **no — OQ-7** |
+| Game over | s09 | S08 | **no** — not in the prototype yet |
 
 ## 📝 Decisions in play
 
-R34 (counter resolution), R35 (price change, S/D fixed), R36 (every good every turn), R37 (Wholesalers), R38 (Dictator), R12/R16/R23/R10 (caps), R15 (saturation), R25 (ordering), R28 (positions shown), R29 (money private), R33, D07, D09, Q03, Q04, Q06.
+R34 (counter resolution), R35 (price change, S/D fixed), R36 (every good every turn), R37 (Wholesalers), R38 (Dictator), R12/R16/R23/R10 (caps), R15 (saturation), R25 (ordering), R28 (positions shown), R29 (money private), R33, R39 (end of game), D07, D09, Q03, Q04, Q06.
 
-## ❓ Open questions — only those that change a rule or the flow
+## ❓ Open questions
 
-| # | Question | Blocking? | Proposed default |
-|---|---|---|---|
-| OQ-7 | When does a game end, and what does everyone see? There is no rule in the brief. | no for the first playtest | open-ended; the creator ends it manually (needs its own story) |
+None in this spec. Q03 (cargo and warehouses) and Q04 (how positions are earned) in the brief still block S04-3 and S06.
 
 ## 🚫 Out of scope
 
-Computing tiers (Q04); warehouses as cargo source and factory output (Q03, R32); loans and reputation (N05); end of game (OQ-7, separate story).
+Computing tiers (Q04); warehouses as cargo source and factory output (Q03, R32); loans and reputation (N05). End of game is S08 (R39).
 
 ## 📋 Phasing and dependencies
 
 - Depends on E03 (offers, initiative) and E04 (ship positions).
-- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S06. Revision 015 covers the S02–S05 screens.
+- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S08 → S06. Revision 015 covers the S02–S05 screens.
 - Existing code: `SDCalculator` and the target-indicator math in `TransactionAmountCalculator` stay. `BestOfferCalculator` and `TradeDesk.resolve` assume one winner and must become the counter loop (R34). Today they also throw when the winning side has no offers (`reduce` on an empty list). Tie-break by submission order (`TradeOffer.initiative`) is replaced by turn initiative order.
 
 ## Screens without a criterion in this spec
