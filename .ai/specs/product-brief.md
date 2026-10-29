@@ -30,6 +30,8 @@ On 2026-10-29 the creator dropped timers altogether (D09, superseding D04 and D0
 
 Later on 2026-10-29 the creator replaced single-winner trade resolution with a counter (R34–R38). The roll stands for trading before the players arrive. The winning offer trades first, then any offer the current counter still allows, the most units first. The price changes once at the end, while the S/D indicator stays fixed and is rolled against afresh each turn. Every good resolves every turn, so prices drift even without offers. Wholesalers trade up to 5 u at the new price, and the Dictator places their offer only at resolution, after seeing the disclosed offers and before the roll, without a trump; they can't bid for that good in Bidding.
 
+Also on 2026-10-29: a game ends after turn 20, and the player with the most cash wins; assets don't count (R39).
+
 ## Vision
 
 Let a small group (2–6) play a classic trading/space board game online, with the board game's own clock speed (seconds, not real-time), while many independent groups can play at once on the same deployment. `[DOCUMENT]` creator's description, this session.
@@ -144,6 +146,7 @@ Deferred — no benchmark was relevant to the architecture decisions this sessio
 | R36 | Every good at every system resolves every turn, including goods with no offers, because the price still moves (R35) and Wholesalers may act on the new price (R37). The first initiative player orders the whole queue (R25). | game rules, phase engine | `[DOCUMENT]` creator's answers, 2026-10-29 | active | unknown | creator approval | creator | none (refines R25) |
 | R37 | After a good's price changes (R35), each Wholesaler of that good at that system who placed no offer for it there, and the Dictator even if they did, may buy or sell up to 5 u at the new price, capped by money and cargo. These trades don't move the price. | economy, game rules | `[DOCUMENT]` creator's answers, 2026-10-29 | active | revisit once Q04 is answered | creator approval | creator | R11 (Wholesaler part; was 6 u regardless of offers) |
 | R38 | At most one player is Dictator of a good at a system. When that good resolves, after all offers are disclosed and before the roll, the Dictator may place one offer for it (R33), or pass. A Dictator can't place an offer for that good at that system during Bidding: the Bidding form blocks it, so a player who forgot they hold the position can't end up with a stray offer. Their offer is always made here. It joins the pool with no trump: it needs a favourable counter or an attractive price like any other offer (R34). How a player becomes Dictator is open (Q04). | economy, game rules | `[DOCUMENT]` creator's answers, 2026-10-29 | active | revisit once Q04 is answered | creator approval | creator | R11 (Dictator part; was an automatic trump) |
+| R39 | A game lasts 20 turns and ends after turn 20's Trading. The player with the most money wins: cash only, so ships, factories, warehouses and goods count for nothing. At the end every player's final money is shown to all, the one exception to R29. Players tied on money share the win. | game rules | `[DOCUMENT]` creator's answer, 2026-10-29 (tie-sharing and the end reveal are proposed defaults) | active | revisit after the first full playtest | creator approval | creator | none |
 
 ## Non-goals
 

@@ -22,6 +22,7 @@ These IDs are fixed and shared by E03–E05. Acceptance criteria, review comment
 | s06 | Loading game | — | E03 |
 | s07 | Not a player in this game | — | E03 (mirrors E02-S04's `403`) |
 | s08 | Unknown screen | any other fragment | E03 |
+| s09 | Game over — final money and winner | — | E05 (not in the prototype yet) |
 
 A top bar on s01–s04 shows turn number, phase (with its state), your money (R29) and, after Bidding, initiative order. A "couldn't refresh" notice can appear on s01–s04.
 
@@ -31,7 +32,7 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 
 ### E03-S01 — A game runs turns of three phases
 
-1. [s01–s04 top bar] [N06, R04] A game is always in one turn (numbered from 1) and one phase: Bidding → Ship-jumps → Trading, then the next turn's Bidding.
+1. [s01–s04 top bar] [N06, R04, R39] A game is always in one turn, shown as "Turn 4 of 20", and one phase: Bidding → Ship-jumps → Trading, then the next turn's Bidding.
 2. [—] [D09] No phase or step has a deadline and nobody is auto-skipped. The game waits for every player.
 3. [—] [R17, D09] Bidding closes the moment the last player signals done.
 4. [—] [A04] An action that reaches the server on the same instant Bidding closes (the last "done") is either applied or rejected, never applied twice or lost silently; the player is told which (see S03-7).
@@ -134,4 +135,4 @@ D05 resume (Later); R06 confidential info trading; factory production (R32, bloc
 
 ## Screens without a criterion in this spec
 
-s03 and s05 (E05 and E04).
+s03 and s09 (E05), s05 (E04).
