@@ -42,7 +42,7 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
-val checkTokens by tasks.registering(Exec::class) {
+val checkTokens = tasks.register<Exec>("checkTokens") {
 	description = "Fails when a color literal appears in the static frontend outside css/tokens.css."
 	group = "verification"
 	inputs.dir("src/main/resources/static")
