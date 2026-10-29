@@ -1,7 +1,7 @@
 # E05 — Trading phase and resolution (#11)
 
 **Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-015/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09; 015 shows the counter resolution, Dictator and Wholesaler steps, R34–R38). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor. 
-**Brief:** `.ai/specs/product-brief.md` — R10, R12, R15, R16, R23, R25, R28, R29, R33, R34–R38, D07, D09.
+**Brief:** `.ai/specs/product-brief.md` — R10, R12, R15, R16, R23, R25, R28, R29, R33, R34–R43, D07, D09, D10.
 **Siblings:** E03 Bidding (`2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`).
 
 ## 📝 TLDR
@@ -71,8 +71,8 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 
 1. [s03] [R34] The trader whose turn it is sees: amount pre-filled with max; a whole number 1..max, else inline error "Enter a whole number from 1 to {max}." with focus. Help: "You pay your offer price, {price} HT each. Trading more leaves less for others."
 2. [—] [R12] A buy's max is first reduced to what you can afford.
-3. [—] [R10, R23] A sell is capped by what your ship(s) at that system hold. Blocked on Q03 (warehouses).
-4. [—] [R16, R23] Bought goods go into your ship(s) at that system; anything that doesn't fit, or everything if you have no ship there, is lost. Before confirming: "Only {n} u fit in your ships here; the rest will be lost." (proposed).
+3. [s03] [R42] With the amount, you choose which of your ships at that system loads or unloads, and may split the amount across them. A sell is capped by what those ships hold of that good (R10).
+4. [s03] [R42, R16, R23] POLY and ISO take one cargo space per unit, 10 per ship; CHIPS and FOOD take none. Bulky units beyond the chosen ships' free space are lost; with no ship there, everything bought is lost. Before confirming: "Only {n} u fit in the ships you chose; the rest will be lost."
 5. [—] If the max after R12/R10 is 0, the trader is shown why ("You can't afford any units at 15 HT") and their offer is done with no units traded (proposed).
 6. [s03, s04] [R25] Each trade is public: "{corp} {bought | sold} {n} u at {price} HT each".
 7. [s01 top bar] [R29] Your money updates; nobody else sees it.
@@ -82,14 +82,17 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 1. [—] [R35] New price = start price + modifier(final counter), clamped to 1–20 HT.
 2. [s03, s04] "{good} price at {system}: {a} → {b} HT" — shown and logged even when nobody traded.
 3. [s01, s02] The map and s02 show the new price and market label right after.
-4. [—] [R37] Then each Wholesaler of that good at that system who placed no offer for it, and the Dictator, is asked: "Buy or sell up to 5 u at {b} HT?" — capped by money and cargo (R12, R16, R23); "Pass" is always possible.
+4. [—] [R37] Then each Wholesaler of that good at that system who placed no offer for it, and the Dictator, is asked: "Buy or sell up to 5 u at {b} HT?" — choosing ships as in S04-3, capped by money and cargo (R12, R42); "Pass" is always possible.
 5. [—] [R37] Wholesale trades don't move the price. They're public and logged: "{corp} (Wholesaler) bought 3 u at 10 HT".
 6. [—] Order when several are asked: initiative order (proposed).
 
-### E05-S06 — Market positions
+### E05-S06 — Trading 6 or more units can raise your market position
 
-1. [s02] [R28] Positions are shown per good: Dictator, Wholesaler, Retailer.
-2. [—] [R10, Q04] A trade updates the trader's tier. How tiers are earned is Q04 — **blocked**. S02 and S05 can ship against fixed tiers first.
+1. [s02] [R28] Positions are shown per good at each system: Dictator, Wholesaler, Retailer. Everyone starts with none (R40).
+2. [—] [R43] After a trade of at least 6 units of a good at a system (one offer's trade, not summed across a resolution), roll 2d6. If the roll is ≤ the units traded, the trader moves up one tier for that good at that system: none → Retailer → Wholesaler → Dictator.
+3. [—] [R43] A Dictator can't go higher. A Wholesaler who becomes Dictator demotes the previous Dictator to Wholesaler. Positions never drop any other way.
+4. [s03, s04] The roll and its outcome are public: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis" / "rolled 9: no change".
+5. [—] A promotion takes effect at once, so a new Wholesaler or Dictator can use it in the wholesale step of the same resolution (proposed).
 
 ### E05-S07 — The turn ends
 
@@ -122,26 +125,28 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 | Wholesaler asked (you / someone else) | s03 | S05-4 | yes (rev 015) |
 | Can't afford anything / nothing to sell | s03 | S04-5 | **no** |
 | Goods lost (overflow or no ship) | s03 | S04-4 | **no** |
+| Choosing which ships load or unload | s03 | S04-3 | **no** |
+| Position roll after 6+ units (promoted / no change / Dictator demoted) | s03, s04 | S06 | **no** |
 | Someone the game waits for is away | s03 | S01-8 (D09) | yes |
 | Turn ends | s03 | S07 | yes |
 | Game over | s09 | S08 | **no** — not in the prototype yet |
 
 ## 📝 Decisions in play
 
-R34 (counter resolution), R35 (price change, S/D fixed), R36 (every good every turn), R37 (Wholesalers), R38 (Dictator), R12/R16/R23/R10 (caps), R15 (saturation), R25 (ordering), R28 (positions shown), R29 (money private), R33, R39 (end of game), D07, D09, Q03, Q04, Q06.
+R34 (counter resolution), R35 (price change, S/D fixed), R36 (every good every turn), R37 (Wholesalers), R38 (Dictator), R12/R16/R23/R10/R42 (caps and cargo), R15 (saturation), R25 (ordering), R28 (positions shown), R29 (money private), R33, R39 (end of game), R42 (cargo), R43 (position gain), D07, D09, D10.
 
 ## ❓ Open questions
 
-None in this spec. Q03 (cargo and warehouses) and Q04 (how positions are earned) in the brief still block S04-3 and S06.
+None in this spec.
 
 ## 🚫 Out of scope
 
-Computing tiers (Q04); warehouses as cargo source and factory output (Q03, R32); loans and reputation (N05). End of game is S08 (R39).
+Warehouses and factories (N08); loans and reputation (N05). End of game is S08 (R39).
 
 ## 📋 Phasing and dependencies
 
 - Depends on E03 (offers, initiative) and E04 (ship positions).
-- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S08 → S06. Revision 015 covers the S02–S05 screens.
+- Order: S01 + S03 + S04 → S05 → S06 (positions) → S02 (Dictator) → S07 → S08. Revision 015 covers the S02–S05 screens.
 - Existing code: `SDCalculator` and the target-indicator math in `TransactionAmountCalculator` stay. `BestOfferCalculator` and `TradeDesk.resolve` assume one winner and must become the counter loop (R34). Today they also throw when the winning side has no offers (`reduce` on an empty list). Tie-break by submission order (`TradeOffer.initiative`) is replaced by turn initiative order.
 
 ## Screens without a criterion in this spec
