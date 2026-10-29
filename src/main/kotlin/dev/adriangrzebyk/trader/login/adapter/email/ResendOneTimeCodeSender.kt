@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import java.time.Duration
 
 /**
  * Emails the one-time code through Resend (https://resend.com).
@@ -31,7 +33,7 @@ class ResendOneTimeCodeSender internal constructor(
 		@Value("\${star-trader.email.resend.api-key:}") apiKey: String,
 		@Value("\${star-trader.email.resend.from:}") from: String,
 		@Value("#{environment.matchesProfiles('prod')}") production: Boolean,
-	) : this(apiKey, from, production, RestClient.builder())
+	) : this(apiKey, from, production, RestClient.builder().requestFactory(timeoutRequestFactory()))
 
 	private val log = LoggerFactory.getLogger(ResendOneTimeCodeSender::class.java)
 
@@ -78,5 +80,11 @@ class ResendOneTimeCodeSender internal constructor(
 	companion object {
 		private const val RESEND_API_URL = "https://api.resend.com"
 		private const val SUBJECT = "Your Star Trader sign-in code"
+
+		/** A hung Resend call must not hold the request-code thread forever. */
+		private fun timeoutRequestFactory() = SimpleClientHttpRequestFactory().apply {
+			setConnectTimeout(Duration.ofSeconds(5))
+			setReadTimeout(Duration.ofSeconds(10))
+		}
 	}
 }
