@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Star Trader &mdash; Design System</title>
+	<link rel="stylesheet" href="css/fonts.css">
+	<link rel="stylesheet" href="css/tokens.css">
+	<link rel="stylesheet" href="css/components.css">
+	<style>
+		/* Page layout only. Everything shown below uses the shared classes from components.css. */
+		body { padding: var(--space-section) var(--space-panel); }
+		.page { max-width: 1100px; margin: 0 auto; display: grid; gap: var(--space-section); }
+		.page > header p { color: var(--text-muted); max-width: 65ch; margin: var(--space-group) 0 0; }
+		section > h2 { font-size: var(--text-title); margin-bottom: var(--space-hairline); }
+		section > .intro { color: var(--text-muted); max-width: 65ch; margin: 0 0 var(--space-panel); }
+		.grid { display: grid; gap: var(--space-panel); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+		.row { display: flex; flex-wrap: wrap; gap: var(--space-panel); align-items: center; }
+		.swatch { display: grid; gap: var(--space-hairline); }
+		.swatch__chip {
+			height: 48px;
+			border: var(--border-width) solid var(--border-subtle);
+			border-radius: var(--radius-control);
+		}
+		.swatch code, .caption { color: var(--text-muted); font-size: var(--text-caption); }
+		.state { display: grid; gap: var(--space-hairline); justify-items: start; }
+		.space-bar { height: 12px; background: var(--accent-selected); }
+		.glow-sample {
+			width: 96px; height: 40px;
+			border: var(--border-width) solid var(--border-control);
+			border-radius: var(--radius-control);
+		}
+		.pass { color: var(--status-live); }
+		.fail { color: var(--status-danger); }
+		.table-wrap { overflow-x: auto; }
+	</style>
+</head>
+<body>
+<div class="page">
+	<header>
+		<h1 style="font-size: var(--text-display)">Design system</h1>
+		<p>Every value on this page is read live from <code>css/tokens.css</code>, and every component uses the
+			same classes as the game screens (<code>css/components.css</code>). Rules and rationale:
+			<code>docs/design-system.md</code>. Character: control-deck, instrumented, luminous, legible, spatial.</p>
+	</header>
+
+	<!-- ── Color ── -->
+	<section>
+		<h2>Color</h2>
+		<p class="intro">Semantic tokens only. Color marks meaning and always comes with text or a number (WCAG 1.4.1).</p>
+		<div class="grid" id="swatches"></div>
+	</section>
+
+	<section>
+		<h2>Contrast, measured from saved values</h2>
+		<p class="intro">Computed in your browser from the resolved CSS variables. Text needs 4.5:1, control borders 3:1 (WCAG 1.4.3, 1.4.11).</p>
+		<div class="table-wrap"><table class="data-table" id="contrast"></table></div>
+	</section>
+
+	<!-- ── Type ── -->
+	<section>
+		<h2>Typography</h2>
+		<p class="intro">Orbitron for titles, badges and numerals; Rajdhani for body and labels (R01.2). Nothing below 12 px.</p>
+		<div class="panel" style="display: grid; gap: var(--space-related)">
+			<div style="font-family: var(--font-display); font-size: var(--text-display)">Cycle 12 <span class="caption">display · 32</span></div>
+			<div style="font-family: var(--font-display); font-size: var(--text-heading)">Command Deck <span class="caption">heading · 24</span></div>
+			<div style="font-family: var(--font-display); font-size: var(--text-title)">Tau Ceti <span class="caption">title · 20</span></div>
+			<div style="font-size: var(--text-value)">Price 6 HT · S/D −10 <span class="caption">value · 16</span></div>
+			<div style="font-size: var(--text-body)">Your offers stay hidden from other players until Trading resolves them. <span class="caption">body · 14</span></div>
+			<div style="font-size: var(--text-caption); color: var(--text-muted)">Submitted in Bidding, cycle 12 <span class="caption">caption · 12</span></div>
+		</div>
+	</section>
+
+	<!-- ── Spacing ── -->
+	<section>
+		<h2>Spacing</h2>
+		<p class="intro">Pick by relationship, not by size.</p>
+		<div class="panel" id="spacing" style="display: grid; gap: var(--space-group)"></div>
+	</section>
+
+	<!-- ── Shape, glow, motion ── -->
+	<section>
+		<h2>Shape, glow and motion</h2>
+		<p class="intro">Radius 4 on controls, 8 on panels. Glow marks meaning only (selected, live, danger) and never animates on its
+			own (R01.1, A04). Hover glow transitions in 150 ms; reduced motion turns it off.</p>
+		<div class="row">
+			<div class="state"><div class="glow-sample" style="box-shadow: var(--glow-selected)"></div><span class="caption">glow-selected</span></div>
+			<div class="state"><div class="glow-sample" style="box-shadow: var(--glow-live)"></div><span class="caption">glow-live</span></div>
+			<div class="state"><div class="glow-sample" style="box-shadow: var(--glow-danger)"></div><span class="caption">glow-danger</span></div>
+			<div class="state"><div class="glow-sample" id="flash-target"></div><button class="btn" type="button" id="flash-btn">Play poll flash</button></div>
+		</div>
+	</section>
+
+	<!-- ── Components ── -->
+	<section>
+		<h2>Button</h2>
+		<p class="intro">One primary action per panel. Hover and focus are frozen previews of the real states.</p>
+		<div class="row">
+			<div class="state"><button class="btn" type="button">Submit offer</button><span class="caption">default</span></div>
+			<div class="state"><button class="btn" type="button" data-preview-state="hover">Submit offer</button><span class="caption">hover</span></div>
+			<div class="state"><button class="btn" type="button" data-preview-state="focus">Submit offer</button><span class="caption">focus</span></div>
+			<div class="state"><button class="btn" type="button" disabled>Submit offer</button><span class="caption">disabled — say why next to it</span></div>
+		</div>
+	</section>
+
+	<section>
+		<h2>Form controls</h2>
+		<div class="grid">
+			<div class="state" style="justify-items: stretch">
+				<label class="field-label" for="ds-system">Star system</label>
+				<select class="control" id="ds-system"><option>Tau Ceti</option><option>Gamma Leporis</option><option>Epsilon Eridani</option></select>
+				<span class="caption">default</span>
+			</div>
+			<div class="state" style="justify-items: stretch">
+				<label class="field-label" for="ds-hover">Price</label>
+				<input class="control" id="ds-hover" value="6" data-preview-state="hover">
+				<span class="caption">hover</span>
+			</div>
+			<div class="state" style="justify-items: stretch">
+				<label class="field-label" for="ds-focus">Price</label>
+				<input class="control" id="ds-focus" value="6" data-preview-state="focus">
+				<span class="caption">focus</span>
+			</div>
+			<div class="state" style="justify-items: stretch">
+				<label class="field-label" for="ds-error">Price</label>
+				<input class="control" id="ds-error" value="25" aria-invalid="true" aria-describedby="ds-error-msg">
+				<span class="message message--error" id="ds-error-msg">Price must be 1–20.</span>
+			</div>
+		</div>
+		<div style="margin-top: var(--space-panel); max-width: 320px">
+			<span class="field-label" id="ds-type">Offer type</span>
+			<div class="row" role="radiogroup" aria-labelledby="ds-type" style="gap: var(--space-group)">
+				<label class="choice" style="flex: 1"><input type="radio" name="ds-type" checked> BUY</label>
+				<label class="choice" style="flex: 1"><input type="radio" name="ds-type"> SELL</label>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<h2>Navigation</h2>
+		<div class="row">
+			<a class="nav-item" href="#">Fleet</a>
+			<a class="nav-item" href="#" data-preview-state="hover">Market</a>
+			<a class="nav-item" href="#" aria-current="page">Deck</a>
+		</div>
+		<p class="caption">default · hover · current page (accent + glow)</p>
+	</section>
+
+	<section>
+		<h2>Status badge</h2>
+		<p class="intro">Text always says the status; color supports it.</p>
+		<div class="row">
+			<span class="badge badge--live">Your turn</span>
+			<span class="badge badge--warn">Waiting</span>
+			<span class="badge badge--danger">Outbid</span>
+		</div>
+	</section>
+
+	<section>
+		<h2>Cargo meter</h2>
+		<p class="intro">Used / capacity plus a thin bar (R01.3).</p>
+		<div class="grid">
+			<div class="panel cargo-meter">
+				<div class="cargo-meter__head"><span class="cargo-meter__label">Cargo</span><span class="num">2,100 / 3,000 u</span></div>
+				<div class="cargo-meter__bar"><span class="cargo-meter__fill" style="--fill: 70%"></span></div>
+			</div>
+			<div class="panel cargo-meter">
+				<div class="cargo-meter__head"><span class="cargo-meter__label">Cargo</span><span class="num">0 / 3,000 u</span></div>
+				<div class="cargo-meter__bar"><span class="cargo-meter__fill" style="--fill: 0%"></span></div>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<h2>Own offers table</h2>
+		<p class="intro">Color only in the Type and Goods columns (R04.1). Only your own offers are ever listed (A03).</p>
+		<div class="panel table-wrap">
+			<table class="data-table">
+				<thead><tr><th>System</th><th>Goods</th><th class="num">Price</th><th>Type</th><th>Status</th></tr></thead>
+				<tbody>
+				<tr><td>Tau Ceti</td><td class="good good--poly">POLY</td><td class="num">6</td><td class="trade trade--buy">Buy</td><td><span class="badge badge--warn">Waiting</span></td></tr>
+				<tr><td>Tau Ceti</td><td class="good good--iso">ISO</td><td class="num">4</td><td class="trade trade--sell">Sell</td><td><span class="badge badge--danger">Outbid</span></td></tr>
+				<tr><td>Gamma Leporis</td><td class="good good--food">FOOD</td><td class="num">3</td><td class="trade trade--buy">Buy</td><td><span class="badge badge--live">Won</span></td></tr>
+				<tr><td>Epsilon Eridani</td><td class="good good--chips">CHIPS</td><td class="num">11</td><td class="trade trade--sell">Sell</td><td><span class="badge badge--warn">Waiting</span></td></tr>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<!-- ── S/D: stepped by buy chance (Gap 1, decided 2026-10-28) ── -->
+	<section>
+		<h2>S/D indicator</h2>
+		<p class="intro">Color follows the buy chance on 2d6 (roll + indicator ≥ 0), never fixed indicator endpoints (R03.5,
+			conflict 48). Four steps: easy, fair, hard, bad. The number always stays visible.</p>
+		<div class="panel table-wrap">
+			<table class="data-table" id="sd-ladder"></table>
+		</div>
+	</section>
+
+	<section>
+		<h2>S/D on the live market</h2>
+		<p class="intro">Real systems and indicators from <code>/api/options</code>.</p>
+		<div class="panel table-wrap" id="sd-live"><p class="empty">Loading market&hellip;</p></div>
+	</section>
+</div>
+
+<script>
+	const css = getComputedStyle(document.documentElement);
+	const token = name => css.getPropertyValue(name).trim();
+
+	// ── Swatches ──
+	const swatchTokens = [
+		'surface-page', 'surface-panel', 'surface-raised', 'border-subtle', 'border-control',
+		'text-primary', 'text-muted', 'accent-selected', 'status-live', 'status-warn', 'status-danger',
+		'trade-buy', 'trade-sell', 'good-poly', 'good-chips', 'good-food', 'good-iso',
+		'sd-easy', 'sd-fair', 'sd-hard', 'sd-bad',
+	];
+	document.getElementById('swatches').innerHTML = swatchTokens.map(t => `
+		<div class="swatch">
+			<div class="swatch__chip" style="background: var(--${t})"></div>
+			<span>${t}</span><code>${token('--' + t) || ''}</code>
+		</div>`).join('');
+
+	// ── Contrast (WCAG relative luminance) ──
+	const probe = document.createElement('span');
+	document.body.appendChild(probe);
+	function channels(varName) {
+		probe.style.color = `var(${varName})`;
+		return getComputedStyle(probe).color.match(/[\d.]+/g).slice(0, 3).map(Number);
+	}
+	function luminance([r, g, b]) {
+		const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+		return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+	}
+	function ratio(fg, bg) {
+		const [a, b] = [luminance(channels(fg)), luminance(channels(bg))].sort((x, y) => y - x);
+		return (a + 0.05) / (b + 0.05);
+	}
+	const surfaces = ['--surface-page', '--surface-panel', '--surface-raised'];
+	const pairs = [
+		['--text-primary', 4.5], ['--text-muted', 4.5], ['--accent-selected', 4.5],
+		['--status-live', 4.5], ['--status-warn', 4.5], ['--status-danger', 4.5], ['--sd-hard', 4.5],
+		['--good-poly', 4.5], ['--good-chips', 4.5], ['--good-food', 4.5], ['--good-iso', 4.5],
+		['--border-control', 3], ['--border-subtle', 3],
+	];
+	const cell = (fg, bg, min) => {
+		const r = ratio(fg, bg);
+		return `<td class="num ${r >= min ? 'pass' : 'fail'}">${r.toFixed(1)}${r >= min ? '' : ' ✕'}</td>`;
+	};
+	document.getElementById('contrast').innerHTML = `
+		<thead><tr><th>Foreground</th><th class="num">Needs</th>${surfaces.map(s => `<th class="num">on ${s.slice(10)}</th>`).join('')}</tr></thead>
+		<tbody>
+			${pairs.map(([fg, min]) => `<tr><td>${fg.slice(2)}</td><td class="num">${min}:1</td>${surfaces.map(s => cell(fg, s, min)).join('')}</tr>`).join('')}
+			<tr><td>text-on-accent on accent-selected</td><td class="num">4.5:1</td>${cell('--text-on-accent', '--accent-selected', 4.5)}<td></td><td></td></tr>
+		</tbody>`;
+	probe.remove();
+
+	// ── Spacing ──
+	const spacing = [
+		['space-hairline', 'icon to text, badge padding'],
+		['space-group', 'within a group: label and value'],
+		['space-related', 'rows in a list'],
+		['space-panel', 'inside a panel'],
+		['space-between-groups', 'between groups'],
+		['space-section', 'between sections'],
+		['space-screen', 'screen margins'],
+	];
+	document.getElementById('spacing').innerHTML = spacing.map(([t, use]) => `
+		<div class="row" style="gap: var(--space-related)">
+			<div class="space-bar" style="width: var(--${t})"></div>
+			<span>${t} <span class="caption">${token('--' + t)} · ${use}</span></span>
+		</div>`).join('');
+
+	// ── Poll flash demo ──
+	document.getElementById('flash-btn').addEventListener('click', () => {
+		const el = document.getElementById('flash-target');
+		el.classList.remove('flash');
+		void el.offsetWidth;
+		el.classList.add('flash');
+	});
+
+	// ── S/D: buy chance on 2d6, roll + indicator ≥ 0 ──
+	function buyChance(indicator) {
+		let ways = 0;
+		for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + indicator >= 0) ways++;
+		return ways / 36;
+	}
+	// Step boundaries fall between the discrete 2d6 outcomes, so 97.2% is easy, 72.2% fair, 41.7% hard, 27.8% bad (tokens.md).
+	function step(chance) {
+		if (chance >= 0.95) return 'easy';
+		if (chance >= 0.70) return 'fair';
+		if (chance >= 0.40) return 'hard';
+		return 'bad';
+	}
+	const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+	const sdCells = indicator => {
+		const c = buyChance(indicator);
+		return `
+			<td class="num">${Math.round(c * 100)}%</td>
+			<td><span class="sd-value" data-step="${step(c)}">S/D ${signed(indicator)}</span> <span class="caption">${step(c)}</span></td>`;
+	};
+	const ladder = [];
+	for (let i = 1; i >= -12; i--) ladder.push(i);
+	document.getElementById('sd-ladder').innerHTML = `
+		<thead><tr><th class="num">Indicator</th><th class="num">Buy chance</th><th>S/D</th></tr></thead>
+		<tbody>${ladder.map(i => `<tr><td class="num">${signed(i)}</td>${sdCells(i)}</tr>`).join('')}</tbody>`;
+
+	(async function loadLiveMarket() {
+		const target = document.getElementById('sd-live');
+		try {
+			const response = await fetch('/api/options');
+			if (!response.ok) throw new Error(`status ${response.status}`);
+			const { starSystems } = await response.json();
+			const rows = starSystems.flatMap(s => s.market.map(m => `
+				<tr><td>${s.displayName}</td><td class="good good--${m.goods.toLowerCase()}">${m.goods}</td>
+				<td class="num">${m.price} HT</td>${sdCells(m.indicator)}</tr>`));
+			target.innerHTML = `<table class="data-table">
+				<thead><tr><th>System</th><th>Goods</th><th class="num">Price</th><th class="num">Buy chance</th><th>S/D</th></tr></thead>
+				<tbody>${rows.join('')}</tbody></table>`;
+		} catch (err) {
+			target.innerHTML = `<p class="empty">Live market unavailable (${err.message}). Run the app with <code>./gradlew bootRun</code>.</p>`;
+		}
+	})();
+</script>
+</body>
+</html>

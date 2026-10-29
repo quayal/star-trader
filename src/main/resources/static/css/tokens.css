@@ -1,0 +1,117 @@
+/*
+ * Star Trader design tokens — the only file allowed to contain color literals
+ * (enforced by scripts/check-tokens.sh). Source of truth: .ai/specs/tokens.md.
+ * Dark theme only (tokens.md). "pick" = best judgement, expected to change once mockups exist.
+ */
+
+:root {
+	color-scheme: dark;
+
+	/* ── Layer 1: raw values. Use only inside this file. ── */
+	--navy-950: #05070c;
+	--navy-900: #0e1525;
+	--navy-800: #16203a;
+	--slate-500: #5f6f90;
+	--slate-700: #2a3550;
+	--ink-100: #e6edf7;
+	--ink-400: #8fa0bd;
+	--cyan-400: #22d3ee;
+	--green-400: #34d399;
+	--amber-400: #fbbf24;
+	--orange-400: #fb923c;
+	--red-400: #f87171;
+	--blue-400: #4d8dff;
+	--pink-400: #f472b6;
+	--lime-400: #a3e635;
+	--violet-400: #a78bfa;
+
+	/* ── Layer 2: semantic. Components use only these. ── */
+
+	/* Surfaces */
+	--surface-page: var(--navy-950);        /* R01.1 — app background */
+	--surface-panel: var(--navy-900);       /* R01.1 — panels, cards, tables */
+	--surface-raised: var(--navy-800);      /* pick — hover, selected row; never the default state */
+
+	/* Borders */
+	--border-subtle: var(--slate-700);      /* R01.1 — decorative only (1.3–1.7:1, below 3:1) */
+	--border-control: var(--slate-500);     /* pick (contrast fix) — inputs, buttons, unselected nodes */
+
+	/* Text */
+	--text-primary: var(--ink-100);         /* pick — values, headings */
+	--text-muted: var(--ink-400);           /* pick — labels, timestamps */
+	--text-on-accent: var(--navy-950);      /* pick — text on a cyan button */
+
+	/* Accent and status */
+	--accent-selected: var(--cyan-400);     /* R01.1 — selected nav, primary button, selected node/row; never decoration (A02) */
+	--status-live: var(--green-400);        /* R01.1 — live / active / your turn */
+	--status-warn: var(--amber-400);        /* R01.1 — waiting, pending */
+	--status-danger: var(--red-400);        /* R01.1 — outbid, error */
+
+	/* Trading: Buy/Sell column tint only (R04.1) */
+	--trade-buy: var(--green-400);          /* R04.1 */
+	--trade-sell: var(--red-400);           /* R04.1 */
+
+	/* Goods: goods column and goods icons only (R04.1, conflict 49) */
+	--good-poly: var(--blue-400);           /* R04.1 (lighter than "dark blue" for contrast, tokens.md flag 2) */
+	--good-chips: var(--pink-400);          /* R04.1 */
+	--good-food: var(--lime-400);           /* R04.1 */
+	--good-iso: var(--violet-400);          /* R04.1 */
+
+	/* S/D scale, stepped by buy chance (R03.5; stepped chosen by the creator 2026-10-28, Gap 1). Only on the S/D value. */
+	--sd-easy: var(--green-400);            /* R03.5 — buy chance ≥ 97% */
+	--sd-fair: var(--amber-400);            /* R03.5 — buy chance 72–92% */
+	--sd-hard: var(--orange-400);           /* R03.5 — buy chance 42–58% */
+	--sd-bad: var(--red-400);               /* R03.5 — buy chance ≤ 28% */
+
+	/* Typography (R01.2; 12 px floor) */
+	--font-display: 'Orbitron', sans-serif; /* R01.2 — titles, badges, numerals; not body text */
+	--font-body: 'Rajdhani', sans-serif;    /* R01.2 — body and labels */
+	--text-caption: 12px;                   /* R01.2 floor */
+	--text-body: 14px;
+	--text-value: 16px;
+	--text-title: 20px;
+	--text-heading: 24px;
+	--text-display: 32px;
+
+	/* Spacing (scale 4, 8, 12, 16, 24, 32, 48) */
+	--space-hairline: 4px;                  /* pick — tight inline gaps (icon to text, badge padding) */
+	--space-group: 8px;                     /* within a group (label and value) */
+	--space-related: 12px;                  /* rows in a list */
+	--space-panel: 16px;                    /* inside a panel */
+	--space-between-groups: 24px;           /* between groups */
+	--space-section: 32px;                  /* between sections */
+	--space-screen: 48px;                   /* screen margins */
+
+	/* Shape (pick, no reference) */
+	--radius-control: 4px;
+	--radius-panel: 8px;
+	--border-width: 1px;                    /* R01.1 — 1 px borders */
+	--focus-ring-width: 2px;                /* pick — WCAG 2.4.7 focus visible */
+
+	/* Glow: static, meaning only (R01.1, A04) */
+	--glow-selected: 0 0 8px color-mix(in srgb, var(--cyan-400) 50%, transparent);
+	--glow-live: 0 0 8px color-mix(in srgb, var(--green-400) 50%, transparent);
+	--glow-danger: 0 0 8px color-mix(in srgb, var(--red-400) 50%, transparent);
+
+	/* Tints for colored cells (R04.1 Buy/Sell column) — pick: 15% over the surface */
+	--tint-buy: color-mix(in srgb, var(--trade-buy) 15%, transparent);
+	--tint-sell: color-mix(in srgb, var(--trade-sell) 15%, transparent);
+
+	/* Motion (A04, Gap 1) */
+	--duration-hover: 150ms;                /* hover glow transition */
+	--duration-flash: 600ms;                /* one flash when a poll changes a value; never loops */
+
+	/* ── Layer 3: component tokens (only those tokens.md defines) ── */
+	--node-ship-marker-own: var(--accent-selected);
+	--node-ship-marker-other: var(--text-muted);
+	--edge-line: var(--border-control);     /* ease-of-jump scale later (Gap 4) */
+	--badge-status-font: var(--font-display);
+	--badge-status-size: var(--text-caption);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-hover: 0ms;
+		--duration-flash: 0ms;
+	}
+}

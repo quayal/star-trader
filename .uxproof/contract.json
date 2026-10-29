@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "framework": "unknown",
+  "frameworkNote": "Static HTML pages served by Spring Boot from src/main/resources/static; no JS build, no component framework (brief R05, N03).",
+  "extraction": "manual (npx uxproof extractor not run: remote code execution not permitted in this session)",
+  "styling": {
+    "system": "css",
+    "tokenSources": [
+      {
+        "file": "src/main/resources/static/css/tokens.css",
+        "tokenCount": 69
+      }
+    ],
+    "sharedStylesheets": [
+      "src/main/resources/static/css/fonts.css",
+      "src/main/resources/static/css/tokens.css",
+      "src/main/resources/static/css/components.css"
+    ],
+    "enforcement": "scripts/check-tokens.sh via ./gradlew check: no color literals outside tokens.css"
+  },
+  "componentRoots": [
+    {
+      "dir": "src/main/resources/static/css",
+      "fileCount": 1,
+      "note": "components are CSS classes in components.css"
+    }
+  ],
+  "nativeEquivalents": [
+    {
+      "element": "button",
+      "component": ".btn"
+    },
+    {
+      "element": "input",
+      "component": ".control"
+    },
+    {
+      "element": "select",
+      "component": ".control"
+    },
+    {
+      "element": "label",
+      "component": ".field-label"
+    },
+    {
+      "element": "a (inline)",
+      "component": ".link"
+    },
+    {
+      "element": "a (navigation)",
+      "component": ".nav-item"
+    },
+    {
+      "element": "table",
+      "component": ".data-table"
+    },
+    {
+      "element": "input[type=radio]",
+      "component": ".choice"
+    }
+  ],
+  "archetypes": [
+    {
+      "kind": "dashboard",
+      "count": 1,
+      "examples": [
+        "src/main/resources/static/index.html"
+      ]
+    },
+    {
+      "kind": "form-with-list",
+      "count": 1,
+      "examples": [
+        "src/main/resources/static/trade-offers.html"
+      ]
+    },
+    {
+      "kind": "design-reference",
+      "count": 1,
+      "examples": [
+        "src/main/resources/static/design-system.html"
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "path": "design/mockups/",
+      "reason": "early exploratory mockups with raw hex and CDN fonts; superseded by reference.md + tokens.css, kept as history"
+    }
+  ],
+  "counts": {
+    "tokens": 69,
+    "colorTokens": 18,
+    "components": 16
+  }
+}
