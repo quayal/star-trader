@@ -1,6 +1,6 @@
 # E05 — Trading phase and resolution (#11)
 
-**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor. **The prototype still shows single-winner trades.** The counter resolution, Dictator and Wholesaler steps (R34–R38) need a new revision before the screen design here is settled.
+**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-015/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09; 015 shows the counter resolution, Dictator and Wholesaler steps, R34–R38). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor. 
 **Brief:** `.ai/specs/product-brief.md` — R10, R12, R15, R16, R23, R25, R28, R29, R33, R34–R38, D07, D09.
 **Siblings:** E03 Bidding (`2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`).
 
@@ -102,15 +102,15 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 | State | Where | Covered by | In prototype? |
 |---|---|---|---|
 | Before Trading | s03 | S01-7 | yes |
-| You order the queue / someone else does | s03 | S01-3, S01-4 | yes (single-winner version) |
-| Offers disclosed | s03 | S02-1 | **no** |
-| Dictator deciding (you / someone else) | s03 | S02-2, S01-8 | **no** |
-| Several trades in one resolution | s03 | S03-3 | **no** |
-| Your amount decision, elsewhere in the app | any | S01-9, S04-1 | yes (single-winner version) |
+| You order the queue / someone else does | s03 | S01-3, S01-4 | yes |
+| Offers disclosed | s03 | S02-1 | yes (rev 015) |
+| Dictator deciding (you / someone else) | s03 | S02-2, S01-8 | yes (rev 015) |
+| Several trades in one resolution | s03 | S03-3 | yes (rev 015) |
+| Your amount decision, elsewhere in the app | any | S01-9, S04-1 | yes |
 | Amount error | s03 | S04-1 | yes |
-| No offers / nobody can trade — price still moves | s03 | S03-7, S05-2 | **no** |
-| Price clamped at 1 or 20 | s03 | S05-1 | **no** |
-| Wholesaler asked (you / someone else) | s03 | S05-4 | **no** |
+| No offers / nobody can trade — price still moves | s03 | S03-7, S05-2 | yes (rev 015) |
+| Price clamped at 1 or 20 | s03 | S05-1 | yes (rev 015, Gamma Leporis POLY) |
+| Wholesaler asked (you / someone else) | s03 | S05-4 | yes (rev 015) |
 | Can't afford anything / nothing to sell | s03 | S04-5 | **no** |
 | Goods lost (overflow or no ship) | s03 | S04-4 | **no** |
 | Someone the game waits for is away | s03 | S01-8 (D09) | yes |
@@ -134,7 +134,7 @@ Computing tiers (Q04); warehouses as cargo source and factory output (Q03, R32);
 ## 📋 Phasing and dependencies
 
 - Depends on E03 (offers, initiative) and E04 (ship positions).
-- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S06. A prototype revision for S02–S05 screens should come before building them.
+- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S06. Revision 015 covers the S02–S05 screens.
 - Existing code: `SDCalculator` and the target-indicator math in `TransactionAmountCalculator` stay. `BestOfferCalculator` and `TradeDesk.resolve` assume one winner and must become the counter loop (R34). Today they also throw when the winning side has no offers (`reduce` on an empty list). Tie-break by submission order (`TradeOffer.initiative`) is replaced by turn initiative order.
 
 ## Screens without a criterion in this spec
