@@ -130,3 +130,12 @@ Failure: `401 Unauthorized` — header missing, malformed, or the token doesn't 
 8. Add `login/adapter/web/LoginDtos.kt` additions (`ExchangeCodeRequestDto`, `SessionTokenResponseDto`, `SessionResponseDto`) and extend `login/adapter/web/LoginController.kt`: `POST /api/login/exchange-code` (validates non-blank `email`/`code` → `400`; calls `CodeExchangeService`, mapping `InvalidCodeExchangeException` → `401` via `ResponseStatusException`; success → `200` + token) and `GET /api/login/session` (parses `Authorization: Bearer <token>` via `@RequestHeader`, missing/malformed/unknown → `401`; known token → `200` + identity).
 9. Add `login/adapter/web/LoginControllerTest.kt` cases (`@SpringBootTest`, `RestTestClient`, mirroring the existing style): request a code, then exchange it → `200` + a non-blank token; exchanging a wrong code → `401`; exchanging the same valid code twice → the second attempt is `401`; calling `GET /api/login/session` with the token from a successful exchange → `200` with the matching identity; calling it with a garbage token or no header → `401`. (The expiry case itself is covered precisely by Step 7's `FakeClock`-driven domain test, per engineering standards §7 — the Spring-context test is kept to wiring and the cases that need a real HTTP round trip.)
 10. Run `./gradlew build` as the gate.
+
+## 📝 Implementation notes (added when shipped, PR #54)
+
+What shipped differs from the design above in these ways. The text above is left as planned:
+
+- **`StoredCode` also keeps the requester's `playerName` and `corporationName`.** `Session` needs them, but the exchange only receives an email and a code. The port is `store(email, StoredCode)`, not `store(email, code, issuedAt)`.
+- **`consume(email, code): Boolean` is compare-and-remove,** and there's a matching `replace(email, expected, updated)`. Two exchanges racing for one code start one session, not two (engineering standards §9).
+- **At most 5 attempts per code** (`OneTimeCode.MAX_ATTEMPTS`). Each attempt is counted atomically before the code is compared, and the 5th wrong one invalidates the code. Added at review: without it, a 6-digit code could be brute-forced within its 10-minute TTL. General rate limiting for the login stays in Later in the brief.
+- The 10-minute TTL that the 2026-10-28 hardening put on `InMemoryOneTimeCodeStore.CODE_TTL` moved to the domain as `OneTimeCode.TTL`.

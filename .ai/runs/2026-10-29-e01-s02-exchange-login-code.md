@@ -1,6 +1,6 @@
 # Execution plan: E01-S02 — exchange a one-time code for a session
 
-Source doc: .ai/specs/2026-10-25-e01-s02-exchange-login-code.md
+Source doc: .ai/specs/implemented/2026-10-25-e01-s02-exchange-login-code.md
 Issue: #14
 
 ## Goal
