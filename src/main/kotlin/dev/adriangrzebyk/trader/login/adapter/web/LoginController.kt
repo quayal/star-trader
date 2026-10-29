@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.login.adapter.web
 
+import dev.adriangrzebyk.trader.login.Clock
 import dev.adriangrzebyk.trader.login.InvalidLoginRequestException
 import dev.adriangrzebyk.trader.login.LoginCodeRequest
 import dev.adriangrzebyk.trader.login.LoginCodeRequestService
@@ -16,9 +17,14 @@ import org.springframework.web.server.ResponseStatusException
 
 @RestController
 @RequestMapping("/api")
-class LoginController(codeGenerator: OneTimeCodeGenerator, codeSender: OneTimeCodeSender, codeStore: OneTimeCodeStore) {
+class LoginController(
+	codeGenerator: OneTimeCodeGenerator,
+	codeSender: OneTimeCodeSender,
+	codeStore: OneTimeCodeStore,
+	clock: Clock,
+) {
 
-	private val loginCodeRequestService = LoginCodeRequestService(codeGenerator, codeSender, codeStore)
+	private val loginCodeRequestService = LoginCodeRequestService(codeGenerator, codeSender, codeStore, clock)
 
 	@PostMapping("/login/request-code")
 	fun requestCode(@RequestBody request: LoginCodeRequestDto): ResponseEntity<Void> {
