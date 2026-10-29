@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-10-29: **Clicking through a prototype finds the states you cause, not the ones that happen to you.** Writing E03–E05 specs from revision 013 with a per-screen states checklist (empty, loading, error, no access, conflict, timeout, someone else stalls) found gaps that 13 revisions of clicking hadn't: no rule for an absent player in ordered steps (pick, jump slot, Resolve next), a roll with no offers on the winning side, and no end of game. Run the checklist before turning a prototype into stories.
+
 - 2026-10-28: **Ask for a sketch before building a spatial layout from words.** "2:2:2 rows" meant a flat-topped hexagon ring, like a benzene ring, but was first built as a rectangular grid with bent edges, which cost a wasted prototype revision. When a layout is described in words (rows, ratios, "like X"), confirm the shape first with a 3-line ASCII sketch.
 
 - 2026-10-28: **`./gradlew bootRun` serves static files from `build/resources/main`, not `src/`.** Edits to `src/main/resources/static/` don't show up on refresh until `processResources` runs. Fixed in `build.gradle.kts` with `bootRun { sourceResources(sourceSets.main.get()) }`. Note that an already-running server on port 3000, perhaps started by IntelliJ, may serve a different copy.
