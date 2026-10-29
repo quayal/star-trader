@@ -13,27 +13,37 @@ class InMemoryOneTimeCodeStoreTest {
 
 	@Test
 	fun shouldReturnTheLatestCodeForAnEmail() {
-		store.store("adrian@example.com", "111111", now)
-		store.store("adrian@example.com", "222222", now.plusSeconds(1))
+		store.store("adrian@example.com", code("111111", now))
+		store.store("adrian@example.com", code("222222", now.plusSeconds(1)))
 
-		assertThat(store.codeFor("adrian@example.com")).isEqualTo(StoredCode("222222", now.plusSeconds(1)))
+		assertThat(store.codeFor("adrian@example.com")).isEqualTo(code("222222", now.plusSeconds(1)))
 	}
 
 	@Test
 	fun shouldPurgeExpiredCodesWhenStoringANewOne() {
-		store.store("old@example.com", "111111", now)
+		store.store("old@example.com", code("111111", now))
 
-		store.store("new@example.com", "222222", now.plus(OneTimeCode.TTL).plusSeconds(1))
+		store.store("new@example.com", code("222222", now.plus(OneTimeCode.TTL).plusSeconds(1)))
 
 		assertThat(store.codeFor("old@example.com")).isNull()
 	}
 
 	@Test
 	fun shouldForgetAConsumedCode() {
-		store.store("adrian@example.com", "111111", now)
+		store.store("adrian@example.com", code("111111", now))
 
-		store.consume("adrian@example.com")
-
+		assertThat(store.consume("adrian@example.com", code("111111", now))).isTrue()
 		assertThat(store.codeFor("adrian@example.com")).isNull()
 	}
+
+	@Test
+	fun shouldNotConsumeACodeThatIsNoLongerTheStoredOne() {
+		store.store("adrian@example.com", code("111111", now))
+		store.store("adrian@example.com", code("222222", now))
+
+		assertThat(store.consume("adrian@example.com", code("111111", now))).isFalse()
+		assertThat(store.codeFor("adrian@example.com")).isEqualTo(code("222222", now))
+	}
+
+	private fun code(code: String, issuedAt: Instant) = StoredCode(code, "Adrian", "Adrian Star Traders", issuedAt)
 }

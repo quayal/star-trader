@@ -22,7 +22,7 @@ class LoginCodeRequestServiceTest {
 
 		service.requestCode(request)
 
-		assertThat(codeStore.codeFor("adrian@example.com")).isEqualTo(StoredCode("483920", clock.instant))
+		assertThat(codeStore.codeFor("adrian@example.com")).isEqualTo(StoredCode("483920", "Adrian", "Adrian Star Traders", clock.instant))
 		assertThat(codeSender.sent).containsExactly(
 			FakeOneTimeCodeSender.SentCode(email = "adrian@example.com", playerName = "Adrian", code = "483920"),
 		)

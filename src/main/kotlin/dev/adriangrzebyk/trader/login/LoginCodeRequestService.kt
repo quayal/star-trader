@@ -23,7 +23,7 @@ class LoginCodeRequestService(
 		val code = codeGenerator.generate()
 		// Send first: a failed send must not invalidate the player's previous code.
 		codeSender.send(email, playerName, code)
-		codeStore.store(email, code, clock.now())
+		codeStore.store(email, StoredCode(code, playerName, request.corporationName.trim(), clock.now()))
 	}
 
 	private fun isValidEmail(email: String): Boolean {

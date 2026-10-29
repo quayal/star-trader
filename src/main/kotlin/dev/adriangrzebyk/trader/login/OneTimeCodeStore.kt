@@ -4,11 +4,13 @@ import java.time.Instant
 
 interface OneTimeCodeStore {
 
-	fun store(email: String, code: String, issuedAt: Instant)
+	fun store(email: String, code: StoredCode)
 
 	fun codeFor(email: String): StoredCode?
 
-	fun consume(email: String)
+	/** Removes [code] only if it is still the one stored for [email]; false when another exchange got there first. */
+	fun consume(email: String, code: StoredCode): Boolean
 }
 
-data class StoredCode(val code: String, val issuedAt: Instant)
+/** A code waiting to be exchanged, with the identity the player gave when requesting it. */
+data class StoredCode(val code: String, val playerName: String, val corporationName: String, val issuedAt: Instant,)
