@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Trader — Deck, system and trading prototype</title>
+<style>
+	/* Neutral discovery wireframe: system font, grayscale, borders. No brand styling. */
+	* { box-sizing: border-box; }
+	body { margin: 0; font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.4; color: #111; background: #f4f4f4; }
+	a { color: #111; }
+	:focus-visible { outline: 3px solid #000; outline-offset: 2px; }
+	.proto-banner { background: #222; color: #fff; padding: 6px 12px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+	.proto-banner strong { margin-right: auto; }
+	.test-panel { background: #e2e2e2; border-bottom: 1px solid #999; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px; }
+	.test-panel fieldset { border: 1px dashed #777; padding: 4px 8px; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.test-panel legend { font-weight: 600; padding: 0 4px; }
+	.app { display: grid; grid-template-columns: 150px 1fr; min-height: calc(100vh - 90px); }
+	.rail { background: #ddd; border-right: 1px solid #999; padding: 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+	.rail a, .rail span { display: block; padding: 8px; border: 1px solid transparent; text-decoration: none; }
+	.rail a[aria-current="page"] { border-color: #000; font-weight: 700; background: #fff; }
+	.rail span { color: #555; font-size: 13px; }
+	main { padding: 12px 16px; min-width: 0; }
+	.topbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; border: 1px solid #999; background: #fff; padding: 8px 12px; margin-bottom: 12px; }
+	.topbar .phase { font-weight: 700; }
+	.topbar .spacer { margin-left: auto; }
+	.alert { border: 2px solid #000; background: #fff; padding: 8px 12px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-weight: 600; }
+	.layout { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 3fr) minmax(260px, 1.2fr); gap: 12px; align-items: start; }
+	.layout-2 { display: grid; grid-template-columns: minmax(0, 2fr) 1fr; gap: 12px; align-items: start; }
+	.panel { border: 1px solid #999; background: #fff; padding: 10px 12px; margin-bottom: 12px; }
+	.panel h2, .panel h3 { font-size: 15px; margin: 0 0 8px; }
+	.panel form > :last-child { margin-bottom: 0; }
+	#right-col form p:last-child { margin-bottom: 0; }
+	details.panel > summary { font-weight: 700; cursor: pointer; padding: 2px 0; }
+	details.panel[open] > summary { margin-bottom: 8px; }
+	.map-panel svg { width: 100%; height: auto; display: block; }
+	.muted { color: #555; font-size: 13px; }
+	ul.plain { list-style: none; margin: 0; padding: 0; }
+	ul.plain li { padding: 6px 0; border-bottom: 1px solid #ddd; }
+	ul.plain li:last-child { border-bottom: 0; }
+	table { width: 100%; border-collapse: collapse; }
+	th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
+	th { font-size: 13px; color: #444; }
+	.num { text-align: right; font-variant-numeric: tabular-nums; }
+	button, select, input { font: inherit; }
+	button { padding: 6px 12px; border: 1px solid #333; background: #fff; cursor: pointer; min-height: 32px; }
+	button.primary { background: #333; color: #fff; }
+	label { display: block; font-weight: 600; font-size: 13px; margin: 8px 0 4px; }
+	select, input[type=number] { padding: 6px; border: 1px solid #555; background: #fff; min-height: 32px; width: 100%; }
+	.inline { display: flex; gap: 12px; }
+	.inline label { font-weight: 400; display: flex; gap: 4px; align-items: center; margin: 0; }
+	.error { color: #000; font-weight: 600; border-left: 4px solid #000; padding-left: 6px; margin-top: 6px; }
+	.notice { border: 1px dashed #333; padding: 8px; background: #fafafa; margin: 8px 0; }
+	.status { min-height: 1.4em; margin-top: 6px; }
+	.tag { display: inline-block; border: 1px solid #333; padding: 0 6px; font-size: 12px; }
+	.tag.you { background: #333; color: #fff; }
+	.hidden { display: none !important; }
+	.back { display: inline-block; margin-bottom: 8px; }
+	.places { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+	.place { border: 1px solid #555; padding: 8px; min-height: 120px; }
+	.place h3 { margin: 0 0 4px; font-size: 14px; }
+	.jump-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+	.step { border-left: 4px solid #999; padding: 4px 8px; margin: 6px 0; }
+	.step.current { border-left-color: #000; font-weight: 600; }
+	dialog { border: 2px solid #000; padding: 16px; max-width: 420px; width: calc(100% - 32px); }
+	dialog::backdrop { background: rgba(0, 0, 0, .4); }
+	ol.reorder { list-style: none; margin: 0; padding: 0; counter-reset: q; }
+	ol.reorder li { counter-increment: q; display: flex; gap: 8px; align-items: center; border: 1px solid #555; background: #fff; padding: 6px 8px; margin-bottom: 6px; cursor: grab; }
+	ol.reorder li::before { content: counter(q) "."; font-weight: 700; min-width: 1.5em; }
+	ol.reorder li .grip { color: #555; }
+	ol.reorder li .label { flex: 1; }
+	ol.reorder li.dragging { opacity: .4; }
+	ol.reorder li.over { border-top: 4px solid #000; }
+	ol.reorder button { min-height: 28px; padding: 2px 8px; }
+	@media (max-width: 900px) {
+		.layout, .layout-2 { grid-template-columns: 1fr; }
+		.layout .map-col { order: -1; }
+		.places { grid-template-columns: 1fr; }
+	}
+	@media (max-width: 600px) {
+		.app { grid-template-columns: 1fr; }
+		.rail { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid #999; }
+		.jump-row { grid-template-columns: 1fr; }
+	}
+</style>
+</head>
+<body>
+<div class="proto-banner">
+	<strong>Discovery prototype. Simulated data.</strong>
+	<button type="button" id="reset">Reset</button>
+</div>
+
+<div class="test-panel" aria-label="Test state controls (not part of the product)">
+	<fieldset>
+		<legend>Test state: phase</legend>
+		<label><input type="radio" name="phase" value="bidding" checked> Bidding</label>
+		<label><input type="radio" name="phase" value="jumps"> Ship-jumps</label>
+		<label><input type="radio" name="phase" value="trading"> Trading</label>
+	</fieldset>
+	<fieldset>
+		<legend>Test state: other players</legend>
+		<button type="button" id="sim-advance">Other players act (advance)</button>
+		<label><input type="checkbox" id="sim-initiative"> You are first in initiative</label>
+	</fieldset>
+	<fieldset>
+		<legend>Test state: conditions</legend>
+		<button type="button" id="sim-loading">Simulate loading</button>
+		<button type="button" id="sim-poll-fail">Simulate failed refresh</button>
+		<button type="button" id="sim-denied">Simulate not in this game</button>
+	</fieldset>
+</div>
+
+<div class="app">
+	<nav class="rail" aria-label="Main">
+		<a href="#dashboard" id="nav-dashboard">Deck</a>
+		<a href="#trading" id="nav-trading">Trading</a>
+		<a href="#log" id="nav-log">Game log</a>
+		<span>Fleet — not in this prototype</span>
+	</nav>
+
+	<main>
+		<div id="sr-status" class="hidden" role="status" aria-live="polite"></div>
+		<div id="decision-alert" class="alert hidden" role="alert"></div>
+
+		<section id="screen-loading" class="hidden" aria-labelledby="loading-h">
+			<h1 id="loading-h" tabindex="-1">Loading game…</h1>
+			<p class="muted">Fetching the latest game state.</p>
+		</section>
+
+		<section id="screen-denied" class="hidden" aria-labelledby="denied-h">
+			<h1 id="denied-h" tabindex="-1">You're not a player in this game</h1>
+			<p>This game exists, but your account didn't join it, so its state isn't shown.</p>
+			<p><button type="button" id="denied-back">Back to the simulated game</button></p>
+		</section>
+
+		<section id="screen-unknown" class="hidden" aria-labelledby="unknown-h">
+			<h1 id="unknown-h" tabindex="-1">This screen doesn't exist</h1>
+			<p>The link may be out of date.</p>
+			<p><a href="#dashboard">Go to the Deck</a></p>
+		</section>
+
+		<!-- Deck: dashboard + map -->
+		<section id="screen-dashboard" class="hidden" aria-labelledby="dash-h">
+			<h1 id="dash-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px">Deck</h1>
+			<div class="layout">
+				<div id="left-col"></div>
+				<div class="map-col">
+					<div class="topbar" data-topbar></div>
+					<div class="notice hidden" data-poll-fail role="alert">
+						Couldn't refresh the game. Showing the state from 12 seconds ago.
+						<button type="button" data-poll-retry>Retry now</button>
+					</div>
+					<div class="panel map-panel">
+						<h2>Map — six systems, every pair connected</h2>
+						<div id="map"></div>
+						<p class="muted">■ your ship (name) □ another player's ship (initials). Select a system for details.</p>
+					</div>
+					<div id="phase-action"></div>
+				</div>
+				<div id="right-col"></div>
+			</div>
+		</section>
+
+		<!-- System details -->
+		<section id="screen-system" class="hidden" aria-labelledby="sys-h">
+			<a class="back" href="#dashboard">← Back to Deck</a>
+			<h1 id="sys-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px"></h1>
+			<div class="layout-2">
+				<div>
+					<div class="topbar" data-topbar></div>
+					<div id="sys-main"></div>
+				</div>
+				<div id="sys-side"></div>
+			</div>
+		</section>
+
+		<!-- Game log -->
+		<section id="screen-log" class="hidden" aria-labelledby="log-h">
+			<h1 id="log-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px">Game log</h1>
+			<div class="topbar" data-topbar></div>
+			<div class="panel" id="log-body"></div>
+		</section>
+
+		<!-- Trading -->
+		<section id="screen-trading" class="hidden" aria-labelledby="trade-h">
+			<h1 id="trade-h" tabindex="-1" style="font-size: 20px; margin: 0 0 8px">Trading</h1>
+			<div class="layout-2">
+				<div>
+					<div class="topbar" data-topbar></div>
+					<div id="trade-main"></div>
+				</div>
+				<div id="trade-side"></div>
+			</div>
+		</section>
+	</main>
+</div>
+
+<script>
+'use strict';
+
+// ── Fixtures (fictitious; systems and S/D values mirror the game's six systems) ──
+const SYSTEMS = [
+	{ id: 'gamma-leporis', name: 'Gamma Leporis', x: 300, y: 50, market: [['POLY', 2, 1]], port: { cls: 2, legal: 3 }, police: 1, security: 2 },
+	{ id: 'tau-ceti', name: 'Tau Ceti', x: 520, y: 150, market: [['ISO', 4, -9], ['POLY', 6, -10]], port: { cls: 4, legal: 2 }, police: 3, security: 4 },
+	{ id: 'epsilon-eridani', name: 'Epsilon Eridani', x: 520, y: 330, market: [['CHIPS', 17, -9], ['FOOD', 14, -8], ['ISO', 10, -7], ['POLY', 5, -7]], port: { cls: 5, legal: 4 }, police: 4, security: 5 },
+	{ id: 'beta-hydri', name: 'Beta Hydri', x: 300, y: 420, market: [['CHIPS', 18, -10], ['FOOD', 15, -9], ['ISO', 10, -8], ['POLY', 6, -8]], port: { cls: 3, legal: 1 }, police: 2, security: 1 },
+	{ id: 'mu-herculis', name: 'Mu Herculis', x: 80, y: 330, market: [['CHIPS', 12, -4], ['ISO', 11, 1], ['POLY', 8, -9]], port: { cls: 3, legal: 3 }, police: 2, security: 3 },
+	{ id: 'sigma-draconis', name: 'Sigma Draconis', x: 80, y: 150, market: [['CHIPS', 14, -8], ['FOOD', 10, -3], ['ISO', 4, -1], ['POLY', 8, -5]], port: { cls: 4, legal: 5 }, police: 5, security: 4 },
+];
+const PLACES = { port: 'Port', space: 'Space', planet: 'Planet' };
+const PLAYERS = [
+	{ id: 'you', corp: 'Orion Freight', short: 'You' },
+	{ id: 'vega', corp: 'Vega Lines', short: 'VL' },
+	{ id: 'kessler', corp: 'Kessler Cargo', short: 'KC' },
+	{ id: 'altair', corp: 'Altair Trade Co.', short: 'AT' },
+];
+const START_SHIPS = [
+	{ id: 's1', name: 'Wayfarer', owner: 'you', at: 'tau-ceti', place: 'port', cargo: 8, good: 'POLY' },
+	{ id: 's2', name: 'Lantern', owner: 'you', at: 'epsilon-eridani', place: 'space', cargo: 0, good: null },
+	{ id: 's3', name: 'Meridian', owner: 'you', at: 'beta-hydri', place: 'planet', cargo: 3, good: 'ISO' },
+	{ id: 'v1', name: 'Halcyon', owner: 'vega', at: 'tau-ceti', place: 'space' },
+	{ id: 'v2', name: 'Bright Reach', owner: 'vega', at: 'gamma-leporis', place: 'port' },
+	{ id: 'v3', name: 'Corvid', owner: 'vega', at: 'sigma-draconis', place: 'planet' },
+	{ id: 'k1', name: 'Ironside', owner: 'kessler', at: 'epsilon-eridani', place: 'port' },
+	{ id: 'k2', name: 'Tallow', owner: 'kessler', at: 'epsilon-eridani', place: 'port' },
+	{ id: 'k3', name: 'Ostrava', owner: 'kessler', at: 'mu-herculis', place: 'space' },
+	{ id: 'a1', name: 'Kestrel', owner: 'altair', at: 'beta-hydri', place: 'port' },
+	{ id: 'a2', name: 'Seventh Sun', owner: 'altair', at: 'mu-herculis', place: 'planet' },
+	{ id: 'a3', name: 'Dunmore', owner: 'altair', at: 'sigma-draconis', place: 'space' },
+];
+// Market positions (public). Absent = Retailer. [ASSUMPTION A3] values invented; mechanics later (Q04).
+// Retailer is the first, explicit level (no advantage; entry point to the others) — not a default. Players without a position aren't listed.
+const POSITIONS = {
+	'tau-ceti': { POLY: { you: 'Wholesaler', kessler: 'Dictator', vega: 'Retailer' }, ISO: { altair: 'Retailer' } },
+	'epsilon-eridani': { FOOD: { you: 'Wholesaler', kessler: 'Retailer' }, CHIPS: { vega: 'Wholesaler' }, POLY: { you: 'Retailer' } },
+	'beta-hydri': { ISO: { altair: 'Wholesaler', you: 'Retailer' } },
+	'mu-herculis': { ISO: { altair: 'Dictator' }, CHIPS: { kessler: 'Retailer' } },
+	'sigma-draconis': { FOOD: { vega: 'Wholesaler' } },
+};
+// Warehouses and factories (shown only; mechanics later, Q03). [ASSUMPTION A10]
+const INDUSTRY = {
+	'tau-ceti': [{ kind: 'Warehouse', owner: 'kessler', good: 'POLY', units: 4, capacity: 10 }],
+	'epsilon-eridani': [{ kind: 'Warehouse', owner: 'you', good: 'FOOD', units: 6, capacity: 14 }, { kind: 'Factory', owner: 'vega', good: 'CHIPS', units: 3 }],
+	'mu-herculis': [{ kind: 'Factory', owner: 'altair', good: 'ISO', units: 2 }],
+};
+const CAPACITY = 12;       // [ASSUMPTION A1] placeholder until Q06; creator: unit amounts are mostly single digits
+const MONEY = 1240;        // [ASSUMPTION A1] placeholder until Q06
+// Initiative is an order of all players, highest bid + d2 first (creator, 2026-10-28).
+const LAST_TURN_LOG = [
+	'Turn 3 · Initiative order (bid + d2): Kessler Cargo → Altair Trade Co. → You → Vega Lines',
+	'Turn 3 · Turn order (for this turn): Altair Trade Co. → You → Kessler Cargo → Vega Lines',
+	'Turn 3 · Jump: Altair Trade Co. — Kestrel → Beta Hydri',
+	'Turn 3 · Jump: you — Wayfarer → Tau Ceti',
+	'Turn 3 · Jump: Kessler Cargo — Ironside → Epsilon Eridani',
+	'Turn 3 · Jump: Kessler Cargo — Ostrava → Mu Herculis',
+	'Turn 3 · Trade: Tau Ceti POLY — Kessler Cargo sold 2 u at 5 HT; price 7 → 6 HT',
+	'Turn 3 · Trade: Epsilon Eridani FOOD — you bought 4 u at 15 HT; price 13 → 14 HT',
+];
+// This turn's trading queue, ordered by the initiative holder (R18). [ASSUMPTION A8] numbers invented.
+const TRADES = [
+	{ sys: 'tau-ceti', good: 'POLY', roll: 7, side: 'SELL', winner: 'kessler', price: 5, max: 4, chosen: 3, newPrice: 5, oldPrice: 6 },
+	{ sys: 'epsilon-eridani', good: 'FOOD', roll: 9, side: 'BUY', winner: 'you', price: 15, max: 5, oldPrice: 14 },
+	{ sys: 'mu-herculis', good: 'ISO', roll: 4, side: 'BUY', winner: 'kessler', tie: 'altair', price: 12, max: 3, chosen: 2, newPrice: 12, oldPrice: 11 },
+];
+
+let state;
+function makeState() {
+	return {
+		phase: 'bidding',
+		ships: START_SHIPS.map(s => ({ ...s })),
+		offers: [],
+		bid: null,
+		done: false,
+		othersDone: [],         // other players who signalled done (simulated by "Other players act")
+		jump: null,               // set by startJumps(): { slots, picker, current, jumped }
+		trade: { current: null, step: 'idle', last: null, resolved: 0 }, // step: idle → waiting (winner deciding) → idle
+		queue: TRADES.map((_, i) => i),      // unresolved trades, in order (indexes into TRADES); editable by the top initiative player
+		youInit: false,                       // test toggle: you hold initiative
+		log: LAST_TURN_LOG.slice(),
+		loading: false,
+		pollFail: false,
+		denied: false,
+		deckSystem: 'tau-ceti',   // remembered selection in the Deck offer form
+		deckStatus: '',
+	};
+}
+
+// ── Helpers ──
+const $ = id => document.getElementById(id);
+const sys = id => SYSTEMS.find(s => s.id === id);
+const player = id => PLAYERS.find(p => p.id === id);
+const corp = id => id === 'you' ? 'you' : player(id).corp;
+const Corp = id => id === 'you' ? 'You' : player(id).corp;
+const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+function buyChance(sd) {
+	let ways = 0;
+	for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + sd >= 0) ways++;
+	return ways / 36;
+}
+// Placeholder colours for the five market levels (neutral prototype, not design tokens): bright at the extremes, muted
+// in between, grey when balanced (creator, 2026-10-28). Arrows show where the price is likely to go, so colour is never the only cue.
+const LEVEL = {
+	'high demand':     { colour: '#dc2626', arrow: '↑', hint: 'price likely to rise' },
+	'moderate demand': { colour: '#a15c4f', arrow: '↗', hint: 'price may rise' },
+	'in balance':      { colour: '#6b7280', arrow: '→', hint: 'price steady' },
+	'moderate supply': { colour: '#5f7f4f', arrow: '↘', hint: 'price may fall' },
+	'high supply':     { colour: '#16a34a', arrow: '↓', hint: 'price likely to fall' },
+};
+// Map layout: larger circles with the goods inside (creator, 2026-10-28).
+const NODE_R = 64;
+// A flat-topped hexagon ring (like a benzene ring), rows 2:2:2 with the middle pair wider. From top left:
+// Gamma, Beta / Sigma, Mu / Tau, Epsilon (creator, 2026-10-28). All edges are straight.
+const NODE_POS = { 'gamma-leporis': [245, 101], 'beta-hydri': [515, 101], 'sigma-draconis': [110, 335], 'mu-herculis': [650, 335], 'tau-ceti': [245, 569], 'epsilon-eridani': [515, 569] };
+// Stepped bands (creator decision), worded as market conditions. [ASSUMPTION A11] wording mapping.
+function marketLabel(sd) {
+	const c = buyChance(sd);
+	return c >= 0.95 ? 'high supply' : c >= 0.70 ? 'moderate supply' : c >= 0.40 ? 'in balance' : c >= 0.20 ? 'moderate demand' : 'high demand'; // [ASSUMPTION A20] 20% split
+}
+function el(tag, attrs = {}, ...children) {
+	const node = document.createElement(tag);
+	for (const [k, v] of Object.entries(attrs)) {
+		if (v === false || v == null) continue;
+		if (k === 'class') node.className = v;
+		else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+		else node.setAttribute(k, v === true ? '' : v);
+	}
+	for (const c of children.flat()) if (c != null && c !== false) node.append(c.nodeType ? c : document.createTextNode(String(c)));
+	return node;
+}
+function announce(text) { const s = $('sr-status'); s.textContent = ''; setTimeout(() => { s.textContent = text; }, 10); }
+const phaseName = { bidding: 'Bidding', jumps: 'Ship-jumps', trading: 'Trading' };
+const money = () => `${MONEY.toLocaleString('en')} HT`;
+const currentTrade = () => state.trade.current == null ? null : TRADES[state.trade.current];
+const initOrder = () => state.youInit ? ['you', 'vega', 'kessler', 'altair'] : ['vega', 'you', 'kessler', 'altair'];
+const initHolder = () => corp(initOrder()[0]);
+const initText = () => initOrder().map(Corp).join(' → ');
+// Bidding has no timer (D09): it closes the moment the last player signals done.
+const waitingFor = () => PLAYERS.filter(p => p.id === 'you' ? !state.done : !state.othersDone.includes(p.id)).map(p => p.id === 'you' ? 'you' : p.corp);
+function closeBidding() { announce('Everyone is done. Bidding closed.'); setPhase('jumps'); }
+
+// ── Top bar (shared) ──
+function renderTopbars() {
+	document.querySelectorAll('[data-topbar]').forEach(t => {
+		t.replaceChildren();
+		t.append(el('span', {}, 'Turn 4'));
+		let phaseText = phaseName[state.phase];
+		if (state.phase === 'bidding') phaseText += ' — waiting for ' + waitingFor().join(', '); // no timer (D09): name who the game waits for
+		if (state.phase === 'jumps' && state.jump) {
+			const j = state.jump, picker = initOrder()[j.picker];
+			phaseText += picker ? (picker === 'you' ? ' — choose your place in the turn order' : ` — ${player(picker).corp} is choosing their place in the turn order`)
+				: j.slots[j.current] ? (j.slots[j.current] === 'you' ? ' — your jumps' : ` — ${player(j.slots[j.current]).corp} is jumping`) : ' — all jumps done';
+		}
+		if (state.phase === 'trading') phaseText += ` — ${state.trade.resolved} of ${TRADES.length} resolved`;
+		t.append(el('span', { class: 'phase' }, phaseText));
+		t.append(el('span', {}, `Money: ${money()}`));
+		if (state.phase !== 'bidding') t.append(el('span', { class: 'muted' }, `Initiative: ${initText()}`)); // decided when Bidding closes (Key flow 7)
+		if (state.phase === 'bidding' && !state.done) {
+			t.append(el('span', { class: 'spacer' }));
+			t.append(el('button', { type: 'button', class: 'primary', onclick: () => { state.done = true; if (!waitingFor().length) { closeBidding(); return; } announce("Marked done for Bidding. You can still add offers until Bidding closes."); render(); } }, "I'm done bidding"));
+		}
+		if (state.phase === 'bidding' && state.done) {
+			t.append(el('span', { class: 'spacer' }));
+			t.append(el('span', {}, 'You signalled done — you can still add offers'));
+		}
+	});
+	document.querySelectorAll('[data-poll-fail]').forEach(n => n.classList.toggle('hidden', !state.pollFail));
+	// Ping: the winner is alerted on any screen when their decision is needed.
+	const tr = currentTrade();
+	const alert = $('decision-alert');
+	const needed = state.phase === 'trading' && tr && tr.winner === 'you' && location.hash !== '#trading';
+	alert.classList.toggle('hidden', !needed);
+	if (needed) alert.replaceChildren(`Your decision is needed: you won ${tr.good} at ${sys(tr.sys).name}.`, el('a', { href: '#trading' }, 'Go to Trading'));
+}
+
+// ── Map ──
+function renderMap() {
+	const NS = 'http://www.w3.org/2000/svg';
+	const mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+	const svg = mk('svg', { viewBox: '-20 0 800 670', role: 'group', 'aria-label': 'Map of six star systems with their goods and prices. Each system is a link to its details.' });
+	const pos = id => NODE_POS[id];
+	for (let i = 0; i < SYSTEMS.length; i++) for (let j = i + 1; j < SYSTEMS.length; j++) {
+		const [x1, y1] = pos(SYSTEMS[i].id), [x2, y2] = pos(SYSTEMS[j].id);
+		svg.append(mk('line', { x1, y1, x2, y2, stroke: '#bbb', 'stroke-width': 1 }));
+	}
+	for (const s of SYSTEMS) {
+		const [x, y] = pos(s.id);
+		const here = state.ships.filter(sh => sh.at === s.id);
+		const mine = here.filter(sh => sh.owner === 'you');
+		const goodsText = s.market.map(([g, p, sd]) => `${g} ${p} HT, ${marketLabel(sd)}, ${LEVEL[marketLabel(sd)].hint}`).join('; ');
+		const a = mk('a', { href: `#system-${s.id}`, 'aria-label': `${s.name}: ${goodsText}. ${mine.length} of your ships, ${here.length - mine.length} other ships. Open system details.` });
+		a.append(mk('circle', { cx: x, cy: y, r: NODE_R, fill: '#fff', stroke: '#000', 'stroke-width': 2 }));
+		const label = mk('text', { x, y: y - NODE_R - 10, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700 });
+		label.textContent = s.name;
+		a.append(label);
+		// Goods inside the circle: name, arrow + price in the market colour
+		const lh = 17, top = y - (s.market.length - 1) * lh / 2 + 5;
+		s.market.forEach(([g, p, sd], i) => {
+			const lv = LEVEL[marketLabel(sd)];
+			const t = mk('text', { x, y: top + i * lh, 'text-anchor': 'middle', 'font-size': 14 });
+			const gs = mk('tspan', {}); gs.textContent = g + ' ';
+			const ps = mk('tspan', { fill: lv.colour, 'font-weight': 700 }); ps.textContent = `${lv.arrow}${p}`;
+			t.append(gs, ps);
+			a.append(t);
+		});
+		const ships = mk('text', { x, y: y + NODE_R + 20, 'text-anchor': 'middle', 'font-size': 14 });
+		ships.textContent = here.map(sh => sh.owner === 'you' ? '■ ' + sh.name : '□ ' + player(sh.owner).short).join('  ') || 'no ships';
+		a.append(ships);
+		svg.append(a);
+	}
+	const legend = el('p', { class: 'muted' }, 'Prices in HT. ',
+		Object.entries(LEVEL).flatMap(([lbl, lv], i) => [i ? ' · ' : '', el('strong', { style: `color:${lv.colour}` }, `${lv.arrow} ${lbl}`), ` (${lv.hint})`]));
+	$('map').replaceChildren(svg, legend);
+}
+
+// ── Deck panels ──
+function fleetPanel() {
+	return el('div', { class: 'panel' }, el('h2', {}, 'Your fleet'),
+		el('ul', { class: 'plain' }, state.ships.filter(s => s.owner === 'you').map(s => el('li', {},
+			el('strong', {}, s.name), ' — ', el('a', { href: `#system-${s.at}` }, sys(s.at).name), ` · ${PLACES[s.place]}`,
+			el('div', { class: 'muted' }, `Cargo ${s.cargo.toLocaleString('en')} / ${CAPACITY.toLocaleString('en')} u${s.good ? ' · ' + s.good : ''}`)))));
+}
+function offersPanel() {
+	const list = state.offers.length
+		? el('ul', { class: 'plain' }, state.offers.map(o => el('li', {}, `${o.type} ${o.good} at ${o.price} HT — `, el('a', { href: `#system-${o.system}` }, sys(o.system).name))))
+		: el('p', { class: 'muted' }, state.phase === 'bidding' ? 'No offers yet this turn.' : 'You placed no offers this turn.');
+	return el('div', { class: 'panel' }, el('h2', {}, 'Your offers this turn'), list,
+		state.bid != null ? el('p', { class: 'muted' }, `Initiative bid: ${state.bid} HT (paid when Bidding closes, win or lose)`) : null,
+		el('p', { class: 'muted' }, 'Only you can see these until Trading resolves them.'));
+}
+function renderLog() {
+	const turns = {};
+	for (const e of state.log) { const t = e.match(/^Turn (\d+)/)[1]; (turns[t] = turns[t] || []).push(e.replace(/^Turn \d+ · /, '')); }
+	$('log-body').replaceChildren(...Object.keys(turns).sort((a, b) => b - a).map(t =>
+		el('details', { open: true }, el('summary', { style: 'font-weight:700' }, `Turn ${t}`), el('ul', { class: 'plain' }, turns[t].map(e => el('li', {}, e))))),
+		el('p', { class: 'muted' }, 'Public events only: initiative, turn order, jumps, landings, trading order and resolved trades.'));
+}
+
+// ── Phase action under the map (only when you can act) ──
+function phaseAction() {
+	const box = $('phase-action');
+	box.replaceChildren();
+}
+
+// Initiative bid on the Deck, right of the map (creator, 2026-10-28).
+function bidPanel() {
+	const input = el('input', { type: 'number', id: 'bid-input', min: '0', step: '1', inputmode: 'numeric', 'aria-describedby': 'bid-err' });
+	const err = el('p', { class: 'error hidden', id: 'bid-err' });
+	const form = el('form', { novalidate: true },
+		el('h2', {}, 'Bid for initiative'),
+		el('label', { for: 'bid-input' }, 'Your bid (HT)'), input, err,
+		el('p', {}, el('button', { type: 'submit' }, state.bid == null ? 'Place bid' : 'Change bid')));
+	form.addEventListener('submit', e => {
+		e.preventDefault();
+		const raw = input.value.trim(), v = Number(raw);
+		const msg = raw === '' || !Number.isInteger(v) ? 'Enter a whole number of HT, 0 or more.'
+			: v < 0 ? "A bid can't be negative. Enter 0 to bid nothing."
+			: v > MONEY ? `You have ${money()}. Enter ${MONEY} or less.` : '';
+		if (msg) { err.textContent = msg; err.classList.remove('hidden'); input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+		state.bid = v; announce(`Initiative bid placed: ${v} HT.`); render();
+	});
+	return el('div', { class: 'panel' }, form);
+}
+
+// Offer form on the Deck (creator, 2026-10-28): system, then its goods not yet offered (one offer per good per system, R33).
+function deckOfferForm() {
+	const sysSel = el('select', { id: 'deck-offer-system' }, SYSTEMS.map(x => el('option', { value: x.id, selected: x.id === state.deckSystem }, x.name)));
+	const goodSel = el('select', { id: 'deck-offer-good' });
+	const priceIn = el('input', { type: 'number', id: 'deck-offer-price', placeholder: '1–20', min: '1', max: '20', step: '1', 'aria-describedby': 'deck-offer-err' });
+	const err = el('p', { class: 'error hidden', id: 'deck-offer-err' });
+	const status = state.deckStatus ? el('p', { class: 'status', role: 'status' }, state.deckStatus) : null;
+	const noGoods = el('p', { class: 'muted hidden' }, 'You have an offer on every good there this turn.');
+	const fillGoods = () => {
+		const s = sys(sysSel.value);
+		const taken = new Set(state.offers.filter(o => o.system === s.id).map(o => o.good));
+		const free = s.market.filter(([g]) => !taken.has(g));
+		goodSel.replaceChildren(...free.map(([g]) => el('option', { value: g }, g))); // prices and market levels are on the map above
+		noGoods.classList.toggle('hidden', free.length > 0);
+		goodSel.disabled = !free.length;
+	};
+	sysSel.addEventListener('change', () => { state.deckSystem = sysSel.value; fillGoods(); });
+	fillGoods();
+	const form = el('form', { novalidate: true },
+		el('h2', {}, 'Place an offer'),
+		el('label', { for: 'deck-offer-system' }, 'Star system'), sysSel,
+		el('label', { for: 'deck-offer-good' }, 'Goods'), goodSel,
+		noGoods,
+		el('label', { for: 'deck-offer-price' }, 'Price (HT)'), priceIn,
+		el('fieldset', { style: 'border:0;padding:0;margin:8px 0 0' },
+			el('legend', { style: 'font-weight:600;font-size:13px' }, 'Type'),
+			el('div', { class: 'inline' },
+				el('label', {}, el('input', { type: 'radio', name: 'deck-offer-type', value: 'BUY', checked: true }), 'Buy'),
+				el('label', {}, el('input', { type: 'radio', name: 'deck-offer-type', value: 'SELL' }), 'Sell'))),
+		err, el('button', { type: 'submit', class: 'primary', style: 'margin-top:8px' }, 'Place offer'), status);
+	const validate = () => {
+		const raw = priceIn.value.trim(), v = Number(raw);
+		const msg = raw === '' ? 'Enter a price.' : (!Number.isInteger(v) || v < 1 || v > 20) ? 'Price must be a whole number from 1 to 20.' : '';
+		err.textContent = msg; err.classList.toggle('hidden', !msg);
+		if (msg) priceIn.setAttribute('aria-invalid', 'true'); else priceIn.removeAttribute('aria-invalid');
+		return msg ? null : v;
+	};
+	priceIn.addEventListener('blur', () => { if (priceIn.value.trim() !== '') validate(); });
+	form.addEventListener('submit', e => {
+		e.preventDefault();
+		if (goodSel.disabled) return;
+		const v = validate();
+		if (v == null) { priceIn.focus(); return; }
+		const type = form.querySelector('input[name=deck-offer-type]:checked').value;
+		const o = { system: sysSel.value, good: goodSel.value, price: v, type };
+		state.offers.push(o);
+		state.deckStatus = `Offer placed: ${type} ${o.good} at ${v} HT, ${sys(o.system).name}. Hidden from other players until Trading.`;
+		announce(state.deckStatus);
+		render();
+		$('deck-offer-price')?.focus();
+	});
+	return el('div', { class: 'panel' }, form);
+}
+
+// ── Ship-jumps ──
+// Players pick their position in the jump order in initiative order; the top player may choose to go last.
+// Jumps are per ship: one decision at a time, the next one after the previous jump resolved (all succeed in the MVP).
+function startJumps() {
+	state.jump = { slots: initOrder().map(() => null), picker: 0, current: 0, jumped: [] };
+	runOtherPicks();
+}
+function autoPick(pl) { // [ASSUMPTION A17] simulated choices of other players
+	const j = state.jump, free = j.slots.map((x, i) => x ? null : i).filter(i => i != null);
+	const pos = pl === 'vega' ? free[free.length - 1] : free[0];
+	j.slots[pos] = pl;
+	state.log.push(`Turn 4 · Turn order: ${player(pl).corp} chose ${ordinal(pos + 1)}`);
+}
+function runOtherPicks() {
+	const j = state.jump, order = initOrder();
+	while (j.picker < order.length && order[j.picker] !== 'you') { autoPick(order[j.picker]); j.picker++; }
+	if (j.picker >= order.length) state.log.push('Turn 4 · Turn order (for this turn): ' + j.slots.map(Corp).join(' → '));
+}
+const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+// Ship-jumps on the Deck (creator, 2026-10-28): turn order under the fleet (left), your next jump right of the map.
+// Returns [turnOrderPanel, yourJumpPanel | null].
+function jumpPanels() {
+	const j = state.jump, order = initOrder();
+	const orderView = el('ol', {}, j.slots.map((pl, i) => el('li', {}, pl ? Corp(pl) : '—',
+		j.picker >= order.length && i === j.current ? ' — jumping now' : '', j.picker >= order.length && i < j.current ? ' — done' : '')));
+	const panel = el('div', { class: 'panel' }, el('h2', {}, 'Turn order'), el('p', { class: 'muted' }, 'Chosen in initiative order; applies to the whole turn (jumps now, other ordered actions later).'), orderView);
+	// Picking a position
+	if (order[j.picker] === 'you') {
+		const free = j.slots.map((x, i) => x ? null : i).filter(i => i != null);
+		const form = el('form', { novalidate: true },
+			el('fieldset', { style: 'border:0;padding:0;margin:8px 0' },
+				el('legend', { style: 'font-weight:600' }, 'Choose your place in the turn order'),
+				el('div', { class: 'inline' }, free.map((i, k) => el('label', {}, el('input', { type: 'radio', name: 'jump-pos', value: String(i), checked: k === 0 }), ordinal(i + 1))))),
+			el('button', { type: 'submit', class: 'primary' }, 'Confirm position'));
+		form.addEventListener('submit', e => {
+			e.preventDefault();
+			const pos = Number(form.querySelector('input[name=jump-pos]:checked').value);
+			j.slots[pos] = 'you';
+			state.log.push(`Turn 4 · Turn order: you chose ${ordinal(pos + 1)}`);
+			j.picker++;
+			runOtherPicks();
+			announce(`You act ${ordinal(pos + 1)} this turn.`);
+			render();
+		});
+		panel.append(form);
+		return [panel, null];
+	}
+	// Your jumps: one ship at a time
+	let jumpBox = null;
+	if (j.picker >= order.length && j.slots[j.current] === 'you') {
+		const left = state.ships.filter(s => s.owner === 'you' && !j.jumped.includes(s.id));
+		if (left.length) {
+			const shipSel = el('select', { id: 'jump-ship' }, left.map(s => el('option', { value: s.id }, `${s.name} (at ${sys(s.at).name})`)));
+			const destSel = el('select', { id: 'jump-dest' }, SYSTEMS.map(x => el('option', { value: x.id }, x.name)));
+			const err = el('p', { class: 'error hidden' });
+			const form = el('form', { novalidate: true },
+				el('h2', {}, 'Your next jump'),
+				el('label', { for: 'jump-ship' }, 'Ship'), shipSel,
+				el('label', { for: 'jump-dest' }, 'Destination'), destSel,
+				err,
+				el('p', { class: 'inline', style: 'margin-top:12px' }, el('button', { type: 'submit', class: 'primary' }, 'Jump'),
+					el('button', { type: 'button', onclick: finishMyJumps }, 'Finish jumping')));
+			form.addEventListener('submit', e => {
+				e.preventDefault();
+				const ship = state.ships.find(s => s.id === shipSel.value);
+				if (ship.at === destSel.value) { err.textContent = `${ship.name} is already at ${sys(ship.at).name}. Pick another destination.`; err.classList.remove('hidden'); destSel.focus(); return; }
+				ship.at = destSel.value; ship.place = 'space';
+				j.jumped.push(ship.id);
+				state.log.push(`Turn 4 · Jump: you — ${ship.name} → ${sys(ship.at).name} ✓`);
+				render();
+				askLanding(ship, () => {
+					if (left.length === 1) { finishMyJumps(); return; } // that was your last ship
+					render();
+					$('jump-ship')?.focus();
+				});
+			});
+			jumpBox = el('div', { class: 'panel' }, form);
+		}
+	}
+	return [panel, jumpBox];
+}
+// After each jump a modal asks where the ship lands (creator, 2026-10-28). Native <dialog> traps focus and closes on Escape.
+function askLanding(ship, then) {
+	const s = sys(ship.at);
+	const form = el('form', { method: 'dialog' },
+		el('h2', { id: 'land-h', style: 'margin-top:0;font-size:17px' }, `${ship.name} arrived at ${s.name}`),
+		el('fieldset', { style: 'border:0;padding:0;margin:8px 0' },
+			el('legend', { style: 'font-weight:600' }, 'Where do you want to be?'),
+			el('label', { style: 'font-weight:400' }, el('input', { type: 'radio', name: 'land', value: 'port', checked: true }), ` Land at the port (class ${s.port.cls}, legal system ${s.port.legal})`),
+			el('label', { style: 'font-weight:400' }, el('input', { type: 'radio', name: 'land', value: 'planet' }), ` Land on the planet (security ${s.security})`),
+			el('label', { style: 'font-weight:400' }, el('input', { type: 'radio', name: 'land', value: 'space' }), ` Stay in space (police ${s.police})`)),
+		el('p', {}, el('button', { type: 'submit', class: 'primary' }, 'Confirm')));
+	const dlg = el('dialog', { 'aria-labelledby': 'land-h' }, form);
+	document.body.append(dlg);
+	dlg.addEventListener('cancel', () => { form.querySelector('input[value=space]').checked = true; }); // Escape = stay in space [ASSUMPTION A21]
+	dlg.addEventListener('close', () => {
+		const choice = form.querySelector('input[name=land]:checked').value;
+		ship.place = choice;
+		state.log.push(`Turn 4 · Landing: you — ${ship.name} ${choice === 'space' ? 'stays in space' : 'lands at the ' + PLACES[choice].toLowerCase()} (${s.name})`);
+		announce(`${ship.name}: ${choice === 'space' ? 'stays in space' : 'landed at the ' + PLACES[choice].toLowerCase()}.`);
+		dlg.remove();
+		then();
+	});
+	dlg.showModal();
+}
+function finishMyJumps() {
+	state.jump.current++;
+	announce('Your jumps are done.');
+	render();
+}
+
+function renderDashboard() {
+	renderMap();
+	phaseAction();
+	const [orderPanel, jumpBox] = state.phase === 'jumps' && state.jump ? jumpPanels() : [null, null];
+	$('left-col').replaceChildren(...[fleetPanel(), orderPanel].filter(Boolean));
+	// Right of the map: place offer, your offers, initiative bid (Bidding only for the two forms)
+	$('right-col').replaceChildren(...(state.phase === 'bidding' ? [bidPanel(), deckOfferForm(), offersPanel()] : [jumpBox, offersPanel()].filter(Boolean)));
+}
+
+// ── System details ──
+function renderSystem(id) {
+	const s = sys(id);
+	$('sys-h').textContent = s.name;
+	const here = state.ships.filter(sh => sh.at === s.id);
+	const section = (title, open, ...body) => el('details', { class: 'panel', open }, el('summary', {}, title), ...body);
+
+	const places = el('div', { class: 'places' }, Object.entries(PLACES).map(([key, name]) => {
+		const stats = key === 'port' ? `Class ${s.port.cls} · Legal system ${s.port.legal}` : key === 'space' ? `Police ${s.police}` : `Security ${s.security}`;
+		const ships = here.filter(sh => sh.place === key);
+		return el('div', { class: 'place' }, el('h3', {}, name), el('div', { class: 'muted' }, stats),
+			el('ul', { class: 'plain' }, ships.length ? ships.map(sh => el('li', {}, sh.owner === 'you' ? '■ ' : '□ ', sh.name, ' — ',
+				sh.owner === 'you' ? el('span', { class: 'tag you' }, 'you') : player(sh.owner).corp)) : el('li', { class: 'muted' }, 'No ships')));
+	}));
+
+	const market = el('table', {},
+		el('thead', {}, el('tr', {}, el('th', {}, 'Goods'), el('th', { class: 'num' }, 'Price'), el('th', {}, 'S/D'), el('th', {}, 'Market'))),
+		el('tbody', {}, s.market.map(([g, p, sd]) => { const lv = LEVEL[marketLabel(sd)];
+			return el('tr', {}, el('td', {}, el('strong', {}, g)), el('td', { class: 'num' }, `${p} HT`), el('td', {}, signed(sd)),
+				el('td', {}, el('span', { style: `color:${lv.colour};font-weight:700` }, `${lv.arrow} ${marketLabel(sd)}`), ` — ${lv.hint}`)); })));
+
+	const pos = POSITIONS[s.id] || {};
+	const positions = el('table', {},
+		el('thead', {}, el('tr', {}, el('th', {}, 'Goods'), el('th', {}, 'Dictator'), el('th', {}, 'Wholesaler'), el('th', {}, 'Retailer'))),
+		el('tbody', {}, s.market.map(([g]) => {
+			const p = pos[g] || {};
+			const who = tier => Object.entries(p).filter(([, t]) => t === tier).map(([pl]) => Corp(pl)).join(', ') || '—';
+			return el('tr', {}, el('td', {}, g), el('td', {}, who('Dictator')), el('td', {}, who('Wholesaler')), el('td', {}, who('Retailer')));
+		})));
+
+	const ind = INDUSTRY[s.id] || [];
+	const industry = ind.length
+		? el('table', {},
+			el('thead', {}, el('tr', {}, el('th', {}, 'Type'), el('th', {}, 'Owner'), el('th', {}, 'Goods'), el('th', { class: 'num' }, 'Units'))),
+			el('tbody', {}, ind.map(f => el('tr', {}, el('td', {}, f.kind), el('td', {}, Corp(f.owner)), el('td', {}, f.good),
+				el('td', { class: 'num' }, f.capacity ? `${f.units} / ${f.capacity} u stored` : `${f.units} u output / turn`)))))
+		: el('p', { class: 'muted' }, 'No warehouses or factories here.');
+	const industryNote = el('p', { class: 'muted' }, 'Factory output that no warehouse or ship can hold is lost.');
+
+	$('sys-main').replaceChildren(
+		section('Locations and ships', true, places),
+		section('Market', true, market),
+		section('Market positions', false, positions, el('p', { class: 'muted' }, 'Players not listed hold no position for that good.')),
+		section('Warehouses and factories', false, industry, industryNote));
+
+	const side = [];
+	if (state.phase === 'bidding') side.push(offerForm(s, here.some(sh => sh.owner === 'you')));
+	const mineHere = state.offers.filter(o => o.system === s.id);
+	if (mineHere.length) side.push(el('div', { class: 'panel' }, el('h2', {}, 'Your offers here this turn'),
+		el('ul', { class: 'plain' }, mineHere.map(o => el('li', {}, `${o.type} ${o.good} at ${o.price} HT`)))));
+	$('sys-side').replaceChildren(...side);
+}
+
+function offerForm(s, hasShip) {
+	const taken = new Set(state.offers.filter(o => o.system === s.id).map(o => o.good));
+	const free = s.market.filter(([g]) => !taken.has(g));
+	if (!free.length) return el('div', { class: 'panel' }, el('h2', {}, 'Place an offer'), el('p', {}, 'You have an offer on every good here this turn.'));
+	const goodSel = el('select', { id: 'offer-good' }, free.map(([g]) => el('option', { value: g }, g)));
+	const priceIn = el('input', { type: 'number', id: 'offer-price', min: '1', max: '20', step: '1', 'aria-describedby': 'offer-price-help offer-err' });
+	const err = el('p', { class: 'error hidden', id: 'offer-err' });
+	const form = el('form', { novalidate: true },
+		el('h2', {}, 'Place an offer'),
+		!hasShip ? el('p', { class: 'notice' }, 'You have no ship here. If a buy wins, the goods are lost; a sell has nothing to draw from. A ship can still jump here before Trading.') : null,
+		el('label', { for: 'offer-good' }, 'Goods'), goodSel,
+		el('label', { for: 'offer-price' }, 'Price (HT)'), priceIn,
+		el('p', { class: 'muted', id: 'offer-price-help' }, 'Whole number from 1 to 20. One offer per good per system.'),
+		el('fieldset', { style: 'border:0;padding:0;margin:8px 0' },
+			el('legend', { style: 'font-weight:600;font-size:13px' }, 'Type'),
+			el('div', { class: 'inline' },
+				el('label', {}, el('input', { type: 'radio', name: 'offer-type', value: 'BUY', checked: true }), 'Buy'),
+				el('label', {}, el('input', { type: 'radio', name: 'offer-type', value: 'SELL' }), 'Sell'))),
+		err, el('button', { type: 'submit', class: 'primary' }, 'Place offer'));
+	const validate = () => {
+		const raw = priceIn.value.trim(), v = Number(raw);
+		const msg = raw === '' ? 'Enter a price.' : (!Number.isInteger(v) || v < 1 || v > 20) ? 'Price must be a whole number from 1 to 20.' : '';
+		err.textContent = msg; err.classList.toggle('hidden', !msg);
+		if (msg) priceIn.setAttribute('aria-invalid', 'true'); else priceIn.removeAttribute('aria-invalid');
+		return msg ? null : v;
+	};
+	priceIn.addEventListener('blur', () => { if (priceIn.value.trim() !== '') validate(); });
+	form.addEventListener('submit', e => {
+		e.preventDefault();
+		const v = validate();
+		if (v == null) { priceIn.focus(); return; }
+		const type = form.querySelector('input[name=offer-type]:checked').value;
+		const good = goodSel.value;
+		state.offers.push({ system: s.id, good, price: v, type });
+		renderSystem(s.id);
+		renderTopbars();
+		announce(`Offer placed: ${type} ${good} at ${v} HT. Hidden from other players until Trading.`);
+		$('sys-side').prepend(el('p', { class: 'status', role: 'status' }, `Offer placed: ${type} ${good} at ${v} HT.`));
+	});
+	return el('div', { class: 'panel' }, form);
+}
+
+// ── Trading ──
+// The top initiative player resolves trades one at a time ("Resolve next") and may reorder the remaining queue at any moment.
+function renderTrading() {
+	const main = [], side = [];
+	const tr = currentTrade();
+	const top = initOrder()[0];
+	if (state.phase !== 'trading') {
+		main.push(el('div', { class: 'panel' }, el('p', {}, 'Trading starts after Ship-jumps. Results will appear here.')));
+	} else {
+		if (tr) main.push(currentPanel(tr));
+		if (state.trade.last) main.push(el('div', { class: 'panel' }, el('h2', {}, 'Last result'), el('p', {}, state.trade.last)));
+		if (!tr && !state.queue.length) main.push(el('div', { class: 'panel' }, el('h2', {}, 'All trades resolved'), el('p', {}, 'The next turn starts with Bidding.')));
+		if (!tr && state.queue.length && top !== 'you') main.push(el('div', { class: 'panel' }, el('p', {}, `Waiting for ${corp(top)} to resolve the next trade.`)));
+	}
+	if (state.phase === 'trading' && state.queue.length) side.push(top === 'you' ? orderEditor() : el('div', { class: 'panel' },
+		el('h2', {}, 'Remaining trades'), el('p', { class: 'muted' }, `Order decided by ${corp(top)} (first in initiative); it can change until each one resolves.`), queueList()));
+	$('trade-main').replaceChildren(...main);
+	$('trade-side').replaceChildren(...side);
+}
+function currentPanel(tr) {
+	const s = sys(tr.sys);
+	const sd = s.market.find(([g]) => g === tr.good)[2];
+	const verb = tr.side === 'BUY' ? 'buy' : 'sell';
+	const panel = el('div', { class: 'panel' }, el('h2', {}, `Now resolving: ${s.name} · ${tr.good}`),
+		el('div', { class: 'step' }, `${signed(tr.roll + sd)} → ${tr.side === 'BUY' ? 'highest' : 'lowest'} offer wins`),
+		tr.tie ? el('div', { class: 'step' }, `Tie at ${tr.price} HT — ${corp(tr.winner)} wins on initiative order`) : null,
+		el('div', { class: 'step current' }, `${tr.side === 'BUY' ? 'Highest bidder' : 'Lowest seller'} (${Corp(tr.winner)}, ${tr.price} HT) can ${verb} up to ${tr.max} u`,
+			tr.winner === 'you' ? ' — your decision' : ' — waiting for their decision'));
+	if (tr.winner === 'you') panel.append(decisionForm(tr));
+	return panel;
+}
+function queueList() {
+	return el('ol', {}, state.queue.map(ti => el('li', {}, `${sys(TRADES[ti].sys).name} · ${TRADES[ti].good}`)));
+}
+// Reorder by drag and drop, with ↑/↓ as the keyboard alternative (WCAG 2.5.7).
+function orderEditor() {
+	const list = el('ol', { class: 'reorder', 'aria-label': 'Remaining trades, in order' });
+	const move = (from, to) => {
+		if (to < 0 || to >= state.queue.length || from === to) return;
+		const [x] = state.queue.splice(from, 1);
+		state.queue.splice(to, 0, x);
+		announce(`${sys(TRADES[x].sys).name} ${TRADES[x].good} moved to position ${to + 1} of ${state.queue.length}.`);
+		renderTrading();
+		const li = $('trade-side').querySelectorAll('ol.reorder li')[to];
+		const btn = li?.querySelector(to < from ? '[data-up]' : '[data-down]');
+		(btn && !btn.disabled ? btn : li?.querySelector('button'))?.focus();
+	};
+	let dragFrom = null;
+	state.queue.forEach((ti, i) => {
+		const t = TRADES[ti], name = `${sys(t.sys).name} · ${t.good}`;
+		const li = el('li', { draggable: 'true' },
+			el('span', { class: 'grip', 'aria-hidden': 'true' }, '⋮⋮'),
+			el('span', { class: 'label' }, name),
+			el('button', { type: 'button', 'data-up': true, 'aria-label': `Move ${name} up`, disabled: i === 0, onclick: () => move(i, i - 1) }, '↑'),
+			el('button', { type: 'button', 'data-down': true, 'aria-label': `Move ${name} down`, disabled: i === state.queue.length - 1, onclick: () => move(i, i + 1) }, '↓'));
+		li.addEventListener('dragstart', e => { dragFrom = i; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); });
+		li.addEventListener('dragend', () => li.classList.remove('dragging'));
+		li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('over'); });
+		li.addEventListener('dragleave', () => li.classList.remove('over'));
+		li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('over'); if (dragFrom != null) move(dragFrom, i); dragFrom = null; });
+		list.append(li);
+	});
+	const busy = !!currentTrade();
+	return el('div', { class: 'panel' }, el('h2', {}, 'Remaining trades'),
+		el('p', { class: 'muted' }, 'You are first in initiative. Drag to reorder, or use the arrows, at any time.'),
+		list,
+		busy ? el('p', { class: 'muted' }, 'Resolve next is available once the current winner decides.')
+			: el('p', {}, el('button', { type: 'button', class: 'primary', onclick: resolveNext }, 'Resolve next')));
+}
+function resolveNext() {
+	const ti = state.queue.shift();
+	state.trade.current = ti;
+	const t = TRADES[ti];
+	state.log.push(`Turn 4 · Resolving: ${sys(t.sys).name} ${t.good} (chosen by ${corp(initOrder()[0])})`);
+	announce(`Resolving ${sys(t.sys).name} ${t.good}.`);
+	render(true);
+}
+function resultText(tr) {
+	return `${Corp(tr.winner)} ${tr.side === 'BUY' ? 'bought' : 'sold'} ${tr.chosen} u paying ${tr.price} HT each; ${tr.good} price at ${sys(tr.sys).name} moves ${tr.oldPrice} → ${tr.newPrice} HT`;
+}
+function decisionForm(tr) {
+	const input = el('input', { type: 'number', id: 'amount', min: '1', max: String(tr.max), step: '1', value: String(tr.max), 'aria-describedby': 'amount-help amount-err' });
+	const err = el('p', { class: 'error hidden', id: 'amount-err' });
+	const form = el('form', { novalidate: true },
+		el('label', { for: 'amount' }, `Amount to ${tr.side === 'BUY' ? 'buy' : 'sell'} (u)`), input,
+		el('p', { class: 'muted', id: 'amount-help' }, `From 1 to ${tr.max}. You pay your offer price, ${tr.price} HT each. Trading more moves the price further.`),
+		err, el('button', { type: 'submit', class: 'primary' }, 'Confirm'));
+	form.addEventListener('submit', e => {
+		e.preventDefault();
+		const v = Number(input.value);
+		if (!Number.isInteger(v) || v < 1 || v > tr.max) { err.textContent = `Enter a whole number from 1 to ${tr.max}.`; err.classList.remove('hidden'); input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+		tr.chosen = v; tr.newPrice = tr.oldPrice + Math.max(1, Math.round(v / 2)); // [ASSUMPTION A8] illustrative price move, not R14
+		decide(tr);
+	});
+	return form;
+}
+function decide(tr) {
+	state.trade.last = resultText(tr);
+	state.trade.current = null;
+	state.trade.resolved++;
+	state.log.push(`Turn 4 · Trade: ${sys(tr.sys).name} ${tr.good} — ${resultText(tr).replace(/^You/, 'you')}`);
+	announce(state.trade.last);
+	render(true);
+}
+
+// ── Routing ──
+const SCREENS = ['screen-loading', 'screen-denied', 'screen-unknown', 'screen-dashboard', 'screen-system', 'screen-trading', 'screen-log'];
+function show(screenId, headingId, focus) {
+	for (const id of SCREENS) $(id).classList.toggle('hidden', id !== screenId);
+	$('nav-dashboard').toggleAttribute('aria-current', false);
+	$('nav-trading').toggleAttribute('aria-current', false);
+	$('nav-log').toggleAttribute('aria-current', false);
+	if (screenId === 'screen-log') $('nav-log').setAttribute('aria-current', 'page');
+	if (screenId === 'screen-dashboard') $('nav-dashboard').setAttribute('aria-current', 'page');
+	if (screenId === 'screen-trading') $('nav-trading').setAttribute('aria-current', 'page');
+	if (focus) $(headingId).focus();
+}
+function render(focus = false) {
+	if (state.loading) return show('screen-loading', 'loading-h', focus);
+	if (state.denied) return show('screen-denied', 'denied-h', focus);
+	renderTopbars();
+	const hash = location.hash.replace(/^#/, '') || 'dashboard';
+	if (hash === 'dashboard') { renderDashboard(); return show('screen-dashboard', 'dash-h', focus); }
+	if (hash === 'trading') { renderTrading(); return show('screen-trading', 'trade-h', focus); }
+	if (hash === 'log') { renderLog(); return show('screen-log', 'log-h', focus); }
+	const m = hash.match(/^system-([a-z-]+)$/);
+	if (m && sys(m[1])) { renderSystem(m[1]); return show('screen-system', 'sys-h', focus); }
+	show('screen-unknown', 'unknown-h', focus);
+}
+
+// ── Test-state controls ──
+function setPhase(p) {
+	state.phase = p;
+	if (p === 'bidding') { state.done = false; state.othersDone = []; }
+	const initEntry = 'Turn 4 · Initiative order (bid + d2): ' + initText();
+	state.log = state.log.filter(e => !e.startsWith('Turn 4 · Initiative'));
+	if (p !== 'bidding') state.log.splice(LAST_TURN_LOG.length, 0, initEntry);
+	document.querySelector(`input[name=phase][value=${p}]`).checked = true;
+	announce(`Phase: ${phaseName[p]}.`);
+	if (p === 'jumps') startJumps();
+	if (p === 'trading') { state.trade = { current: null, step: 'idle', last: null, resolved: 0 }; state.queue = TRADES.map((_, i) => i); if (location.hash !== '#trading') { location.hash = '#trading'; return; } } // everyone is taken to Trading
+	render(true);
+}
+document.querySelectorAll('input[name=phase]').forEach(r => r.addEventListener('change', () => setPhase(r.value)));
+$('sim-advance').addEventListener('click', () => {
+	if (state.phase === 'jumps' && state.jump) {
+		const j = state.jump, next = j.picker >= initOrder().length ? j.slots[j.current] : null;
+		const SIM = { vega: [['v1', 'beta-hydri', 'port']], kessler: [['k3', 'tau-ceti', 'space'], ['k1', 'gamma-leporis', 'planet']], altair: [] }; // [ASSUMPTION A17]
+		if (next && next !== 'you') {
+			for (const [id, dest, place] of SIM[next]) {
+				const sh = state.ships.find(x => x.id === id); sh.at = dest; sh.place = place;
+				state.log.push(`Turn 4 · Jump: ${player(next).corp} — ${sh.name} → ${sys(dest).name} ✓`);
+				state.log.push(`Turn 4 · Landing: ${player(next).corp} — ${sh.name} ${place === 'space' ? 'stays in space' : 'lands at the ' + PLACES[place].toLowerCase()}`);
+			}
+			if (!SIM[next].length) state.log.push(`Turn 4 · Jump: ${player(next).corp} — no jumps`);
+			j.current++;
+			announce(`${player(next).corp} finished jumping.`);
+		} else announce(next === 'you' ? 'Waiting for your jumps.' : j.picker < initOrder().length ? 'Waiting for your jump position.' : 'All jumps are done.');
+	} else if (state.phase === 'trading') {
+		const tr = currentTrade();
+		if (tr && tr.winner !== 'you') { decide(tr); return; }                                    // another winner decides
+		if (!tr && state.queue.length && initOrder()[0] !== 'you') { resolveNext(); return; }      // top initiative player resolves next
+		announce(tr ? 'Waiting for your decision.' : state.queue.length ? 'You are first in initiative: resolve next.' : 'All trades are resolved.');
+	} else {
+		const next = PLAYERS.find(p => p.id !== 'you' && !state.othersDone.includes(p.id));
+		if (next) {
+			state.othersDone.push(next.id);
+			if (!waitingFor().length) { closeBidding(); return; }
+			announce(`${next.corp} is done bidding.`);
+		} else announce('Everyone else is done. Waiting for you.');
+	}
+	render();
+});
+$('sim-initiative').addEventListener('change', e => { state.youInit = e.target.checked; state.log = state.log.map(x => x.startsWith('Turn 4 · Initiative') ? 'Turn 4 · Initiative order (bid + d2): ' + initText() : x); if (state.phase === 'jumps') startJumps(); render(); announce(state.youInit ? 'You now hold initiative.' : 'Vega Lines holds initiative.'); });
+$('sim-loading').addEventListener('click', () => { state.loading = true; render(true); setTimeout(() => { state.loading = false; render(true); announce('Game loaded.'); }, 800); });
+$('sim-poll-fail').addEventListener('click', () => { state.pollFail = true; render(); announce("Couldn't refresh the game."); });
+document.addEventListener('click', e => { if (e.target.matches('[data-poll-retry]')) { state.pollFail = false; render(); announce('Game refreshed.'); } });
+$('sim-denied').addEventListener('click', () => { state.denied = true; render(true); });
+$('denied-back').addEventListener('click', () => { state.denied = false; location.hash = '#dashboard'; render(true); });
+$('reset').addEventListener('click', () => {
+	TRADES.forEach(t => { if (t.winner === 'you') { delete t.chosen; delete t.newPrice; } });
+	state = makeState();
+	document.querySelector('input[name=phase][value=bidding]').checked = true;
+	$('sim-initiative').checked = false;
+	if (location.hash !== '#dashboard') location.hash = '#dashboard'; else render(true);
+	announce('Prototype reset to the start.');
+});
+
+state = makeState();
+window.addEventListener('hashchange', () => render(true));
+render();
+</script>
+</body>
+</html>
