@@ -1,7 +1,7 @@
 # E05 — Trading phase and resolution (#11)
 
-**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-013/` (accepted as the first version, D07). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor.
-**Brief:** `.ai/specs/product-brief.md` — R10–R16, R23, R24, R25, R28, R29, R33, D07.
+**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor.
+**Brief:** `.ai/specs/product-brief.md` — R10–R16, R23, R24, R25, R28, R29, R33, D07, D09.
 **Siblings:** E03 Bidding (`2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`).
 
 ## 📝 TLDR
@@ -17,13 +17,14 @@ s03 Trading (main column: current resolution, last result; side column: queue), 
 ### E05-S01 — The first initiative player orders and triggers resolutions
 
 1. [s03] [D07] When Trading starts, every player's client navigates to s03.
-2. [s03] [R25] The queue holds every system + good with at least one pending offer. Initial order: proposed — by system in map order, then good (OQ-6).
+2. [s03] [R25] The queue holds every system + good with at least one pending offer. Initial order: proposed — by system in map order, then good.
 3. [s03, side] [R25] The first initiative player sees "Remaining trades" with drag-and-drop and ↑/↓ buttons (keyboard alternative), and **Resolve next**. Others see the same list, read-only: "Order decided by {corp} (first in initiative); it can change until each one resolves."
 4. [s03] [proto-A22] **Resolve next** is available only when no trade is waiting for a winner's decision; the queue can still be reordered meanwhile ("Resolve next is available once the current winner decides.").
 5. [s03] Other players see "Waiting for {corp} to resolve the next trade." when nothing is resolving.
 6. [s04] [R25] Each resolution logs "Resolving: {system} {good} (chosen by {corp})".
 7. [s01–s04 top bar] Phase reads "Trading — n of N resolved".
 8. [s03] Before Trading: "Trading starts after Ship-jumps. Results will appear here."
+9. [—] [D09] Nothing in Trading has a deadline: the game waits for the first initiative player to press **Resolve next**, and for each winner to decide. Everyone sees whom it is waiting for ("Waiting for Vega Lines to resolve the next trade", "Kessler Cargo can sell up to 4 u — waiting for their decision").
 
 ### E05-S02 — A trade resolves to one winning offer
 
@@ -41,10 +42,12 @@ s03 Trading (main column: current resolution, last result; side column: queue), 
 3. [—] [R14] You pay or receive your own offer price per unit. The reference price moves by the amount actually traded, one step per unit, as R14 describes.
 4. [—] [R12] A buy's max is first reduced to what you can afford.
 5. [—] [R10, R23] A sell is capped by what your ship(s) at that system hold. Blocked on Q03 (warehouses and how goods move).
-6. [—] [R16, R23] Bought goods go into your ship(s) at that system; anything that doesn't fit, or everything if you have no ship there, is lost. The winner is told before confirming: "Only {n} u fit in your ships here; the rest will be lost." (proposed, OQ-4).
+6. [—] [R16, R23] Bought goods go into your ship(s) at that system; anything that doesn't fit, or everything if you have no ship there, is lost. The winner is told before confirming: "Only {n} u fit in your ships here; the rest will be lost." (proposed).
 7. [s03, s04] [R25] Result for everyone: "{corp} {bought | sold} {n} u paying {price} HT each; {good} price at {system} moves {a} → {b} HT". Shown as "Last result" and logged.
 8. [s01, s02] Updated prices and market labels are shown on the map and s02 right after.
 9. [s01 top bar] [R29] The winner's money updates; nobody else sees it.
+10. [—] If the max after R12 (afford) or R10 (holdings) is 0, the winner is shown why ("You can't afford any units at 15 HT") and the trade ends with no units traded (proposed).
+11. [—] [R17] Losing offers are never revealed; only the winning price is public (proposed).
 
 ### E05-S04 — Market positions take effect
 
@@ -55,7 +58,7 @@ s03 Trading (main column: current resolution, last result; side column: queue), 
 ### E05-S05 — The turn ends
 
 1. [s03] When the queue is empty and no decision is pending: "All trades resolved. The next turn starts with Bidding."
-2. [—] [N06] The turn number increases and the phase becomes Bidding. Offers that didn't win expire (proposed, OQ-3).
+2. [—] [N06] The turn number increases and the phase becomes Bidding. Offers that didn't win expire (proposed).
 3. [s04] The new turn starts a new group in the log.
 
 ## 📝 States checklist (Trading)
@@ -70,9 +73,9 @@ s03 Trading (main column: current resolution, last result; side column: queue), 
 | You win, elsewhere in the app | any | S03-1 | yes |
 | Amount error | s03 | S03-2 | yes |
 | Roll picks a side with no offers | s03 | S02-6 | **no — OQ-1** |
-| Winner doesn't decide | s03 | — | **no — OQ-2** (proto-A16) |
-| First initiative player doesn't press Resolve next | s03 | — | **no — OQ-2** |
-| Can't afford anything / nothing to sell | s03 | S03-4, S03-5 | **no — OQ-4** |
+| Winner doesn't decide, or is away | s03 | S01-9 — the game waits and names them (D09) | yes |
+| First initiative player doesn't press Resolve next | s03 | S01-9 — same | yes |
+| Can't afford anything / nothing to sell | s03 | S03-10 | **no** |
 | Goods lost (overflow or no ship) | s03 | S03-6 | **no** |
 | Empty queue (no offers this turn) | s03 | S05-1 | **no** — the prototype always has three trades |
 | Turn ends | s03 | S05 | yes |
@@ -80,20 +83,15 @@ s03 Trading (main column: current resolution, last result; side column: queue), 
 
 ## 📝 Decisions in play
 
-R10–R16 (resolution, amount, price move, affordability, overflow), R23 (ship presence), R24 (tie-break), R25 (ordering), R28/R11 (positions), R29 (money private), R33, D07, Q03, Q04, Q06.
+R10–R16 (resolution, amount, price move, affordability, overflow), R23 (ship presence), R24 (tie-break), R25 (ordering), R28/R11 (positions), R29 (money private), R33, D07, D09 (no timers), Q03, Q04, Q06.
 
-## ❓ Open questions — gaps the prototype didn't decide
+## ❓ Open questions — only those that change a rule or the flow
 
 | # | Question | Blocking? | Proposed default |
 |---|---|---|---|
 | OQ-1 | The roll says "highest buy wins" but there are only sell offers (or the reverse). What happens? | **yes** for S02 | no trade; logged as "{system} {good}: no {buy/sell} offers — no trade" |
-| OQ-2 | proto-A16: what if the winner doesn't decide, or the first initiative player never presses Resolve next? Same stall as E04's OQ-1. | **yes** | a timer; on expiry the winner trades 0 (forfeit) and the queue auto-resolves in its current order |
-| OQ-3 | Do offers that didn't win expire at turn end, or carry over? | no | expire |
-| OQ-4 | If the max after R12 (afford) or R10 (holdings) is 0, is the winner skipped or shown "you can't trade"? | no | the trade passes to no one; the winner sees why |
 | OQ-5 | How does the player use Wholesaler's extra 6 u, and how is a Dictator's trump shown? | no for S01–S03 | design in a follow-up prototype revision |
-| OQ-6 | What is the queue's initial order before the first initiative player touches it? | no | map order, then good |
 | OQ-7 | When does a game end, and what does everyone see? There is no rule in the brief. | no for the first playtest | open-ended; the creator ends it manually (needs its own story) |
-| OQ-8 | Are losing offers revealed after a trade resolves (R17 says "until Trading resolves them")? | no | no — only the winner's price is public |
 
 ## 🚫 Out of scope
 

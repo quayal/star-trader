@@ -1,12 +1,12 @@
 # E03 — Bidding phase (#9)
 
-**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-013/` (accepted as the first version, D07). Open `index.html`; the grey "Test state" bar is a prototype control, not a product feature.
-**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, D04, D07, D08.
+**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Open `index.html`; the grey "Test state" bar is a prototype control, not a product feature.
+**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, D07, D08, D09.
 **Siblings:** E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`), E05 Trading (`2026-10-29-e05-trading-phase.md`).
 
 ## 📝 TLDR
 
-The first playable phase of a turn. Every player sees the board — six systems with goods, prices and market labels — on the Deck, and the details of one system on System details. During Bidding each player secretly places at most one offer per good per system and may bid money for turn initiative. Bidding closes when everyone has signalled done or the phase timer runs out. Initiative order is then rolled and published in the Game log. This epic also builds the turn and phase clock that E04 and E05 run on, and the screens they share.
+The first playable phase of a turn. Every player sees the board — six systems with goods, prices and market labels — on the Deck, and the details of one system on System details. During Bidding each player secretly places at most one offer per good per system and may bid money for turn initiative. Bidding closes when everyone has signalled done; there is no timer (D09). Initiative order is then rolled and published in the Game log. This epic also builds the turn and phase engine that E04 and E05 run on, and the screens they share.
 
 ## 📝 Screen IDs
 
@@ -29,19 +29,19 @@ A top bar on s01–s04 shows turn number, phase (with its state), your money (R2
 
 Each criterion names its screen and the rule it comes from. `proto-A…` IDs are the prototype README's assumptions, not the brief's A01–A06. "Proposed" marks a default I picked where the brief is silent; see Open questions.
 
-### E03-S01 — A game runs turns of three phases on a clock
+### E03-S01 — A game runs turns of three phases
 
 1. [s01–s04 top bar] [N06, R04] A game is always in one turn (numbered from 1) and one phase: Bidding → Ship-jumps → Trading, then the next turn's Bidding.
-2. [s01 top bar] [D04] Bidding has a deadline; every player sees the time left. The length is not decided (OQ-1).
-3. [—] [R17, D04] Bidding closes on whichever comes first: every player has signalled done, or the deadline passes. Players who haven't signalled done are auto-skipped: the phase closes without them. Anything they placed before the close still counts (proposed, OQ-2).
-4. [—] [A04] An action that reaches the server on the same instant Bidding closes is either applied or rejected, never applied twice or lost silently; the player is told which (see S03-7).
+2. [—] [D09] No phase or step has a deadline and nobody is auto-skipped. The game waits for every player.
+3. [—] [R17, D09] Bidding closes the moment the last player signals done.
+4. [—] [A04] An action that reaches the server on the same instant Bidding closes (the last "done") is either applied or rejected, never applied twice or lost silently; the player is told which (see S03-7).
 5. [s01–s04] [D01] Every player's client picks up a phase change within the polling interval without a manual refresh.
 
 ### E03-S02 — Deck and System details show the shared board
 
 1. [s01] [D07] The map shows the six systems as a flat-topped hexagon ring (Gamma, Beta / Sigma, Mu / Tau, Epsilon), every pair connected.
 2. [s01] [D07, D08] Inside each system's circle, every good it trades is listed with its arrow and its price in HT, coloured by market label. A legend under the map explains arrows and labels. Colour is never the only cue (arrow + label in the accessible name).
-3. [s01] [D08] Market label comes from buy chance P(2d6 + S/D ≥ 0): high supply ≥ 95%, moderate supply ≥ 70%, in balance 40–60%, moderate demand, high demand. The moderate/high demand split is open (OQ-9; prototype uses 20%).
+3. [s01] [D08] Market label comes from buy chance P(2d6 + S/D ≥ 0): high supply ≥ 95%, moderate supply ≥ 70%, in balance 40–60%, moderate demand, high demand. The moderate/high demand split is a setting, default 20% (the brief tracks it under D08).
 4. [s01] [—] Under each system: your ships by name (■), other players' ships by corporation initials (□), or "no ships".
 5. [s01] [—] "Your fleet" lists each of your ships with its system (link to s02), location (Port / Planet / Space) and cargo `n / capacity u · good`.
 6. [s01→s02] Selecting a system on the map, a fleet entry or an offer's system opens s02 with its heading focused.
@@ -68,7 +68,8 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 
 1. [s01 top bar] [R17, proto-A6] "I'm done bidding" is shown during Bidding until pressed; afterwards "You signalled done — you can still add offers".
 2. [—] [R17] Done is a readiness flag, not a commit: offers and the initiative bid can still be placed or changed until Bidding closes.
-3. [s01 top bar] Proposed: show how many players are done ("2 of 4 done"), without naming who (OQ-4).
+3. [s01 top bar] [D09] The top bar names who the game is waiting for: "Bidding — waiting for Vega Lines, Kessler Cargo" (and "you" while you haven't signalled done). Players nudge each other outside the game, so names matter more than a count.
+4. [—] [D09] When the last player signals done, Bidding closes for everyone and the game moves to Ship-jumps.
 
 ### E03-S05 — Players bid for turn initiative
 
@@ -77,7 +78,7 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 3. [—] [R27] When Bidding closes, every bidder pays their bid (all-pay). Initiative order = all players by bid + d2, highest first; ties rerolled until broken.
 4. [—] [Q07] A player who never bid is treated as bidding 0 and still rolls (proposed until Q07 is answered).
 5. [s01–s04 top bar] From Ship-jumps on, the top bar shows "Initiative: A → B → C → D".
-6. [—] [R29] Money and bid amounts stay private: other players see only the resulting order (proposed, OQ-5).
+6. [—] [R29] Money and bid amounts stay private: other players see only the resulting order (proposed).
 
 ### E03-S06 — The Game log lists public events
 
@@ -98,32 +99,25 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 | Unknown link | s08 | S02-11 | yes |
 | Validation error | offer form, bid form | S03-3, S05-1 | yes |
 | Conflict: Bidding closed while form open | s01, s02 | S03-7 | **no** |
-| Timer runs out / auto-skip | s01 top bar | S01-3 | **no** (static "0:45 left") |
-| Waiting for other players after done | s01 top bar | S04-3 | **no** |
-| Player absent for a second phase (D06 pause) | — | Out of scope (Later) | no |
+| Waiting for named players | s01 top bar | S04-3 | yes (revision 014) |
+| Last player signals done → Bidding closes | s01 | S04-4 | yes (revision 014) |
+| A player is away for a long time | s01 top bar | S04-3 — the game waits and names them (D09); stall risk accepted (A06) | yes |
 | Not enough money to bid | bid form | S05-1 | yes |
 
 ## 📝 Decisions in play
 
-R17 (secret offers; done is a flag), R27 (initiative ordering, all-pay), R29 (money private), R33 (one offer per good per system), R28/R31 (shown on s02, no mechanics here), D04 (timer, auto-skip), D07 (screens), D08 (market labels), A04 (close race), A05 (confidential reads).
+R17 (secret offers; done is a flag), R27 (initiative ordering, all-pay), R29 (money private), R33 (one offer per good per system), R28/R31 (shown on s02, no mechanics here), D09 (no timers; name who we wait for), D07 (screens), D08 (market labels), A04 (close race), A05 (confidential reads).
 
 ## ❓ Open questions — gaps the prototype didn't decide
 
 | # | Question | Blocking? | Proposed default |
 |---|---|---|---|
-| OQ-1 | How long is the Bidding timer? | yes for S01 | 2 minutes, configurable per game later |
-| OQ-2 | Does an auto-skipped player's work (offers, bid placed before the close) count? | no | yes — auto-skip only means the phase stops waiting |
 | OQ-3 | Can an offer be withdrawn or changed during Bidding? With R33, a typo locks that good for the turn. | no | no for v1; revisit after playtest |
-| OQ-4 | Should others see who has signalled done, a count, or nothing? | no | a count only |
-| OQ-5 | Are initiative bid amounts ever revealed? | no | no, only the resulting order |
-| OQ-6 | Q07: is "didn't bid" different from bidding 0? | no | same as 0, still rolls |
-| OQ-7 | Is a turn's initiative order public the moment it's rolled? | no | yes, logged and shown in the top bar |
-| OQ-8 | D06 (pause after a second absence) is Scope/Later. For the first playtest, does auto-skip apply every time? | no | yes, auto-skip every time until D06 is built |
-| OQ-9 | D08: where is the split between moderate and high demand? | no | 20% as in the prototype |
+| Q07 | (brief) Is "didn't bid" different from bidding 0? Affects who rolls for initiative. | no | same as 0, still rolls |
 
 ## 🚫 Out of scope
 
-D06 pause and D05 resume (Later); R06 confidential info trading; factory production (R32, blocked on Q03); computing market-position tiers (Q04); design-system work for the fifth market colour (D08 follow-up).
+D05 resume (Later); R06 confidential info trading; factory production (R32, blocked on Q03); computing market-position tiers (Q04); design-system work for the fifth market colour (D08 follow-up).
 
 ## 📋 Phasing and dependencies
 
@@ -133,7 +127,7 @@ D06 pause and D05 resume (Later); R06 confidential info trading; factory product
 
 ## 📝 Architecture notes (to refine when a story is picked up)
 
-- Turn and phase state lives with the game (E02's game state); the clock is a port with a fake (engineering-standards §4) so timer expiry is testable.
+- Turn and phase state lives with the game (E02's game state); no clock or scheduler is needed: phases advance only on player actions (D09).
 - Reuse `trading.TradeOffer` and `trading.SDCalculator`; `TradeOfferBook` must become per-game and per-player-readable (R01, R17).
 - The polling view is per player: shared state plus that player's own offers, bid and money only.
 
