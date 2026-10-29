@@ -75,10 +75,10 @@ expiry testable in the domain (engineering standards §4, §7):
 
 ### Phase 1: Ports and fakes
 
-- [ ] 1.1 Clock port, SystemClock, FakeClock, OneTimeCode.TTL
-- [ ] 1.2 Extend OneTimeCodeStore and pass issuedAt from LoginCodeRequestService
-- [ ] 1.3 SessionTokenGenerator port, random adapter, fake
-- [ ] 1.4 Session, SessionStore port, in-memory adapter, fake
+- [x] 1.1 Clock port, SystemClock, FakeClock, OneTimeCode.TTL — 500ee1b
+- [x] 1.2 Extend OneTimeCodeStore and pass issuedAt from LoginCodeRequestService — 3eed704
+- [x] 1.3 SessionTokenGenerator port, random adapter, fake — 2b18eaa
+- [x] 1.4 Session, SessionStore port, in-memory adapter, fake — 8ae8cc1
 
 ### Phase 2: Exchange in the domain
 
