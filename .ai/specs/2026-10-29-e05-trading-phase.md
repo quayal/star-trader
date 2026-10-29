@@ -1,96 +1,130 @@
 # E05 — Trading phase and resolution (#11)
 
-**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor.
-**Brief:** `.ai/specs/product-brief.md` — R10–R16, R23, R24, R25, R28, R29, R33, D07, D09.
+**Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor. **The prototype still shows single-winner trades.** The counter resolution, Dictator and Wholesaler steps (R34–R38) need a new revision before the screen design here is settled.
+**Brief:** `.ai/specs/product-brief.md` — R10, R12, R15, R16, R23, R25, R28, R29, R33, R34–R38, D07, D09.
 **Siblings:** E03 Bidding (`2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`).
 
 ## 📝 TLDR
 
-When Ship-jumps end, everyone is taken to the Trading screen. Every system + good with pending offers is queued. The player first in initiative decides the order, may reorder what's left at any time, and presses **Resolve next**. Each trade resolves by 2d6 + the good's S/D at that system: non-negative → the highest buy offer wins, negative → the lowest sell offer wins, with ties broken by initiative order. The winner chooses an amount from 1 to the maximum. They pay their own price, and the reference price moves by the amount traded. Every result is public and logged. After the last trade the next turn starts with Bidding.
+When Ship-jumps end, everyone is taken to the Trading screen. Every good at every system is queued (R36). The first initiative player orders the queue, may reorder what's left at any time, and presses **Resolve next**. Each resolution runs in this order:
+
+1. All offers for that good are disclosed.
+2. The Dictator may place their offer; Dictators can't bid for that good in Bidding (R38).
+3. A counter starts at S/D + 2d6.
+4. The winning offer trades first: the highest buy if the counter is ≥ 0, else the lowest sell.
+5. Then whichever remaining offer allows the most units at the current counter trades next, each offer once. Amounts use the start price, and each unit moves the counter (R34).
+6. The price then changes once, by the counter's final position, clamped to 1–20 (R35).
+7. Wholesalers without an offer, and the Dictator, may trade up to 5 u at the new price (R37).
+
+Everything is public and logged. After the last good, the next turn starts with Bidding.
+
+## 📝 Worked example (from the creator's review, 2026-10-29)
+
+Mu Herculis ISO: start price 11 HT, S/D +1. Altair is Dictator and Kessler is Wholesaler of ISO at Mu Herculis (positions are per good per system, so either may hold no position for ISO elsewhere). Offers: Vega buys at 11, Orion sells at 10.
+
+1. Offers are disclosed. Altair passes.
+2. Roll 2 → counter 3.
+3. Vega wins (counter ≥ 0). Max = 3 − (−1) = 4; Vega buys 4 → counter −1.
+4. Orion's sell (target 4): max = 4 − (−1) = 5; Orion sells 5 → counter 4. Nobody is left.
+5. New price = 11 + modifier(4) = 10 HT.
+6. Kessler (no offer here) buys 3 u at 10 HT. Altair sells 2 u at 10 HT. The price stays 10.
+7. Next turn: the price starts at 10, and the counter is +1 + a new roll.
+
+Variant: if Vega had bought only 1 (counter 2), Orion's max would be 4 − 2 = 2. Had a third offer, Kessler buying at 10 (target 2), been present after Orion sold 5 (counter 4), Kessler could buy 4 − 2 = 2 u.
 
 ## 📝 Screens used
 
-s03 Trading (main column: current resolution, last result; side column: queue), s01–s04 decision alert, s04 Game log, s02 System details (prices and positions update). IDs are defined in the E03 spec.
+s03 Trading (main column: current resolution; side column: queue), the "your decision" alert on s01–s04, s04 Game log, s02 System details (prices update). IDs are defined in the E03 spec.
 
 ## 📋 Stories and acceptance criteria
 
 ### E05-S01 — The first initiative player orders and triggers resolutions
 
 1. [s03] [D07] When Trading starts, every player's client navigates to s03.
-2. [s03] [R25] The queue holds every system + good with at least one pending offer. Initial order: proposed — by system in map order, then good.
-3. [s03, side] [R25] The first initiative player sees "Remaining trades" with drag-and-drop and ↑/↓ buttons (keyboard alternative), and **Resolve next**. Others see the same list, read-only: "Order decided by {corp} (first in initiative); it can change until each one resolves."
-4. [s03] [proto-A22] **Resolve next** is available only when no trade is waiting for a winner's decision; the queue can still be reordered meanwhile ("Resolve next is available once the current winner decides.").
-5. [s03] Other players see "Waiting for {corp} to resolve the next trade." when nothing is resolving.
-6. [s04] [R25] Each resolution logs "Resolving: {system} {good} (chosen by {corp})".
-7. [s01–s04 top bar] Phase reads "Trading — n of N resolved".
-8. [s03] Before Trading: "Trading starts after Ship-jumps. Results will appear here."
-9. [—] [D09] Nothing in Trading has a deadline: the game waits for the first initiative player to press **Resolve next**, and for each winner to decide. Everyone sees whom it is waiting for ("Waiting for Vega Lines to resolve the next trade", "Kessler Cargo can sell up to 4 u — waiting for their decision").
+2. [s03] [R36] The queue holds every good at every system. Initial order: by system in map order, then good (proposed).
+3. [s03, side] [R25] The first initiative player sees "Remaining goods" with drag-and-drop and ↑/↓ buttons (keyboard alternative), and **Resolve next**. Others see the list read-only: "Order decided by {corp} (first in initiative); it can change until each one resolves."
+4. [s03] [R25] **Resolve next** is available only when the current resolution has finished, including its Dictator and Wholesaler steps. The queue can be reordered meanwhile.
+5. [s04] [R25] Each resolution logs "Resolving: {system} {good} (chosen by {corp})".
+6. [s01–s04 top bar] Phase reads "Trading — n of N resolved".
+7. [s03] Before Trading: "Trading starts after Ship-jumps. Results will appear here."
+8. [—] [D09] Nothing has a deadline. Whoever the game waits for is named: "Waiting for Vega Lines to resolve the next good", "Waiting for Altair Trade Co. (Dictator) to decide", "Vega Lines can buy up to 4 u — waiting for their decision".
+9. [any screen] Whenever you have a decision to make (trade amount, Dictator offer, wholesale) and aren't on s03, an alert says so with a link to Trading.
 
-### E05-S02 — A trade resolves to one winning offer
+### E05-S02 — Offers are disclosed and the Dictator may act
 
-1. [—] [R08, R24] Roll 2d6 + S/D of that good at that system. ≥ 0 → best BUY (highest price); < 0 → best SELL (lowest price). A price tie is broken by initiative order.
-2. [s03] [D07] Shown in plain terms, without the dice arithmetic: "+1 → highest offer wins" / "−3 → lowest offer wins".
-3. [s03] [R24] On a tie: "Tie at {price} HT — {corp} wins on initiative order".
-4. [s03] "{Highest bidder | Lowest seller} ({corp}, {price} HT) can {buy | sell} up to {max} u — waiting for their decision" (or "— your decision").
-5. [—] [R13, R15] Max = the distance between the dice-resolved position and the indicator implied by the winning price, with the price clamped to +7 (buy) / −6 (sell) from the current price.
-6. [—] If the roll picks a side with no offers, the trade resolves with no winner (OQ-1).
+1. [s03] [R34, R17] When a good starts resolving, every offer for it is shown to all players: corporation, Buy/Sell, price.
+2. [—] [R38] If the good at this system has a Dictator, they are asked before the roll: "Place an offer?" They may place one offer (R33) or pass. They never have an offer from Bidding for this good here (E03-S03-10).
+3. [s03] The Dictator's offer is shown like the others and has no other advantage.
+4. [—] With no Dictator, resolution goes straight to the roll.
 
-### E05-S03 — The winner chooses an amount and the result is public
+### E05-S03 — The counter resolves the offers
 
-1. [any screen] [D07, proto-A15] When you win and aren't on s03, an alert on any screen reads "Your decision is needed: you won {good} at {system}." with a link to Trading.
-2. [s03] [R13] Amount field pre-filled with max; whole number 1..max, else inline error "Enter a whole number from 1 to {max}." with focus. Help: "You pay your offer price, {price} HT each. Trading more moves the price further."
-3. [—] [R14] You pay or receive your own offer price per unit. The reference price moves by the amount actually traded, one step per unit, as R14 describes.
-4. [—] [R12] A buy's max is first reduced to what you can afford.
-5. [—] [R10, R23] A sell is capped by what your ship(s) at that system hold. Blocked on Q03 (warehouses and how goods move).
-6. [—] [R16, R23] Bought goods go into your ship(s) at that system; anything that doesn't fit, or everything if you have no ship there, is lost. The winner is told before confirming: "Only {n} u fit in your ships here; the rest will be lost." (proposed).
-7. [s03, s04] [R25] Result for everyone: "{corp} {bought | sold} {n} u paying {price} HT each; {good} price at {system} moves {a} → {b} HT". Shown as "Last result" and logged.
-8. [s01, s02] Updated prices and market labels are shown on the map and s02 right after.
-9. [s01 top bar] [R29] The winner's money updates; nobody else sees it.
-10. [—] If the max after R12 (afford) or R10 (holdings) is 0, the winner is shown why ("You can't afford any units at 15 HT") and the trade ends with no units traded (proposed).
-11. [—] [R17] Losing offers are never revealed; only the winning price is public (proposed).
+1. [—] [R34] Counter = S/D of that good at that system + 2d6 roll. The S/D itself never changes (R35).
+2. [—] [R34] First trade: the winning offer — highest BUY if the counter is ≥ 0, else the lowest SELL; equal prices go by initiative order.
+3. [—] [R34] Next trade, repeated: of the offers that haven't traded, the one with the highest max at the current counter. A buyer–seller tie goes to the counter's sign (≥ 0 → buyer), then initiative order. Stop when no offer allows ≥ 1 u.
+4. [—] [R34, R13, R15] Max for a buy = counter − buy target of (offer price − start price); for a sell = sell target − counter. Targets come from `SDCalculator`; R15 saturation applies. The start price is used throughout.
+5. [—] [R34] Each unit traded moves the counter one step: down for a buy, up for a sell.
+6. [s03] [D07] Shown in plain terms, without dice arithmetic: "Market +3 → buyers first", then each trade as it happens, and "No one else can trade at this market" at the end.
+7. [s03] If no offer can trade at all (or there are none), the resolution goes straight to the price change.
 
-### E05-S04 — Market positions take effect
+### E05-S04 — Each trader chooses an amount
+
+1. [s03] [R34] The trader whose turn it is sees: amount pre-filled with max; a whole number 1..max, else inline error "Enter a whole number from 1 to {max}." with focus. Help: "You pay your offer price, {price} HT each. Trading more leaves less for others."
+2. [—] [R12] A buy's max is first reduced to what you can afford.
+3. [—] [R10, R23] A sell is capped by what your ship(s) at that system hold. Blocked on Q03 (warehouses).
+4. [—] [R16, R23] Bought goods go into your ship(s) at that system; anything that doesn't fit, or everything if you have no ship there, is lost. Before confirming: "Only {n} u fit in your ships here; the rest will be lost." (proposed).
+5. [—] If the max after R12/R10 is 0, the trader is shown why ("You can't afford any units at 15 HT") and their offer is done with no units traded (proposed).
+6. [s03, s04] [R25] Each trade is public: "{corp} {bought | sold} {n} u at {price} HT each".
+7. [s01 top bar] [R29] Your money updates; nobody else sees it.
+
+### E05-S05 — The price changes, then Wholesalers trade
+
+1. [—] [R35] New price = start price + modifier(final counter), clamped to 1–20 HT.
+2. [s03, s04] "{good} price at {system}: {a} → {b} HT" — shown and logged even when nobody traded.
+3. [s01, s02] The map and s02 show the new price and market label right after.
+4. [—] [R37] Then each Wholesaler of that good at that system who placed no offer for it, and the Dictator, is asked: "Buy or sell up to 5 u at {b} HT?" — capped by money and cargo (R12, R16, R23); "Pass" is always possible.
+5. [—] [R37] Wholesale trades don't move the price. They're public and logged: "{corp} (Wholesaler) bought 3 u at 10 HT".
+6. [—] Order when several are asked: initiative order (proposed).
+
+### E05-S06 — Market positions
 
 1. [s02] [R28] Positions are shown per good: Dictator, Wholesaler, Retailer.
-2. [—] [R11] Wholesaler: may buy/sell up to 6 u after the main trade, whatever its outcome. Dictator: their offer trumps competing offers. The UI for both was not prototyped (OQ-5).
-3. [—] [R10, Q04] A won trade updates the winner's tier. How tiers are earned is Q04 — **blocked**; this story can ship effects against fixed tiers first.
+2. [—] [R10, Q04] A trade updates the trader's tier. How tiers are earned is Q04 — **blocked**. S02 and S05 can ship against fixed tiers first.
 
-### E05-S05 — The turn ends
+### E05-S07 — The turn ends
 
-1. [s03] When the queue is empty and no decision is pending: "All trades resolved. The next turn starts with Bidding."
-2. [—] [N06] The turn number increases and the phase becomes Bidding. Offers that didn't win expire (proposed).
+1. [s03] When the queue is empty and nothing is pending: "All goods resolved. The next turn starts with Bidding."
+2. [—] [N06] The turn number increases and the phase becomes Bidding. Offers that didn't trade expire (proposed).
 3. [s04] The new turn starts a new group in the log.
 
 ## 📝 States checklist (Trading)
 
 | State | Where | Covered by | In prototype? |
 |---|---|---|---|
-| Before Trading | s03 | S01-8 | yes |
-| You order the queue | s03 | S01-3, S01-4 | yes |
-| Someone else orders | s03 | S01-3, S01-5 | yes |
-| Resolving, waiting for winner | s03 | S02-4 | yes |
-| Tie | s03 | S02-3 | yes |
-| You win, elsewhere in the app | any | S03-1 | yes |
-| Amount error | s03 | S03-2 | yes |
-| Roll picks a side with no offers | s03 | S02-6 | **no — OQ-1** |
-| Winner doesn't decide, or is away | s03 | S01-9 — the game waits and names them (D09) | yes |
-| First initiative player doesn't press Resolve next | s03 | S01-9 — same | yes |
-| Can't afford anything / nothing to sell | s03 | S03-10 | **no** |
-| Goods lost (overflow or no ship) | s03 | S03-6 | **no** |
-| Empty queue (no offers this turn) | s03 | S05-1 | **no** — the prototype always has three trades |
-| Turn ends | s03 | S05 | yes |
+| Before Trading | s03 | S01-7 | yes |
+| You order the queue / someone else does | s03 | S01-3, S01-4 | yes (single-winner version) |
+| Offers disclosed | s03 | S02-1 | **no** |
+| Dictator deciding (you / someone else) | s03 | S02-2, S01-8 | **no** |
+| Several trades in one resolution | s03 | S03-3 | **no** |
+| Your amount decision, elsewhere in the app | any | S01-9, S04-1 | yes (single-winner version) |
+| Amount error | s03 | S04-1 | yes |
+| No offers / nobody can trade — price still moves | s03 | S03-7, S05-2 | **no** |
+| Price clamped at 1 or 20 | s03 | S05-1 | **no** |
+| Wholesaler asked (you / someone else) | s03 | S05-4 | **no** |
+| Can't afford anything / nothing to sell | s03 | S04-5 | **no** |
+| Goods lost (overflow or no ship) | s03 | S04-4 | **no** |
+| Someone the game waits for is away | s03 | S01-8 (D09) | yes |
+| Turn ends | s03 | S07 | yes |
 | End of game | — | — | **no — OQ-7** |
 
 ## 📝 Decisions in play
 
-R10–R16 (resolution, amount, price move, affordability, overflow), R23 (ship presence), R24 (tie-break), R25 (ordering), R28/R11 (positions), R29 (money private), R33, D07, D09 (no timers), Q03, Q04, Q06.
+R34 (counter resolution), R35 (price change, S/D fixed), R36 (every good every turn), R37 (Wholesalers), R38 (Dictator), R12/R16/R23/R10 (caps), R15 (saturation), R25 (ordering), R28 (positions shown), R29 (money private), R33, D07, D09, Q03, Q04, Q06.
 
 ## ❓ Open questions — only those that change a rule or the flow
 
 | # | Question | Blocking? | Proposed default |
 |---|---|---|---|
-| OQ-1 | The roll says "highest buy wins" but there are only sell offers (or the reverse). What happens? | **yes** for S02 | no trade; logged as "{system} {good}: no {buy/sell} offers — no trade" |
-| OQ-5 | How does the player use Wholesaler's extra 6 u, and how is a Dictator's trump shown? | no for S01–S03 | design in a follow-up prototype revision |
 | OQ-7 | When does a game end, and what does everyone see? There is no rule in the brief. | no for the first playtest | open-ended; the creator ends it manually (needs its own story) |
 
 ## 🚫 Out of scope
@@ -100,8 +134,8 @@ Computing tiers (Q04); warehouses as cargo source and factory output (Q03, R32);
 ## 📋 Phasing and dependencies
 
 - Depends on E03 (offers, initiative) and E04 (ship positions).
-- Order: S01 + S02 → S03 → S05 → S04. S04 is last because it is partly blocked on Q04.
-- Existing code to reuse: `BestOfferCalculator`, `TradeDesk`, `TransactionAmountCalculator`, `SDCalculator`, `DiceRoller`. R24 replaces submission order as the tie-break; R13/R14 change the amount and price-move rules from what `TradeDesk` does today.
+- Order: S01 + S03 + S04 → S05 (price change; Wholesalers against fixed tiers) → S02 (Dictator) → S07 → S06. A prototype revision for S02–S05 screens should come before building them.
+- Existing code: `SDCalculator` and the target-indicator math in `TransactionAmountCalculator` stay. `BestOfferCalculator` and `TradeDesk.resolve` assume one winner and must become the counter loop (R34). Today they also throw when the winning side has no offers (`reduce` on an empty list). Tie-break by submission order (`TradeOffer.initiative`) is replaced by turn initiative order.
 
 ## Screens without a criterion in this spec
 

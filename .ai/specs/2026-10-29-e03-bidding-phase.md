@@ -1,7 +1,7 @@
 # E03 — Bidding phase (#9)
 
 **Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Open `index.html`; the grey "Test state" bar is a prototype control, not a product feature.
-**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, D07, D08, D09.
+**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, R38, D07, D08, D09.
 **Siblings:** E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`), E05 Trading (`2026-10-29-e05-trading-phase.md`).
 
 ## 📝 TLDR
@@ -63,6 +63,7 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 7. [s01, s02] [R17, A04] An offer submitted after Bidding has closed is rejected with "Bidding has closed — this offer wasn't placed." (proposed wording); typed values stay in the form.
 8. [API] [R17, A05] No endpoint returns another player's offers during Bidding — including the existing `/api/trade-offers`, which must stop listing all players' offers.
 9. Offers can't be edited or withdrawn in v1 (proposed, OQ-3).
+10. [s01, s02] [R38] A Dictator can't place an offer for the good they're Dictator of at that system: the good is left out of the form, with "You're Dictator of {good} here — you place that offer when it resolves in Trading." The API rejects it too.
 
 ### E03-S04 — A player signals done bidding
 
