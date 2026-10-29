@@ -71,7 +71,7 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 
 1. [s03] [R34] The trader whose turn it is sees: amount pre-filled with max; a whole number 1..max, else inline error "Enter a whole number from 1 to {max}." with focus. Help: "You pay your offer price, {price} HT each. Trading more leaves less for others."
 2. [—] [R12] A buy's max is first reduced to what you can afford.
-3. [s03] [R42] With the amount, you choose which of your ships at that system loads or unloads, and may split the amount across them. A sell is capped by what those ships hold of that good (R10).
+3. [s03] [R42] With the amount, you choose which of your ships at that system loads or unloads, and may split the amount across them. Each ship is listed with what it carries and its free bulky space: "Wayfarer — POLY 4, CHIPS 12 · bulky 4 / 10 used". A sell is capped by what those ships hold of that good (R10).
 4. [s03] [R42, R16, R23] POLY and ISO take one cargo space per unit, 10 per ship; CHIPS and FOOD take none. Bulky units beyond the chosen ships' free space are lost; with no ship there, everything bought is lost. Before confirming: "Only {n} u fit in the ships you chose; the rest will be lost."
 5. [—] If the max after R12/R10 is 0, the trader is shown why ("You can't afford any units at 15 HT") and their offer is done with no units traded (proposed).
 6. [s03, s04] [R25] Each trade is public: "{corp} {bought | sold} {n} u at {price} HT each".
@@ -92,7 +92,7 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 2. [—] [R43] After a trade of at least 6 units of a good at a system (one offer's trade, not summed across a resolution), roll 2d6. If the roll is ≤ the units traded, the trader moves up one tier for that good at that system: none → Retailer → Wholesaler → Dictator.
 3. [—] [R43] A Dictator can't go higher. A Wholesaler who becomes Dictator demotes the previous Dictator to Wholesaler. Positions never drop any other way.
 4. [s03, s04] The roll and its outcome are public: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis" / "rolled 9: no change".
-5. [—] A promotion takes effect at once, so a new Wholesaler or Dictator can use it in the wholesale step of the same resolution (proposed).
+5. [—] [R43] A position change, including a Dictator's demotion, takes effect from the next turn. For the rest of this turn, including the wholesale step of the same resolution and the other goods still to resolve, everyone keeps the position they had. The log line says so: "… now Wholesaler of ISO at Mu Herculis from turn 5".
 
 ### E05-S07 — The turn ends
 
@@ -126,7 +126,7 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 | Can't afford anything / nothing to sell | s03 | S04-5 | **no** |
 | Goods lost (overflow or no ship) | s03 | S04-4 | **no** |
 | Choosing which ships load or unload | s03 | S04-3 | **no** |
-| Position roll after 6+ units (promoted / no change / Dictator demoted) | s03, s04 | S06 | **no** |
+| Position roll after 6+ units (promoted from next turn / no change / Dictator demoted from next turn) | s03, s04 | S06 | **no** |
 | Someone the game waits for is away | s03 | S01-8 (D09) | yes |
 | Turn ends | s03 | S07 | yes |
 | Game over | s09 | S08 | **no** — not in the prototype yet |
