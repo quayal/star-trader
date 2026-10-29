@@ -78,6 +78,8 @@ expiry testable in the domain (engineering standards §4, §7):
 
 ## Progress
 
+PR: #54
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Ports and fakes
@@ -93,6 +95,6 @@ expiry testable in the domain (engineering standards §4, §7):
 
 ### Phase 3: HTTP
 
-- [ ] 3.1 Exchange and session endpoints
-- [ ] 3.2 Controller tests for exchange and session
-- [ ] 3.3 Full validation gate
+- [x] 3.1 Exchange and session endpoints — f91f8e7
+- [x] 3.2 Controller tests for exchange and session — 488d606
+- [x] 3.3 Full validation gate — e633953
