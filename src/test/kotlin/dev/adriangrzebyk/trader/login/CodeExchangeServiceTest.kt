@@ -54,6 +54,47 @@ class CodeExchangeServiceTest {
 	}
 
 	@Test
+	fun shouldAcceptTheCorrectCodeOnTheLastAllowedAttempt() {
+		issueCode()
+		repeat(OneTimeCode.MAX_ATTEMPTS - 1) { runCatching { service.exchangeCode("adrian@example.com", "000000") } }
+
+		assertThat(service.exchangeCode("adrian@example.com", "483920").token).isEqualTo("session-token")
+	}
+
+	@Test
+	fun shouldInvalidateTheCodeAfterTooManyWrongAttempts() {
+		issueCode()
+		repeat(OneTimeCode.MAX_ATTEMPTS) { runCatching { service.exchangeCode("adrian@example.com", "000000") } }
+
+		assertThat(codeStore.codeFor("adrian@example.com")).isNull()
+		assertThatThrownBy { service.exchangeCode("adrian@example.com", "483920") }
+			.isInstanceOf(InvalidCodeExchangeException::class.java)
+		assertThat(sessionStore.sessions).isEmpty()
+	}
+
+	@Test
+	fun shouldCountAnAttemptThatRacedWithAnotherOne() {
+		issueCode()
+		var raced = false
+		val racingStore = object : OneTimeCodeStore by codeStore {
+			// Another guess reserves its attempt between this one's read and its reservation.
+			override fun replace(email: String, expected: StoredCode, updated: StoredCode): Boolean {
+				if (!raced) {
+					raced = true
+					codeStore.replace(email, expected, updated)
+				}
+				return codeStore.replace(email, expected, updated)
+			}
+		}
+
+		runCatching {
+			CodeExchangeService(racingStore, sessionStore, FakeSessionTokenGenerator("t"), clock).exchangeCode("adrian@example.com", "000000")
+		}
+
+		assertThat(codeStore.codeFor("adrian@example.com")!!.attempts).isEqualTo(2)
+	}
+
+	@Test
 	fun shouldRejectACodeOnceItsTimeToLiveHasPassed() {
 		issueCode()
 		clock.instant = clock.instant.plus(OneTimeCode.TTL)

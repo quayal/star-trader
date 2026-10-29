@@ -37,6 +37,16 @@ class InMemoryOneTimeCodeStoreTest {
 	}
 
 	@Test
+	fun shouldReplaceOnlyTheExpectedCode() {
+		store.store("adrian@example.com", code("111111", now))
+		val counted = code("111111", now).copy(attempts = 1)
+
+		assertThat(store.replace("adrian@example.com", code("111111", now), counted)).isTrue()
+		assertThat(store.replace("adrian@example.com", code("111111", now), counted.copy(attempts = 2))).isFalse()
+		assertThat(store.codeFor("adrian@example.com")).isEqualTo(counted)
+	}
+
+	@Test
 	fun shouldNotConsumeACodeThatIsNoLongerTheStoredOne() {
 		store.store("adrian@example.com", code("111111", now))
 		store.store("adrian@example.com", code("222222", now))

@@ -107,6 +107,16 @@ class LoginControllerTest {
 	}
 
 	@Test
+	fun shouldRejectTheRightCodeAfterTooManyWrongGuesses() {
+		val email = "brute-force@example.com"
+		val code = requestCode(email)
+		val wrong = if (code == "000000") "111111" else "000000"
+
+		repeat(5) { exchange(email, wrong).expectStatus().isUnauthorized }
+		exchange(email, code).expectStatus().isUnauthorized
+	}
+
+	@Test
 	fun shouldRejectAnExchangeWithoutACode() {
 		restTestClient.post().uri("/api/login/exchange-code")
 			.contentType(MediaType.APPLICATION_JSON)

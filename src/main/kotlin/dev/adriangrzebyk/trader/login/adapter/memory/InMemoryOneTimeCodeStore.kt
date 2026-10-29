@@ -19,5 +19,7 @@ class InMemoryOneTimeCodeStore : OneTimeCodeStore {
 
 	override fun codeFor(email: String): StoredCode? = codesByEmail[email]
 
+	override fun replace(email: String, expected: StoredCode, updated: StoredCode): Boolean = codesByEmail.replace(email, expected, updated)
+
 	override fun consume(email: String, code: StoredCode): Boolean = codesByEmail.remove(email, code)
 }
