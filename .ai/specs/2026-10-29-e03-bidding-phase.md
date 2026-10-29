@@ -1,7 +1,7 @@
 # E03 — Bidding phase (#9)
 
 **Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-014/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09). Open `index.html`; the grey "Test state" bar is a prototype control, not a product feature.
-**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, R38, D07, D08, D09.
+**Brief:** `.ai/specs/product-brief.md` — R17, R24, R27, R28, R29, R31, R33, R38, R39, R41, R42, D07, D08, D09, D10.
 **Siblings:** E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`), E05 Trading (`2026-10-29-e05-trading-phase.md`).
 
 ## 📝 TLDR
@@ -15,13 +15,17 @@ These IDs are fixed and shared by E03–E05. Acceptance criteria, review comment
 | ID | Screen / overlay | Prototype route | Introduced in |
 |---|---|---|---|
 | s01 | Deck — map, fleet, phase panels | `#dashboard` | E03 |
-| s02 | System details — locations, market, positions, warehouses and factories | `#system-{id}` | E03 |
+| s02 | System details — locations, market, positions | `#system-{id}` | E03 |
 | s03 | Trading — current resolution, queue | `#trading` | E05 |
 | s04 | Game log — public events by turn | `#log` | E03 |
 | s05 | Landing dialog (over s01) | — | E04 |
 | s06 | Loading game | — | E03 |
 | s07 | Not a player in this game | — | E03 (mirrors E02-S04's `403`) |
 | s08 | Unknown screen | any other fragment | E03 |
+| s09 | Game over — final money and winner | — | E05 (not in the prototype yet) |
+| s10 | Sign in (details, then code) | `#sign-in` | E01-S03 |
+| s11 | Create a game (length in turns) | `#new` | E02-S05 |
+| s12 | Lobby — players joining, Start game | `#game/{id}` before the start | E02-S05 |
 
 A top bar on s01–s04 shows turn number, phase (with its state), your money (R29) and, after Bidding, initiative order. A "couldn't refresh" notice can appear on s01–s04.
 
@@ -31,7 +35,7 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 
 ### E03-S01 — A game runs turns of three phases
 
-1. [s01–s04 top bar] [N06, R04] A game is always in one turn (numbered from 1) and one phase: Bidding → Ship-jumps → Trading, then the next turn's Bidding.
+1. [s01–s04 top bar] [N06, R04, R39] A game is always in one turn, shown as "Turn 4 of 20" (the length the creator chose, R41), and one phase: Bidding → Ship-jumps → Trading, then the next turn's Bidding.
 2. [—] [D09] No phase or step has a deadline and nobody is auto-skipped. The game waits for every player.
 3. [—] [R17, D09] Bidding closes the moment the last player signals done.
 4. [—] [A04] An action that reaches the server on the same instant Bidding closes (the last "done") is either applied or rejected, never applied twice or lost silently; the player is told which (see S03-7).
@@ -43,10 +47,10 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 2. [s01] [D07, D08] Inside each system's circle, every good it trades is listed with its arrow and its price in HT, coloured by market label. A legend under the map explains arrows and labels. Colour is never the only cue (arrow + label in the accessible name).
 3. [s01] [D08] Market label comes from buy chance P(2d6 + S/D ≥ 0): high supply ≥ 95%, moderate supply ≥ 70%, in balance 40–60%, moderate demand, high demand. The moderate/high demand split is a setting, default 20% (the brief tracks it under D08).
 4. [s01] [—] Under each system: your ships by name (■), other players' ships by corporation initials (□), or "no ships".
-5. [s01] [—] "Your fleet" lists each of your ships with its system (link to s02), location (Port / Planet / Space) and cargo `n / capacity u · good`.
+5. [s01] [R42] "Your fleet" lists each of your ships separately with its system (link to s02), location (Port / Planet / Space), every good it carries with the amount, and the cargo space it has used: "Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used". An empty ship says "Empty · cargo 0 / 10 used".
 6. [s01→s02] Selecting a system on the map, a fleet entry or an offer's system opens s02 with its heading focused.
-7. [s02] [D07, R31] Four foldable sections: **Locations and ships** (Port: class, legal system; Space: police; Planet: security; ships in each), **Market** (good, price, S/D, label with arrow and hint), **Market positions** (Dictator / Wholesaler / Retailer per good, R28; players without a position are not listed), **Warehouses and factories** (owner, good, units; R32 note that unstored output is lost). The first two are open by default.
-8. [s02] [—] Empty states: "No ships" per location; "No warehouses or factories here."
+7. [s02] [D07, R31] Three foldable sections: **Locations and ships** (Port: class, legal system; Space: police; Planet: security; ships in each; your own ships there also show their goods and cargo space used, as in S02-5; other players' cargo is never shown), **Market** (good, price, S/D, label with arrow and hint), **Market positions** (Dictator / Wholesaler / Retailer per good, R28; players without a position are not listed). The first two are open by default. Warehouses and factories are not shown (N08).
+8. [s02] [—] Empty states: "No ships" per location; "Nobody holds a position for this good yet" in Market positions (everyone starts with none, R40).
 9. [s06] While the first state load is in flight, "Loading game…" is shown.
 10. [s07] [E02-S04, A05] A signed-in user who isn't in this game sees "You're not a player in this game" and none of its state.
 11. [s08] An unknown screen link shows "This screen doesn't exist" with a link to s01.
@@ -118,7 +122,7 @@ R17 (secret offers; done is a flag), R27 (initiative ordering, all-pay), R29 (mo
 
 ## 🚫 Out of scope
 
-D05 resume (Later); R06 confidential info trading; factory production (R32, blocked on Q03); computing market-position tiers (Q04); design-system work for the fifth market colour (D08 follow-up).
+D05 resume (Later); R06 confidential info trading; warehouses and factories (N08); design-system work for the fifth market colour (D08 follow-up).
 
 ## 📋 Phasing and dependencies
 
@@ -134,4 +138,4 @@ D05 resume (Later); R06 confidential info trading; factory production (R32, bloc
 
 ## Screens without a criterion in this spec
 
-s03 and s05 (E05 and E04).
+s03 and s09 (E05), s05 (E04).
