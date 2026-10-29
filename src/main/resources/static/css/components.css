@@ -1,0 +1,233 @@
+/*
+ * Shared UI classes. Values come only from tokens.css (var(--…)).
+ * Every class here is rendered in its states on /design-system.html — keep the two in step.
+ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	background: var(--surface-page);
+	color: var(--text-primary);
+	font-family: var(--font-body);
+	font-size: var(--text-body);
+	line-height: 1.4;
+}
+
+h1, h2, h3 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	margin: 0;
+}
+
+/* Focus: always visible, never border-subtle (tokens.md flag 1; WCAG 2.4.7) */
+:focus-visible,
+[data-preview-state="focus"] {
+	outline: var(--focus-ring-width) solid var(--accent-selected);
+	outline-offset: 2px;
+}
+
+/* ── Panel (R01.1) ── */
+.panel {
+	background: var(--surface-panel);
+	border: var(--border-width) solid var(--border-subtle);
+	border-radius: var(--radius-panel);
+	padding: var(--space-panel);
+}
+
+/* ── Primary button (R01.1: accent-selected; glow on hover, static) ── */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-group);
+	min-height: 36px;
+	padding: var(--space-group) var(--space-panel);
+	border: var(--border-width) solid var(--accent-selected);
+	border-radius: var(--radius-control);
+	background: var(--accent-selected);
+	color: var(--text-on-accent);
+	font-family: var(--font-display);
+	font-size: var(--text-body);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+	transition: box-shadow var(--duration-hover);
+}
+.btn:hover:not(:disabled),
+.btn[data-preview-state="hover"] { box-shadow: var(--glow-selected); }
+.btn:disabled {
+	background: var(--surface-raised);
+	border-color: var(--border-control);
+	color: var(--text-muted);
+	cursor: not-allowed;
+}
+
+/* ── Controls: input, select (border-control, ≥ 3:1) ── */
+.control {
+	width: 100%;
+	min-height: 36px;
+	padding: var(--space-group) var(--space-related);
+	border: var(--border-width) solid var(--border-control);
+	border-radius: var(--radius-control);
+	background: var(--surface-page);
+	color: var(--text-primary);
+	font-family: var(--font-body);
+	font-size: var(--text-value);
+}
+.control:hover,
+.control[data-preview-state="hover"] { border-color: var(--text-muted); }
+.control[aria-invalid="true"] { border-color: var(--status-danger); }
+.control:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+.field-label {
+	display: block;
+	margin-bottom: var(--space-group);
+	color: var(--text-muted);
+	font-size: var(--text-body);
+	font-weight: 600;
+}
+
+/* ── Choice (radio/checkbox styled as a tile) ── */
+.choice {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-group);
+	min-height: 36px;
+	padding: var(--space-group);
+	border: var(--border-width) solid var(--border-control);
+	border-radius: var(--radius-control);
+	color: var(--text-primary);
+	cursor: pointer;
+	transition: box-shadow var(--duration-hover);
+}
+.choice:has(input:checked) {
+	border-color: var(--accent-selected);
+	box-shadow: var(--glow-selected);
+}
+.choice input { accent-color: var(--accent-selected); }
+
+/* ── Navigation item (R03.1 rail; selected = accent + glow, R01.1) ── */
+.nav-item {
+	display: block;
+	padding: var(--space-group) var(--space-related);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	color: var(--text-muted);
+	font-family: var(--font-display);
+	font-size: var(--text-caption);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	text-decoration: none;
+	transition: box-shadow var(--duration-hover);
+}
+.nav-item:hover,
+.nav-item[data-preview-state="hover"] { background: var(--surface-raised); color: var(--text-primary); }
+.nav-item[aria-current="page"] {
+	border-color: var(--accent-selected);
+	color: var(--accent-selected);
+	box-shadow: var(--glow-selected);
+}
+
+/* ── Text link ── */
+.link { color: var(--accent-selected); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+
+/* ── Status badge: text always present, color is secondary (WCAG 1.4.1) ── */
+.badge {
+	display: inline-block;
+	padding: 2px var(--space-group);
+	border: var(--border-width) solid currentColor;
+	border-radius: var(--radius-control);
+	font-family: var(--badge-status-font);
+	font-size: var(--badge-status-size);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.badge--live { color: var(--status-live); box-shadow: var(--glow-live); }
+.badge--warn { color: var(--status-warn); }
+.badge--danger { color: var(--status-danger); box-shadow: var(--glow-danger); }
+
+/* ── Message under a form (status color + text) ── */
+.message { min-height: 1.4em; font-size: var(--text-body); }
+.message--error { color: var(--status-danger); }
+.message--success { color: var(--status-live); }
+
+/* ── Data table ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
+.data-table th,
+.data-table td {
+	padding: var(--space-group);
+	border-bottom: var(--border-width) solid var(--border-subtle);
+	text-align: left;
+}
+.data-table th {
+	color: var(--text-muted);
+	font-size: var(--text-caption);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.data-table tbody tr:hover { background: var(--surface-raised); }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── Buy/Sell cell tint (R04.1: color only in this column) ── */
+.trade {
+	font-family: var(--font-display);
+	font-size: var(--text-caption);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.trade--buy { background: var(--tint-buy); color: var(--trade-buy); }
+.trade--sell { background: var(--tint-sell); color: var(--trade-sell); }
+
+/* ── Goods name in its own color (R04.1: goods column / icons only) ── */
+.good { font-weight: 700; letter-spacing: 0.04em; }
+.good--poly { color: var(--good-poly); }
+.good--chips { color: var(--good-chips); }
+.good--food { color: var(--good-food); }
+.good--iso { color: var(--good-iso); }
+
+/* ── S/D value (R03.5): number always visible; color from buy chance ── */
+.sd-value {
+	font-family: var(--font-display);
+	font-size: var(--text-body);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+/* Stepped (creator decision 2026-10-28, Gap 1) — set data-step from buy chance, never from fixed indicator endpoints (conflict 48) */
+.sd-value[data-step="easy"] { color: var(--sd-easy); }
+.sd-value[data-step="fair"] { color: var(--sd-fair); }
+.sd-value[data-step="hard"] { color: var(--sd-hard); }
+.sd-value[data-step="bad"] { color: var(--sd-bad); }
+
+/* ── Cargo meter (R01.3): "used / capacity u" plus a thin bar ── */
+.cargo-meter { display: grid; gap: var(--space-hairline); }
+.cargo-meter__head { display: flex; justify-content: space-between; font-size: var(--text-body); }
+.cargo-meter__label { color: var(--text-muted); }
+.cargo-meter__bar {
+	height: 4px;
+	border-radius: var(--radius-control);
+	background: var(--surface-raised);
+	overflow: hidden;
+}
+.cargo-meter__fill {
+	display: block;
+	height: 100%;
+	width: var(--fill);
+	background: var(--accent-selected);
+}
+
+/* ── Poll flash (Gap 1): one flash when a polled value changes; never loops (A04) ── */
+@keyframes poll-flash {
+	from { background: var(--surface-raised); }
+	to { background: transparent; }
+}
+.flash { animation: poll-flash var(--duration-flash) ease-out 1; }
+
+.muted { color: var(--text-muted); }
+.empty { color: var(--text-muted); font-size: var(--text-body); }
