@@ -35,6 +35,13 @@ expiry testable in the domain (engineering standards §4, §7):
 - The store no longer reads time itself: `store(email, code, issuedAt)` receives the
   time from the domain `Clock` port, and purges entries older than `issuedAt - TTL`.
 - Domain `Clock` port as the spec names it; `SystemClock` adapter wraps `Instant.now()`.
+- `StoredCode` also carries `playerName` and `corporationName`: the spec's `Session`
+  needs them, but the exchange only receives email + code, so the identity given when
+  requesting the code has to be kept with it. `store(email, StoredCode)` replaces
+  `store(email, code, issuedAt)`.
+- `consume(email, code): Boolean` removes the code only if it is still the stored one
+  (compare-and-remove), so two exchanges racing for the same code start one session,
+  not two (engineering standards §9). The spec's `consume(email)` was a read-then-remove split.
 
 ## Implementation Plan
 
@@ -82,7 +89,7 @@ expiry testable in the domain (engineering standards §4, §7):
 
 ### Phase 2: Exchange in the domain
 
-- [ ] 2.1 CodeExchangeService with domain tests
+- [x] 2.1 CodeExchangeService with domain tests — 9d1e998, e995551
 
 ### Phase 3: HTTP
 
