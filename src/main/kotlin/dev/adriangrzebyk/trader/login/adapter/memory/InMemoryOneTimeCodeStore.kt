@@ -1,26 +1,25 @@
 package dev.adriangrzebyk.trader.login.adapter.memory
 
+import dev.adriangrzebyk.trader.login.OneTimeCode
 import dev.adriangrzebyk.trader.login.OneTimeCodeStore
+import dev.adriangrzebyk.trader.login.StoredCode
 import org.springframework.stereotype.Component
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class InMemoryOneTimeCodeStore(private val clock: Clock = Clock.systemUTC()) : OneTimeCodeStore {
+class InMemoryOneTimeCodeStore : OneTimeCodeStore {
 
-	private data class IssuedCode(val code: String, val expiresAt: Instant)
+	private val codesByEmail = ConcurrentHashMap<String, StoredCode>()
 
-	private val codesByEmail = ConcurrentHashMap<String, IssuedCode>()
-
-	override fun store(email: String, code: String) {
-		val now = Instant.now(clock)
-		codesByEmail.values.removeIf { it.expiresAt.isBefore(now) }
-		codesByEmail[email] = IssuedCode(code, now.plus(CODE_TTL))
+	override fun store(email: String, code: StoredCode) {
+		val oldestValid = code.issuedAt.minus(OneTimeCode.TTL)
+		codesByEmail.values.removeIf { it.issuedAt.isBefore(oldestValid) }
+		codesByEmail[email] = code
 	}
 
-	companion object {
-		val CODE_TTL: Duration = Duration.ofMinutes(10)
-	}
+	override fun codeFor(email: String): StoredCode? = codesByEmail[email]
+
+	override fun replace(email: String, expected: StoredCode, updated: StoredCode): Boolean = codesByEmail.replace(email, expected, updated)
+
+	override fun consume(email: String, code: StoredCode): Boolean = codesByEmail.remove(email, code)
 }

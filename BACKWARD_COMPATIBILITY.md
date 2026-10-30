@@ -30,11 +30,25 @@ Current endpoints, all under `/api`:
 - **Required path**: none required yet (no external client exists), but any such change must be called out explicitly in the PR body ("Decisions touched" per `SDLC.md`), since the static frontend in `src/main/resources/static` is the one consumer and must be updated in the same PR.
 - **Known planned break**: this entire surface is global/unscoped (no game id), which product brief problem statement and engineering standard #11 both flag as not meeting R01. The multi-game work in Scope/Now is expected to replace these endpoints with game-scoped equivalents (e.g. `/api/games/{gameId}/trade-offers`) — that is anticipated, tracked work, not a violation to block on today, but once a game-scoped surface ships, *that* becomes the protected one and this table must be updated in the same PR.
 
-### 3. Frontend/backend contract
+### 3. Login and session — `/api/login/*` (`LoginController`)
+
+The passwordless login flow (D03). The sign-in screens (E01-S03) and every later endpoint that needs to know "this request is player X" depend on it.
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| POST | `/login/request-code` | `{ playerName, corporationName, email }` | `202`, or `400` for a blank name or malformed email |
+| POST | `/login/exchange-code` | `{ email, code }` | `200` + `{ sessionToken }`; `400` for a blank field; `401` for a wrong, expired, reused or never-requested code, or once the code's 5 attempts are used up |
+| GET | `/login/session` | `Authorization: Bearer <sessionToken>` | `200` + `{ playerName, corporationName, email }`; `401` for a missing, malformed or unknown token |
+
+- **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions live in memory until the server restarts (D02 persistence is #21). A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
+- **Breaking change**: renaming or removing a field above; changing a status code; changing how the token is sent (bearer header → cookie, say); giving sessions an expiry; letting a `401` reveal *which* reason applied.
+- **Required path**: update the in-repo consumer (the sign-in screens, once E01-S03 ships) in the same PR, and state the change in the PR body's "Decisions touched". Session expiry would also need a superseding entry for D05.
+
+### 4. Frontend/backend contract
 
 `src/main/resources/static/index.html` is served as-is by Spring Boot's static resource handling and talks to `/api/*`. A change to the API response shape or the static file's expectations of it must keep both sides in sync within one PR — there is no versioning or feature-detection between them today.
 
-### 4. Build and tooling contract
+### 5. Build and tooling contract
 
 - `./gradlew build` is what CI (`.github/workflows/*.yml`) and this repo's validation gate (`SDLC.md`) run; it must keep working from a clean checkout with JDK 17.
 - ktlint style rules (`build.gradle.kts`) are enforced as part of `check`; a change to `.editorconfig`/ktlint config that relaxes a rule project-wide is a deliberate decision, not a drive-by fix for one file.
@@ -44,7 +58,6 @@ Current endpoints, all under `/api`:
 These will become protected surfaces once they exist, per the product brief's Scope/Now — call this file out for an update in the PR that first introduces each:
 
 - **Persistence schema** — no document store exists yet (D02); once it does, the per-game document shape becomes a protected surface needing a migration/versioning story.
-- **Auth/session** — no login exists yet (D03); once the email-code session flow ships, its cookie/token shape and session lifecycle become protected.
 - **Confidential-data authorization** — the session→player→game check from product-brief assumption A05 doesn't exist yet; once it does, loosening it is always a blocker-severity review finding (see `CODE_REVIEW.md`), never a plain compatibility note.
 
 ## Required path for any breaking change, in general

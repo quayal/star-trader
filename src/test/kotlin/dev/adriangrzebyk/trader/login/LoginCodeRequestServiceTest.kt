@@ -8,10 +8,12 @@ class LoginCodeRequestServiceTest {
 
 	private val codeStore = FakeOneTimeCodeStore()
 	private val codeSender = FakeOneTimeCodeSender()
+	private val clock = FakeClock()
 	private val service = LoginCodeRequestService(
 		codeGenerator = FakeOneTimeCodeGenerator("483920"),
 		codeSender = codeSender,
 		codeStore = codeStore,
+		clock = clock,
 	)
 
 	@Test
@@ -20,7 +22,7 @@ class LoginCodeRequestServiceTest {
 
 		service.requestCode(request)
 
-		assertThat(codeStore.storedCodeFor("adrian@example.com")).isEqualTo("483920")
+		assertThat(codeStore.codeFor("adrian@example.com")).isEqualTo(StoredCode("483920", "Adrian", "Adrian Star Traders", clock.instant))
 		assertThat(codeSender.sent).containsExactly(
 			FakeOneTimeCodeSender.SentCode(email = "adrian@example.com", playerName = "Adrian", code = "483920"),
 		)
@@ -39,8 +41,8 @@ class LoginCodeRequestServiceTest {
 
 	@Test
 	fun shouldOverwriteAPreviouslyIssuedCodeForTheSameEmailOnARepeatRequest() {
-		val firstService = LoginCodeRequestService(FakeOneTimeCodeGenerator("111111"), codeSender, codeStore)
-		val secondService = LoginCodeRequestService(FakeOneTimeCodeGenerator("222222"), codeSender, codeStore)
+		val firstService = LoginCodeRequestService(FakeOneTimeCodeGenerator("111111"), codeSender, codeStore, clock)
+		val secondService = LoginCodeRequestService(FakeOneTimeCodeGenerator("222222"), codeSender, codeStore, clock)
 		val request = LoginCodeRequest(playerName = "Adrian", corporationName = "Adrian Star Traders", email = "adrian@example.com")
 
 		firstService.requestCode(request)
@@ -82,7 +84,7 @@ class LoginCodeRequestServiceTest {
 		service.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", "adrian@example.com"))
 
 		assertThatThrownBy {
-			LoginCodeRequestService(FakeOneTimeCodeGenerator("999999"), failingSender, codeStore)
+			LoginCodeRequestService(FakeOneTimeCodeGenerator("999999"), failingSender, codeStore, clock)
 				.requestCode(LoginCodeRequest("Adrian", "Adrian Star Traders", "adrian@example.com"))
 		}.isInstanceOf(IllegalStateException::class.java)
 
