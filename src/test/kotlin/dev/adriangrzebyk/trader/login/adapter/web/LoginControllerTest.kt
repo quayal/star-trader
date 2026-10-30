@@ -7,7 +7,11 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.client.RestTestClient
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
+@SpringBootTest(
+	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="],
+)
 class LoginControllerTest {
 
 	@LocalServerPort
