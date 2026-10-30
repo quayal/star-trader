@@ -102,4 +102,4 @@ sign-in screen and back.
 
 ### Phase 4: Docs
 
-- [ ] 4.1 Update design-system and compatibility docs
+- [x] 4.1 Update design-system and compatibility docs — e1253fb
