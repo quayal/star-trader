@@ -30,8 +30,8 @@ class ResendOneTimeCodeSender internal constructor(
 
 	@Autowired
 	constructor(
-		@Value("\${star-trader.email.resend.api-key:}") apiKey: String,
-		@Value("\${star-trader.email.resend.from:}") from: String,
+		@Value($$"${star-trader.email.resend.api-key:}") apiKey: String,
+		@Value($$"${star-trader.email.resend.from:}") from: String,
 		@Value("#{environment.matchesProfiles('prod')}") production: Boolean,
 	) : this(apiKey, from, production, RestClient.builder().requestFactory(timeoutRequestFactory()))
 
