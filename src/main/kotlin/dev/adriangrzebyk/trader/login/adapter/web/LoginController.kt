@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.login.adapter.web
 import dev.adriangrzebyk.trader.login.InvalidLoginRequestException
 import dev.adriangrzebyk.trader.login.LoginCodeRequest
 import dev.adriangrzebyk.trader.login.LoginCodeRequestService
+import dev.adriangrzebyk.trader.login.OneTimeCodeDeliveryException
 import dev.adriangrzebyk.trader.login.OneTimeCodeGenerator
 import dev.adriangrzebyk.trader.login.OneTimeCodeSender
 import dev.adriangrzebyk.trader.login.OneTimeCodeStore
@@ -28,6 +29,8 @@ class LoginController(codeGenerator: OneTimeCodeGenerator, codeSender: OneTimeCo
 			)
 		} catch (ex: InvalidLoginRequestException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: OneTimeCodeDeliveryException) {
+			throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "We couldn't send the code. Try again.")
 		}
 
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build()
