@@ -62,11 +62,11 @@ class InMemoryGameStoreTest {
 		store.create(game)
 		val executor = Executors.newFixedThreadPool(8)
 
-		(1..5).forEach { n ->
+		val updates = (1..5).map { n ->
 			executor.submit { store.update("game-1") { it.addPlayer(Player("p$n@example.com", "P$n", "Corp $n")) } }
 		}
+		updates.forEach { it.get(5, TimeUnit.SECONDS) }
 		executor.shutdown()
-		executor.awaitTermination(5, TimeUnit.SECONDS)
 
 		assertThat(store.find("game-1")!!.players).hasSize(6)
 	}

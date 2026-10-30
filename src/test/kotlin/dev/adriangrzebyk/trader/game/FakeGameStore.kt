@@ -5,6 +5,7 @@ class FakeGameStore : GameStore {
 	val games = mutableMapOf<String, Game>()
 
 	override fun create(game: Game) {
+		check(game.id !in games) { "A game with id ${game.id} already exists" }
 		games[game.id] = game
 	}
 
