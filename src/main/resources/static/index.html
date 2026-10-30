@@ -107,7 +107,14 @@
 			.join('');
 	}
 
-	loadMarket();
+</script>
+<script type="module">
+	import { requireSession } from './js/session.js';
+
+	// Signed out, or the server no longer knows the session: sign in (s10), then come back (E01-S03).
+	if (await requireSession()) {
+		loadMarket();
+	}
 </script>
 </body>
 </html>
