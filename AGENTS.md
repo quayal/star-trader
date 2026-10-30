@@ -8,7 +8,7 @@ Star Trader — an online, browser-based adaptation of a classic 1980s trading/s
 
 - Build: `./gradlew build`
 - Run locally: `./gradlew bootRun` (serves on port 3000, see `src/main/resources/application.properties`)
-- Test: `./gradlew test`
+- Test: `./gradlew test` (Kotlin); `./gradlew jsTest` runs the frontend's JavaScript unit tests and needs Node 22+
 
 Product direction, confirmed decisions, business rules and open risks live in `.ai/specs/product-brief.md` — read it before making product or architecture decisions, not just code.
 

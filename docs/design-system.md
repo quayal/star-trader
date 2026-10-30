@@ -8,7 +8,11 @@ Plain static HTML + CSS, no build step (brief R05, N03). Three shared stylesheet
 | `fonts.css` | Orbitron + Rajdhani, bundled in `static/fonts/` (OFL 1.1). Never load fonts from a CDN. |
 | `components.css` | Shared classes. Use these instead of re-styling elements per page. |
 
-Every page links all three, in that order. The live reference is `/design-system.html` (`./gradlew bootRun`, then open `http://localhost:3000/design-system.html`).
+Every page links all three, in that order. Shared page scripts are ES modules in `static/js/` (no build step); their pure logic is unit-tested in `src/test/js/` with Node's built-in runner (`./gradlew jsTest`, part of `check`).
+
+**Signed in.** Every game screen calls `requireSession()` from `js/session.js` before loading anything: a signed-out player goes to the sign-in screen (`/sign-in.html?next=…`, s10) and comes back. A new game screen must do the same.
+
+The live reference is `/design-system.html` (`./gradlew bootRun`, then open `http://localhost:3000/design-system.html`).
 
 Sources cited below: `.ai/specs/reference.md` (R…, A…), `.ai/specs/tokens.md`, `.ai/specs/product-brief.md` (brief R…/N…). **proposal** = not yet confirmed by the creator.
 
