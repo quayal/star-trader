@@ -51,8 +51,26 @@ val checkTokens = tasks.register<Exec>("checkTokens") {
 	commandLine("bash", "scripts/check-tokens.sh")
 }
 
+// A clean JDK-only checkout still builds without Node; CI sets CI=true and never skips this.
+val nodeOnPath = System.getenv("PATH").orEmpty().split(File.pathSeparator).any { File(it, "node").canExecute() }
+
+val jsTest = tasks.register<Exec>("jsTest") {
+	description = "Runs the static frontend's JavaScript unit tests with Node's built-in test runner."
+	group = "verification"
+	inputs.dir("src/main/resources/static/js")
+	inputs.dir("src/test/js")
+	outputs.upToDateWhen { false }
+	onlyIf("node is on the PATH, or this is CI") {
+		if (!nodeOnPath && System.getenv("CI") == null) {
+			logger.warn("Skipping jsTest: node is not on the PATH.")
+		}
+		nodeOnPath || System.getenv("CI") != null
+	}
+	commandLine("node", "--test", "src/test/js/**/*.test.mjs")
+}
+
 tasks.named("check") {
-	dependsOn(checkTokens)
+	dependsOn(checkTokens, jsTest)
 }
 
 // Serve static files straight from src/ during bootRun so prototype and page edits show on refresh.
