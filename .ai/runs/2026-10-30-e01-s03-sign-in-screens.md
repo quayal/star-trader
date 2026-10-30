@@ -87,8 +87,8 @@ sign-in screen and back.
 
 ### Phase 1: Session module
 
-- [ ] 1.1 Add session.js with unit tests
-- [ ] 1.2 Run the JS tests in ./gradlew check and CI
+- [x] 1.1 Add session.js with unit tests — 10e537d
+- [x] 1.2 Run the JS tests in ./gradlew check and CI — ad25f49
 
 ### Phase 2: Sign-in screen (s10)
 
