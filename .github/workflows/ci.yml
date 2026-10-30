@@ -18,6 +18,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Node 22 (JavaScript unit tests)
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 

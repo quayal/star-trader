@@ -13,6 +13,12 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-10-30: **Escape anything a player typed before it goes into `innerHTML`.** The Market rendered offer `playerName` raw, and the API accepts any text. Once E01-S03 put the session token in `localStorage`, that turned into session theft. Use `escapeHtml` from `static/js/html.js` (or `textContent`) for every server value in a template string.
+
+- 2026-10-30: **A CSS `display` rule on an element beats its `hidden` attribute.** On the sign-in screen, `form { display: grid }` kept the hidden code step visible, so both steps showed at once. The JS state was correct, so only a screenshot caught it. Whenever a page toggles `hidden` on an element that has a `display` rule, add `[hidden] { display: none; }` for it.
+
+- 2026-10-30: **If `RESEND_API_KEY` is set in your shell, local sign-in really emails the code.** `./gradlew bootRun` then fails for test addresses such as `ada@example.com` (Resend answers 422, and the page shows "We couldn't send the code"). To get codes in the server log instead, start it with `env -u RESEND_API_KEY -u RESEND_FROM_ADDRESS ./gradlew bootRun`.
+
 - 2026-10-29: **Only ask the creator questions that change the design; give tunables a default.** The E03 spec marked "how long is the Bidding timer" as a blocking question, but it is one config value. Before marking a question blocking, ask: does the answer change the model, the engine, or a game rule? If not, pick a default, make it a setting, and don't ask. Correction from the creator.
 
 - 2026-10-29: **Clicking through a prototype finds the states you cause, not the ones that happen to you.** Writing E03–E05 specs from revision 013 with a per-screen states checklist (empty, loading, error, no access, conflict, timeout, someone else stalls) found gaps that 13 revisions of clicking hadn't: no rule for an absent player in ordered steps (pick, jump slot, Resolve next), a roll with no offers on the winning side, and no end of game. Run the checklist before turning a prototype into stories.

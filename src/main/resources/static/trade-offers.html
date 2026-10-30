@@ -59,7 +59,10 @@
 	</section>
 </main>
 
-<script>
+<script type="module">
+	import { escapeHtml } from './js/html.js';
+	import { requireSession } from './js/session.js';
+
 	let options = null;
 
 	const systemSelect = document.getElementById('system');
@@ -116,9 +119,9 @@
 			.reverse()
 			.map(o => `
 				<tr>
-					<td>${o.playerName}</td>
-					<td>${o.systemDisplayName}</td>
-					<td>${o.goods}</td>
+					<td>${escapeHtml(o.playerName)}</td>
+					<td>${escapeHtml(o.systemDisplayName)}</td>
+					<td>${escapeHtml(o.goods)}</td>
 					<td class="num">${o.price}</td>
 					<td class="trade trade--${o.offerType.toLowerCase()}">${o.offerType}</td>
 				</tr>
@@ -176,10 +179,11 @@
 		}
 	});
 
-	(async function init() {
+	// Signed out, or the server no longer knows the session: sign in (s10), then come back (E01-S03).
+	if (await requireSession()) {
 		await loadOptions();
 		await loadOffers();
-	})();
+	}
 </script>
 </body>
 </html>

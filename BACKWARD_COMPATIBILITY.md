@@ -42,7 +42,8 @@ The passwordless login flow (D03). The sign-in screens (E01-S03) and every later
 
 - **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions live in memory until the server restarts (D02 persistence is #21). A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
 - **Breaking change**: renaming or removing a field above; changing a status code; changing how the token is sent (bearer header → cookie, say); giving sessions an expiry; letting a `401` reveal *which* reason applied.
-- **Required path**: update the in-repo consumer (the sign-in screens, once E01-S03 ships) in the same PR, and state the change in the PR body's "Decisions touched". Session expiry would also need a superseding entry for D05.
+- **In-repo consumers**: `static/sign-in.html` (request and exchange the code) and `static/js/session.js` (keeps the token in `localStorage` as `starTrader.sessionToken` and checks it with `GET /login/session` on every game screen). The sign-in screen maps E01-S01's 400 messages to its fields by their exact text (`static/js/sign-in.js`), so rewording one of those messages must update that map too.
+- **Required path**: update the in-repo consumers above in the same PR, and state the change in the PR body's "Decisions touched". Session expiry would also need a superseding entry for D05.
 
 ### 4. Frontend/backend contract
 
@@ -51,6 +52,7 @@ The passwordless login flow (D03). The sign-in screens (E01-S03) and every later
 ### 5. Build and tooling contract
 
 - `./gradlew build` is what CI (`.github/workflows/*.yml`) and this repo's validation gate (`SDLC.md`) run; it must keep working from a clean checkout with JDK 17.
+- The frontend's JavaScript unit tests (`jsTest`, part of `check`) need Node 22+ on the PATH. CI installs it and never skips them; a local checkout without `node` skips them with a warning, so JDK 17 alone still builds.
 - ktlint style rules (`build.gradle.kts`) are enforced as part of `check`; a change to `.editorconfig`/ktlint config that relaxes a rule project-wide is a deliberate decision, not a drive-by fix for one file.
 
 ## Not yet applicable (no contract exists)
