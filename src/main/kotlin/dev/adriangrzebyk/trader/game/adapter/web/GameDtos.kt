@@ -11,7 +11,13 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
 	fun wholeTurns(): Int? = turns?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
-data class GameResponseDto(val id: String, val turns: Int, val status: String, val creatorEmail: String, val players: List<PlayerResponseDto>,)
+data class GameResponseDto(
+	val id: String,
+	val turns: Int,
+	val status: String,
+	val creatorEmail: String,
+	val players: List<PlayerResponseDto>,
+)
 
 data class PlayerResponseDto(val email: String, val name: String, val corporationName: String,)
 
