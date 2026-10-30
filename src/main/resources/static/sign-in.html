@@ -29,6 +29,8 @@
 		form[hidden] { display: none; }
 		.field-error:empty { display: none; }
 		.field-error { margin-top: var(--space-group); }
+		.form-status { margin: var(--space-group) 0 0; }
+		.form-status:empty { min-height: 0; margin: 0; }
 		.code-sent { margin: 0; }
 		.code-input { font-variant-numeric: tabular-nums; letter-spacing: 0.2em; }
 		.actions { display: flex; flex-wrap: wrap; gap: var(--space-related) var(--space-between-groups); }
@@ -74,8 +76,8 @@
 			</div>
 			<div>
 				<button class="btn" type="submit">Send code</button>
+				<p class="message form-status" id="details-message" role="status"></p>
 			</div>
-			<p class="message" id="details-message" role="status"></p>
 		</form>
 
 		<form id="code-form" novalidate hidden>
@@ -89,11 +91,13 @@
 			<div>
 				<button class="btn" type="submit">Sign in</button>
 			</div>
-			<div class="actions">
-				<button class="text-action" id="resend" type="button">Send a new code</button>
-				<button class="text-action" id="change-email" type="button">Use a different email</button>
+			<div>
+				<div class="actions">
+					<button class="text-action" id="resend" type="button">Send a new code</button>
+					<button class="text-action" id="change-email" type="button">Use a different email</button>
+				</div>
+				<p class="message form-status" id="code-message" role="status"></p>
 			</div>
-			<p class="message" id="code-message" role="status"></p>
 		</form>
 	</section>
 </main>
@@ -115,12 +119,12 @@
 
 	function showMessage(element, text, isError) {
 		element.textContent = text;
-		element.className = `message ${isError ? 'message--error' : 'message--success'}`;
+		element.className = `message form-status ${isError ? 'message--error' : 'message--success'}`;
 	}
 
 	function clearMessage(element) {
 		element.textContent = '';
-		element.className = 'message';
+		element.className = 'message form-status';
 	}
 
 	function setFieldError(input, text) {
