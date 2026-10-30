@@ -98,7 +98,7 @@ sign-in screen and back.
 
 ### Phase 3: Game screens require a session
 
-- [ ] 3.1 Deck and Market require a session
+- [x] 3.1 Deck and Market require a session — 576f1bc
 
 ### Phase 4: Docs
 
