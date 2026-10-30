@@ -92,9 +92,9 @@ sign-in screen and back.
 
 ### Phase 2: Sign-in screen (s10)
 
-- [ ] 2.1 Step 1: details form with inline messages
-- [ ] 2.2 Step 2: code form, resend, different email
-- [ ] 2.3 Return to the next link on success
+- [x] 2.1 Step 1: details form with inline messages — 6e42fff
+- [x] 2.2 Step 2: code form, resend, different email — 6e42fff
+- [x] 2.3 Return to the next link on success — 6e42fff
 
 ### Phase 3: Game screens require a session
 
