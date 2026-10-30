@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-10-30: **Escape anything a player typed before it goes into `innerHTML`.** The Market rendered offer `playerName` raw, and the API accepts any text. Once E01-S03 put the session token in `localStorage`, that turned into session theft. Use `escapeHtml` from `static/js/html.js` (or `textContent`) for every server value in a template string.
+
 - 2026-10-30: **A CSS `display` rule on an element beats its `hidden` attribute.** On the sign-in screen, `form { display: grid }` kept the hidden code step visible, so both steps showed at once. The JS state was correct, so only a screenshot caught it. Whenever a page toggles `hidden` on an element that has a `display` rule, add `[hidden] { display: none; }` for it.
 
 - 2026-10-30: **If `RESEND_API_KEY` is set in your shell, local sign-in really emails the code.** `./gradlew bootRun` then fails for test addresses such as `ada@example.com` (Resend answers 422, and the page shows "We couldn't send the code"). To get codes in the server log instead, start it with `env -u RESEND_API_KEY -u RESEND_FROM_ADDRESS ./gradlew bootRun`.

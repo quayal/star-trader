@@ -81,6 +81,14 @@ sign-in screen and back.
 - Sessions live in memory (D02 not built): a server restart signs everyone out, which the
   gate handles by sending them to s10 with the link kept.
 
+## Review fixes
+
+- The review found stored XSS in the Market (`renderOffers` put `playerName` into `innerHTML`
+  unescaped). The bug was already there, but the session token in `localStorage` turned it into
+  session theft. Fixed with `js/html.js` `escapeHtml` (unit-tested); the Market script is now an
+  ES module — 06208b9.
+- Left as a follow-up (minor): a network failure during the session check leaves a blank page.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
