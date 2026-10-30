@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Star Trader &mdash; Sign in</title>
+	<link rel="stylesheet" href="css/fonts.css">
+	<link rel="stylesheet" href="css/tokens.css">
+	<link rel="stylesheet" href="css/components.css">
+	<style>
+		body {
+			min-height: 100vh;
+			display: flex;
+			justify-content: center;
+			align-items: flex-start;
+			padding: var(--space-screen) var(--space-panel);
+		}
+		main { width: 100%; max-width: 420px; }
+		.brand {
+			font-family: var(--font-display);
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			color: var(--accent-selected);
+			margin-bottom: var(--space-between-groups);
+		}
+		.panel h1 { font-size: var(--text-heading); margin-bottom: var(--space-group); }
+		.intro { color: var(--text-muted); margin: 0; }
+		form { display: grid; gap: var(--space-panel); }
+		form[hidden] { display: none; }
+		.field-error:empty { display: none; }
+		.field-error { margin-top: var(--space-group); }
+		.code-sent { margin: 0; }
+		.code-input { font-variant-numeric: tabular-nums; letter-spacing: 0.2em; }
+		.actions { display: flex; flex-wrap: wrap; gap: var(--space-related) var(--space-between-groups); }
+		/* Secondary actions change state, so they are buttons that read as links. */
+		.text-action {
+			padding: 0;
+			border: 0;
+			background: none;
+			color: var(--accent-selected);
+			font: inherit;
+			cursor: pointer;
+		}
+		.text-action:hover:not(:disabled) { text-decoration: underline; }
+		.text-action:disabled { color: var(--text-muted); cursor: not-allowed; }
+	</style>
+</head>
+<body>
+<main>
+	<div class="brand">STAR TRADER</div>
+
+	<section class="panel" aria-labelledby="sign-in-title">
+		<h1 id="sign-in-title">Sign in</h1>
+
+		<form id="details-form" novalidate>
+			<p class="intro">Enter your details and we'll email you a one-time code.</p>
+			<div>
+				<label class="field-label" for="playerName">Name</label>
+				<input class="control" id="playerName" name="playerName" autocomplete="name" autofocus
+					aria-describedby="playerName-error" placeholder="e.g. Ada">
+				<p class="message message--error field-error" id="playerName-error"></p>
+			</div>
+			<div>
+				<label class="field-label" for="corporationName">Corporation name</label>
+				<input class="control" id="corporationName" name="corporationName" autocomplete="organization"
+					aria-describedby="corporationName-error" placeholder="e.g. Nova Freight">
+				<p class="message message--error field-error" id="corporationName-error"></p>
+			</div>
+			<div>
+				<label class="field-label" for="email">Email</label>
+				<input class="control" id="email" name="email" type="email" autocomplete="email"
+					aria-describedby="email-error" placeholder="e.g. ada@example.com">
+				<p class="message message--error field-error" id="email-error"></p>
+			</div>
+			<div>
+				<button class="btn" type="submit">Send code</button>
+			</div>
+			<p class="message" id="details-message" role="status"></p>
+		</form>
+
+		<form id="code-form" novalidate hidden>
+			<p class="code-sent" id="code-sent" role="status"></p>
+			<div>
+				<label class="field-label" for="code">Code</label>
+				<input class="control code-input" id="code" name="code" inputmode="numeric"
+					autocomplete="one-time-code" maxlength="6" aria-describedby="code-error" placeholder="e.g. 123456">
+				<p class="message message--error field-error" id="code-error"></p>
+			</div>
+			<div>
+				<button class="btn" type="submit">Sign in</button>
+			</div>
+			<div class="actions">
+				<button class="text-action" id="resend" type="button">Send a new code</button>
+				<button class="text-action" id="change-email" type="button">Use a different email</button>
+			</div>
+			<p class="message" id="code-message" role="status"></p>
+		</form>
+	</section>
+</main>
+
+<script type="module">
+	import { fetchSession, safeNext, saveToken } from './js/session.js';
+	import { codeSentMessage, errorText, fieldForDetailsError } from './js/sign-in.js';
+
+	const UNREACHABLE = "We couldn't reach the server. Try again.";
+
+	const next = safeNext(new URLSearchParams(location.search).get('next'));
+	const detailsForm = document.getElementById('details-form');
+	const codeForm = document.getElementById('code-form');
+	const codeInput = document.getElementById('code');
+	const detailsMessage = document.getElementById('details-message');
+	const codeMessage = document.getElementById('code-message');
+	const resendButton = document.getElementById('resend');
+	let details = null;
+
+	function showMessage(element, text, isError) {
+		element.textContent = text;
+		element.className = `message ${isError ? 'message--error' : 'message--success'}`;
+	}
+
+	function clearMessage(element) {
+		element.textContent = '';
+		element.className = 'message';
+	}
+
+	function setFieldError(input, text) {
+		document.getElementById(`${input.id}-error`).textContent = text;
+		if (text) {
+			input.setAttribute('aria-invalid', 'true');
+		} else {
+			input.removeAttribute('aria-invalid');
+		}
+	}
+
+	function clearDetailsErrors() {
+		for (const input of detailsForm.querySelectorAll('input')) {
+			setFieldError(input, '');
+		}
+		clearMessage(detailsMessage);
+	}
+
+	function readDetails() {
+		const data = new FormData(detailsForm);
+		return {
+			playerName: data.get('playerName'),
+			corporationName: data.get('corporationName'),
+			email: data.get('email').trim(),
+		};
+	}
+
+	/** Returns null on success, or the error to show: { field, text }. */
+	async function requestCode(request) {
+		let response;
+		try {
+			response = await fetch('/api/login/request-code', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(request),
+			});
+		} catch {
+			return { field: null, text: UNREACHABLE };
+		}
+		if (response.ok) {
+			return null;
+		}
+		const text = await errorText(response, "We couldn't send the code. Try again.");
+		return { field: fieldForDetailsError(text), text };
+	}
+
+	function withBusy(buttons, action) {
+		return async (...args) => {
+			buttons.forEach(b => { b.disabled = true; });
+			try {
+				await action(...args);
+			} finally {
+				buttons.forEach(b => { b.disabled = false; });
+			}
+		};
+	}
+
+	function showCodeStep(email) {
+		detailsForm.hidden = true;
+		codeForm.hidden = false;
+		document.getElementById('code-sent').textContent = codeSentMessage(email);
+		codeInput.value = '';
+		setFieldError(codeInput, '');
+		clearMessage(codeMessage);
+		codeInput.focus();
+	}
+
+	function showDetailsStep() {
+		codeForm.hidden = true;
+		detailsForm.hidden = false;
+		clearDetailsErrors();
+		const email = document.getElementById('email');
+		email.focus();
+		email.select();
+	}
+
+	detailsForm.addEventListener('submit', withBusy([detailsForm.querySelector('button')], async (event) => {
+		event.preventDefault();
+		clearDetailsErrors();
+		const request = readDetails();
+		const error = await requestCode(request);
+		if (!error) {
+			details = request;
+			showCodeStep(request.email);
+			return;
+		}
+		if (error.field) {
+			const input = document.getElementById(error.field);
+			setFieldError(input, error.text);
+			input.focus();
+		} else {
+			showMessage(detailsMessage, error.text, true);
+		}
+	}));
+
+	codeForm.addEventListener('submit', withBusy([codeForm.querySelector('.btn'), resendButton], async (event) => {
+		event.preventDefault();
+		setFieldError(codeInput, '');
+		clearMessage(codeMessage);
+		let response;
+		try {
+			response = await fetch('/api/login/exchange-code', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email: details.email, code: codeInput.value.trim() }),
+			});
+		} catch {
+			showMessage(codeMessage, UNREACHABLE, true);
+			codeInput.focus();
+			return;
+		}
+		if (!response.ok) {
+			setFieldError(codeInput, await errorText(response, 'The code is not valid'));
+			codeInput.focus();
+			codeInput.select();
+			return;
+		}
+		const { sessionToken } = await response.json();
+		saveToken(sessionToken);
+		location.replace(next);
+	}));
+
+	resendButton.addEventListener('click', withBusy([resendButton, codeForm.querySelector('.btn')], async () => {
+		setFieldError(codeInput, '');
+		clearMessage(codeMessage);
+		const error = await requestCode(details);
+		if (error) {
+			showMessage(codeMessage, error.text, true);
+		} else {
+			showMessage(codeMessage, `We sent a new code to ${details.email}. It may take a minute.`, false);
+			codeInput.value = '';
+		}
+		codeInput.focus();
+	}));
+
+	document.getElementById('change-email').addEventListener('click', showDetailsStep);
+
+	// Already signed in: go straight on (a stale token is forgotten by fetchSession).
+	try {
+		if (await fetchSession()) {
+			location.replace(next);
+		}
+	} catch {
+		// The server can't confirm the session; let the player sign in again.
+	}
+</script>
+</body>
+</html>
