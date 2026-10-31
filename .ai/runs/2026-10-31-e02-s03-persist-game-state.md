@@ -90,7 +90,19 @@ Implementation choices:
   (default the missing attribute in the mapper, not the domain). Recorded in
   `BACKWARD_COMPATIBILITY.md`.
 
+## Outcome
+
+Done. `./gradlew build` green (129 Kotlin, 26 JS); CI green at 5eebc74, DynamoDB tests running there.
+Manual `bootRun` check: a created and joined game survived a restart. That run found a real bug, fixed
+in f1d6b8f: on a fresh named volume DynamoDB Local couldn't write its database and stopped answering,
+and the SDK client had no timeout, so startup hung (`user: root` + a 10 s call timeout; lesson added).
+Review (comment review; the agent doesn't approve its own PR): two README minors, fixed in 5eebc74.
+Approval (risk-high, second reviewer) and manual QA are left to a human. Sessions still don't survive
+a restart (D05 only partly met; outside this story).
+
 ## Progress
+
+PR: #65
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
