@@ -76,4 +76,4 @@ field exists.
 
 ### Phase 3: Gate
 
-- [ ] 3.1 `./gradlew build` green
+- [x] 3.1 `./gradlew build` green — 1aaed84
