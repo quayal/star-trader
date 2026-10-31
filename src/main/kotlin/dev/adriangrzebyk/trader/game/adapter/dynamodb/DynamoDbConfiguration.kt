@@ -11,6 +11,7 @@ import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import java.net.URI
+import java.time.Duration
 
 /**
  * A blank endpoint override means real AWS, with the SDK's standard credential chain and a table provisioned
@@ -26,7 +27,10 @@ class DynamoDbConfiguration(
 
 	@Bean
 	fun dynamoDbClient(): DynamoDbClient {
-		val builder = DynamoDbClient.builder().region(Region.of(region))
+		// Without a timeout an unanswered request blocks forever, so a broken database hangs startup silently.
+		val builder = DynamoDbClient.builder()
+			.region(Region.of(region))
+			.overrideConfiguration { it.apiCallTimeout(API_CALL_TIMEOUT) }
 		if (endpointOverride.isBlank()) {
 			return builder.credentialsProvider(DefaultCredentialsProvider.builder().build()).build()
 		}
@@ -49,5 +53,9 @@ class DynamoDbConfiguration(
 			}
 		}
 		return DynamoDbGameStore(dynamoDbClient, tableName)
+	}
+
+	companion object {
+		private val API_CALL_TIMEOUT = Duration.ofSeconds(10)
 	}
 }
