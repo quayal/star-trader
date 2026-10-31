@@ -119,7 +119,9 @@ class GameControllerTest {
 		val token = signIn("twice@example.com")
 		val game = createdGame(token)
 
-		joinGame(token, game.id).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		joinGame(token, game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This player is already in the game")
 		assertThat(gameStore.find(game.id)!!.players).hasSize(1)
 	}
 
