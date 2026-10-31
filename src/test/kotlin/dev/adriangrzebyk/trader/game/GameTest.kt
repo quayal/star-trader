@@ -35,5 +35,14 @@ class GameTest {
 			.isInstanceOf(InvalidGameOperationException::class.java)
 	}
 
+	@Test
+	fun shouldRejectAPlayerOnceTheGameHasStarted() {
+		val game = gameWith(creator).copy(status = GameStatus.RUNNING)
+
+		assertThatThrownBy { game.addPlayer(Player("late@example.com", "Late", "Late Corp")) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("This game has already started")
+	}
+
 	private fun gameWith(vararg players: Player) = Game("game-1", 20, GameStatus.LOBBY, players.first().email, players.toList())
 }
