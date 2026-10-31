@@ -61,7 +61,15 @@ field exists.
   evidence, together with a joined (non-creator) member being allowed, so the check is
   proven to be membership, not "is the creator".
 
+## Outcome
+
+Done. Review (a comment review on #63, since the agent doesn't approve its own PR) found nothing to fix. CI green at cb345f0.
+Human approval, a second reviewer (risk-high) and manual QA are left to the user. The
+members' emails in the poll response are flagged as a direction question for E02-S05.
+
 ## Progress
+
+PR: #63
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
