@@ -88,7 +88,19 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
   prove another player's money never appears.
 - Overlap with E02-S03 (#21), running in parallel: whichever lands second maps the new fields.
 
+## Outcome
+
+Done; PR #66 is ready for review. All 13 steps are done, and the gate is green (144 Kotlin tests, 37 JS).
+Every flow was driven in a real browser with three signed-in players, and 9 screenshots are on the PR.
+The review (a comment, since the agent doesn't approve its own PR) found two minor issues, both fixed in
+8a8e63d: duplicate poll loops after reopening a game, and the Start button's disabled reason not announced.
+E02-S03 (#65) was still open, so mapping the new fields is left to whichever PR lands second; noted on
+the PR. Still with the user: approval (risk-high), manual QA, criterion 14 (ngrok run) and the email
+question. While posting the screenshots, zsh's `path` variable wiped `$PATH`; recorded in `.ai/lessons.md`.
+
 ## Progress
+
+PR: #66
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
