@@ -55,6 +55,19 @@ The passwordless login flow (D03). The sign-in screens (E01-S03) and every later
 - The frontend's JavaScript unit tests (`jsTest`, part of `check`) need Node 22+ on the PATH. CI installs it and never skips them; a local checkout without `node` skips them with a warning, so JDK 17 alone still builds.
 - ktlint style rules (`build.gradle.kts`) are enforced as part of `check`; a change to `.editorconfig`/ktlint config that relaxes a rule project-wide is a deliberate decision, not a drive-by fix for one file.
 
+### 6. Games — `/api/games` (`GameController`)
+
+The game-scoped surface R01 asks for (E02). Each game has its own id; nothing in one game is reachable through another.
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| POST | `/games` | `Authorization: Bearer <sessionToken>`, `{ turns }` | `201` + `{ id, turns, status, creatorEmail, players: [{ email, name, corporationName }] }`; `400` "Enter a whole number of turns from 1 to 50." for a missing, fractional or out-of-range length; `401` for a missing, malformed or unknown token |
+
+- `status` is `LOBBY`, `RUNNING` or `FINISHED`; a new game is `LOBBY`. Players carry no money or ships until the game starts (E02-S05).
+- Games live in memory until the server restarts (D02 persistence is #21).
+- **Breaking change**: renaming or removing a field above; changing a status code; changing the `status` values.
+- **In-repo consumers**: none yet — the create and lobby screens arrive with E02-S05.
+
 ## Not yet applicable (no contract exists)
 
 These will become protected surfaces once they exist, per the product brief's Scope/Now — call this file out for an update in the PR that first introduces each:
