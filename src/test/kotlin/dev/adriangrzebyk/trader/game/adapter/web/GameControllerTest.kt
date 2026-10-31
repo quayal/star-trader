@@ -51,8 +51,10 @@ class GameControllerTest {
 		assertThat(game.turns).isEqualTo(20)
 		assertThat(game.status).isEqualTo("LOBBY")
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
-		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders"))
-		assertThat(gameStore.find(game.id)!!.toResponseDto()).isEqualTo(game)
+		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList()))
+		assertThat(gameStore.find(game.id)!!.toResponseDto("creator@example.com")).isEqualTo(game)
+		assertThat(game.turn).isNull()
+		assertThat(game.you).isEqualTo(YouResponseDto(0))
 	}
 
 	@Test
@@ -100,11 +102,11 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders"),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight"),
+			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList()),
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
-		assertThat(gameStore.find(game.id)!!.toResponseDto()).isEqualTo(joined)
+		assertThat(gameStore.find(game.id)!!.toResponseDto("guest@example.com")).isEqualTo(joined)
 	}
 
 	@Test
@@ -170,9 +172,10 @@ class GameControllerTest {
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto())
+		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto("poll-host@example.com"))
 		assertThat(seenByCreator.players.map { it.email }).containsExactly("poll-host@example.com", "poll-guest@example.com")
-		assertThat(seenByJoiner).isEqualTo(seenByCreator)
+		// Everything but `you` is shared; `you` is each viewer's own.
+		assertThat(seenByJoiner.copy(you = null)).isEqualTo(seenByCreator.copy(you = null))
 	}
 
 	@Test

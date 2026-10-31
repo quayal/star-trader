@@ -45,7 +45,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
-		return game.toResponseDto()
+		return game.toResponseDto(session.email)
 	}
 
 	@PostMapping("/games/{id}/join")
@@ -63,7 +63,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
-		return game.toResponseDto()
+		return game.toResponseDto(session.email)
 	}
 
 	@GetMapping("/games/{id}")
@@ -80,7 +80,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		}
 
-		return game.toResponseDto()
+		return game.toResponseDto(session.email)
 	}
 
 	private fun sessionFor(authorization: String?): Session {
