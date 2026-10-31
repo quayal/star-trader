@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-10-31: **Pass a PR or issue body with `--body-file <path>`, never `--body @<path>`.** `gh` doesn't read files from `@`, so PR #5's whole description became the literal text `@/tmp/pr5-body.json`. Its `Closes #3` was lost, so #3 stayed open for ten days after the work merged, and the dashboard spec was never moved to `implemented/`. After opening a PR, run `gh pr view <n> --json closingIssuesReferences` and check that the issue is listed.
+
 - 2026-10-30: **Escape anything a player typed before it goes into `innerHTML`.** The Market rendered offer `playerName` raw, and the API accepts any text. Once E01-S03 put the session token in `localStorage`, that turned into session theft. Use `escapeHtml` from `static/js/html.js` (or `textContent`) for every server value in a template string.
 
 - 2026-10-30: **A CSS `display` rule on an element beats its `hidden` attribute.** On the sign-in screen, `form { display: grid }` kept the hidden code step visible, so both steps showed at once. The JS state was correct, so only a screenshot caught it. Whenever a page toggles `hidden` on an element that has a `display` rule, add `[hidden] { display: none; }` for it.
