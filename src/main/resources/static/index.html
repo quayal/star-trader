@@ -177,7 +177,7 @@
 
 		<section class="panel" id="start-panel" hidden>
 			<div class="actions">
-				<button class="btn" id="start-button" type="button">Start game</button>
+				<button class="btn" id="start-button" type="button" aria-describedby="start-reason">Start game</button>
 				<p class="message muted" id="start-reason"></p>
 				<p class="message message--error" id="start-message" role="status"></p>
 			</div>
@@ -252,6 +252,8 @@
 	let marketLoaded = false;
 	let pollTimer = null;
 	let currentGameId = null;
+	// Bumped on every navigation, so a poll that was in flight when the player left can't start a second loop.
+	let pollGeneration = 0;
 
 	function api(path, init = {}) {
 		return fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${getToken()}` } });
@@ -279,6 +281,7 @@
 	function stopPolling() {
 		clearTimeout(pollTimer);
 		pollTimer = null;
+		pollGeneration += 1;
 	}
 
 	// ── Routing ──
@@ -359,6 +362,7 @@
 
 	function openGame(id) {
 		currentGameId = id;
+		pollGeneration += 1;
 		setTitle('Game', 'Loading…');
 		$('refresh-message').textContent = '';
 		showPanels('game-loading');
@@ -367,16 +371,20 @@
 
 	async function poll() {
 		const id = currentGameId;
+		const generation = pollGeneration;
 		let response;
 		try {
 			response = await api(`/api/games/${encodeURIComponent(id)}`);
 		} catch {
+			response = null;
+		}
+		if (generation !== pollGeneration) {
+			return; // the player has moved on, or reopened the game and a newer loop owns it
+		}
+		if (!response) {
 			$('refresh-message').textContent = "Couldn't refresh. Trying again…";
 			schedulePoll(id);
 			return;
-		}
-		if (id !== currentGameId) {
-			return; // the player has moved on
 		}
 		$('refresh-message').textContent = '';
 		if (response.status === 404) {
@@ -399,7 +407,7 @@
 	}
 
 	function schedulePoll(id) {
-		stopPolling();
+		clearTimeout(pollTimer);
 		pollTimer = setTimeout(() => {
 			if (id === currentGameId) {
 				poll();
