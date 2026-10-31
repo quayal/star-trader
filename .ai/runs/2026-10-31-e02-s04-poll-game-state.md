@@ -67,7 +67,7 @@ field exists.
 
 ### Phase 1: Domain
 
-- [ ] 1.1 `Game.hasPlayer`, `NotAGameMemberException` and `GamePollingService`, with tests
+- [x] 1.1 `Game.hasPlayer`, `NotAGameMemberException` and `GamePollingService`, with tests — ae5aa24
 
 ### Phase 2: Web
 
