@@ -132,3 +132,8 @@ PR: #65
 - [x] 4.3 `BACKWARD_COMPATIBILITY.md` §7 item shape — 1d786c1
 - [x] 4.4 Manual restart check through `bootRun`: a started game survived with money, ships, turn and log
 - [x] 4.5 Review pass of bd999ca..1d786c1 (comment review, no findings), PR body and manual-QA comment updated
+
+### Phase 5: Per-type mappers
+
+- [x] 5.1 Split `GameItemMapper` into `PlayerAttributes`, `ShipAttributes`, `TurnAttributes` (+ `Attributes.kt` helpers) with a round-trip test each; no schema change; `./gradlew build` green — d968c29
+- [x] 5.2 Engineering standards §12: one mapper per persisted type — 6f2864e
