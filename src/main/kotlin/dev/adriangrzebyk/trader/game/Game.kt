@@ -9,11 +9,13 @@ data class Game(val id: String, val turns: Int, val status: GameStatus, val crea
 		if (players.size >= MAX_PLAYERS) {
 			throw InvalidGameOperationException("This game is full")
 		}
-		if (players.any { it.email == player.email }) {
+		if (hasPlayer(player.email)) {
 			throw InvalidGameOperationException("This player is already in the game")
 		}
 		return copy(players = players + player)
 	}
+
+	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
 
 	companion object {
 		const val MAX_PLAYERS = 6
