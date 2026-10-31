@@ -82,6 +82,22 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
 - 4.1 Merge latest main; extend the DynamoDB mapper if E02-S03 has landed, else note it
 - 4.2 `./gradlew build` green and UI checked in a browser
 
+### Phase 5: Follow-up — "Your games" (resumed 2026-10-31, user-approved design)
+
+The user found that clicking "New game" or "Deck" leaves a lobby with nothing leading back.
+Browser-side only, no server change: every game the player opens as a member (a `200` from
+`GET /api/games/{id}`) is remembered in `localStorage` (`starTrader.games`, most recent first,
+at most 10, every access in try/catch). "Deck" (`/`) opens the most recent remembered game when
+there is one. The New game screen lists "Your games" (status, length, corporation names, a link
+to `/#game/{id}`), fetching each with the existing `GET`; an id that answers `403` or `404` is
+dropped, which also covers a second player using the same browser. No games: the section is hidden.
+Persistence: the user chose merge order #66 first; #65 will then map money, ships, turn and log,
+so this PR needs no mapper work.
+
+- 5.1 `js/your-games.js` storage helpers (remember, dedupe, cap, forget, storage blocked) and row text, with JS tests
+- 5.2 "Your games" on the New game screen and Deck opening the latest game
+- 5.3 Gate, browser QA and evidence for the new flow
+
 ## Risks
 
 - `risk-high`: the response now splits public and private data (R29); controller tests must
@@ -128,3 +144,9 @@ PR: #66
 
 - [x] 4.1 Merge latest main; extend the DynamoDB mapper if E02-S03 has landed, else note it — no-op: main unchanged, E02-S03 still open as #65
 - [x] 4.2 `./gradlew build` green and UI checked in a browser — cb50aef
+
+### Phase 5: Follow-up — "Your games"
+
+- [ ] 5.1 `js/your-games.js` storage helpers (remember, dedupe, cap, forget, storage blocked) and row text, with JS tests
+- [ ] 5.2 "Your games" on the New game screen and Deck opening the latest game
+- [ ] 5.3 Gate, browser QA and evidence for the new flow
