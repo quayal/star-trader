@@ -101,9 +101,9 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
 
 ### Phase 2: Web
 
-- [ ] 2.1 Viewer-scoped game response: ships, turn, log, `you.money`
-- [ ] 2.2 `POST /api/games/{id}/start` with controller tests
-- [ ] 2.3 Record the changes in `BACKWARD_COMPATIBILITY.md` §6
+- [x] 2.1 Viewer-scoped game response: ships, turn, log, `you.money` — cefa719
+- [x] 2.2 `POST /api/games/{id}/start` with controller tests — e06c704
+- [x] 2.3 Record the changes in `BACKWARD_COMPATIBILITY.md` §6 — 9efc02d
 
 ### Phase 3: Screens
 
