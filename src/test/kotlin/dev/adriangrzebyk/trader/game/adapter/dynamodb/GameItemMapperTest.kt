@@ -11,7 +11,6 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 // A story that adds data to Game extends this round trip in the same PR (engineering standards §12).
 class GameItemMapperTest {
@@ -69,17 +68,9 @@ class GameItemMapperTest {
 
 		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "log", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
-		assertThat(item.getValue("turn").m()).isEqualTo(mapOf("number" to AttributeValue.fromN("1"), "phase" to AttributeValue.fromS("BIDDING")))
+		assertThat(item.getValue("turn").m()).isEqualTo(TurnAttributes.toAttributes(startedGame.turn!!))
 		assertThat(item.getValue("log").l().map { it.s() }).isEqualTo(startedGame.log)
-		val host = item.getValue("players").l().first().m()
-		assertThat(host.getValue("money").n()).isEqualTo("300")
-		assertThat(host.getValue("ships").l().first().m()).isEqualTo(
-			mapOf(
-				"name" to AttributeValue.fromS("Wayfarer"),
-				"system" to AttributeValue.fromS("TAU_CETI"),
-				"location" to AttributeValue.fromS("PORT"),
-			),
-		)
+		assertThat(item.getValue("players").l().map { it.m() }).isEqualTo(startedGame.players.map(PlayerAttributes::toAttributes))
 	}
 
 	@Test
