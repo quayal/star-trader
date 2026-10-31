@@ -2,6 +2,8 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
+import dev.adriangrzebyk.trader.game.GameJoiningService
+import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.Player
@@ -9,6 +11,7 @@ import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -22,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException
 class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private val sessionStore: SessionStore,) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
+	private val gameJoiningService = GameJoiningService(gameStore)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -35,6 +39,24 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			gameCreationService.createGame(creator, request?.wholeTurns())
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		}
+
+		return game.toResponseDto()
+	}
+
+	@PostMapping("/games/{id}/join")
+	fun joinGame(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val player = Player(session.email, session.playerName, session.corporationName)
+		val game = try {
+			gameJoiningService.joinGame(id, player)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
 		return game.toResponseDto()
