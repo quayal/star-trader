@@ -83,12 +83,15 @@ Stored data outlives the code that wrote it, so the item shape is a contract wit
 | `turns` | N | game length |
 | `status` | S | `LOBBY`, `RUNNING` or `FINISHED` |
 | `creatorEmail` | S | the creator's email |
-| `players` | L of M | each `{ email: S, name: S, corporationName: S }` |
+| `players` | L of M | each `{ email: S, name: S, corporationName: S, money: N, ships: L of M }`; `money` is 0 and `ships` empty until the start |
+| `players[].ships` | L of M | each `{ name: S, system: S, location: S }`; `system` is a `StarSystem` constant (e.g. `TAU_CETI`), `location` is `PORT`, `PLANET` or `SPACE` |
+| `turn` | M or NULL | `{ number: N, phase: S }` once the game has started (`phase` is `BIDDING`); NULL before |
+| `log` | L of S | public events, oldest first |
 | `version` | N | optimistic-concurrency counter, +1 on every save |
 
 - Table `star-trader-games` (`DYNAMODB_TABLE_NAME`), on-demand billing, no secondary index. In real AWS it's provisioned outside the app.
 - **Additive change** (a new attribute, a new field in a player map): safe once the mapper defaults it when reading an older item.
-- **Breaking change**: renaming or removing an attribute, changing its type or the meaning of a value, changing the key. Needs a migration of stored items, or — before any game worth keeping exists — an explicit note in the PR that local data must be cleared (`docker compose down -v`).
+- **Breaking change**: renaming or removing an attribute, changing its type or the meaning of a value (including renaming a `StarSystem`, `ShipLocation`, `GameStatus` or `TurnPhase` constant, since they're stored by name), changing the key. Needs a migration of stored items, or — before any game worth keeping exists — an explicit note in the PR that local data must be cleared (`docker compose down -v`).
 - **Required path**: change `GameItemMapper` and `GameItemMapperTest` together (engineering standards §12), and state the change in the PR body.
 
 ## Not yet applicable (no contract exists)
