@@ -114,6 +114,14 @@ E02-S03 (#65) was still open, so mapping the new fields is left to whichever PR 
 the PR. Still with the user: approval (risk-high), manual QA, criterion 14 (ngrok run) and the email
 question. While posting the screenshots, zsh's `path` variable wiped `$PATH`; recorded in `.ai/lessons.md`.
 
+## Outcome of the "Your games" follow-up (resumed run)
+
+Done. Added `js/your-games.js` with 7 JS tests, the "Your games" list on New game, and Deck reopening
+the latest game. The self-review found one major issue, fixed in this run: with another player's games still
+remembered in the browser, Deck jumped to one and offered "Join this game". Deck now checks membership with
+GET first. Browser QA covered 7 checks, plus the re-check after the fix; screenshots are on the PR. Persistence:
+the user chose merge order #66 first, so #65 maps the new fields.
+
 ## Progress
 
 PR: #66
