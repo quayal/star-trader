@@ -94,10 +94,10 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
 
 ### Phase 1: Domain
 
-- [ ] 1.1 `Ship`, `ShipLocation`, `Turn`, `TurnPhase`; `Player` gains money and ships; `Game` gains turn and log
-- [ ] 1.2 `StartingSystemPicker` port, fake, and random adapter with tests
-- [ ] 1.3 `Game.start` (creator only, lobby only, ≥ 2 players, 300 HT, placement, turn 1 Bidding, log) with tests
-- [ ] 1.4 `GameStartingService` with tests
+- [x] 1.1 `Ship`, `ShipLocation`, `Turn`, `TurnPhase`; `Player` gains money and ships; `Game` gains turn and log — 2546afc
+- [x] 1.2 `StartingSystemPicker` port, fake, and random adapter with tests — 6033464
+- [x] 1.3 `Game.start` (creator only, lobby only, ≥ 2 players, 300 HT, placement, turn 1 Bidding, log) with tests — 8bc0efc
+- [x] 1.4 `GameStartingService` with tests — 2980cb4
 
 ### Phase 2: Web
 
