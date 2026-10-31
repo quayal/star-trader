@@ -147,6 +147,6 @@ PR: #66
 
 ### Phase 5: Follow-up — "Your games"
 
-- [ ] 5.1 `js/your-games.js` storage helpers (remember, dedupe, cap, forget, storage blocked) and row text, with JS tests
-- [ ] 5.2 "Your games" on the New game screen and Deck opening the latest game
-- [ ] 5.3 Gate, browser QA and evidence for the new flow
+- [x] 5.1 `js/your-games.js` storage helpers (remember, dedupe, cap, forget, storage blocked) and row text, with JS tests — 247e878
+- [x] 5.2 "Your games" on the New game screen and Deck opening the latest game — cef781f
+- [x] 5.3 Gate, browser QA and evidence for the new flow — cef781f (gate green: 144 Kotlin, 44 JS; browser QA 7 checks)
