@@ -71,8 +71,8 @@ field exists.
 
 ### Phase 2: Web
 
-- [ ] 2.1 `GET /api/games/{id}` on `GameController`, with `GameControllerTest`
-- [ ] 2.2 Record the endpoint in `BACKWARD_COMPATIBILITY.md` §6
+- [x] 2.1 `GET /api/games/{id}` on `GameController`, with `GameControllerTest` — 2bba781
+- [x] 2.2 Record the endpoint in `BACKWARD_COMPATIBILITY.md` §6 — c6d5085
 
 ### Phase 3: Gate
 
