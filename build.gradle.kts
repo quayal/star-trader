@@ -25,10 +25,13 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin:3.2.3")
+	implementation(platform("software.amazon.awssdk:bom:2.56.0"))
+	implementation("software.amazon.awssdk:dynamodb-enhanced")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
+	testImplementation("org.testcontainers:testcontainers")
 }
 
 kotlin {
