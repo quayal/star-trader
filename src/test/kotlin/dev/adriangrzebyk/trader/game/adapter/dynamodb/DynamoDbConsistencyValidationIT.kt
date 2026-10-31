@@ -56,13 +56,12 @@ class DynamoDbConsistencyValidationIT {
 		}
 	}
 
+	// Each guard on its own, so a failed setup reports its own error rather than an uninitialized property.
 	@AfterAll
 	fun stopDynamoDbLocal() {
-		if (::container.isInitialized) {
-			writer.close()
-			reader.close()
-			container.stop()
-		}
+		if (::writer.isInitialized) writer.close()
+		if (::reader.isInitialized) reader.close()
+		if (::container.isInitialized) container.stop()
 	}
 
 	@Test
@@ -77,23 +76,26 @@ class DynamoDbConsistencyValidationIT {
 		val writers = Executors.newFixedThreadPool(PAIRS)
 		val readers = Executors.newFixedThreadPool(PAIRS)
 
-		val pairs = (1..PAIRS).map { pair ->
-			writers.submit<Duration> {
-				val gameId = "pair-$pair"
-				var slowest = Duration.ZERO
-				for (version in 0 until WRITES_PER_PAIR) {
-					writer.putItem { it.tableName(TABLE).item(gameItem(gameId, version.toLong())) }
-					val written = System.nanoTime()
-					val seen = readers.submit<Long> { consistentVersion(gameId) }.get(5, TimeUnit.SECONDS)
-					assertThat(seen).describedAs("version read back for %s", gameId).isEqualTo(version.toLong())
-					slowest = maxOf(slowest, Duration.ofNanos(System.nanoTime() - written))
+		val slowest = try {
+			val pairs = (1..PAIRS).map { pair ->
+				writers.submit<Duration> {
+					val gameId = "pair-$pair"
+					var slowest = Duration.ZERO
+					for (version in 0 until WRITES_PER_PAIR) {
+						writer.putItem { it.tableName(TABLE).item(gameItem(gameId, version.toLong())) }
+						val written = System.nanoTime()
+						val seen = readers.submit<Long> { consistentVersion(gameId) }.get(5, TimeUnit.SECONDS)
+						assertThat(seen).describedAs("version read back for %s", gameId).isEqualTo(version.toLong())
+						slowest = maxOf(slowest, Duration.ofNanos(System.nanoTime() - written))
+					}
+					slowest
 				}
-				slowest
 			}
+			pairs.maxOf { it.get(60, TimeUnit.SECONDS) }
+		} finally {
+			writers.shutdownNow()
+			readers.shutdownNow()
 		}
-		val slowest = pairs.maxOf { it.get(60, TimeUnit.SECONDS) }
-		writers.shutdown()
-		readers.shutdown()
 
 		assertThat(slowest).isLessThan(VISIBILITY_TARGET)
 	}
@@ -133,6 +135,8 @@ class DynamoDbConsistencyValidationIT {
 		private const val TABLE = "star-trader-games"
 		private const val PAIRS = 8
 		private const val WRITES_PER_PAIR = 25
-		private val VISIBILITY_TARGET = Duration.ofSeconds(1)
+
+		// A01's target is ~1–2 s cross-player visibility; locally each read takes milliseconds.
+		private val VISIBILITY_TARGET = Duration.ofSeconds(2)
 	}
 }
