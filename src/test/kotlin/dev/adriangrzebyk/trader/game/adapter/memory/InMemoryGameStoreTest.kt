@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit
 class InMemoryGameStoreTest {
 
 	private val store = InMemoryGameStore()
-	private val creator = Player("creator@example.com", "Creator", "Creator Corp")
-	private val game = Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator))
+	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
+	private val game = Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
 
 	@Test
 	fun shouldFindACreatedGameById() {
@@ -44,7 +44,7 @@ class InMemoryGameStoreTest {
 	@Test
 	fun shouldUpdateAGame() {
 		store.create(game)
-		val joiner = Player("joiner@example.com", "Joiner", "Joiner Corp")
+		val joiner = Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")
 
 		val updated = store.update("game-1") { it.addPlayer(joiner) }
 
@@ -63,7 +63,7 @@ class InMemoryGameStoreTest {
 		val executor = Executors.newFixedThreadPool(8)
 
 		val updates = (1..5).map { n ->
-			executor.submit { store.update("game-1") { it.addPlayer(Player("p$n@example.com", "P$n", "Corp $n")) } }
+			executor.submit { store.update("game-1") { it.addPlayer(Player.newcomer("p$n@example.com", "P$n", "Corp $n")) } }
 		}
 		updates.forEach { it.get(5, TimeUnit.SECONDS) }
 		executor.shutdown()

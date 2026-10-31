@@ -51,8 +51,10 @@ class GameControllerTest {
 		assertThat(game.turns).isEqualTo(20)
 		assertThat(game.status).isEqualTo("LOBBY")
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
-		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders"))
-		assertThat(gameStore.find(game.id)!!.toResponseDto()).isEqualTo(game)
+		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList()))
+		assertThat(gameStore.find(game.id)!!.toResponseDto("creator@example.com")).isEqualTo(game)
+		assertThat(game.turn).isNull()
+		assertThat(game.you).isEqualTo(YouResponseDto(0))
 	}
 
 	@Test
@@ -100,11 +102,11 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders"),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight"),
+			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList()),
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
-		assertThat(gameStore.find(game.id)!!.toResponseDto()).isEqualTo(joined)
+		assertThat(gameStore.find(game.id)!!.toResponseDto("guest@example.com")).isEqualTo(joined)
 	}
 
 	@Test
@@ -139,8 +141,8 @@ class GameControllerTest {
 	@Test
 	fun shouldRejectJoiningAGameThatHasStarted() {
 		// Nothing can start a game through the API until E02-S05, so this one is stored already running.
-		val host = Player("started-host@example.com", "Host", "Host Corp")
-		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host)))
+		val host = Player.newcomer("started-host@example.com", "Host", "Host Corp")
+		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, emptyList()))
 
 		joinGame(signIn("late@example.com"), "started-game")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
@@ -170,9 +172,10 @@ class GameControllerTest {
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto())
+		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto("poll-host@example.com"))
 		assertThat(seenByCreator.players.map { it.email }).containsExactly("poll-host@example.com", "poll-guest@example.com")
-		assertThat(seenByJoiner).isEqualTo(seenByCreator)
+		// Everything but `you` is shared; `you` is each viewer's own.
+		assertThat(seenByJoiner.copy(you = null)).isEqualTo(seenByCreator.copy(you = null))
 	}
 
 	@Test
@@ -199,6 +202,92 @@ class GameControllerTest {
 
 		pollGame(null, game.id).expectStatus().isUnauthorized
 		pollGame("not-a-real-token", game.id).expectStatus().isUnauthorized
+	}
+
+	@Test
+	fun shouldStartTheGameForEveryPlayer() {
+		val creatorToken = signIn("start-host@example.com")
+		val joinerToken = signIn("start-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+
+		val started = startGame(creatorToken, game.id)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(started.status).isEqualTo("RUNNING")
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING"))
+		assertThat(started.you).isEqualTo(YouResponseDto(300))
+		assertThat(started.players).allSatisfy { player ->
+			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
+			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
+		}
+		assertThat(started.log.first()).isEqualTo("Game started: 2 players, 20 turns")
+		joinGame(signIn("start-late@example.com"), game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game has already started")
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersMoney() {
+		val creatorToken = signIn("money-host@example.com")
+		val joinerToken = signIn("money-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+		startGame(creatorToken, game.id).expectStatus().isOk
+
+		val raw = pollGame(joinerToken, game.id).expectStatus().isOk
+			.expectBody(String::class.java).returnResult().responseBody!!
+
+		// Exactly one money field on the wire: the caller's own, under "you" (R29).
+		assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1)
+		assertThat(raw).contains("\"you\":{\"money\":300}")
+	}
+
+	@Test
+	fun shouldLetOnlyTheCreatorStartTheGame() {
+		val creatorToken = signIn("only-host@example.com")
+		val joinerToken = signIn("only-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+
+		startGame(joinerToken, game.id)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).isEqualTo("Only the creator can start the game")
+		startGame(signIn("only-outsider@example.com"), game.id).expectStatus().isForbidden
+		assertThat(gameStore.find(game.id)!!.status).isEqualTo(GameStatus.LOBBY)
+	}
+
+	@Test
+	fun shouldRefuseToStartWithFewerThanTwoPlayersOrTwice() {
+		val creatorToken = signIn("twice-host@example.com")
+		val game = createdGame(creatorToken)
+
+		startGame(creatorToken, game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("At least 2 players are needed to start")
+
+		joinGame(signIn("twice-guest@example.com"), game.id).expectStatus().isOk
+		startGame(creatorToken, game.id).expectStatus().isOk
+		startGame(creatorToken, game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game has already started")
+	}
+
+	@Test
+	fun shouldRejectStartingAnUnknownGameOrWithoutASession() {
+		startGame(signIn("start-lost@example.com"), "no-such-game")
+			.expectStatus().isNotFound
+			.expectBody(String::class.java).isEqualTo("This game doesn't exist")
+		val game = createdGame(signIn("start-open-door@example.com"))
+		startGame(null, game.id).expectStatus().isUnauthorized
+		startGame("not-a-real-token", game.id).expectStatus().isUnauthorized
+	}
+
+	private fun startGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/start", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun signIn(email: String, name: String = "Adrian", corporationName: String = "Adrian Star Traders"): String {

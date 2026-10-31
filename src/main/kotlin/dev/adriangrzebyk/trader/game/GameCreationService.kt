@@ -7,7 +7,7 @@ class GameCreationService(private val idGenerator: GameIdGenerator, private val 
 			throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
 		}
 
-		val game = Game(idGenerator.generate(), turns, GameStatus.LOBBY, creator.email, listOf(creator))
+		val game = Game.lobby(idGenerator.generate(), turns, creator)
 		gameStore.create(game)
 		return game
 	}

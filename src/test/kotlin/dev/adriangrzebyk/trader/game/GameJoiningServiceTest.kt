@@ -8,9 +8,9 @@ class GameJoiningServiceTest {
 
 	private val gameStore = FakeGameStore()
 	private val service = GameJoiningService(gameStore)
-	private val creator = Player("creator@example.com", "Creator", "Creator Corp")
-	private val joiner = Player("joiner@example.com", "Joiner", "Joiner Corp")
-	private val game = Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator))
+	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
+	private val joiner = Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")
+	private val game = Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
 
 	@Test
 	fun shouldAddThePlayerToTheGame() {
