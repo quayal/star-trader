@@ -107,10 +107,10 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
 
 ### Phase 3: Screens
 
-- [ ] 3.1 `js/game.js` helpers (route, length validation, lobby view model) with JS tests
-- [ ] 3.2 s11 Create a game at `/#new`
-- [ ] 3.3 s12 lobby: link, players, join, polling, start
-- [ ] 3.4 Game view after the start: turn, money, fleet, log
+- [x] 3.1 `js/game.js` helpers (route, length validation, lobby view model) with JS tests — e0438fa
+- [x] 3.2 s11 Create a game at `/#new` — c1710a6
+- [x] 3.3 s12 lobby: link, players, join, polling, start — c1710a6
+- [x] 3.4 Game view after the start: turn, money, fleet, log — c1710a6
 
 ### Phase 4: Integrate and gate
 
