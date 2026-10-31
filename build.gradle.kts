@@ -26,7 +26,9 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin:3.2.3")
 	implementation(platform("software.amazon.awssdk:bom:2.56.0"))
-	implementation("software.amazon.awssdk:dynamodb-enhanced")
+	implementation("software.amazon.awssdk:dynamodb")
+	// bootRun starts DynamoDB Local from compose.yaml; tests and the packaged jar never get this.
+	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.assertj:assertj-core")
