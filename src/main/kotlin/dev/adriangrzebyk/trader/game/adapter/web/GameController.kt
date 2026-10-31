@@ -5,10 +5,13 @@ import dev.adriangrzebyk.trader.game.GameIdGenerator
 import dev.adriangrzebyk.trader.game.GameJoiningService
 import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GamePollingService
+import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
+import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import org.springframework.http.HttpHeaders
@@ -25,11 +28,17 @@ import org.springframework.web.server.ResponseStatusException
 
 @RestController
 @RequestMapping("/api")
-class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private val sessionStore: SessionStore,) {
+class GameController(
+	idGenerator: GameIdGenerator,
+	gameStore: GameStore,
+	startingSystemPicker: StartingSystemPicker,
+	private val sessionStore: SessionStore,
+) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
+	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -78,6 +87,25 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		}
+
+		return game.toResponseDto(session.email)
+	}
+
+	@PostMapping("/games/{id}/start")
+	fun startGame(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			gameStartingService.startGame(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotTheCreatorException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
 		return game.toResponseDto(session.email)
