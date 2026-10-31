@@ -124,10 +124,13 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 - Game state is stored as native DynamoDB attributes (one item per game; nested objects as maps and
   lists), translated by `game/adapter/dynamodb/GameItemMapper` — never as an opaque JSON string.
-- A change that adds data to `Game` or anything inside it (a player's money, ships, offers…) extends the
-  mapper **and** `GameItemMapperTest`'s round trip in the same PR. A field that isn't mapped is silently
+- One mapper per persisted type (`GameItemMapper`, `PlayerAttributes`, `ShipAttributes`, `TurnAttributes`),
+  composed by its parent. A new type adds a mapper file and its round-trip test; a new field touches only
+  its type's mapper and test.
+- A change that adds data to `Game` or anything inside it (a player's money, ships, offers…) extends its
+  type's mapper **and** that mapper's round-trip test in the same PR. A field that isn't mapped is silently
   lost on the next save.
-- Keep that failure loud: the mapper builds `Game`/`Player` with every argument named, and domain data
+- Keep that failure loud: the mapper builds each domain object with every argument named, and domain data
   classes declare no default values, so a new field doesn't compile until the mapper reads it; the round
   trip then fails until the mapper writes it.
 - Once real games exist, a newly added attribute is missing from older items: default it in the mapper,
