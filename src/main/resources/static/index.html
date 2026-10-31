@@ -59,6 +59,9 @@
 		.player-list li, .fleet-list li { padding: var(--space-group) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
 		.player-list li:last-child, .fleet-list li:last-child { border-bottom: none; }
 		.log-list li { color: var(--text-muted); }
+		.games-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
+		.games-list li { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; padding: var(--space-group) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+		.games-list li:last-child { border-bottom: none; }
 		.actions { display: flex; flex-wrap: wrap; gap: var(--space-related); align-items: center; }
 		.actions [hidden], .actions .message:empty { display: none; }
 		.money { font-family: var(--font-display); font-size: var(--text-display); font-variant-numeric: tabular-nums; }
@@ -136,6 +139,11 @@
 					<p class="message" id="create-message" role="status"></p>
 				</div>
 			</form>
+		</section>
+
+		<section class="panel" id="your-games-panel" hidden aria-labelledby="your-games-title">
+			<h2 id="your-games-title">Your games</h2>
+			<ul class="games-list" id="your-games-list"></ul>
 		</section>
 	</div>
 
@@ -242,6 +250,7 @@
 		turnText,
 		validateTurns,
 	} from './js/game.js';
+	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
@@ -294,6 +303,11 @@
 		}
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
+		if (view === 'home' && latestGame()) {
+			// Deck takes a player back to the game they were last in ("Your games", E02-S05 follow-up).
+			location.replace(`/#game/${encodeURIComponent(latestGame())}`);
+			return;
+		}
 		if (view === 'home') {
 			$('nav-home').setAttribute('aria-current', 'page');
 			setTitle('Command Deck', 'Live prices and supply/demand across all six star systems.');
@@ -305,7 +319,9 @@
 			$('nav-new').setAttribute('aria-current', 'page');
 			setTitle('New game', 'Choose how long the game lasts, then invite the players.');
 			$('turns').focus();
+			loadYourGames();
 		} else {
+			$('nav-home').setAttribute('aria-current', 'page');
 			openGame(id);
 		}
 	}
@@ -388,11 +404,13 @@
 		}
 		$('refresh-message').textContent = '';
 		if (response.status === 404) {
+			forgetGame(id);
 			setTitle('Game', 'Not found');
 			showPanels('missing-panel');
 			return;
 		}
 		if (response.status === 403) {
+			forgetGame(id);
 			setTitle('Join a game', 'Someone sent you a link to their game.');
 			showPanels('join-panel');
 			return;
@@ -402,8 +420,47 @@
 			schedulePoll(id);
 			return;
 		}
+		rememberGame(id);
 		render(await response.json());
 		schedulePoll(id);
+	}
+
+	// ── Your games (on s11) ──
+
+	let yourGamesGeneration = 0;
+
+	async function loadYourGames() {
+		const generation = ++yourGamesGeneration;
+		const ids = rememberedGames();
+		const games = await Promise.all(ids.map(async (id) => {
+			try {
+				const response = await api(`/api/games/${encodeURIComponent(id)}`);
+				if (response.status === 403 || response.status === 404) {
+					forgetGame(id); // not this player's game (or gone): don't list it again
+					return null;
+				}
+				return response.ok ? response.json() : null;
+			} catch {
+				return null; // unreachable for now: skip it, keep it for next time
+			}
+		}));
+		if (generation !== yourGamesGeneration) {
+			return;
+		}
+		const rows = games.filter(Boolean).map(gameRow);
+		$('your-games-list').replaceChildren(...rows.map(row => {
+			const li = document.createElement('li');
+			const badge = document.createElement('span');
+			badge.className = row.status === 'Running' ? 'badge badge--live' : row.status === 'In the lobby' ? 'badge badge--warn' : 'badge';
+			badge.textContent = row.status;
+			const link = document.createElement('a');
+			link.className = 'link';
+			link.href = row.href;
+			link.textContent = row.details; // corporation names are player-typed: text only, never innerHTML
+			li.append(badge, link);
+			return li;
+		}));
+		$('your-games-panel').hidden = rows.length === 0;
 	}
 
 	function schedulePoll(id) {
@@ -468,6 +525,7 @@
 				$('join-message').textContent = await errorText(response, "You couldn't join this game.");
 				return;
 			}
+			rememberGame(currentGameId);
 			render(await response.json());
 			schedulePoll(currentGameId);
 		} catch {
