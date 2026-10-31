@@ -39,7 +39,39 @@
 		.topbar h1 { font-size: var(--text-heading); margin-bottom: var(--space-hairline); }
 		.topbar p { color: var(--text-muted); margin: 0; }
 		main { grid-area: main; padding: var(--space-section); }
+		/* Each view has its own display rule, so hidden must win explicitly (lessons 2026-10-30). */
+		.view { display: grid; gap: var(--space-panel); max-width: 720px; }
+		.view--wide { max-width: none; }
+		.view[hidden] { display: none; }
 		.panel h2 { font-size: var(--text-title); margin-bottom: var(--space-panel); }
+		.panel > p { margin: 0 0 var(--space-related); }
+		.panel > p:last-child { margin-bottom: 0; }
+		form { display: grid; gap: var(--space-panel); max-width: 320px; }
+		.field-error:empty { display: none; }
+		.field-error { margin-top: var(--space-group); }
+		.turns-input { max-width: 120px; font-variant-numeric: tabular-nums; }
+		.facts { display: flex; flex-wrap: wrap; gap: var(--space-group) var(--space-between-groups); margin: 0 0 var(--space-panel); }
+		.facts dt { color: var(--text-muted); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.06em; }
+		.facts dd { margin: 0; font-family: var(--font-display); font-size: var(--text-value); }
+		.link-row { display: flex; gap: var(--space-related); align-items: center; }
+		.link-row .control { flex: 1; }
+		.player-list, .fleet-list, .log-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
+		.player-list li, .fleet-list li { padding: var(--space-group) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+		.player-list li:last-child, .fleet-list li:last-child { border-bottom: none; }
+		.log-list li { color: var(--text-muted); }
+		.actions { display: flex; flex-wrap: wrap; gap: var(--space-related); align-items: center; }
+		.actions [hidden], .actions .message:empty { display: none; }
+		.money { font-family: var(--font-display); font-size: var(--text-display); font-variant-numeric: tabular-nums; }
+		/* Secondary actions change state, so they are buttons that read as links. */
+		.text-action {
+			padding: 0;
+			border: 0;
+			background: none;
+			color: var(--accent-selected);
+			font: inherit;
+			cursor: pointer;
+		}
+		.text-action:hover { text-decoration: underline; }
 		.market-grid {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -66,22 +98,112 @@
 <body>
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
-	<a class="nav-item" aria-current="page" href="index.html">Deck</a>
+	<a class="nav-item" id="nav-home" href="/">Deck</a>
+	<a class="nav-item" id="nav-new" href="/#new">New game</a>
 	<a class="nav-item" href="trade-offers.html">Market</a>
 </aside>
 
 <header class="topbar">
-	<h1>Command Deck</h1>
-	<p>Live prices and supply/demand across all six star systems.</p>
+	<h1 id="page-title">Command Deck</h1>
+	<p id="page-subtitle">Live prices and supply/demand across all six star systems.</p>
 </header>
 
 <main>
-	<section class="panel">
-		<h2>Market Overview</h2>
-		<div id="market-grid" class="market-grid">
-			<p class="empty">Loading market&hellip;</p>
-		</div>
-	</section>
+	<!-- Home: the market overview (unchanged) -->
+	<div class="view view--wide" id="home-view" hidden>
+		<section class="panel">
+			<h2>Market Overview</h2>
+			<div id="market-grid" class="market-grid">
+				<p class="empty">Loading market&hellip;</p>
+			</div>
+		</section>
+	</div>
+
+	<!-- s11: Create a game -->
+	<div class="view" id="new-view" hidden>
+		<section class="panel" aria-labelledby="new-title">
+			<h2 id="new-title">Create a game</h2>
+			<form id="create-form" novalidate>
+				<div>
+					<label class="field-label" for="turns">Length (turns)</label>
+					<input class="control turns-input" id="turns" name="turns" inputmode="numeric" value="20"
+						aria-describedby="turns-hint turns-error">
+					<p class="message muted" id="turns-hint">A whole number from 1 to 50.</p>
+					<p class="message message--error field-error" id="turns-error"></p>
+				</div>
+				<div>
+					<button class="btn" type="submit">Create game</button>
+					<p class="message" id="create-message" role="status"></p>
+				</div>
+			</form>
+		</section>
+	</div>
+
+	<!-- s12: Lobby, and the game view once the game has started -->
+	<div class="view" id="game-view" hidden>
+		<p class="empty" id="game-loading">Loading game&hellip;</p>
+
+		<section class="panel" id="missing-panel" hidden>
+			<h2>This game doesn't exist</h2>
+			<p>Check the link, or <a class="link" href="/#new">create a game</a>.</p>
+		</section>
+
+		<section class="panel" id="join-panel" hidden aria-labelledby="join-title">
+			<h2 id="join-title">You're invited to a game</h2>
+			<div class="actions">
+				<button class="btn" id="join-button" type="button">Join this game</button>
+				<p class="message message--error" id="join-message" role="status"></p>
+			</div>
+		</section>
+
+		<section class="panel" id="lobby-panel" hidden aria-labelledby="lobby-title">
+			<h2 id="lobby-title">Lobby</h2>
+			<dl class="facts">
+				<div><dt>Length</dt><dd id="lobby-length"></dd></div>
+				<div><dt>Players</dt><dd>2 to 6 players</dd></div>
+			</dl>
+			<label class="field-label" for="lobby-link">Send this link to the players</label>
+			<div class="link-row">
+				<input class="control" id="lobby-link" readonly>
+				<button class="text-action" id="copy-link" type="button">Copy link</button>
+			</div>
+			<p class="message message--success" id="copy-message" role="status"></p>
+		</section>
+
+		<section class="panel" id="players-panel" hidden aria-labelledby="players-title">
+			<h2 id="players-title">Players</h2>
+			<ul class="player-list" id="player-list"></ul>
+		</section>
+
+		<section class="panel" id="start-panel" hidden>
+			<div class="actions">
+				<button class="btn" id="start-button" type="button">Start game</button>
+				<p class="message muted" id="start-reason"></p>
+				<p class="message message--error" id="start-message" role="status"></p>
+			</div>
+		</section>
+
+		<section class="panel" id="waiting-panel" hidden>
+			<p><span class="badge badge--warn">Waiting</span> <span id="waiting-text"></span></p>
+		</section>
+
+		<section class="panel" id="money-panel" hidden aria-labelledby="money-title">
+			<h2 id="money-title">Your money</h2>
+			<p class="money" id="money-value"></p>
+		</section>
+
+		<section class="panel" id="fleet-panel" hidden aria-labelledby="fleet-title">
+			<h2 id="fleet-title">Your fleet</h2>
+			<ul class="fleet-list" id="fleet-list"></ul>
+		</section>
+
+		<section class="panel" id="log-panel" hidden aria-labelledby="log-title">
+			<h2 id="log-title">Game log</h2>
+			<ol class="log-list" id="log-list"></ol>
+		</section>
+
+		<p class="message message--error" id="refresh-message" role="status"></p>
+	</div>
 </main>
 
 <script>
@@ -108,11 +230,267 @@
 	}
 </script>
 <script type="module">
-	import { requireSession } from './js/session.js';
+	import { getToken, requireSession } from './js/session.js';
+	import { errorText } from './js/sign-in.js';
+	import {
+		POLL_INTERVAL_MS,
+		gameLink,
+		lengthText,
+		lobbyState,
+		parseRoute,
+		shipLine,
+		turnText,
+		validateTurns,
+	} from './js/game.js';
 
-	// Signed out, or the server no longer knows the session: sign in (s10), then come back (E01-S03).
-	if (await requireSession()) {
-		loadMarket();
+	const UNREACHABLE = "We couldn't reach the server. Try again.";
+	const $ = id => document.getElementById(id);
+	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view') };
+	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
+		'waiting-panel', 'money-panel', 'fleet-panel', 'log-panel'];
+	let session = null;
+	let marketLoaded = false;
+	let pollTimer = null;
+	let currentGameId = null;
+
+	function api(path, init = {}) {
+		return fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${getToken()}` } });
+	}
+
+	function setTitle(title, subtitle) {
+		$('page-title').textContent = title;
+		$('page-subtitle').textContent = subtitle;
+	}
+
+	function showPanels(...ids) {
+		for (const id of gamePanels) {
+			$(id).hidden = !ids.includes(id);
+		}
+	}
+
+	function fillList(list, items) {
+		list.replaceChildren(...items.map(text => {
+			const li = document.createElement('li');
+			li.textContent = text; // player-typed names never reach innerHTML
+			return li;
+		}));
+	}
+
+	function stopPolling() {
+		clearTimeout(pollTimer);
+		pollTimer = null;
+	}
+
+	// ── Routing ──
+
+	function route() {
+		stopPolling();
+		const { view, id } = parseRoute(location.hash);
+		for (const [name, element] of Object.entries(views)) {
+			element.hidden = name !== view;
+		}
+		$('nav-home').toggleAttribute('aria-current', view === 'home');
+		$('nav-new').toggleAttribute('aria-current', view === 'new');
+		if (view === 'home') {
+			$('nav-home').setAttribute('aria-current', 'page');
+			setTitle('Command Deck', 'Live prices and supply/demand across all six star systems.');
+			if (!marketLoaded) {
+				marketLoaded = true;
+				loadMarket();
+			}
+		} else if (view === 'new') {
+			$('nav-new').setAttribute('aria-current', 'page');
+			setTitle('New game', 'Choose how long the game lasts, then invite the players.');
+			$('turns').focus();
+		} else {
+			openGame(id);
+		}
+	}
+
+	// ── s11: Create a game ──
+
+	function setTurnsError(text) {
+		$('turns-error').textContent = text;
+		if (text) {
+			$('turns').setAttribute('aria-invalid', 'true');
+			$('turns').focus();
+		} else {
+			$('turns').removeAttribute('aria-invalid');
+		}
+	}
+
+	$('create-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		setTurnsError('');
+		$('create-message').textContent = '';
+		const checked = validateTurns($('turns').value);
+		if (checked.error) {
+			setTurnsError(checked.error);
+			return;
+		}
+		const button = event.submitter ?? $('create-form').querySelector('button');
+		button.disabled = true;
+		try {
+			const response = await api('/api/games', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ turns: checked.turns }),
+			});
+			if (response.status === 400) {
+				setTurnsError(await errorText(response, checked.error ?? ''));
+				return;
+			}
+			if (!response.ok) {
+				$('create-message').textContent = await errorText(response, UNREACHABLE);
+				$('create-message').className = 'message message--error';
+				return;
+			}
+			const game = await response.json();
+			location.hash = `#game/${encodeURIComponent(game.id)}`;
+		} catch {
+			$('create-message').textContent = UNREACHABLE;
+			$('create-message').className = 'message message--error';
+		} finally {
+			button.disabled = false;
+		}
+	});
+
+	// ── s12: Lobby / game view ──
+
+	function openGame(id) {
+		currentGameId = id;
+		setTitle('Game', 'Loading…');
+		$('refresh-message').textContent = '';
+		showPanels('game-loading');
+		poll();
+	}
+
+	async function poll() {
+		const id = currentGameId;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(id)}`);
+		} catch {
+			$('refresh-message').textContent = "Couldn't refresh. Trying again…";
+			schedulePoll(id);
+			return;
+		}
+		if (id !== currentGameId) {
+			return; // the player has moved on
+		}
+		$('refresh-message').textContent = '';
+		if (response.status === 404) {
+			setTitle('Game', 'Not found');
+			showPanels('missing-panel');
+			return;
+		}
+		if (response.status === 403) {
+			setTitle('Join a game', 'Someone sent you a link to their game.');
+			showPanels('join-panel');
+			return;
+		}
+		if (!response.ok) {
+			$('refresh-message').textContent = "Couldn't refresh. Trying again…";
+			schedulePoll(id);
+			return;
+		}
+		render(await response.json());
+		schedulePoll(id);
+	}
+
+	function schedulePoll(id) {
+		stopPolling();
+		pollTimer = setTimeout(() => {
+			if (id === currentGameId) {
+				poll();
+			}
+		}, POLL_INTERVAL_MS);
+	}
+
+	function render(game) {
+		if (game.status === 'LOBBY') {
+			renderLobby(game);
+		} else {
+			renderRunning(game);
+		}
+	}
+
+	function renderLobby(game) {
+		const state = lobbyState(game, session.email);
+		setTitle('Lobby', 'Waiting for players to join.');
+		$('lobby-length').textContent = lengthText(game.turns);
+		const link = gameLink(location.origin, game.id);
+		if ($('lobby-link').value !== link) {
+			$('lobby-link').value = link;
+		}
+		fillList($('player-list'), state.corporationNames);
+		$('start-button').disabled = !state.canStart;
+		$('start-reason').textContent = state.startBlockedReason ?? '';
+		$('waiting-text').textContent = state.waitingText ?? '';
+		showPanels('lobby-panel', 'players-panel', state.isCreator ? 'start-panel' : 'waiting-panel');
+	}
+
+	function renderRunning(game) {
+		setTitle(turnText(game), 'The game has started.');
+		const me = game.players.find(p => p.email === session.email);
+		$('money-value').textContent = `${game.you?.money ?? 0} HT`;
+		fillList($('fleet-list'), (me?.ships ?? []).map(shipLine));
+		fillList($('log-list'), game.log);
+		showPanels('money-panel', 'fleet-panel', 'log-panel');
+	}
+
+	$('copy-link').addEventListener('click', async () => {
+		const input = $('lobby-link');
+		try {
+			await navigator.clipboard.writeText(input.value);
+			$('copy-message').textContent = 'Link copied.';
+		} catch {
+			input.focus();
+			input.select();
+			$('copy-message').textContent = 'Press Ctrl+C (⌘C on a Mac) to copy.';
+		}
+	});
+
+	$('join-button').addEventListener('click', async () => {
+		$('join-message').textContent = '';
+		$('join-button').disabled = true;
+		try {
+			const response = await api(`/api/games/${encodeURIComponent(currentGameId)}/join`, { method: 'POST' });
+			if (!response.ok) {
+				$('join-message').textContent = await errorText(response, "You couldn't join this game.");
+				return;
+			}
+			render(await response.json());
+			schedulePoll(currentGameId);
+		} catch {
+			$('join-message').textContent = UNREACHABLE;
+		} finally {
+			$('join-button').disabled = false;
+		}
+	});
+
+	$('start-button').addEventListener('click', async () => {
+		$('start-message').textContent = '';
+		$('start-button').disabled = true;
+		try {
+			const response = await api(`/api/games/${encodeURIComponent(currentGameId)}/start`, { method: 'POST' });
+			if (!response.ok) {
+				$('start-message').textContent = await errorText(response, "The game couldn't start.");
+				$('start-button').disabled = false;
+				return;
+			}
+			render(await response.json());
+		} catch {
+			$('start-message').textContent = UNREACHABLE;
+			$('start-button').disabled = false;
+		}
+	});
+
+	// Signed out, or the server no longer knows the session: sign in (s10), then come back here (E01-S03).
+	session = await requireSession();
+	if (session) {
+		window.addEventListener('hashchange', route);
+		route();
 	}
 </script>
 </body>
