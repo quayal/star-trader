@@ -102,8 +102,8 @@ Implementation choices:
 
 ### Phase 2: Local runtime and docs
 
-- [ ] 2.1 `compose.yaml` and the `bootRun` default; check a game survives a restart
-- [ ] 2.2 Docs: `AGENTS.md`, `README.md`, `BACKWARD_COMPATIBILITY.md`, `.ai/engineering-standards.md`
+- [x] 2.1 `compose.yaml` and the `bootRun` default; check a game survives a restart — f1d6b8f
+- [x] 2.2 Docs: `AGENTS.md`, `README.md`, `BACKWARD_COMPATIBILITY.md`, `.ai/engineering-standards.md` — 46982a7
 
 ### Phase 3: Gate
 
