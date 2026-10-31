@@ -61,14 +61,17 @@ The game-scoped surface R01 asks for (E02). Each game has its own id; nothing in
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| POST | `/games` | `Authorization: Bearer <sessionToken>`, `{ turns }` | `201` + `{ id, turns, status, creatorEmail, players: [{ email, name, corporationName }] }`; `400` "Enter a whole number of turns from 1 to 50." for a missing, fractional or out-of-range length; `401` for a missing, malformed or unknown token |
+| POST | `/games` | `Authorization: Bearer <sessionToken>`, `{ turns }` | `201` + the game shape below, built for the caller; `400` "Enter a whole number of turns from 1 to 50." for a missing, fractional or out-of-range length; `401` for a missing, malformed or unknown token |
 | POST | `/games/{id}/join` | `Authorization: Bearer <sessionToken>`, no body | `200` + the same game shape, with the caller added to `players`; `404` "This game doesn't exist"; `409` "This game is full", "This game has already started" or "This player is already in the game"; `401` for a missing, malformed or unknown token |
 | GET | `/games/{id}` | `Authorization: Bearer <sessionToken>` | `200` + the same game shape, for any player in the game; `403` "You are not a player in this game" for a signed-in caller who isn't (no game data in the body); `404` "This game doesn't exist"; `401` for a missing, malformed or unknown token |
+| POST | `/games/{id}/start` | `Authorization: Bearer <sessionToken>`, no body | `200` + the started game; `403` "Only the creator can start the game" for anyone else; `409` "At least 2 players are needed to start" or "This game has already started"; `404` "This game doesn't exist"; `401` for a missing, malformed or unknown token |
 
-- `status` is `LOBBY`, `RUNNING` or `FINISHED`; a new game is `LOBBY`. Players carry no money or ships until the game starts (E02-S05).
+**Game shape** (every `200`/`201` above): `{ id, turns, status, creatorEmail, players: [{ email, name, corporationName, ships: [{ name, system, systemName, location }] }], turn: { number, phase } | null, log: [string], you: { money } | null }`. `players[]` is public and never carries money (R29); `you` is the caller's own money. `system` is a `StarSystem` constant (e.g. `TAU_CETI`), `location` is `PORT`, `PLANET` or `SPACE`, `phase` is `BIDDING`.
+
+- `status` is `LOBBY`, `RUNNING` or `FINISHED`; a new game is `LOBBY` with `turn: null`, empty `log`, no ships and 0 money. The start (E02-S05) sets 300 HT, two ships at Ports and `turn: { number: 1, phase: BIDDING }`, and adds two log lines.
 - Games live in memory until the server restarts (D02 persistence is #21).
-- **Breaking change**: renaming or removing a field above; changing a status code; changing the `status` values; rewording a join or poll `403`/`404`/`409` message, which E02-S05's lobby screen shows as is; letting the poll return anything to a non-player (A05).
-- **In-repo consumers**: none yet — the create and lobby screens arrive with E02-S05.
+- **Breaking change**: renaming or removing a field above; changing a status code; changing the `status` values; rewording a join or poll `403`/`404`/`409` message, which E02-S05's lobby screen shows as is; letting the poll return anything to a non-player (A05); putting any player's money outside `you` (R29).
+- **In-repo consumers**: `static/index.html` (s11 create, s12 lobby, the game view) through `static/js/game.js`, which reads every field above and shows the `403`/`404`/`409` messages as is.
 
 ## Not yet applicable (no contract exists)
 
