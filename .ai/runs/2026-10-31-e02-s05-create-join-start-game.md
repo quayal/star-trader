@@ -114,5 +114,5 @@ systems, turn 1 Bidding begins, the start is logged, and every lobby moves to th
 
 ### Phase 4: Integrate and gate
 
-- [ ] 4.1 Merge latest main; extend the DynamoDB mapper if E02-S03 has landed, else note it
-- [ ] 4.2 `./gradlew build` green and UI checked in a browser
+- [x] 4.1 Merge latest main; extend the DynamoDB mapper if E02-S03 has landed, else note it — no-op: main unchanged, E02-S03 still open as #65
+- [x] 4.2 `./gradlew build` green and UI checked in a browser — cb50aef
