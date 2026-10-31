@@ -304,17 +304,12 @@
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		if (view === 'home' && latestGame()) {
-			// Deck takes a player back to the game they were last in ("Your games", E02-S05 follow-up).
-			location.replace(`/#game/${encodeURIComponent(latestGame())}`);
+			views.home.hidden = true; // no market flash while the remembered games are checked
+			openLatestGame();
 			return;
 		}
 		if (view === 'home') {
-			$('nav-home').setAttribute('aria-current', 'page');
-			setTitle('Command Deck', 'Live prices and supply/demand across all six star systems.');
-			if (!marketLoaded) {
-				marketLoaded = true;
-				loadMarket();
-			}
+			showHome();
 		} else if (view === 'new') {
 			$('nav-new').setAttribute('aria-current', 'page');
 			setTitle('New game', 'Choose how long the game lasts, then invite the players.');
@@ -323,6 +318,45 @@
 		} else {
 			$('nav-home').setAttribute('aria-current', 'page');
 			openGame(id);
+		}
+	}
+
+	/**
+	 * Deck takes a player back to the game they were last in ("Your games", E02-S05 follow-up), but only
+	 * one they are a member of: with another player's games still remembered in this browser, jumping
+	 * straight there would offer them "Join this game" on someone else's game.
+	 */
+	async function openLatestGame() {
+		for (const id of rememberedGames()) {
+			let response;
+			try {
+				response = await api(`/api/games/${encodeURIComponent(id)}`);
+			} catch {
+				break; // unreachable: show the Deck as usual
+			}
+			if (response.ok) {
+				location.replace(`/#game/${encodeURIComponent(id)}`);
+				return;
+			}
+			if (response.status === 403 || response.status === 404) {
+				forgetGame(id);
+				continue;
+			}
+			break;
+		}
+		showHome();
+	}
+
+	function showHome() {
+		if (parseRoute(location.hash).view !== 'home') {
+			return; // the player has moved on while the games were checked
+		}
+		views.home.hidden = false;
+		$('nav-home').setAttribute('aria-current', 'page');
+		setTitle('Command Deck', 'Live prices and supply/demand across all six star systems.');
+		if (!marketLoaded) {
+			marketLoaded = true;
+			loadMarket();
 		}
 	}
 
