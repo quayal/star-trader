@@ -1,9 +1,12 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
@@ -17,8 +20,8 @@ import java.util.concurrent.TimeUnit
 
 class DynamoDbGameStoreTest {
 
-	private val creator = Player("creator@example.com", "Creator", "Creator Corp")
-	private val game = Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator))
+	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
+	private val game = Game.lobby("game-1", 20, creator)
 
 	// A fresh table per test, so tests sharing the container can't see each other's games.
 	private val tableName = "games-${UUID.randomUUID()}"
@@ -49,13 +52,36 @@ class DynamoDbGameStoreTest {
 	@Test
 	fun shouldStillFindTheGameThroughANewStoreAsAfterARestart() {
 		store.create(game)
-		store.update("game-1") { it.addPlayer(Player("joiner@example.com", "Joiner", "Joiner Corp")) }
+		store.update("game-1") { it.addPlayer(Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")) }
 
 		DynamoDbLocal.client().use { freshClient ->
 			val restarted = DynamoDbGameStore(freshClient, tableName)
 
 			assertThat(restarted.find("game-1")!!.players.map { it.email })
 				.containsExactly("creator@example.com", "joiner@example.com")
+		}
+	}
+
+	@Test
+	fun shouldStillHaveAStartedGameWithMoneyShipsTurnAndLogAfterARestart() {
+		store.create(game)
+		store.update("game-1") { it.addPlayer(Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")) }
+		val picker = FakeStartingSystemPicker(
+			StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
+			StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS,
+		)
+		val started = store.update("game-1") { it.start(creator.email, picker) }
+
+		DynamoDbLocal.client().use { freshClient ->
+			val restarted = DynamoDbGameStore(freshClient, tableName).find("game-1")!!
+
+			assertThat(restarted).isEqualTo(started)
+			assertThat(restarted.status).isEqualTo(GameStatus.RUNNING)
+			assertThat(restarted.turn!!.phase).isEqualTo(TurnPhase.BIDDING)
+			assertThat(restarted.players.map { it.money }).containsOnly(Game.STARTING_MONEY)
+			assertThat(restarted.players.flatMap { it.ships }.map { it.system })
+				.containsExactly(StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, StarSystem.GAMMA_LEPORIS, StarSystem.MU_HERCULIS)
+			assertThat(restarted.log).hasSize(2)
 		}
 	}
 
@@ -80,7 +106,7 @@ class DynamoDbGameStoreTest {
 	@Test
 	fun shouldUpdateAGameAndBumpItsVersion() {
 		store.create(game)
-		val joiner = Player("joiner@example.com", "Joiner", "Joiner Corp")
+		val joiner = Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")
 
 		val updated = store.update("game-1") { it.addPlayer(joiner) }
 
@@ -110,7 +136,7 @@ class DynamoDbGameStoreTest {
 		val executor = Executors.newFixedThreadPool(5)
 
 		val updates = (1..5).map { n ->
-			executor.submit { store.update("game-1") { it.addPlayer(Player("p$n@example.com", "P$n", "Corp $n")) } }
+			executor.submit { store.update("game-1") { it.addPlayer(Player.newcomer("p$n@example.com", "P$n", "Corp $n")) } }
 		}
 		updates.forEach { it.get(30, TimeUnit.SECONDS) }
 		executor.shutdown()
