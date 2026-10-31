@@ -62,7 +62,19 @@ write before it, under several concurrent writer/reader pairs.
   rechecked if the game ever moves to real AWS.
 - The first test run pulls a ~500 MB image; CI time grows by that pull.
 
+## Outcome
+
+Done. A01 holds on DynamoDB Local: every read from a second client with ConsistentRead=true
+returned the version just written, alone and with 8 concurrent writer/reader pairs (200 writes).
+The container test ran locally and on CI (CI=true means it can't skip; the build step took
++23 s). Testcontainers found Docker Desktop with no extra config. The comment review (the agent
+doesn't approve its own PR) found 3 minor issues in the test, fixed in 647b21e; the ceiling is
+now A01's 2 s. Not exercised: the no-Docker skip (Docker Desktop's socket can't be hidden
+without stopping Docker). Approval is left to a human.
+
 ## Progress
+
+PR: #64
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
