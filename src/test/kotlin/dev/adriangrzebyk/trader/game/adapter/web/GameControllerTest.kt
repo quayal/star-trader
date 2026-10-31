@@ -156,6 +156,51 @@ class GameControllerTest {
 		assertThat(gameStore.find(game.id)!!.players).hasSize(1)
 	}
 
+	@Test
+	fun shouldShowTheGameToEachOfItsPlayers() {
+		val creatorToken = signIn("poll-host@example.com")
+		val joinerToken = signIn("poll-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+
+		val seenByCreator = pollGame(creatorToken, game.id)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val seenByJoiner = pollGame(joinerToken, game.id)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto())
+		assertThat(seenByCreator.players.map { it.email }).containsExactly("poll-host@example.com", "poll-guest@example.com")
+		assertThat(seenByJoiner).isEqualTo(seenByCreator)
+	}
+
+	@Test
+	fun shouldRefuseTheGameToASignedInPlayerWhoIsNotInIt() {
+		val game = createdGame(signIn("private-host@example.com"))
+
+		val body = pollGame(signIn("outsider@example.com"), game.id)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).returnResult().responseBody
+
+		assertThat(body).isEqualTo("You are not a player in this game")
+	}
+
+	@Test
+	fun shouldRejectPollingAnUnknownGame() {
+		pollGame(signIn("poll-lost@example.com"), "no-such-game")
+			.expectStatus().isNotFound
+			.expectBody(String::class.java).isEqualTo("This game doesn't exist")
+	}
+
+	@Test
+	fun shouldRejectPollingWithoutASession() {
+		val game = createdGame(signIn("poll-open-door@example.com"))
+
+		pollGame(null, game.id).expectStatus().isUnauthorized
+		pollGame("not-a-real-token", game.id).expectStatus().isUnauthorized
+	}
+
 	private fun signIn(email: String, name: String = "Adrian", corporationName: String = "Adrian Star Traders"): String {
 		val token = "token-$email"
 		sessionStore.store(Session(token, name, corporationName, email))
@@ -167,6 +212,12 @@ class GameControllerTest {
 
 	private fun joinGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/join", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
+	}
+
+	private fun pollGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.get().uri("/api/games/{id}", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
 	}

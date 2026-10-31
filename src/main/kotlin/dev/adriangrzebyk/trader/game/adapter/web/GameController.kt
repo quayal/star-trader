@@ -4,13 +4,16 @@ import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
 import dev.adriangrzebyk.trader.game.GameJoiningService
 import dev.adriangrzebyk.trader.game.GameNotFoundException
+import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -26,6 +29,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
+	private val gamePollingService = GamePollingService(gameStore)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -57,6 +61,23 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return game.toResponseDto()
+	}
+
+	@GetMapping("/games/{id}")
+	fun pollGame(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			gamePollingService.poll(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		}
 
 		return game.toResponseDto()

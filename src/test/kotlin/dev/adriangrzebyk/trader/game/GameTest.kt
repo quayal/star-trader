@@ -44,5 +44,13 @@ class GameTest {
 			.hasMessage("This game has already started")
 	}
 
+	@Test
+	fun shouldKnowWhoItsPlayersAre() {
+		val game = gameWith(creator)
+
+		assertThat(game.hasPlayer("creator@example.com")).isTrue()
+		assertThat(game.hasPlayer("outsider@example.com")).isFalse()
+	}
+
 	private fun gameWith(vararg players: Player) = Game("game-1", 20, GameStatus.LOBBY, players.first().email, players.toList())
 }
