@@ -40,7 +40,7 @@ The passwordless login flow (D03). The sign-in screens (E01-S03) and every later
 | POST | `/login/exchange-code` | `{ email, code }` | `200` + `{ sessionToken }`; `400` for a blank field; `401` for a wrong, expired, reused or never-requested code, or once the code's 5 attempts are used up |
 | GET | `/login/session` | `Authorization: Bearer <sessionToken>` | `200` + `{ playerName, corporationName, email }`; `401` for a missing, malformed or unknown token |
 
-- **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions live in memory until the server restarts (D02 persistence is #21). A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
+- **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions live in memory and are lost when the server restarts (E02-S03 persisted games only), so players sign in again after a restart. A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
 - **Breaking change**: renaming or removing a field above; changing a status code; changing how the token is sent (bearer header → cookie, say); giving sessions an expiry; letting a `401` reveal *which* reason applied.
 - **In-repo consumers**: `static/sign-in.html` (request and exchange the code) and `static/js/session.js` (keeps the token in `localStorage` as `starTrader.sessionToken` and checks it with `GET /login/session` on every game screen). The sign-in screen maps E01-S01's 400 messages to its fields by their exact text (`static/js/sign-in.js`), so rewording one of those messages must update that map too.
 - **Required path**: update the in-repo consumers above in the same PR, and state the change in the PR body's "Decisions touched". Session expiry would also need a superseding entry for D05.
@@ -69,15 +69,32 @@ The game-scoped surface R01 asks for (E02). Each game has its own id; nothing in
 **Game shape** (every `200`/`201` above): `{ id, turns, status, creatorEmail, players: [{ email, name, corporationName, ships: [{ name, system, systemName, location }] }], turn: { number, phase } | null, log: [string], you: { money } | null }`. `players[]` is public and never carries money (R29); `you` is the caller's own money. `system` is a `StarSystem` constant (e.g. `TAU_CETI`), `location` is `PORT`, `PLANET` or `SPACE`, `phase` is `BIDDING`.
 
 - `status` is `LOBBY`, `RUNNING` or `FINISHED`; a new game is `LOBBY` with `turn: null`, empty `log`, no ships and 0 money. The start (E02-S05) sets 300 HT, two ships at Ports and `turn: { number: 1, phase: BIDDING }`, and adds two log lines.
-- Games live in memory until the server restarts (D02 persistence is #21).
+- Games are stored in DynamoDB and survive a server restart (E02-S03); see §7 for the stored shape.
 - **Breaking change**: renaming or removing a field above; changing a status code; changing the `status` values; rewording a join or poll `403`/`404`/`409` message, which E02-S05's lobby screen shows as is; letting the poll return anything to a non-player (A05); putting any player's money outside `you` (R29).
 - **In-repo consumers**: `static/index.html` (s11 create, s12 lobby, the game view) through `static/js/game.js`, which reads every field above and shows the `403`/`404`/`409` messages as is.
+
+### 7. Persistence schema — the DynamoDB games table (`game/adapter/dynamodb`)
+
+Stored data outlives the code that wrote it, so the item shape is a contract with every future version of the app.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `id` | S, partition key | the game id |
+| `turns` | N | game length |
+| `status` | S | `LOBBY`, `RUNNING` or `FINISHED` |
+| `creatorEmail` | S | the creator's email |
+| `players` | L of M | each `{ email: S, name: S, corporationName: S }` |
+| `version` | N | optimistic-concurrency counter, +1 on every save |
+
+- Table `star-trader-games` (`DYNAMODB_TABLE_NAME`), on-demand billing, no secondary index. In real AWS it's provisioned outside the app.
+- **Additive change** (a new attribute, a new field in a player map): safe once the mapper defaults it when reading an older item.
+- **Breaking change**: renaming or removing an attribute, changing its type or the meaning of a value, changing the key. Needs a migration of stored items, or — before any game worth keeping exists — an explicit note in the PR that local data must be cleared (`docker compose down -v`).
+- **Required path**: change `GameItemMapper` and `GameItemMapperTest` together (engineering standards §12), and state the change in the PR body.
 
 ## Not yet applicable (no contract exists)
 
 These will become protected surfaces once they exist, per the product brief's Scope/Now — call this file out for an update in the PR that first introduces each:
 
-- **Persistence schema** — no document store exists yet (D02); once it does, the per-game document shape becomes a protected surface needing a migration/versioning story.
 - **Confidential-data authorization** — the session→player→game check from product-brief assumption A05 doesn't exist yet; once it does, loosening it is always a blocker-severity review finding (see `CODE_REVIEW.md`), never a plain compatibility note.
 
 ## Required path for any breaking change, in general

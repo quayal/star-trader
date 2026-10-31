@@ -120,6 +120,19 @@ working solution, say so and ask rather than silently defaulting to "the proper 
   `TradeOfferBook` — a single global in-memory list with no game boundary — is the concrete example of
   what this rule rules out.)
 
+## 12. Stored data is mapped field by field, and the mapping grows with the model
+
+- Game state is stored as native DynamoDB attributes (one item per game; nested objects as maps and
+  lists), translated by `game/adapter/dynamodb/GameItemMapper` — never as an opaque JSON string.
+- A change that adds data to `Game` or anything inside it (a player's money, ships, offers…) extends the
+  mapper **and** `GameItemMapperTest`'s round trip in the same PR. A field that isn't mapped is silently
+  lost on the next save.
+- Keep that failure loud: the mapper builds `Game`/`Player` with every argument named, and domain data
+  classes declare no default values, so a new field doesn't compile until the mapper reads it; the round
+  trip then fails until the mapper writes it.
+- Once real games exist, a newly added attribute is missing from older items: default it in the mapper,
+  not in the domain class (see `BACKWARD_COMPATIBILITY.md`, persistence schema).
+
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
