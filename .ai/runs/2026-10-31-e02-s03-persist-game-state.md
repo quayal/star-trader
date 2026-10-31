@@ -96,9 +96,9 @@ Implementation choices:
 
 ### Phase 1: Adapter
 
-- [ ] 1.1 Dependencies and configuration properties
-- [ ] 1.2 `GameItemMapper` and `DynamoDbGameStore`, with `DynamoDbGameStoreTest`; remove the in-memory store and T01's test
-- [ ] 1.3 Spring wiring (`DynamoDbConfiguration`), with `GameControllerTest` on DynamoDB Local
+- [x] 1.1 Dependencies and configuration properties — 38f1663
+- [x] 1.2 `GameItemMapper` and `DynamoDbGameStore`, with `DynamoDbGameStoreTest`; remove the in-memory store and T01's test — 1eb500a
+- [x] 1.3 Spring wiring (`DynamoDbConfiguration`), with `GameControllerTest` on DynamoDB Local — 38fcf9e
 
 ### Phase 2: Local runtime and docs
 
