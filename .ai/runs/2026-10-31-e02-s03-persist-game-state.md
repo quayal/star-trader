@@ -100,6 +100,10 @@ Review (comment review; the agent doesn't approve its own PR): two README minors
 Approval (risk-high, second reviewer) and manual QA are left to a human. Sessions still don't survive
 a restart (D05 only partly met; outside this story).
 
+## Post-#66 update
+
+E02-S05 (#66) merged to main first. This PR merged main (bd999ca), then mapped #66's fields: player money and ships, the game's turn and log (81cab0c), and documented the stored shape in `BACKWARD_COMPATIBILITY.md` §7 (1d786c1). CI green on 1d786c1. A manual `bootRun` check on port 3100 (create, join, start, restart, sign in again) found the game response identical for both players before and after the restart. A review pass over bd999ca..1d786c1 found nothing blocking. Approval and manual QA remain with a human.
+
 ## Progress
 
 PR: #65
@@ -120,3 +124,11 @@ PR: #65
 ### Phase 3: Gate
 
 - [x] 3.1 `./gradlew build` green — 4095788
+
+### Phase 4: Post-#66 update
+
+- [x] 4.1 Merge origin/main (E02-S05, #66) — bd999ca
+- [x] 4.2 Mapper and tests store money, ships, turn and log — 81cab0c
+- [x] 4.3 `BACKWARD_COMPATIBILITY.md` §7 item shape — 1d786c1
+- [x] 4.4 Manual restart check through `bootRun`: a started game survived with money, ships, turn and log
+- [x] 4.5 Review pass of bd999ca..1d786c1 (comment review, no findings), PR body and manual-QA comment updated
