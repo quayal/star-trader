@@ -68,12 +68,12 @@ write before it, under several concurrent writer/reader pairs.
 
 ### Phase 1: Dependency
 
-- [ ] 1.1 Add the AWS SDK and Testcontainers dependencies; confirm they resolve
+- [x] 1.1 Add the AWS SDK and Testcontainers dependencies; confirm they resolve — 8c8c5d6
 
 ### Phase 2: Validation
 
-- [ ] 2.1 `DynamoDbConsistencyValidationIT`: write-then-read with `ConsistentRead=true` under concurrent writer/reader pairs against DynamoDB Local
+- [x] 2.1 `DynamoDbConsistencyValidationIT`: write-then-read with `ConsistentRead=true` under concurrent writer/reader pairs against DynamoDB Local — e2cbd67
 
 ### Phase 3: Gate
 
-- [ ] 3.1 `./gradlew build` green, with the container test actually running locally
+- [x] 3.1 `./gradlew build` green, with the container test actually running locally — e2cbd67
