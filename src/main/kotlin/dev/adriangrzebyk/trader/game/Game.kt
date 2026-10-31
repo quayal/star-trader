@@ -1,6 +1,15 @@
 package dev.adriangrzebyk.trader.game
 
-data class Game(val id: String, val turns: Int, val status: GameStatus, val creatorEmail: String, val players: List<Player>,) {
+/** [turn] is null until the game starts; [log] holds the public events, oldest first. */
+data class Game(
+	val id: String,
+	val turns: Int,
+	val status: GameStatus,
+	val creatorEmail: String,
+	val players: List<Player>,
+	val turn: Turn?,
+	val log: List<String>,
+) {
 
 	fun addPlayer(player: Player): Game {
 		if (status != GameStatus.LOBBY) {
@@ -19,5 +28,8 @@ data class Game(val id: String, val turns: Int, val status: GameStatus, val crea
 
 	companion object {
 		const val MAX_PLAYERS = 6
+
+		/** A new game waiting in the lobby with its creator as the only player. */
+		fun lobby(id: String, turns: Int, creator: Player) = Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
 	}
 }

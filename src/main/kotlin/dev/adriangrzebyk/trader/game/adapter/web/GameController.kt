@@ -38,7 +38,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 		@RequestBody(required = false) request: CreateGameRequestDto?,
 	): GameResponseDto {
 		val session = sessionFor(authorization)
-		val creator = Player(session.email, session.playerName, session.corporationName)
+		val creator = Player.newcomer(session.email, session.playerName, session.corporationName)
 		val game = try {
 			gameCreationService.createGame(creator, request?.wholeTurns())
 		} catch (ex: InvalidGameOperationException) {
@@ -54,7 +54,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, private
 		@PathVariable id: String,
 	): GameResponseDto {
 		val session = sessionFor(authorization)
-		val player = Player(session.email, session.playerName, session.corporationName)
+		val player = Player.newcomer(session.email, session.playerName, session.corporationName)
 		val game = try {
 			gameJoiningService.joinGame(id, player)
 		} catch (ex: GameNotFoundException) {

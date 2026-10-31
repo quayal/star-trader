@@ -139,8 +139,8 @@ class GameControllerTest {
 	@Test
 	fun shouldRejectJoiningAGameThatHasStarted() {
 		// Nothing can start a game through the API until E02-S05, so this one is stored already running.
-		val host = Player("started-host@example.com", "Host", "Host Corp")
-		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host)))
+		val host = Player.newcomer("started-host@example.com", "Host", "Host Corp")
+		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, emptyList()))
 
 		joinGame(signIn("late@example.com"), "started-game")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
