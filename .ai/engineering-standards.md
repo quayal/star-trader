@@ -54,6 +54,16 @@ working solution, say so and ask rather than silently defaulting to "the proper 
   (`Item`, `Manager`, `Handler`).
 - Small, single-purpose functions. Immutable data (`val`, `data class`) by default.
 - No speculative abstractions, no defensive handling for states that can't occur.
+- **No trailing commas**, in declarations or calls. ktlint enforces this through `.editorconfig`
+  (`ij_kotlin_allow_trailing_comma = false`, with the trailing-comma rules *enabled*), and `ktlintFormat` removes them.
+- **A function over a value is an extension on that value, not a function on an `object`.** Write
+  `game.toItem(version)`, `item.toGame()`, `offer.toView()`, not `GameItemMapper.toItem(game, version)` or
+  `TradeOfferView.from(offer)`. It compiles to the same thing; it reads better, with the value as the receiver.
+  When the value is a built-in type (`Int`, `String`, …), use a top-level function instead: an extension there
+  would show up on every `Int`. `object`s keep constants and zero-argument functions; companions keep factories
+  that build their own type from several values (`Game.lobby(id, turns, creator)`). The custom ktlint rule
+  `trader:no-functions-on-objects` (in `ktlint-rules/`) reports a function with parameters or a receiver on an
+  `object`, and a companion function that converts one value of another type.
 
 ## 6. Start with TDD where practical
 
@@ -95,7 +105,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
-- Whether to adopt ktlint/detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
-  self-enforcing — worth revisiting once a couple of real features exist to encode rules against.
+- Whether to adopt detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
+  self-enforcing — worth revisiting once a couple of real features exist to encode rules against. ktlint is
+  in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's object-function rule does).
 - A worked example (one concept's port + fake + real adapter) as a template for agents to copy — deferred
   until the first real feature is built, which becomes the example.

@@ -12,7 +12,7 @@ Star Trader — an online, browser-based adaptation of a classic 1980s trading/s
 
 Product direction, confirmed decisions, business rules and open risks live in `.ai/specs/product-brief.md` — read it before making product or architecture decisions, not just code.
 
-Engineering standards and architecture conventions (package structure, hexagonal/DDD boundaries, testing rules) live in `.ai/engineering-standards.md` — read it before writing or restructuring any code.
+Engineering standards and architecture conventions (package structure, hexagonal/DDD boundaries, testing rules) live in `.ai/engineering-standards.md` — read it before writing or restructuring any code. Two Kotlin style rules there (§5) are enforced by ktlint, so `./gradlew check` fails on them: no trailing commas, and functions over a value are extensions (`game.toItem()`), not functions on an `object`. The project's own ktlint rules live in `ktlint-rules/`.
 
 The frontend design system (tokens, shared CSS classes, what to avoid) is summarized in `docs/design-system.md` — read it before building or restyling any screen. Color literals belong only in `static/css/tokens.css`; `./gradlew check` fails otherwise.
 
