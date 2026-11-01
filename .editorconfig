@@ -6,5 +6,9 @@ indent_size = 4
 max_line_length = 140
 insert_final_newline = true
 ktlint_code_style = intellij_idea
-ktlint_standard_trailing-comma-on-declaration-site = disabled
-ktlint_standard_trailing-comma-on-call-site = disabled
+# No trailing commas, anywhere. The rules stay enabled so ktlint reports a comma and ktlintFormat removes it;
+# setting them to "disabled" only stops the check (that's how 83 commas crept back in, see .ai/lessons.md).
+ij_kotlin_allow_trailing_comma = false
+ij_kotlin_allow_trailing_comma_on_call_site = false
+ktlint_standard_trailing-comma-on-declaration-site = enabled
+ktlint_standard_trailing-comma-on-call-site = enabled

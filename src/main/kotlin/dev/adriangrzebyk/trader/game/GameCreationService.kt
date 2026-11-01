@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-class GameCreationService(private val idGenerator: GameIdGenerator, private val gameStore: GameStore,) {
+class GameCreationService(private val idGenerator: GameIdGenerator, private val gameStore: GameStore) {
 
 	fun createGame(creator: Player, turns: Int?): Game {
 		if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {

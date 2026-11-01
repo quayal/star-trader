@@ -9,7 +9,7 @@ class SDCalculatorTest {
 	@ParameterizedTest
 	@CsvSource(
 		"-11, 4",
-		"11, -4",
+		"11, -4"
 	)
 	fun getPriceModifier(sDIndicator: Int, priceModifier: Int) {
 		assertThat(SDCalculator.getPriceModifier(sDIndicator)).isEqualTo(priceModifier)

@@ -65,7 +65,7 @@ class TradeOfferControllerTest {
 			system = StarSystem.TAU_CETI,
 			goods = Goods.POLY,
 			offerType = OfferType.BUY,
-			price = 10,
+			price = 10
 		)
 
 		val view = restTestClient.post().uri("/api/trade-offers")
@@ -115,7 +115,7 @@ class TradeOfferControllerTest {
 			system = StarSystem.GAMMA_LEPORIS,
 			goods = Goods.CHIPS,
 			offerType = OfferType.SELL,
-			price = 5,
+			price = 5
 		)
 
 		restTestClient.post().uri("/api/trade-offers")
@@ -132,7 +132,7 @@ class TradeOfferControllerTest {
 			system = StarSystem.TAU_CETI,
 			goods = Goods.POLY,
 			offerType = OfferType.SELL,
-			price = 21,
+			price = 21
 		)
 
 		restTestClient.post().uri("/api/trade-offers")

@@ -13,7 +13,7 @@ import org.springframework.test.web.servlet.client.RestTestClient
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="],
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
 )
 class LoginControllerTest {
 
@@ -35,7 +35,7 @@ class LoginControllerTest {
 		val request = LoginCodeRequestDto(
 			playerName = "Adrian",
 			corporationName = "Adrian Star Traders",
-			email = "adrian@example.com",
+			email = "adrian@example.com"
 		)
 
 		restTestClient.post().uri("/api/login/request-code")
@@ -50,7 +50,7 @@ class LoginControllerTest {
 		val request = LoginCodeRequestDto(
 			playerName = "Adrian",
 			corporationName = "Adrian Star Traders",
-			email = "not-an-email",
+			email = "not-an-email"
 		)
 
 		restTestClient.post().uri("/api/login/request-code")
@@ -65,7 +65,7 @@ class LoginControllerTest {
 		val request = LoginCodeRequestDto(
 			playerName = " ",
 			corporationName = "Adrian Star Traders",
-			email = "adrian@example.com",
+			email = "adrian@example.com"
 		)
 
 		restTestClient.post().uri("/api/login/request-code")

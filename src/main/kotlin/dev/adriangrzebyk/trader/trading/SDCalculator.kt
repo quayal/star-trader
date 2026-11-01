@@ -39,7 +39,7 @@ internal object SDCalculator {
 		15 to -5,
 		16 to -5,
 		17 to -5,
-		18 to -6,
+		18 to -6
 	)
 
 	fun getPriceModifier(sDIndicator: Int): Int? = indicatorByModifier[sDIndicator]

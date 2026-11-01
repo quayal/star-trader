@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.client.RestTestClient
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="],
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
 )
 class GameControllerTest {
 
@@ -103,7 +103,7 @@ class GameControllerTest {
 
 		assertThat(joined.players).containsExactly(
 			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(gameStore.find(game.id)!!.toResponseDto("guest@example.com")).isEqualTo(joined)

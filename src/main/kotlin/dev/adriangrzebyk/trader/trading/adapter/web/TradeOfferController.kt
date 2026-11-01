@@ -31,12 +31,12 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 				name = system.name,
 				displayName = system.displayName,
 				goods = goods,
-				market = goods.map { GoodsMarket(goods = it, price = system.getPrice(it), indicator = system.getIndicator(it)) },
+				market = goods.map { GoodsMarket(goods = it, price = system.getPrice(it), indicator = system.getIndicator(it)) }
 			)
 		},
 		offerTypes = OfferType.entries,
 		minPrice = TradeDesk.MIN_PRICE,
-		maxPrice = TradeDesk.MAX_PRICE,
+		maxPrice = TradeDesk.MAX_PRICE
 	)
 
 	@GetMapping("/trade-offers")
@@ -71,7 +71,7 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 		val result = tradeDesk.resolve(turn, system, goods)
 			?: throw ResponseStatusException(
 				HttpStatus.NOT_FOUND,
-				"No offers for ${goods.name} in ${system.displayName} on turn $turn",
+				"No offers for ${goods.name} in ${system.displayName} on turn $turn"
 			)
 
 		return TransactionView(offer = TradeOfferView.from(requireNotNull(result.tradeOffer)), amount = result.amount)

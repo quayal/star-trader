@@ -4,5 +4,5 @@ package dev.adriangrzebyk.trader.game
 enum class ShipLocation {
 	PORT,
 	PLANET,
-	SPACE,
+	SPACE
 }

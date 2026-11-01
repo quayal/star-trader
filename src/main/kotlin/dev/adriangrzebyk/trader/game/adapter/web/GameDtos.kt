@@ -21,15 +21,15 @@ data class GameResponseDto(
 	val players: List<PlayerResponseDto>,
 	val turn: TurnResponseDto?,
 	val log: List<String>,
-	val you: YouResponseDto?,
+	val you: YouResponseDto?
 )
 
 /** Public: no money here, ever (R29). */
-data class PlayerResponseDto(val email: String, val name: String, val corporationName: String, val ships: List<ShipResponseDto>,)
+data class PlayerResponseDto(val email: String, val name: String, val corporationName: String, val ships: List<ShipResponseDto>)
 
-data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String,)
+data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String)
 
-data class TurnResponseDto(val number: Int, val phase: String,)
+data class TurnResponseDto(val number: Int, val phase: String)
 
 data class YouResponseDto(val money: Int)
 
@@ -42,7 +42,7 @@ fun Game.toResponseDto(viewerEmail: String) = GameResponseDto(
 	players.map { it.toResponseDto() },
 	turn?.let { TurnResponseDto(it.number, it.phase.name) },
 	log,
-	players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) },
+	players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) }
 )
 
 private fun Player.toResponseDto() = PlayerResponseDto(email, name, corporationName, ships.map { it.toResponseDto() })

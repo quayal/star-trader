@@ -22,11 +22,11 @@ class GameStartTest {
 		assertThat(started.players.map { it.money }).containsOnly(300)
 		assertThat(started.players[0].ships).containsExactly(
 			Ship("Wayfarer", TAU_CETI, ShipLocation.PORT),
-			Ship("Lantern", BETA_HYDRI, ShipLocation.PORT),
+			Ship("Lantern", BETA_HYDRI, ShipLocation.PORT)
 		)
 		assertThat(started.players[1].ships).containsExactly(
 			Ship("Meridian", GAMMA_LEPORIS, ShipLocation.PORT),
-			Ship("Halcyon", TAU_CETI, ShipLocation.PORT),
+			Ship("Halcyon", TAU_CETI, ShipLocation.PORT)
 		)
 	}
 
@@ -45,7 +45,7 @@ class GameStartTest {
 		assertThat(started.log).containsExactly(
 			"Game started: 2 players, 20 turns",
 			"Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; " +
-				"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti",
+				"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti"
 		)
 	}
 

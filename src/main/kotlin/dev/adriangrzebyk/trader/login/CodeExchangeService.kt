@@ -6,7 +6,7 @@ class CodeExchangeService(
 	private val codeStore: OneTimeCodeStore,
 	private val sessionStore: SessionStore,
 	private val tokenGenerator: SessionTokenGenerator,
-	private val clock: Clock,
+	private val clock: Clock
 ) {
 
 	/** Every failure throws the same exception, so a caller can't tell whether an email ever requested a code. */

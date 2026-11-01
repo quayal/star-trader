@@ -31,7 +31,7 @@ class LoginController(
 	codeStore: OneTimeCodeStore,
 	clock: Clock,
 	tokenGenerator: SessionTokenGenerator,
-	private val sessionStore: SessionStore,
+	private val sessionStore: SessionStore
 ) {
 
 	private val loginCodeRequestService = LoginCodeRequestService(codeGenerator, codeSender, codeStore, clock)
@@ -41,7 +41,7 @@ class LoginController(
 	fun requestCode(@RequestBody request: LoginCodeRequestDto): ResponseEntity<Void> {
 		try {
 			loginCodeRequestService.requestCode(
-				LoginCodeRequest(request.playerName.orEmpty(), request.corporationName.orEmpty(), request.email.orEmpty()),
+				LoginCodeRequest(request.playerName.orEmpty(), request.corporationName.orEmpty(), request.email.orEmpty())
 			)
 		} catch (ex: InvalidLoginRequestException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)

@@ -41,8 +41,8 @@ class ResendOneTimeCodeSenderTest {
 					  "to": ["adrian@example.com"],
 					  "subject": "Your Star Trader sign-in code"
 					}
-					""",
-				),
+					"""
+				)
 			)
 			.andExpect(content().string(org.hamcrest.Matchers.containsString("Your Star Trader sign-in code is 483920.")))
 			.andRespond(withSuccess("""{"id":"email-id"}""", MediaType.APPLICATION_JSON))

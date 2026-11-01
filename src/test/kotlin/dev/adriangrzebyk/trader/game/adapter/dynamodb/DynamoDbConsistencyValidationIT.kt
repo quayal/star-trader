@@ -40,7 +40,7 @@ class DynamoDbConsistencyValidationIT {
 	fun startDynamoDbLocal() {
 		assumeTrue(
 			System.getenv("CI") != null || DockerClientFactory.instance().isDockerAvailable,
-			"Skipping the DynamoDB Local consistency check: Docker is not available.",
+			"Skipping the DynamoDB Local consistency check: Docker is not available."
 		)
 		container = GenericContainer("amazon/dynamodb-local:3.3.2")
 			.withExposedPorts(DYNAMODB_PORT)
@@ -115,12 +115,12 @@ class DynamoDbConsistencyValidationIT {
 					mapOf(
 						"email" to AttributeValue.fromS("host@example.com"),
 						"name" to AttributeValue.fromS("Host"),
-						"corporationName" to AttributeValue.fromS("Host Corp"),
-					),
-				),
-			),
+						"corporationName" to AttributeValue.fromS("Host Corp")
+					)
+				)
+			)
 		),
-		"version" to AttributeValue.fromN(version.toString()),
+		"version" to AttributeValue.fromN(version.toString())
 	)
 
 	// DynamoDB Local accepts any credentials; fixed dummy ones keep a developer's AWS config out of the test.

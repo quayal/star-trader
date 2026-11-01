@@ -8,7 +8,7 @@ data class Game(
 	val creatorEmail: String,
 	val players: List<Player>,
 	val turn: Turn?,
-	val log: List<String>,
+	val log: List<String>
 ) {
 
 	fun addPlayer(player: Player): Game {
@@ -45,7 +45,7 @@ data class Game(
 			val (first, second) = picker.pickTwoDifferentSystems()
 			val ships = listOf(
 				Ship(Ship.NAMES[index * 2], first, ShipLocation.PORT),
-				Ship(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT),
+				Ship(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
 			)
 			player.copy(money = STARTING_MONEY, ships = ships)
 		}
@@ -56,7 +56,7 @@ data class Game(
 			status = GameStatus.RUNNING,
 			players = setUp,
 			turn = Turn(1, TurnPhase.BIDDING),
-			log = log + "Game started: ${setUp.size} players, $turns turns" + "Starting positions: $positions",
+			log = log + "Game started: ${setUp.size} players, $turns turns" + "Starting positions: $positions"
 		)
 	}
 
