@@ -35,7 +35,7 @@ class GameStartTest {
 		val started = lobby.start("creator@example.com", picker)
 
 		assertThat(started.status).isEqualTo(GameStatus.RUNNING)
-		assertThat(started.turn).isEqualTo(Turn(1, TurnPhase.BIDDING))
+		assertThat(started.turn).isEqualTo(Turn.bidding(1))
 	}
 
 	@Test
