@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.client.RestTestClient
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="],
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
 )
 class GameControllerTest {
 
@@ -52,7 +52,7 @@ class GameControllerTest {
 		assertThat(game.status).isEqualTo("LOBBY")
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
 		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList()))
-		assertThat(gameStore.find(game.id)!!.toResponseDto("creator@example.com")).isEqualTo(game)
+		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
 		assertThat(game.you).isEqualTo(YouResponseDto(0))
 	}
@@ -103,10 +103,10 @@ class GameControllerTest {
 
 		assertThat(joined.players).containsExactly(
 			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
-		assertThat(gameStore.find(game.id)!!.toResponseDto("guest@example.com")).isEqualTo(joined)
+		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
 	}
 
 	@Test
@@ -172,7 +172,7 @@ class GameControllerTest {
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByCreator).isEqualTo(gameStore.find(game.id)!!.toResponseDto("poll-host@example.com"))
+		assertThat(seenByCreator).isEqualTo(GameResponseDto(gameStore.find(game.id)!!, "poll-host@example.com"))
 		assertThat(seenByCreator.players.map { it.email }).containsExactly("poll-host@example.com", "poll-guest@example.com")
 		// Everything but `you` is shared; `you` is each viewer's own.
 		assertThat(seenByJoiner.copy(you = null)).isEqualTo(seenByCreator.copy(you = null))

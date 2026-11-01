@@ -32,7 +32,7 @@ class GameController(
 	idGenerator: GameIdGenerator,
 	gameStore: GameStore,
 	startingSystemPicker: StartingSystemPicker,
-	private val sessionStore: SessionStore,
+	private val sessionStore: SessionStore
 ) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
@@ -44,7 +44,7 @@ class GameController(
 	@ResponseStatus(HttpStatus.CREATED)
 	fun createGame(
 		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@RequestBody(required = false) request: CreateGameRequestDto?,
+		@RequestBody(required = false) request: CreateGameRequestDto?
 	): GameResponseDto {
 		val session = sessionFor(authorization)
 		val creator = Player.newcomer(session.email, session.playerName, session.corporationName)
@@ -54,13 +54,13 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/join")
 	fun joinGame(
 		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
+		@PathVariable id: String
 	): GameResponseDto {
 		val session = sessionFor(authorization)
 		val player = Player.newcomer(session.email, session.playerName, session.corporationName)
@@ -72,13 +72,13 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@GetMapping("/games/{id}")
 	fun pollGame(
 		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
+		@PathVariable id: String
 	): GameResponseDto {
 		val session = sessionFor(authorization)
 		val game = try {
@@ -89,13 +89,13 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/start")
 	fun startGame(
 		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
+		@PathVariable id: String
 	): GameResponseDto {
 		val session = sessionFor(authorization)
 		val game = try {
@@ -108,7 +108,7 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	private fun sessionFor(authorization: String?): Session {

@@ -19,7 +19,7 @@ class ResendOneTimeCodeSenderLiveIT {
 			apiKey = System.getenv("RESEND_API_KEY"),
 			from = requireNotNull(System.getenv("RESEND_FROM_ADDRESS")) { "Set RESEND_FROM_ADDRESS" },
 			production = true,
-			restClientBuilder = RestClient.builder(),
+			restClientBuilder = RestClient.builder()
 		)
 
 		sender.send(requireNotNull(System.getenv("RESEND_TEST_RECIPIENT_EMAIL")) { "Set RESEND_TEST_RECIPIENT_EMAIL" }, "Live test", "123456")

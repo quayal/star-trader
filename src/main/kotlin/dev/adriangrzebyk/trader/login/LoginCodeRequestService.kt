@@ -4,7 +4,7 @@ class LoginCodeRequestService(
 	private val codeGenerator: OneTimeCodeGenerator,
 	private val codeSender: OneTimeCodeSender,
 	private val codeStore: OneTimeCodeStore,
-	private val clock: Clock,
+	private val clock: Clock
 ) {
 
 	fun requestCode(request: LoginCodeRequest) {

@@ -13,7 +13,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.BUY,
 		price = 9,
-		initiative = 0,
+		initiative = 0
 	)
 
 	private val betaPolyBuyTen = TradeOffer(
@@ -22,7 +22,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.BUY,
 		price = 10,
-		initiative = 1,
+		initiative = 1
 	)
 
 	private val betaPolySellSeven = TradeOffer(
@@ -31,7 +31,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.SELL,
 		price = 7,
-		initiative = 0,
+		initiative = 0
 	)
 
 	private val betaPolySellEight = TradeOffer(
@@ -40,7 +40,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.SELL,
 		price = 8,
-		initiative = 1,
+		initiative = 1
 	)
 
 	private val betaPolyBuyTenWithLowerInitiative = TradeOffer(
@@ -49,7 +49,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.BUY,
 		price = 10,
-		initiative = 0,
+		initiative = 0
 	)
 
 	private val betaPolySellEightWithLowerInitiative = TradeOffer(
@@ -58,7 +58,7 @@ class BestOfferCalculatorTest {
 		goods = Goods.POLY,
 		offerType = OfferType.SELL,
 		price = 8,
-		initiative = 0,
+		initiative = 0
 	)
 
 	@Test

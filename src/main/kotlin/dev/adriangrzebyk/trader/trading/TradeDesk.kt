@@ -4,7 +4,7 @@ class TradeDesk(
 	private val tradeOfferBook: TradeOfferBook,
 	private val diceRoller: DiceRoller,
 	private val bestOfferCalculator: BestOfferCalculator = BestOfferCalculator(),
-	private val transactionAmountCalculator: TransactionAmountCalculator = TransactionAmountCalculator(),
+	private val transactionAmountCalculator: TransactionAmountCalculator = TransactionAmountCalculator()
 ) {
 
 	fun submit(playerName: String, system: StarSystem, goods: Goods, offerType: OfferType, price: Int, turn: Int): TradeOffer {
@@ -22,7 +22,7 @@ class TradeDesk(
 			goods = goods,
 			offerType = offerType,
 			price = price,
-			initiative = tradeOfferBook.nextInitiative(),
+			initiative = tradeOfferBook.nextInitiative()
 		)
 		tradeOfferBook.add(offer)
 		return offer

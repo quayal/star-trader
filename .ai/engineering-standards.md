@@ -54,6 +54,34 @@ working solution, say so and ask rather than silently defaulting to "the proper 
   (`Item`, `Manager`, `Handler`).
 - Small, single-purpose functions. Immutable data (`val`, `data class`) by default.
 - No speculative abstractions, no defensive handling for states that can't occur.
+- **No trailing commas**, in declarations or calls. ktlint enforces this through `.editorconfig`
+  (`ij_kotlin_allow_trailing_comma = false`, with the trailing-comma rules *enabled*), and `ktlintFormat` removes them.
+- **A function that works on one of our types belongs in that type's class.** A function over a `Game` is a
+  method of `Game`, called on the game you have, not `describe(game)` or `fun Game.describe()`. A function no
+  class owns (it assembles something from several inputs, or works only on built-in or library types) can be a
+  top-level function: `parseTurns(text)`, `main`. The test is what the function works on, not where it's declared.
+  - **No extension functions or properties on our own types.** Extensions are for classes we can't edit, i.e.
+    library types (`Map<String, AttributeValue>.attribute(name)`).
+  - **A Kotlin `object` isn't a namespace for functions.** `object ShipAttributes { fun toAttributes(ship) }`,
+    called as `ShipAttributes.toAttributes(ship)`, is a "static" function; the function belongs in a class, or at
+    the top level when no class owns it. An `object` holding constants, or implementing an interface
+    (`object SilentSender : CodeSender`), is fine.
+  - **Mapping between the domain and an adapter is a constructor or method of the adapter-side class**, so the
+    domain never imports an adapter's types (§2, §3): `GameResponseDto(game, viewerEmail)`,
+    `TradeOfferView(offer)`, and for a stored item a class like `ShipItem(ship)` / `ShipItem(map).toShip()`.
+    Not `game.toResponseDto()`, `TradeOfferView.from(offer)` or `ShipAttributes.toAttributes(ship)`.
+  - **Logic over a bare value gets a class for that value**, often a `@JvmInline value class`:
+    `SupplyDemand(indicator).priceModifier()`, not `SDCalculator.getPriceModifier(indicator)`.
+  - `object`s keep constants and zero-argument functions. Companions keep constants and factories that build
+    their own type from several values or from built-in values (`Game.lobby(id, turns, creator)`,
+    `SupplyDemand.lowestFor(priceModifier)`); a companion function converting one value of another type is a
+    constructor instead.
+  - **Enforcement is partly ktlint, partly review.** The custom ktlint rule `trader:functions-in-classes` (in
+    `ktlint-rules/`) reports an extension on our types, a function with parameters on an `object`, a companion
+    conversion, and a top-level function whose *first* parameter is one of our types. It has no type resolution,
+    so it judges "our type" from the imports (imported from `dev.adriangrzebyk.trader`, or used without an import
+    and not a Kotlin default type). It misses a function that works on our type through a later parameter
+    (`price(roll, offer)`) or a collection (`List<Player>`); reviewers check those (`CODE_REVIEW.md`).
 
 ## 6. Start with TDD where practical
 
@@ -95,7 +123,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
-- Whether to adopt ktlint/detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
-  self-enforcing — worth revisiting once a couple of real features exist to encode rules against.
+- Whether to adopt detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
+  self-enforcing — worth revisiting once a couple of real features exist to encode rules against. ktlint is
+  in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's functions-in-classes rule does).
 - A worked example (one concept's port + fake + real adapter) as a template for agents to copy — deferred
   until the first real feature is built, which becomes the example.

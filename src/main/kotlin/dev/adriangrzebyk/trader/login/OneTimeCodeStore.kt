@@ -16,4 +16,4 @@ interface OneTimeCodeStore {
 }
 
 /** A code waiting to be exchanged, with the identity the player gave when requesting it. */
-data class StoredCode(val code: String, val playerName: String, val corporationName: String, val issuedAt: Instant, val attempts: Int = 0,)
+data class StoredCode(val code: String, val playerName: String, val corporationName: String, val issuedAt: Instant, val attempts: Int = 0)

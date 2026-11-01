@@ -7,7 +7,7 @@ data class TradeOffer(
 	val goods: Goods? = null,
 	val offerType: OfferType? = null,
 	val price: Int = 0,
-	val initiative: Int = 0,
+	val initiative: Int = 0
 ) {
 	val isBuy: Boolean
 		get() = offerType == OfferType.BUY

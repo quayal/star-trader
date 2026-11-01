@@ -25,14 +25,14 @@ class ResendOneTimeCodeSender internal constructor(
 	private val apiKey: String,
 	private val from: String,
 	production: Boolean,
-	restClientBuilder: RestClient.Builder,
+	restClientBuilder: RestClient.Builder
 ) : OneTimeCodeSender {
 
 	@Autowired
 	constructor(
 		@Value($$"${star-trader.email.resend.api-key:}") apiKey: String,
 		@Value($$"${star-trader.email.resend.from:}") from: String,
-		@Value("#{environment.matchesProfiles('prod')}") production: Boolean,
+		@Value("#{environment.matchesProfiles('prod')}") production: Boolean
 	) : this(apiKey, from, production, RestClient.builder().requestFactory(timeoutRequestFactory()))
 
 	private val log = LoggerFactory.getLogger(ResendOneTimeCodeSender::class.java)

@@ -31,16 +31,16 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 				name = system.name,
 				displayName = system.displayName,
 				goods = goods,
-				market = goods.map { GoodsMarket(goods = it, price = system.getPrice(it), indicator = system.getIndicator(it)) },
+				market = goods.map { GoodsMarket(goods = it, price = system.getPrice(it), indicator = system.getIndicator(it)) }
 			)
 		},
 		offerTypes = OfferType.entries,
 		minPrice = TradeDesk.MIN_PRICE,
-		maxPrice = TradeDesk.MAX_PRICE,
+		maxPrice = TradeDesk.MAX_PRICE
 	)
 
 	@GetMapping("/trade-offers")
-	fun list(): List<TradeOfferView> = tradeDesk.allOffers().map(TradeOfferView::from)
+	fun list(): List<TradeOfferView> = tradeDesk.allOffers().map { TradeOfferView(it) }
 
 	@PostMapping("/trade-offers")
 	fun submit(@RequestBody request: TradeOfferRequest): ResponseEntity<TradeOfferView> {
@@ -63,7 +63,7 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(TradeOfferView.from(offer))
+		return ResponseEntity.status(HttpStatus.CREATED).body(TradeOfferView(offer))
 	}
 
 	@GetMapping("/trade-offers/resolve")
@@ -71,9 +71,9 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 		val result = tradeDesk.resolve(turn, system, goods)
 			?: throw ResponseStatusException(
 				HttpStatus.NOT_FOUND,
-				"No offers for ${goods.name} in ${system.displayName} on turn $turn",
+				"No offers for ${goods.name} in ${system.displayName} on turn $turn"
 			)
 
-		return TransactionView(offer = TradeOfferView.from(requireNotNull(result.tradeOffer)), amount = result.amount)
+		return TransactionView(offer = TradeOfferView(requireNotNull(result.tradeOffer)), amount = result.amount)
 	}
 }
