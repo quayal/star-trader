@@ -40,7 +40,7 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 	)
 
 	@GetMapping("/trade-offers")
-	fun list(): List<TradeOfferView> = tradeDesk.allOffers().map { it.toView() }
+	fun list(): List<TradeOfferView> = tradeDesk.allOffers().map { TradeOfferView(it) }
 
 	@PostMapping("/trade-offers")
 	fun submit(@RequestBody request: TradeOfferRequest): ResponseEntity<TradeOfferView> {
@@ -63,7 +63,7 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(offer.toView())
+		return ResponseEntity.status(HttpStatus.CREATED).body(TradeOfferView(offer))
 	}
 
 	@GetMapping("/trade-offers/resolve")
@@ -74,6 +74,6 @@ class TradeOfferController(tradeOfferBook: TradeOfferBook, diceRoller: DiceRolle
 				"No offers for ${goods.name} in ${system.displayName} on turn $turn"
 			)
 
-		return TransactionView(offer = requireNotNull(result.tradeOffer).toView(), amount = result.amount)
+		return TransactionView(offer = TradeOfferView(requireNotNull(result.tradeOffer)), amount = result.amount)
 	}
 }

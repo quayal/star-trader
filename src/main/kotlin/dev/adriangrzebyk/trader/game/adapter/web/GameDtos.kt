@@ -22,29 +22,32 @@ data class GameResponseDto(
 	val turn: TurnResponseDto?,
 	val log: List<String>,
 	val you: YouResponseDto?
-)
+) {
+
+	/** Only [viewerEmail]'s own money goes into the response; null [you] for a viewer who isn't a player. */
+	constructor(game: Game, viewerEmail: String) : this(
+		game.id,
+		game.turns,
+		game.status.name,
+		game.creatorEmail,
+		game.players.map { PlayerResponseDto(it) },
+		game.turn?.let { TurnResponseDto(it.number, it.phase.name) },
+		game.log,
+		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) }
+	)
+}
 
 /** Public: no money here, ever (R29). */
-data class PlayerResponseDto(val email: String, val name: String, val corporationName: String, val ships: List<ShipResponseDto>)
+data class PlayerResponseDto(val email: String, val name: String, val corporationName: String, val ships: List<ShipResponseDto>) {
 
-data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String)
+	constructor(player: Player) : this(player.email, player.name, player.corporationName, player.ships.map { ShipResponseDto(it) })
+}
+
+data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String) {
+
+	constructor(ship: Ship) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name)
+}
 
 data class TurnResponseDto(val number: Int, val phase: String)
 
 data class YouResponseDto(val money: Int)
-
-/** Only [viewerEmail]'s own money goes into the response; null [GameResponseDto.you] for a viewer who isn't a player. */
-fun Game.toResponseDto(viewerEmail: String) = GameResponseDto(
-	id,
-	turns,
-	status.name,
-	creatorEmail,
-	players.map { it.toResponseDto() },
-	turn?.let { TurnResponseDto(it.number, it.phase.name) },
-	log,
-	players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) }
-)
-
-private fun Player.toResponseDto() = PlayerResponseDto(email, name, corporationName, ships.map { it.toResponseDto() })
-
-private fun Ship.toResponseDto() = ShipResponseDto(name, system.name, system.displayName, location.name)

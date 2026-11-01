@@ -1,30 +1,33 @@
-# Kotlin style rules: no trailing commas, extension functions over object functions
+# Kotlin style rules: no trailing commas, functions live in classes
 
 ## 📝 TLDR
 
-Two style rules the creator set, written into the engineering standards and enforced by ktlint, so `./gradlew check` fails on a violation rather than relying on agents remembering:
+Two style rules the creator set, written into the engineering standards (§5) and enforced by ktlint, so `./gradlew check` fails on a violation rather than relying on agents remembering:
 
 1. **No trailing commas**, at declaration and call sites.
-2. **Functions over a value are extension functions, not functions on an `object`.** `game.toItem(version)`, not `GameItemMapper.toItem(game, version)`.
+2. **Functions live in classes.** A function over a `Game` is a method of `Game`. No functions on `object`s, no top-level functions, no extensions on this project's own types. Extensions are for library types we can't edit.
 
 ## Why
 
-- Trailing commas were "forbidden" in `953cc98` (2026-10-15) by setting ktlint's two trailing-comma rules to `disabled`. Disabling a rule only stops it checking, so commas came back unnoticed: 83 across 30 files on 2026-11-01. The rule was never written in the standards, so later sessions didn't know about it.
-- The creator prefers extension functions on domain types to "static" functions on objects (2026-11-01). Both compile to the same bytecode; this is a readability preference: the value the function works on reads as the receiver.
+- Trailing commas were "forbidden" in `953cc98` (2026-10-15) by setting ktlint's two trailing-comma rules to `disabled`. Disabling a rule only stops it checking, so commas came back unnoticed: 81 by 2026-11-01. The rule was never written in the standards, so later sessions didn't know about it.
+- The creator's preference (2026-11-01): you call a function on the object you have, and the function is declared in that object's class. Extension functions are for classes you can't edit; "static" functions on objects aren't used either.
 
 ## Decisions
 
-- **Trailing commas:** turn both ktlint rules back on with `ij_kotlin_allow_trailing_comma = false` and `ij_kotlin_allow_trailing_comma_on_call_site = false`, so ktlint reports and `ktlintFormat` removes them. Strip the existing ones in this PR.
-- **Extension functions:** ktlint has no such rule, so add a custom ruleset as the Gradle subproject `ktlint-rules`, wired in with the ktlint plugin's `ktlintRuleset` configuration. Rule `trader:no-functions-on-objects` reports:
-  - any function that takes a parameter, declared directly in an `object` declaration (not a companion), unless it `override`s an interface member. Write it as an extension on the type it works on, or as a top-level function when that type is a primitive or `String` (an extension on `Int` would leak into every `Int`).
-  - a function in a `companion object` that takes exactly one parameter of a non-built-in type. That's a conversion (`TradeOfferView.from(offer)`) and becomes an extension (`offer.toView()`). Factories that build the companion's own type from several values (`Game.lobby(id, turns, creator)`) and functions taking only built-in types (`String`, `Int`, …) stay allowed: they have no natural receiver.
-  - Objects holding only constants or zero-argument functions (`OneTimeCode`) stay allowed.
-  - The rule is syntactic (ktlint has no type resolution), which is why it's phrased by declaration shape, not by "is the parameter a domain type".
-- **Existing code on `main`** is rewritten to pass: `SDCalculator` becomes top-level functions; `TradeOfferView.from` becomes `TradeOffer.toView()`.
-- **PR #65** (still open) has `GameItemMapper`, `PlayerAttributes`, `ShipAttributes`, `TurnAttributes` as objects. It isn't changed here; whichever of the two merges second rewrites them to extensions (`game.toItem(version)`, `item.toGame()`, …).
+- **Trailing commas:** turn both ktlint rules back on with `ij_kotlin_allow_trailing_comma = false` and `ij_kotlin_allow_trailing_comma_on_call_site = false`, so ktlint reports a comma and `ktlintFormat` removes it. Strip the existing ones in this PR.
+- **Mapping between the domain and an adapter lives on the adapter side** (creator's choice, 2026-11-01), as a constructor or method of the adapter's class: `GameResponseDto(game, viewerEmail)`, `TradeOfferView(offer)`, and for DynamoDB something like `ShipItem(ship)` / `ShipItem(map).toShip()`. Putting `toAttributes()` in `Ship` would make the domain import the AWS SDK, which §2/§3 forbid.
+- **Logic over a bare value gets a value class** (creator's choice, 2026-11-01): `SDCalculator` becomes `@JvmInline value class SupplyDemand(val indicator: Int)` with `priceModifier()`; the reverse lookups are companion factories `SupplyDemand.lowestFor(priceModifier)` / `highestFor(priceModifier)`.
+- **Enforcement:** ktlint has no such rule, so add a custom ruleset as the Gradle subproject `ktlint-rules`, wired in with the ktlint plugin's `ktlintRuleset` configuration. Rule `trader:functions-in-classes` reports:
+  - in an `object` declaration (not a companion, not an object expression), a function with parameters or a receiver, unless it `override`s an interface member;
+  - in a `companion object`, a function taking exactly one parameter of a non-built-in type: a conversion (`TradeOfferView.from(offer)`), which becomes a constructor. Factories of several values (`Game.lobby(id, turns, creator)`) or of built-in values (`SupplyDemand.lowestFor(priceModifier)`) stay allowed;
+  - a top-level function that isn't an extension, other than `main`;
+  - an extension function or property, wherever declared, on a project type.
+- **"Project type" without type resolution:** ktlint is syntactic, so a receiver counts as a project type when it's imported from `dev.adriangrzebyk.trader`, written fully qualified under that package, or used without an import and not one of Kotlin's default-imported types (then it's from the same package). Type parameters (`fun <T> T.x()`) and function types are not. Known gap: a library type reached through a wildcard import would be misread as a project type; ktlint's `no-wildcard-imports` already forbids those.
+- **Existing code on `main`** is rewritten to pass: `SDCalculator` → `SupplyDemand`; `TradeOfferView.from` → a `TradeOfferView(offer)` constructor; `Game/Player/Ship.toResponseDto()` extensions → `GameResponseDto(game, viewerEmail)`, `PlayerResponseDto(player)`, `ShipResponseDto(ship)` constructors.
+- **PR #65** (still open) has `GameItemMapper`, `PlayerAttributes`, `ShipAttributes`, `TurnAttributes` as objects. It isn't changed here; whichever of the two merges second rewrites them as adapter-side classes.
 
 ## Done when
 
-- `./gradlew check` fails on a trailing comma and on a function that breaks the rule above; the rule has its own unit tests.
+- `./gradlew check` fails on a trailing comma and on each shape the rule reports; the rule has its own unit tests.
 - Engineering standards state both rules; a lesson records that ktlint's `disabled` doesn't mean "forbidden".
 - `./gradlew build` passes on the branch and in CI.

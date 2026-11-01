@@ -54,7 +54,7 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/join")
@@ -72,7 +72,7 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@GetMapping("/games/{id}")
@@ -89,7 +89,7 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/start")
@@ -108,7 +108,7 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
 
-		return game.toResponseDto(session.email)
+		return GameResponseDto(game, session.email)
 	}
 
 	private fun sessionFor(authorization: String?): Session {

@@ -12,9 +12,9 @@ class TransactionAmountCalculator {
 		val supplyDemand = system.getIndicator(goods) + diceRoll
 
 		return if (winningOffer.offerType == OfferType.SELL) {
-			getIndicatorForSelling(priceModifier) - supplyDemand
+			SupplyDemand.highestFor(priceModifier).indicator - supplyDemand
 		} else {
-			supplyDemand - getIndicatorForBuying(priceModifier)
+			supplyDemand - SupplyDemand.lowestFor(priceModifier).indicator
 		}
 	}
 }
