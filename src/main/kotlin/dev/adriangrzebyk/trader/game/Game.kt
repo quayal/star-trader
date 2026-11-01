@@ -55,9 +55,49 @@ data class Game(
 		return copy(
 			status = GameStatus.RUNNING,
 			players = setUp,
-			turn = Turn(1, TurnPhase.BIDDING),
+			turn = Turn.bidding(1),
 			log = log + "Game started: ${setUp.size} players, $turns turns" + "Starting positions: $positions"
 		)
+	}
+
+	/**
+	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. After the
+	 * last turn's Trading (R41) the game is over and keeps its last turn. No clock calls this (D09): a phase ends
+	 * only when its players are through, and the caller runs it inside [GameStore.update] so it happens once.
+	 */
+	fun advancePhase(): Game {
+		val current = runningTurn()
+		return when (current.phase) {
+			TurnPhase.BIDDING -> copy(turn = Turn(current.number, TurnPhase.SHIP_JUMPS, emptyList()))
+			TurnPhase.SHIP_JUMPS -> copy(turn = current.copy(phase = TurnPhase.TRADING))
+			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = Turn.bidding(current.number + 1))
+		}
+	}
+
+	/**
+	 * Records that [email] is done bidding (R17: a readiness flag, not a commit, so a repeat changes nothing).
+	 * Bidding closes the moment the last player signals done (D09); a signal after that is refused (A04).
+	 */
+	fun signalDoneBidding(email: String): Game {
+		if (!hasPlayer(email)) {
+			throw NotAGameMemberException()
+		}
+		val current = runningTurn()
+		if (current.phase != TurnPhase.BIDDING) {
+			throw PhaseClosedException(TurnPhase.BIDDING)
+		}
+		if (email in current.doneBidding) {
+			return this
+		}
+		val doneBidding = current.doneBidding + email
+		val signalled = copy(turn = current.copy(doneBidding = doneBidding))
+		return if (players.all { it.email in doneBidding }) signalled.advancePhase() else signalled
+	}
+
+	private fun runningTurn(): Turn = when (status) {
+		GameStatus.LOBBY -> throw InvalidGameOperationException("This game hasn't started")
+		GameStatus.FINISHED -> throw InvalidGameOperationException("This game is over")
+		GameStatus.RUNNING -> checkNotNull(turn) { "A running game always has a turn" }
 	}
 
 	companion object {

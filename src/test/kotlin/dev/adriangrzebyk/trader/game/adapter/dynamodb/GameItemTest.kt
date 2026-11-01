@@ -43,7 +43,7 @@ class GameItemTest {
 				)
 			)
 		),
-		turn = Turn(number = 1, phase = TurnPhase.BIDDING),
+		turn = Turn(number = 1, phase = TurnPhase.BIDDING, doneBidding = emptyList()),
 		log = listOf("Game started: 2 players, 20 turns", "Starting positions: Host Corp — Wayfarer at Tau Ceti")
 	)
 
