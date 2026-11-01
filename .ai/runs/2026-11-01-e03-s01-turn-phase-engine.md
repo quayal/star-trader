@@ -107,3 +107,9 @@ PR: #69
 Done. PR #69 is ready: CI `build` green, automated review found nothing to fix (posted as a comment because
 the author account can't approve its own PR), `needs-qa` with manual QA steps posted. Waiting for a human
 approval and QA.
+
+## Correction (2026-11-01, after the run)
+
+The Decisions note above is wrong: `baseBranch: "auto"` isn't a branch name. The om-* skills resolve it to the
+repository's default branch (the tracker's **default-branch** operation), which is `main`. The config is correct
+and needs no change; this PR targeting `main` is what `auto` means. Pointed out by the creator.
