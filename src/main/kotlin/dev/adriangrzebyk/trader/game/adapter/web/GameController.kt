@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.BiddingService
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
 import dev.adriangrzebyk.trader.game.GameJoiningService
@@ -10,6 +11,7 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
+import dev.adriangrzebyk.trader.game.PhaseClosedException
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.login.Session
@@ -39,6 +41,7 @@ class GameController(
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
+	private val biddingService = BiddingService(gameStore)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -104,6 +107,28 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotTheCreatorException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** Done is a readiness flag (R17); the last player's signal closes Bidding for everyone (D09). */
+	@PostMapping("/games/{id}/bidding/done")
+	fun signalDoneBidding(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			biddingService.signalDone(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}
