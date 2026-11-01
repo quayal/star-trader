@@ -76,13 +76,13 @@ closed", never applied twice or lost (A04). Every client sees the new phase on i
 
 ### Phase 1: Turn engine in the domain
 
-- [ ] 1.1 Phases and advancePhase
-- [ ] 1.2 signalDoneBidding and PhaseClosedException
-- [ ] 1.3 BiddingService
+- [x] 1.1 Phases and advancePhase — 97f5c76
+- [x] 1.2 signalDoneBidding and PhaseClosedException — 97f5c76
+- [x] 1.3 BiddingService — 35c6975
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 TurnItem stores doneBidding
+- [x] 2.1 TurnItem stores doneBidding — 2746ffe (pulled into Phase 1: §12 makes the domain change fail to compile without it)
 - [ ] 2.2 Done-bidding endpoint and response field
 - [ ] 2.3 Frontend phase names
 - [ ] 2.4 Backward-compatibility notes
