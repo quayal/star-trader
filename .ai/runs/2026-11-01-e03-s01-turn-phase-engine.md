@@ -89,4 +89,13 @@ closed", never applied twice or lost (A04). Every client sees the new phase on i
 
 ### Phase 3: Verify
 
-- [ ] 3.1 Full gate and local play-through
+- [x] 3.1 Full gate and local play-through — see Verification
+
+## Verification
+
+- `./gradlew build jsTest`: green (build, ktlint incl. `trader:functions-in-classes`, color-token check, 46 JS tests).
+  DynamoDB Local was up, so `GameControllerTest` (23) and `DynamoDbGameStoreTest` (10) ran, none skipped.
+- Play-through on `bootRun` with two players signed in through the real code flow: start → Bidding with
+  nobody done; Grace done twice → recorded once; Ada (last) done → Ship-jumps; Grace again → `409 Bidding
+  has closed`. An open browser on Ada's game switched from "Turn 1 of 20 · Bidding" to "Turn 1 of 20 ·
+  Ship-jumps" on its next poll, with no reload (S01-5).
