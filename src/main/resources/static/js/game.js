@@ -9,7 +9,7 @@ export const MAX_TURNS = 50;
 export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
-const PHASE_NAMES = { BIDDING: 'Bidding' };
+const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
 
 /** `#new` → create; `#game/{id}` → that game; anything else → the home view. */
@@ -56,8 +56,10 @@ export function lobbyState(game, myEmail) {
 	};
 }
 
+/** "Turn 4 of 20 · Ship-jumps"; a finished game keeps its last turn and says so instead of a phase. */
 export function turnText(game) {
-	return `Turn ${game.turn.number} of ${game.turns} · ${PHASE_NAMES[game.turn.phase] ?? game.turn.phase}`;
+	const phase = game.status === 'FINISHED' ? 'Game over' : PHASE_NAMES[game.turn.phase] ?? game.turn.phase;
+	return `Turn ${game.turn.number} of ${game.turns} · ${phase}`;
 }
 
 export function shipLine(ship) {
