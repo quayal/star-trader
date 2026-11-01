@@ -19,19 +19,21 @@ import org.jetbrains.kotlin.psi.KtUserType
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 
 /**
- * Engineering standards §5: functions live in classes. A function over a `Game` is a method of `Game`; mapping
- * between the domain and an adapter is a constructor or method of the adapter-side class
- * (`GameResponseDto(game, viewerEmail)`). There are no functions on `object`s, no top-level functions and no
- * extensions on this project's own types. Extensions stay allowed on library types, which we can't edit.
+ * Engineering standards §5: a function that works on one of our types belongs in that type's class. A function
+ * over a `Game` is a method of `Game`; mapping between the domain and an adapter is a constructor or method of the
+ * adapter-side class (`GameResponseDto(game, viewerEmail)`). A function no class owns may be top-level. Kotlin
+ * `object` declarations aren't namespaces for functions, and extensions are only for library types we can't edit.
  *
  * ktlint has no type resolution, so the rule goes by declaration shape. It reports:
  * - in an `object` declaration, a function with parameters or a receiver, unless it `override`s;
  * - in a `companion object`, a function taking exactly one parameter of a non-built-in type: a conversion
  *   (`TradeOfferView.from(offer)`), which becomes a constructor. Factories of several values
  *   (`Game.lobby(id, turns, creator)`) and functions over built-in types only stay allowed;
- * - a top-level function that isn't an extension, other than `main`;
- * - an extension function or property on a project type: one imported from [PROJECT_PACKAGE], or used without an
- *   import and not one of Kotlin's default-imported types (so it's from the same package).
+ * - a top-level function whose first parameter is a project type;
+ * - an extension function or property on a project type.
+ *
+ * A project type is one imported from [PROJECT_PACKAGE], written fully qualified under it, or used without an
+ * import and not one of Kotlin's default-imported types (so it's from the same package).
  */
 class FunctionsInClassesRule :
 	Rule(
@@ -82,10 +84,16 @@ class FunctionsInClassesRule :
 			"(engineering standards §5)"
 	}
 
+	/**
+	 * A top-level function is fine when no class owns it: it assembles something from several inputs, or works on
+	 * built-in or library types. One whose first parameter is a project type works on that type, so it's reported.
+	 * A project type in a later parameter isn't caught here; reviews catch those (CODE_REVIEW.md).
+	 */
 	private fun topLevelMessage(function: KtNamedFunction): String? {
-		if (function.name == "main") return null
-		return "${function.name} is a top-level function: make it a method of the class it works on " +
-			"(engineering standards §5)"
+		val first = function.valueParameters.firstOrNull()?.typeReference ?: return null
+		val type = projectTypeName(function, first) ?: return null
+		return "${function.name} works on a $type, so make it a method of $type, or, when it maps to an adapter " +
+			"type, a constructor or method of the adapter-side class (engineering standards §5)"
 	}
 
 	private fun extensionMessage(declaration: KtCallableDeclaration): String? {

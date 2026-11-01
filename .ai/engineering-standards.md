@@ -56,10 +56,16 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 - No speculative abstractions, no defensive handling for states that can't occur.
 - **No trailing commas**, in declarations or calls. ktlint enforces this through `.editorconfig`
   (`ij_kotlin_allow_trailing_comma = false`, with the trailing-comma rules *enabled*), and `ktlintFormat` removes them.
-- **Functions live in classes.** A function that works on a `Game` is a method of `Game`, called on the game
-  you have. No functions on `object`s, no top-level functions (other than `main`), and no extension functions
-  or properties on this project's own types. Extensions are for classes we can't edit, i.e. library types
-  (`Map<String, AttributeValue>.attribute(name)`).
+- **A function that works on one of our types belongs in that type's class.** A function over a `Game` is a
+  method of `Game`, called on the game you have, not `describe(game)` or `fun Game.describe()`. A function no
+  class owns (it assembles something from several inputs, or works only on built-in or library types) can be a
+  top-level function: `parseTurns(text)`, `main`. The test is what the function works on, not where it's declared.
+  - **No extension functions or properties on our own types.** Extensions are for classes we can't edit, i.e.
+    library types (`Map<String, AttributeValue>.attribute(name)`).
+  - **A Kotlin `object` isn't a namespace for functions.** `object ShipAttributes { fun toAttributes(ship) }`,
+    called as `ShipAttributes.toAttributes(ship)`, is a "static" function; the function belongs in a class, or at
+    the top level when no class owns it. An `object` holding constants, or implementing an interface
+    (`object SilentSender : CodeSender`), is fine.
   - **Mapping between the domain and an adapter is a constructor or method of the adapter-side class**, so the
     domain never imports an adapter's types (§2, §3): `GameResponseDto(game, viewerEmail)`,
     `TradeOfferView(offer)`, and for a stored item a class like `ShipItem(ship)` / `ShipItem(map).toShip()`.
@@ -70,9 +76,12 @@ working solution, say so and ask rather than silently defaulting to "the proper 
     their own type from several values or from built-in values (`Game.lobby(id, turns, creator)`,
     `SupplyDemand.lowestFor(priceModifier)`); a companion function converting one value of another type is a
     constructor instead.
-  - The custom ktlint rule `trader:functions-in-classes` (in `ktlint-rules/`) reports all of these. It has no type
-    resolution, so it treats a receiver as a project type when it's imported from `dev.adriangrzebyk.trader` or
-    used without an import and isn't one of Kotlin's default-imported types.
+  - **Enforcement is partly ktlint, partly review.** The custom ktlint rule `trader:functions-in-classes` (in
+    `ktlint-rules/`) reports an extension on our types, a function with parameters on an `object`, a companion
+    conversion, and a top-level function whose *first* parameter is one of our types. It has no type resolution,
+    so it judges "our type" from the imports (imported from `dev.adriangrzebyk.trader`, or used without an import
+    and not a Kotlin default type). It misses a function that works on our type through a later parameter
+    (`price(roll, offer)`) or a collection (`List<Player>`); reviewers check those (`CODE_REVIEW.md`).
 
 ## 6. Start with TDD where practical
 

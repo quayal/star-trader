@@ -1,11 +1,11 @@
-# Kotlin style rules: no trailing commas, functions live in classes
+# Kotlin style rules: no trailing commas, functions belong to the type they work on
 
 ## 📝 TLDR
 
 Two style rules the creator set, written into the engineering standards (§5) and enforced by ktlint, so `./gradlew check` fails on a violation rather than relying on agents remembering:
 
 1. **No trailing commas**, at declaration and call sites.
-2. **Functions live in classes.** A function over a `Game` is a method of `Game`. No functions on `object`s, no top-level functions, no extensions on this project's own types. Extensions are for library types we can't edit.
+2. **A function that works on one of our types belongs in that type's class.** A function over a `Game` is a method of `Game`. No extensions on our own types (extensions are for library types we can't edit), no Kotlin `object` as a namespace for functions. A function no class owns may be top-level.
 
 ## Why
 
@@ -20,8 +20,9 @@ Two style rules the creator set, written into the engineering standards (§5) an
 - **Enforcement:** ktlint has no such rule, so add a custom ruleset as the Gradle subproject `ktlint-rules`, wired in with the ktlint plugin's `ktlintRuleset` configuration. Rule `trader:functions-in-classes` reports:
   - in an `object` declaration (not a companion, not an object expression), a function with parameters or a receiver, unless it `override`s an interface member;
   - in a `companion object`, a function taking exactly one parameter of a non-built-in type: a conversion (`TradeOfferView.from(offer)`), which becomes a constructor. Factories of several values (`Game.lobby(id, turns, creator)`) or of built-in values (`SupplyDemand.lowestFor(priceModifier)`) stay allowed;
-  - a top-level function that isn't an extension, other than `main`;
+  - a top-level function whose first parameter is a project type;
   - an extension function or property, wherever declared, on a project type.
+- **Top-level functions are allowed when no class owns them** (creator, 2026-11-01). An earlier draft of this PR banned every top-level function except `main`. The creator called that too strong: some logic assembles something from several inputs and belongs to no class. The test is what a function works on, not where it's declared. ktlint checks only the first parameter; a project type in a later parameter or inside a collection is left to review (`CODE_REVIEW.md`), by the creator's choice ("LLM reviewing may notice it").
 - **"Project type" without type resolution:** ktlint is syntactic, so a receiver counts as a project type when it's imported from `dev.adriangrzebyk.trader`, written fully qualified under that package, or used without an import and not one of Kotlin's default-imported types (then it's from the same package). Type parameters (`fun <T> T.x()`) and function types are not. Known gap: a library type reached through a wildcard import would be misread as a project type; ktlint's `no-wildcard-imports` already forbids those.
 - **Existing code on `main`** is rewritten to pass: `SDCalculator` → `SupplyDemand`; `TradeOfferView.from` → a `TradeOfferView(offer)` constructor; `Game/Player/Ship.toResponseDto()` extensions → `GameResponseDto(game, viewerEmail)`, `PlayerResponseDto(player)`, `ShipResponseDto(ship)` constructors.
 - **PR #65** (still open) has `GameItemMapper`, `PlayerAttributes`, `ShipAttributes`, `TurnAttributes` as objects. It isn't changed here; whichever of the two merges second rewrites them as adapter-side classes.
