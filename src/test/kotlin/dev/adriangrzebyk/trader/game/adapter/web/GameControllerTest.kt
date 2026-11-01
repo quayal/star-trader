@@ -4,19 +4,25 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistrar
 import org.springframework.test.web.servlet.client.RestTestClient
 
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
+// Games go to DynamoDB Local, the same store bootRun uses, so the wiring and the mapper are exercised over HTTP.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
@@ -37,6 +43,24 @@ class GameControllerTest {
 	@BeforeEach
 	fun setUp() {
 		restTestClient = RestTestClient.bindToServer().baseUrl("http://localhost:$port").build()
+	}
+
+	companion object {
+
+		@JvmStatic
+		@BeforeAll
+		fun requireDynamoDbLocal() = DynamoDbLocal.assumeAvailable()
+	}
+
+	// Found by @SpringBootTest as a nested configuration; points the game store at the DynamoDB Local container.
+	@TestConfiguration
+	class DynamoDbLocalProperties {
+
+		@Bean
+		fun useDynamoDbLocal() = DynamicPropertyRegistrar { registry ->
+			registry.add("star-trader.dynamodb.endpoint-override") { DynamoDbLocal.endpoint }
+			registry.add("star-trader.dynamodb.table-name") { "games-controller-test" }
+		}
 	}
 
 	@Test

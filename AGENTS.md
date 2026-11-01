@@ -7,8 +7,8 @@ Instructions for any AI agent (autonomous or interactive) working in this reposi
 Star Trader — an online, browser-based adaptation of a classic 1980s trading/space board game, for 2–6 players, with many independent games able to run on the same deployment at once. Spring Boot + Kotlin backend, static frontend.
 
 - Build: `./gradlew build`
-- Run locally: `./gradlew bootRun` (serves on port 3000, see `src/main/resources/application.properties`)
-- Test: `./gradlew test` (Kotlin); `./gradlew jsTest` runs the frontend's JavaScript unit tests and needs Node 22+
+- Run locally: `./gradlew bootRun` (serves on port 3000, see `src/main/resources/application.properties`). Needs Docker running: it starts DynamoDB Local from `compose.yaml` (port 8000, data kept in a Docker volume), so games survive a restart; login sessions don't, so players sign in again after one.
+- Test: `./gradlew test` (Kotlin); `./gradlew jsTest` runs the frontend's JavaScript unit tests and needs Node 22+. The DynamoDB adapter and `GameControllerTest` run against DynamoDB Local through Testcontainers, so they need Docker; without it they're skipped locally (CI always runs them).
 
 Product direction, confirmed decisions, business rules and open risks live in `.ai/specs/product-brief.md` — read it before making product or architecture decisions, not just code.
 

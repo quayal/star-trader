@@ -1,0 +1,16 @@
+# DynamoDB Local for ./gradlew bootRun (and so the ngrok playtest). bootRun starts and stops it
+# through Spring Boot's Docker Compose support; the named volume keeps games across restarts.
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:3.3.2
+    # The image's own user can't write to a fresh named volume (owned by root): "unable to open database file".
+    user: root
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    working_dir: /home/dynamodblocal
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+
+volumes:
+  dynamodb-data:
