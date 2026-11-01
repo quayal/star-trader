@@ -32,6 +32,15 @@ dependencies {
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
 	testImplementation("org.testcontainers:testcontainers")
+
+	// This project's own ktlint rules (engineering standards §5), run by ktlintCheck with the standard ones.
+	ktlintRuleset(project(":ktlint-rules"))
+}
+
+val ktlintVersion: String by project
+
+ktlint {
+	version = ktlintVersion
 }
 
 kotlin {

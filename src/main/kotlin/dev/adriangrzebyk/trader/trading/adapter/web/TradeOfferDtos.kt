@@ -23,20 +23,18 @@ data class TradeOfferView(
 	val goods: Goods,
 	val offerType: OfferType,
 	val price: Int
-) {
-	companion object {
-		fun from(offer: TradeOffer): TradeOfferView = TradeOfferView(
-			turn = offer.turn,
-			initiative = offer.initiative,
-			playerName = offer.player?.name.orEmpty(),
-			system = requireNotNull(offer.system),
-			systemDisplayName = offer.system.displayName,
-			goods = requireNotNull(offer.goods),
-			offerType = requireNotNull(offer.offerType),
-			price = offer.price
-		)
-	}
-}
+)
+
+fun TradeOffer.toView(): TradeOfferView = TradeOfferView(
+	turn = turn,
+	initiative = initiative,
+	playerName = player?.name.orEmpty(),
+	system = requireNotNull(system),
+	systemDisplayName = system.displayName,
+	goods = requireNotNull(goods),
+	offerType = requireNotNull(offerType),
+	price = price
+)
 
 data class TransactionView(val offer: TradeOfferView, val amount: Int)
 
