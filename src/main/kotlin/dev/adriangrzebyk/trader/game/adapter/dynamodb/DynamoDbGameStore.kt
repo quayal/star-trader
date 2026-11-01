@@ -17,28 +17,28 @@ class DynamoDbGameStore(private val client: DynamoDbClient, private val tableNam
 		try {
 			client.putItem {
 				it.tableName(tableName)
-					.item(GameItemMapper.toItem(game, version = 0))
+					.item(GameItem(game, version = 0).attributes)
 					.conditionExpression("attribute_not_exists(#id)")
-					.expressionAttributeNames(mapOf("#id" to GameItemMapper.ID))
+					.expressionAttributeNames(mapOf("#id" to GameItem.ID))
 			}
 		} catch (ex: ConditionalCheckFailedException) {
 			throw IllegalStateException("A game with id ${game.id} already exists", ex)
 		}
 	}
 
-	override fun find(id: String): Game? = read(id)?.let { GameItemMapper.toGame(it) }
+	override fun find(id: String): Game? = read(id)?.toGame()
 
 	override fun update(id: String, mutate: (Game) -> Game): Game {
 		repeat(MAX_ATTEMPTS) {
 			val item = read(id) ?: throw NoSuchElementException("No game with id $id")
-			val version = GameItemMapper.version(item)
-			val updated = mutate(GameItemMapper.toGame(item))
+			val version = item.version
+			val updated = mutate(item.toGame())
 			try {
 				client.putItem {
 					it.tableName(tableName)
-						.item(GameItemMapper.toItem(updated, version + 1))
+						.item(GameItem(updated, version + 1).attributes)
 						.conditionExpression("#version = :expected")
-						.expressionAttributeNames(mapOf("#version" to GameItemMapper.VERSION))
+						.expressionAttributeNames(mapOf("#version" to GameItem.VERSION))
 						.expressionAttributeValues(mapOf(":expected" to AttributeValue.fromN(version.toString())))
 				}
 				return updated
@@ -49,9 +49,9 @@ class DynamoDbGameStore(private val client: DynamoDbClient, private val tableNam
 		throw IllegalStateException("Gave up updating game $id after $MAX_ATTEMPTS attempts: it kept changing underneath")
 	}
 
-	private fun read(id: String): Map<String, AttributeValue>? = client.getItem {
-		it.tableName(tableName).key(mapOf(GameItemMapper.ID to AttributeValue.fromS(id))).consistentRead(true)
-	}.takeIf { it.hasItem() }?.item()
+	private fun read(id: String): GameItem? = client.getItem {
+		it.tableName(tableName).key(mapOf(GameItem.ID to AttributeValue.fromS(id))).consistentRead(true)
+	}.takeIf { it.hasItem() }?.let { GameItem(it.item()) }
 
 	companion object {
 		// At most 5 players can join at once and each round lets at least one through, so 10 leaves a margin.

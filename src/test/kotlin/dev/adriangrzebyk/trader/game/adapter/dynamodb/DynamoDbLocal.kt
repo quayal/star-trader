@@ -32,7 +32,7 @@ object DynamoDbLocal {
 	fun assumeAvailable() {
 		assumeTrue(
 			System.getenv("CI") != null || DockerClientFactory.instance().isDockerAvailable,
-			"Skipping DynamoDB Local tests: Docker is not available.",
+			"Skipping DynamoDB Local tests: Docker is not available."
 		)
 	}
 

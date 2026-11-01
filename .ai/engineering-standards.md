@@ -123,17 +123,18 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 ## 12. Stored data is mapped field by field, and the mapping grows with the model
 
 - Game state is stored as native DynamoDB attributes (one item per game; nested objects as maps and
-  lists), translated by `game/adapter/dynamodb/GameItemMapper` — never as an opaque JSON string.
-- One mapper per persisted type (`GameItemMapper`, `PlayerAttributes`, `ShipAttributes`, `TurnAttributes`),
-  composed by its parent. A new type adds a mapper file and its round-trip test; a new field touches only
-  its type's mapper and test.
+  lists), translated by `game/adapter/dynamodb/GameItem` — never as an opaque JSON string.
+- One item class per persisted type (`GameItem`, `PlayerItem`, `ShipItem`, `TurnItem`), composed by its
+  parent. Each maps as §5 says: a constructor from the domain object (`ShipItem(ship)`) and a method back
+  (`ShipItem(attributes).toShip()`). A new type adds an item class and its round-trip test; a new field
+  touches only its type's item class and test.
 - A change that adds data to `Game` or anything inside it (a player's money, ships, offers…) extends its
-  type's mapper **and** that mapper's round-trip test in the same PR. A field that isn't mapped is silently
+  type's item class **and** its round-trip test in the same PR. A field that isn't mapped is silently
   lost on the next save.
-- Keep that failure loud: the mapper builds each domain object with every argument named, and domain data
-  classes declare no default values, so a new field doesn't compile until the mapper reads it; the round
-  trip then fails until the mapper writes it.
-- Once real games exist, a newly added attribute is missing from older items: default it in the mapper,
+- Keep that failure loud: the item class builds each domain object with every argument named, and domain data
+  classes declare no default values, so a new field doesn't compile until the item class reads it; the round
+  trip then fails until it writes it.
+- Once real games exist, a newly added attribute is missing from older items: default it in the item class,
   not in the domain class (see `BACKWARD_COMPATIBILITY.md`, persistence schema).
 
 ## Not decided yet

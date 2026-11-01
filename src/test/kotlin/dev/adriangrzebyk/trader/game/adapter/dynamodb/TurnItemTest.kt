@@ -8,25 +8,25 @@ import org.junit.jupiter.api.Test
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 // A story that adds a field to Turn extends this round trip in the same PR (engineering standards §12).
-class TurnAttributesTest {
+class TurnItemTest {
 
 	private val turn = Turn(number = 4, phase = TurnPhase.BIDDING)
 
 	@Test
 	fun shouldReadBackEveryFieldOfATurn() {
-		assertThat(TurnAttributes.from(TurnAttributes.toAttributes(turn))).isEqualTo(turn)
+		assertThat(TurnItem(TurnItem(turn).attributes).toTurn()).isEqualTo(turn)
 	}
 
 	@Test
 	fun shouldStoreATurnUnderTheseAttributeNames() {
-		assertThat(TurnAttributes.toAttributes(turn)).isEqualTo(
-			mapOf("number" to AttributeValue.fromN("4"), "phase" to AttributeValue.fromS("BIDDING")),
+		assertThat(TurnItem(turn).attributes).isEqualTo(
+			mapOf("number" to AttributeValue.fromN("4"), "phase" to AttributeValue.fromS("BIDDING"))
 		)
 	}
 
 	@Test
 	fun shouldNameTheMissingAttributeWhenAStoredTurnIsIncomplete() {
-		assertThatThrownBy { TurnAttributes.from(TurnAttributes.toAttributes(turn) - "phase") }
+		assertThatThrownBy { TurnItem(TurnItem(turn).attributes - "phase").toTurn() }
 			.isInstanceOf(IllegalStateException::class.java)
 			.hasMessageContaining("phase")
 	}

@@ -9,17 +9,17 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
 /** Creates the games table on DynamoDB Local. In real AWS the table is provisioned outside the app (E02-S03 Q4). */
-object GamesTable {
+class GamesTable(private val client: DynamoDbClient, private val tableName: String) {
 
-	fun createIfMissing(client: DynamoDbClient, tableName: String) {
+	fun createIfMissing() {
 		try {
 			client.describeTable { it.tableName(tableName) }
 		} catch (_: ResourceNotFoundException) {
 			client.createTable {
 				it.tableName(tableName)
-					.keySchema(KeySchemaElement.builder().attributeName(GameItemMapper.ID).keyType(KeyType.HASH).build())
+					.keySchema(KeySchemaElement.builder().attributeName(GameItem.ID).keyType(KeyType.HASH).build())
 					.attributeDefinitions(
-						AttributeDefinition.builder().attributeName(GameItemMapper.ID).attributeType(ScalarAttributeType.S).build(),
+						AttributeDefinition.builder().attributeName(GameItem.ID).attributeType(ScalarAttributeType.S).build()
 					)
 					.billingMode(BillingMode.PAY_PER_REQUEST)
 			}

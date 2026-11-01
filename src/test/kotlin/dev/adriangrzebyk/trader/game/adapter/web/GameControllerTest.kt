@@ -13,11 +13,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.DynamicPropertyRegistrar
 import org.springframework.test.web.servlet.client.RestTestClient
 
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
@@ -49,10 +50,14 @@ class GameControllerTest {
 		@JvmStatic
 		@BeforeAll
 		fun requireDynamoDbLocal() = DynamoDbLocal.assumeAvailable()
+	}
 
-		@JvmStatic
-		@DynamicPropertySource
-		fun useDynamoDbLocal(registry: DynamicPropertyRegistry) {
+	// Found by @SpringBootTest as a nested configuration; points the game store at the DynamoDB Local container.
+	@TestConfiguration
+	class DynamoDbLocalProperties {
+
+		@Bean
+		fun useDynamoDbLocal() = DynamicPropertyRegistrar { registry ->
 			registry.add("star-trader.dynamodb.endpoint-override") { DynamoDbLocal.endpoint }
 			registry.add("star-trader.dynamodb.table-name") { "games-controller-test" }
 		}

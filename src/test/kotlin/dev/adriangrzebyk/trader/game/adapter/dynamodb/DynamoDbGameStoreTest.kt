@@ -32,7 +32,7 @@ class DynamoDbGameStoreTest {
 	fun setUp() {
 		DynamoDbLocal.assumeAvailable()
 		client = DynamoDbLocal.client()
-		GamesTable.createIfMissing(client, tableName)
+		GamesTable(client, tableName).createIfMissing()
 		store = DynamoDbGameStore(client, tableName)
 	}
 
@@ -68,7 +68,7 @@ class DynamoDbGameStoreTest {
 		store.update("game-1") { it.addPlayer(Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")) }
 		val picker = FakeStartingSystemPicker(
 			StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
-			StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS,
+			StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS
 		)
 		val started = store.update("game-1") { it.start(creator.email, picker) }
 
@@ -145,9 +145,9 @@ class DynamoDbGameStoreTest {
 		assertThat(storedVersion("game-1")).isEqualTo(5)
 	}
 
-	private fun storedVersion(id: String): Long = GameItemMapper.version(
+	private fun storedVersion(id: String): Long = GameItem(
 		client.getItem {
 			it.tableName(tableName).key(mapOf("id" to AttributeValue.fromS(id))).consistentRead(true)
-		}.item(),
-	)
+		}.item()
+	).version
 }

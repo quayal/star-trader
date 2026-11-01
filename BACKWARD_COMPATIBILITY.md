@@ -90,9 +90,9 @@ Stored data outlives the code that wrote it, so the item shape is a contract wit
 | `version` | N | optimistic-concurrency counter, +1 on every save |
 
 - Table `star-trader-games` (`DYNAMODB_TABLE_NAME`), on-demand billing, no secondary index. In real AWS it's provisioned outside the app.
-- **Additive change** (a new attribute, a new field in a player map): safe once the mapper defaults it when reading an older item.
+- **Additive change** (a new attribute, a new field in a player map): safe once its item class defaults it when reading an older item.
 - **Breaking change**: renaming or removing an attribute, changing its type or the meaning of a value (including renaming a `StarSystem`, `ShipLocation`, `GameStatus` or `TurnPhase` constant, since they're stored by name), changing the key. Needs a migration of stored items, or — before any game worth keeping exists — an explicit note in the PR that local data must be cleared (`docker compose down -v`).
-- **Required path**: change `GameItemMapper` and `GameItemMapperTest` together (engineering standards §12), and state the change in the PR body.
+- **Required path**: change the type's item class (`GameItem`, `PlayerItem`, `ShipItem`, `TurnItem`) and its round-trip test together (engineering standards §12), and state the change in the PR body.
 
 ## Not yet applicable (no contract exists)
 

@@ -22,7 +22,7 @@ import java.time.Duration
 class DynamoDbConfiguration(
 	@Value("\${star-trader.dynamodb.endpoint-override}") private val endpointOverride: String,
 	@Value("\${star-trader.dynamodb.table-name}") private val tableName: String,
-	@Value("\${star-trader.dynamodb.region}") private val region: String,
+	@Value("\${star-trader.dynamodb.region}") private val region: String
 ) {
 
 	@Bean
@@ -44,11 +44,11 @@ class DynamoDbConfiguration(
 	fun gameStore(dynamoDbClient: DynamoDbClient): GameStore {
 		if (endpointOverride.isNotBlank()) {
 			try {
-				GamesTable.createIfMissing(dynamoDbClient, tableName)
+				GamesTable(dynamoDbClient, tableName).createIfMissing()
 			} catch (ex: SdkClientException) {
 				throw IllegalStateException(
 					"DynamoDB Local isn't reachable at $endpointOverride. Is Docker running? bootRun starts it from compose.yaml.",
-					ex,
+					ex
 				)
 			}
 		}

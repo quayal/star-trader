@@ -13,9 +13,9 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 // A story that adds data to Game extends this round trip in the same PR (engineering standards §12).
-class GameItemMapperTest {
+class GameItemTest {
 
-	// Every field set to a non-default value, so a field the mapper drops can't round-trip by accident.
+	// Every field set to a non-default value, so a field the item drops can't round-trip by accident.
 	private val startedGame = Game(
 		id = "game-1",
 		turns = 20,
@@ -29,8 +29,8 @@ class GameItemMapperTest {
 				money = 300,
 				ships = listOf(
 					Ship(name = "Wayfarer", system = StarSystem.TAU_CETI, location = ShipLocation.PORT),
-					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE),
-				),
+					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE)
+				)
 			),
 			Player(
 				email = "guest@example.com",
@@ -39,52 +39,52 @@ class GameItemMapperTest {
 				money = 275,
 				ships = listOf(
 					Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET),
-					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT),
-				),
-			),
+					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT)
+				)
+			)
 		),
 		turn = Turn(number = 1, phase = TurnPhase.BIDDING),
-		log = listOf("Game started: 2 players, 20 turns", "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
+		log = listOf("Game started: 2 players, 20 turns", "Starting positions: Host Corp — Wayfarer at Tau Ceti")
 	)
 
 	@Test
 	fun shouldReadBackEveryFieldOfAStartedGame() {
-		val item = GameItemMapper.toItem(startedGame, version = 3)
+		val item = GameItem(startedGame, version = 3)
 
-		assertThat(GameItemMapper.toGame(item)).isEqualTo(startedGame)
-		assertThat(GameItemMapper.version(item)).isEqualTo(3)
+		assertThat(GameItem(item.attributes).toGame()).isEqualTo(startedGame)
+		assertThat(GameItem(item.attributes).version).isEqualTo(3)
 	}
 
 	@Test
 	fun shouldReadBackALobbyGameThatHasNoTurnYet() {
 		val lobby = Game.lobby("game-2", 12, Player.newcomer("host@example.com", "Host", "Host Corp"))
 
-		assertThat(GameItemMapper.toGame(GameItemMapper.toItem(lobby, version = 0))).isEqualTo(lobby)
+		assertThat(GameItem(GameItem(lobby, version = 0).attributes).toGame()).isEqualTo(lobby)
 	}
 
 	@Test
 	fun shouldStoreTheGameAsNativeAttributesWithNestedMapsAndLists() {
-		val item = GameItemMapper.toItem(startedGame, version = 0)
+		val item = GameItem(startedGame, version = 0).attributes
 
 		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "log", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
-		assertThat(item.getValue("turn").m()).isEqualTo(TurnAttributes.toAttributes(startedGame.turn!!))
+		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
 		assertThat(item.getValue("log").l().map { it.s() }).isEqualTo(startedGame.log)
-		assertThat(item.getValue("players").l().map { it.m() }).isEqualTo(startedGame.players.map(PlayerAttributes::toAttributes))
+		assertThat(item.getValue("players").l().map { it.m() }).isEqualTo(startedGame.players.map { PlayerItem(it).attributes })
 	}
 
 	@Test
 	fun shouldStoreAGameThatHasNotStartedWithANullTurn() {
 		val lobby = Game.lobby("game-2", 12, Player.newcomer("host@example.com", "Host", "Host Corp"))
 
-		assertThat(GameItemMapper.toItem(lobby, version = 0).getValue("turn").nul()).isTrue()
+		assertThat(GameItem(lobby, version = 0).attributes.getValue("turn").nul()).isTrue()
 	}
 
 	@Test
 	fun shouldNameTheMissingAttributeWhenAStoredItemIsIncomplete() {
-		val item = GameItemMapper.toItem(startedGame, version = 0) - "log"
+		val item = GameItem(startedGame, version = 0).attributes - "log"
 
-		assertThatThrownBy { GameItemMapper.toGame(item) }
+		assertThatThrownBy { GameItem(item).toGame() }
 			.isInstanceOf(IllegalStateException::class.java)
 			.hasMessageContaining("log")
 	}
