@@ -72,6 +72,8 @@ closed", never applied twice or lost (A04). Every client sees the new phase on i
 
 ## Progress
 
+PR: #69
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Turn engine in the domain
@@ -99,3 +101,9 @@ closed", never applied twice or lost (A04). Every client sees the new phase on i
   nobody done; Grace done twice → recorded once; Ada (last) done → Ship-jumps; Grace again → `409 Bidding
   has closed`. An open browser on Ada's game switched from "Turn 1 of 20 · Bidding" to "Turn 1 of 20 ·
   Ship-jumps" on its next poll, with no reload (S01-5).
+
+## Outcome
+
+Done. PR #69 is ready: CI `build` green, automated review found nothing to fix (posted as a comment because
+the author account can't approve its own PR), `needs-qa` with manual QA steps posted. Waiting for a human
+approval and QA.
