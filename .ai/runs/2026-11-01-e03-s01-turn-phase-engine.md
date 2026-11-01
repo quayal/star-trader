@@ -83,9 +83,9 @@ closed", never applied twice or lost (A04). Every client sees the new phase on i
 ### Phase 2: Adapters
 
 - [x] 2.1 TurnItem stores doneBidding — 2746ffe (pulled into Phase 1: §12 makes the domain change fail to compile without it)
-- [ ] 2.2 Done-bidding endpoint and response field
-- [ ] 2.3 Frontend phase names
-- [ ] 2.4 Backward-compatibility notes
+- [x] 2.2 Done-bidding endpoint and response field — 04f766c
+- [x] 2.3 Frontend phase names — aca390f
+- [x] 2.4 Backward-compatibility notes — cddc277
 
 ### Phase 3: Verify
 
