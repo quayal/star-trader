@@ -137,3 +137,10 @@ PR: #65
 
 - [x] 5.1 Split `GameItemMapper` into `PlayerAttributes`, `ShipAttributes`, `TurnAttributes` (+ `Attributes.kt` helpers) with a round-trip test each; no schema change; `./gradlew build` green — d968c29
 - [x] 5.2 Engineering standards §12: one mapper per persisted type — 6f2864e
+
+### Phase 6: Rebase on main after #68 (Kotlin style rules)
+
+- [x] 6.1 Rebase onto origin/main (745cec9), dropping the #66 merge commit; the in-memory store tests main had touched stay deleted
+- [x] 6.2 Engineering standards §5: the four mapper `object`s become adapter-side classes `GameItem(game, version)` / `.toGame()`, `PlayerItem`, `ShipItem`, `TurnItem`; `GamesTable` takes its client and table name in the constructor; trailing commas removed. Attribute names unchanged; no schema change
+- [x] 6.3 `GameControllerTest` points at DynamoDB Local through a nested `@TestConfiguration` with a `DynamicPropertyRegistrar` bean instead of a companion `@DynamicPropertySource` function, which `trader:functions-in-classes` reports as a conversion
+- [x] 6.4 §12 and `BACKWARD_COMPATIBILITY.md` §7 name the item classes; `./gradlew build` and `./gradlew test` green with Docker (DynamoDbGameStoreTest 9/9, GameControllerTest 20/20)
