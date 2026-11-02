@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.trading.StarSystem.MU_HERCULIS
@@ -34,7 +36,7 @@ class BiddingServiceTest {
 
 		service.signalDone("game-1", "creator@example.com")
 
-		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList()))
+		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()))
 	}
 
 	@Test
@@ -45,7 +47,7 @@ class BiddingServiceTest {
 
 		BiddingService(replayingStore).signalDone("game-1", "creator@example.com")
 
-		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList()))
+		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()))
 	}
 
 	@Test
@@ -70,6 +72,42 @@ class BiddingServiceTest {
 
 		assertThatThrownBy { service.signalDone("game-1", "stranger@example.com") }.isInstanceOf(NotAGameMemberException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(started)
+	}
+
+	@Test
+	fun shouldStoreAPlacedOffer() {
+		gameStore.create(started)
+
+		val game = service.placeOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8)
+
+		assertThat(game.turn?.offers).containsExactly(Offer("joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8))
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldRefuseAnOfferThatArrivesAfterTheLastDoneAndLeaveTheGameAsItWas() {
+		val closed = started.signalDoneBidding("joiner@example.com").signalDoneBidding("creator@example.com")
+		gameStore.create(closed)
+
+		assertThatThrownBy { service.placeOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8) }
+			.isInstanceOf(PhaseClosedException::class.java)
+			.hasMessage("Bidding has closed")
+		assertThat(gameStore.find("game-1")).isEqualTo(closed)
+	}
+
+	@Test
+	fun shouldPlaceAnOfferOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(started)
+
+		BiddingService(ReplayingGameStore(gameStore)).placeOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8)
+
+		assertThat(gameStore.find("game-1")?.turn?.offers).hasSize(1)
+	}
+
+	@Test
+	fun shouldRefuseAnOfferForAGameThatDoesNotExist() {
+		assertThatThrownBy { service.placeOffer("missing", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8) }
+			.isInstanceOf(GameNotFoundException::class.java)
 	}
 
 	/** Runs every change twice against the same stored state, the way an optimistic retry re-runs it. */
