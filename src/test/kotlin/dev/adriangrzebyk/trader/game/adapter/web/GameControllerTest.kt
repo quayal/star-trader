@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
+import dev.adriangrzebyk.trader.trading.Goods
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -75,10 +76,12 @@ class GameControllerTest {
 		assertThat(game.turns).isEqualTo(20)
 		assertThat(game.status).isEqualTo("LOBBY")
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
-		assertThat(game.players).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList()))
+		assertThat(
+			game.players
+		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList()))
 	}
 
 	@Test
@@ -126,8 +129,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList())
+			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
@@ -241,7 +244,16 @@ class GameControllerTest {
 
 		assertThat(started.status).isEqualTo("RUNNING")
 		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList()))
-		assertThat(started.you).isEqualTo(YouResponseDto(300))
+		assertThat(started.you!!.money).isEqualTo(300)
+		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
+		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
+			"GAMMA_LEPORIS",
+			"TAU_CETI",
+			"EPSILON_ERIDANI",
+			"BETA_HYDRI",
+			"MU_HERCULIS",
+			"SIGMA_DRACONIS"
+		)
 		assertThat(started.players).allSatisfy { player ->
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
 			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
@@ -265,7 +277,34 @@ class GameControllerTest {
 
 		// Exactly one money field on the wire: the caller's own, under "you" (R29).
 		assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1)
-		assertThat(raw).contains("\"you\":{\"money\":300}")
+		assertThat(raw).contains("\"you\":{\"money\":300,")
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersCargo() {
+		val (creatorToken, joinerToken, gameId) = startedGame("cargo")
+		// The joiner's first ship carries goods; only the joiner may see them (S02-7, A05).
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != "cargo-guest@example.com") {
+						player
+					} else {
+						player.copy(ships = listOf(player.ships[0].copy(cargo = mapOf(Goods.POLY to 4, Goods.CHIPS to 12))) + player.ships.drop(1))
+					}
+				}
+			)
+		}
+
+		val seenByCreator = pollGame(creatorToken, gameId).expectStatus().isOk
+			.expectBody(String::class.java).returnResult().responseBody!!
+		val seenByJoiner = pollGame(joinerToken, gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByCreator).doesNotContain("\"POLY\":4").doesNotContain("\"CHIPS\":12")
+		assertThat(Regex("\"cargo\"").findAll(seenByCreator).count()).isEqualTo(2) // the creator's own two ships
+		assertThat(seenByJoiner.you!!.ships.first().cargo).isEqualTo(mapOf("CHIPS" to 12, "POLY" to 4))
+		assertThat(seenByJoiner.you!!.ships.first().cargoUsed).isEqualTo(4)
 	}
 
 	@Test
