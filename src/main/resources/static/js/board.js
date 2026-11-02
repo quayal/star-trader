@@ -139,15 +139,15 @@ export function shipsUnderText(game, systemId, myEmail) {
 	return ships.length ? ships.map(ship => ship.label).join('  ') : 'no ships';
 }
 
-/** One good inside a map node: "POLY", "▼ 6" and its level. */
+/** One good inside a map node: "POLY", its level's symbol, "\u00a06" (the price after a no-break gap) and the level. */
 export function mapGood(entry) {
 	const level = marketLevel(entry.indicator);
-	return { goods: entry.goods, price: `${level.symbol}${SYMBOL_GAP}${entry.price}`, level };
+	return { goods: entry.goods, symbol: level.symbol, price: `${SYMBOL_GAP}${entry.price}`, level };
 }
 
-/** "▲ high demand": the symbol and the word, so colour is never the only cue. */
-export function levelText(level) {
-	return `${level.symbol} ${level.label}`;
+/** ▲ and ▼ are drawn at about a third of the text height (creator, 2026-11-02); the — stays text-sized. */
+export function isTriangle(symbol) {
+	return symbol === '▲' || symbol === '▼';
 }
 
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */

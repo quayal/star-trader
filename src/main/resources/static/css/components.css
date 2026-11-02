@@ -235,6 +235,9 @@ h1, h2, h3 {
 /* ── Market level (D08): ▲/▼/— gives the direction, the colour how likely it is (bright high, muted moderate).
    `color` for HTML, `fill` for the map's SVG text. ── */
 .market-level { font-weight: 700; }
+/* ▲/▼ at about a third of the text height (creator, 2026-11-02), centred on the digits; the — keeps text size.
+   In the map's SVG the lift is a dy on the tspan instead, as SVG text ignores vertical-align. */
+.market-level__triangle { font-size: 0.45em; vertical-align: 0.4em; }
 .market-level[data-level="high-demand"] { color: var(--market-demand-high); fill: var(--market-demand-high); }
 .market-level[data-level="moderate-demand"] { color: var(--market-demand-moderate); fill: var(--market-demand-moderate); }
 .market-level[data-level="in-balance"] { color: var(--market-balance); fill: var(--market-balance); }

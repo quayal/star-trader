@@ -73,7 +73,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.good .good--poly/…` | The goods name in a goods column (R04.1) | Elsewhere |
 | `.sd-value[data-step]` | The S/D indicator. Number always shown (R03.5) | Without the number |
 | `.cargo-meter` | Used / capacity of a ship or depot (R01.3) | Percentages without the absolute numbers |
-| `.market-level[data-level]` | A market level (D08): its symbol and label ("▲ high demand"), or a price after its symbol. Works in HTML (`color`) and SVG (`fill`). `data-level` is the level key from `js/board.js` (`high-demand` … `high-supply`); colours are the `--market-*` tokens | Without the symbol or the word next to it |
+| `.market-level[data-level]` | A market level (D08): its symbol and label ("▲ high demand"), or a price after its symbol. Works in HTML (`color`) and SVG (`fill`). ▲/▼ sit in a `.market-level__triangle` at about a third of the text height, centred on the text (in SVG a `dy` lift, as SVG text ignores `vertical-align`); the — stays text-sized. `data-level` is the level key from `js/board.js` (`high-demand` … `high-supply`); colours are the `--market-*` tokens | Without the symbol or the word next to it |
 | `.flash` | Add once when a poll changes a value (Gap 1) | Anything that repeats |
 
 Hover and focus states can be frozen for documentation with `data-preview-state="hover|focus"` (used on `/design-system.html` only).

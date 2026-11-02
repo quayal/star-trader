@@ -363,6 +363,7 @@
 		NODE_POSITIONS,
 		NODE_RADIUS,
 		fleet,
+		isTriangle,
 		locations,
 		mapEdges,
 		mapGood,
@@ -371,7 +372,6 @@
 		shipsAt,
 		signedIndicator,
 		STALE_MESSAGE,
-		levelText,
 		staleAgeText,
 		systemAccessibleName,
 	} from './js/board.js';
@@ -772,6 +772,8 @@
 	}
 
 	const SVG_NS = 'http://www.w3.org/2000/svg';
+	/** px a map triangle sits above the baseline, so it centres on the 15 px price digits. */
+	const TRIANGLE_LIFT = 3;
 
 	function svgElement(tag, attributes = {}, text = null) {
 		const node = document.createElementNS(SVG_NS, tag);
@@ -784,8 +786,13 @@
 		return node;
 	}
 
+	/** "▲ high demand": the symbol and the word, so colour is never the only cue. */
 	function levelLabel(level) {
-		return element('span', { class: 'market-level', 'data-level': level.key }, levelText(level));
+		return element('span', { class: 'market-level', 'data-level': level.key }, symbolMark(level.symbol), ` ${level.label}`);
+	}
+
+	function symbolMark(symbol) {
+		return isTriangle(symbol) ? element('span', { class: 'market-level__triangle' }, symbol) : symbol;
 	}
 
 	function renderDeck(game) {
@@ -826,7 +833,13 @@
 				const good = mapGood(entry);
 				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
 				line.append(svgElement('tspan', {}, `${good.goods} `));
-				line.append(svgElement('tspan', { class: 'market-level', 'data-level': good.level.key }, good.price));
+				const level = svgElement('tspan', { class: 'market-level', 'data-level': good.level.key });
+				// SVG text has no vertical-align: dy lifts the small triangle to mid-height and the price drops back.
+				const lift = isTriangle(good.symbol) ? TRIANGLE_LIFT : 0;
+				level.append(
+					svgElement('tspan', lift ? { class: 'market-level__triangle', dy: -lift } : {}, good.symbol),
+					svgElement('tspan', { dy: lift }, good.price));
+				line.append(level);
 				node.append(line);
 			});
 			const labels = shipsAt(game, system.id, session.email).map(ship => ship.label);
