@@ -96,6 +96,63 @@
 		}
 		.goods-row:last-child { border-bottom: none; }
 		.goods-name { color: var(--text-muted); }
+		.stale-notice {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--space-group) var(--space-related);
+			align-items: center;
+			padding: var(--space-related) var(--space-panel);
+			border: var(--border-width) solid var(--status-warn);
+			border-radius: var(--radius-panel);
+			background: var(--surface-panel);
+		}
+		.stale-notice[hidden], .deck[hidden], .system[hidden] { display: none; }
+		/* s01: fleet and log left of the map; one column on a narrow screen, map first. */
+		.deck { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr); gap: var(--space-panel); align-items: start; }
+		.deck__side { display: grid; gap: var(--space-panel); }
+		@media (max-width: 900px) {
+			.deck { grid-template-columns: minmax(0, 1fr); }
+			.deck__map { order: -1; }
+		}
+		.map svg { display: block; width: 100%; height: auto; }
+		.map-edge { stroke: var(--border-subtle); stroke-width: 1; }
+		.map-node circle { fill: var(--surface-page); stroke: var(--border-control); stroke-width: 2; transition: stroke var(--duration-hover); }
+		.map-node:hover circle, .map-node:focus-visible circle { stroke: var(--accent-selected); stroke-width: 3; }
+		.map-node:focus { outline: none; }
+		.map-node text { fill: var(--text-primary); font-family: var(--font-body); }
+		.map-node .map-node__name { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+		.map-node .map-node__good { font-size: 18px; font-weight: 600; }
+		.map-node .map-node__ships { fill: var(--text-muted); font-size: 16px; }
+		.map-key, .map-legend { margin: var(--space-related) 0 0; font-size: var(--text-body); }
+		.map-legend { color: var(--text-muted); }
+		.fleet-list .muted { font-size: var(--text-body); }
+		/* Narrow screens: the rail becomes a row above the screen, so the map keeps the full width. */
+		@media (max-width: 700px) {
+			body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "topbar" "main"; }
+			.sidebar {
+				flex-direction: row;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: var(--space-group);
+				padding: var(--space-related) var(--space-panel);
+				border-right: none;
+				border-bottom: var(--border-width) solid var(--border-subtle);
+			}
+			.brand { margin: 0 var(--space-related) 0 0; }
+			.topbar { padding: var(--space-panel); }
+			main { padding: var(--space-panel); }
+		}
+		/* s02 */
+		.system { display: grid; gap: var(--space-panel); }
+		.system > p { margin: 0; }
+		.system__title { font-size: var(--text-heading); }
+		.section > summary { font-family: var(--font-display); font-size: var(--text-title); cursor: pointer; }
+		.section[open] > summary { margin-bottom: var(--space-panel); }
+		.places { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-panel); }
+		.place h3 { font-size: var(--text-value); margin-bottom: var(--space-hairline); }
+		.place p { margin: 0 0 var(--space-group); }
+		.place ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
+		.table-wrap { overflow-x: auto; }
 	</style>
 </head>
 <body>
@@ -149,6 +206,12 @@
 
 	<!-- s12: Lobby, and the game view once the game has started -->
 	<div class="view" id="game-view" hidden>
+		<div class="stale-notice" id="stale-notice" role="status" hidden>
+			<span id="stale-text"></span>
+			<button class="text-action" id="retry-now" type="button">Retry now</button>
+		</div>
+
+		<!-- s06 -->
 		<p class="empty" id="game-loading">Loading game&hellip;</p>
 
 		<section class="panel" id="missing-panel" hidden>
@@ -156,8 +219,10 @@
 			<p>Check the link, or <a class="link" href="/#new">create a game</a>.</p>
 		</section>
 
+		<!-- s07: a 403 can't say whether the game is still in its lobby without leaking its state (A05). -->
 		<section class="panel" id="join-panel" hidden aria-labelledby="join-title">
-			<h2 id="join-title">You're invited to a game</h2>
+			<h2 id="join-title">You're not a player in this game</h2>
+			<p>If it hasn't started yet, you can join it.</p>
 			<div class="actions">
 				<button class="btn" id="join-button" type="button">Join this game</button>
 				<p class="message message--error" id="join-message" role="status"></p>
@@ -195,22 +260,62 @@
 			<p><span class="badge badge--warn">Waiting</span> <span id="waiting-text"></span></p>
 		</section>
 
-		<section class="panel" id="money-panel" hidden aria-labelledby="money-title">
-			<h2 id="money-title">Your money</h2>
-			<p class="money" id="money-value"></p>
-		</section>
+		<!-- s01: the Deck. The right column (offers, initiative bid) arrives with E03-S03 and S05. -->
+		<div class="deck" id="deck-panel" hidden>
+			<div class="deck__side">
+				<section class="panel" aria-labelledby="fleet-title">
+					<h2 id="fleet-title">Your fleet</h2>
+					<ul class="fleet-list" id="fleet-list"></ul>
+				</section>
+				<section class="panel" aria-labelledby="log-title">
+					<h2 id="log-title">Game log</h2>
+					<ol class="log-list" id="log-list"></ol>
+				</section>
+			</div>
+			<section class="panel deck__map" aria-labelledby="map-title">
+				<h2 id="map-title">Map</h2>
+				<div id="map"></div>
+				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials). Select a system for its details.</p>
+				<p class="map-legend" id="map-legend"></p>
+			</section>
+		</div>
 
-		<section class="panel" id="fleet-panel" hidden aria-labelledby="fleet-title">
-			<h2 id="fleet-title">Your fleet</h2>
-			<ul class="fleet-list" id="fleet-list"></ul>
-		</section>
+		<!-- s02: System details -->
+		<div class="system" id="system-panel" hidden>
+			<p><a class="link" id="system-back" href="/">&larr; Back to the Deck</a></p>
+			<h2 class="system__title" id="system-title" tabindex="-1"></h2>
+			<details class="panel section" open>
+				<summary>Locations and ships</summary>
+				<div class="places" id="system-locations"></div>
+			</details>
+			<details class="panel section" open>
+				<summary>Market</summary>
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead><tr><th scope="col">Goods</th><th scope="col" class="num">Price</th><th scope="col" class="num">S/D</th><th scope="col">Market</th></tr></thead>
+						<tbody id="system-market"></tbody>
+					</table>
+				</div>
+			</details>
+			<details class="panel section">
+				<summary>Market positions</summary>
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead><tr><th scope="col">Goods</th><th scope="col">Dictator</th><th scope="col">Wholesaler</th><th scope="col">Retailer</th></tr></thead>
+						<tbody id="system-positions"></tbody>
+					</table>
+				</div>
+				<p class="muted">Players without a position for a good aren't listed.</p>
+			</details>
+		</div>
+	</div>
 
-		<section class="panel" id="log-panel" hidden aria-labelledby="log-title">
-			<h2 id="log-title">Game log</h2>
-			<ol class="log-list" id="log-list"></ol>
+	<!-- s08: Unknown screen -->
+	<div class="view" id="unknown-view" hidden>
+		<section class="panel" aria-labelledby="unknown-title">
+			<h2 id="unknown-title" tabindex="-1">This screen doesn't exist</h2>
+			<p><a class="link" id="unknown-link" href="/">Go to the Deck</a></p>
 		</section>
-
-		<p class="message message--error" id="refresh-message" role="status"></p>
 	</div>
 </main>
 
@@ -242,27 +347,51 @@
 	import { errorText } from './js/sign-in.js';
 	import {
 		POLL_INTERVAL_MS,
+		deckLink,
 		gameLink,
 		lengthText,
 		lobbyState,
 		parseRoute,
-		shipLine,
+		systemLink,
 		turnText,
 		validateTurns,
 	} from './js/game.js';
+	import {
+		MAP_VIEW_BOX,
+		MARKET_LEVELS,
+		NODE_POSITIONS,
+		NODE_RADIUS,
+		fleet,
+		locations,
+		mapEdges,
+		mapGood,
+		marketLevel,
+		marketPositions,
+		shipsAt,
+		signedIndicator,
+		staleText,
+		systemAccessibleName,
+	} from './js/board.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
-	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view') };
+	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'money-panel', 'fleet-panel', 'log-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
 	let currentGameId = null;
 	// Bumped on every navigation, so a poll that was in flight when the player left can't start a second loop.
 	let pollGeneration = 0;
+	// The last state a poll returned, and when: kept on screen when a poll fails (S02-12, D01).
+	let lastGame = null;
+	let lastLoadedAt = 0;
+	// What the board was last drawn from; an unchanged poll doesn't redraw, so focus stays where the player put it.
+	let renderedKey = null;
+	// Set when the player opens System details, so its heading takes focus once (S02-6).
+	let focusSystemTitle = false;
 
 	function api(path, init = {}) {
 		return fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${getToken()}` } });
@@ -295,12 +424,16 @@
 
 	// ── Routing ──
 
-	function route() {
-		stopPolling();
-		const { view, id } = parseRoute(location.hash);
+	function showView(view) {
 		for (const [name, element] of Object.entries(views)) {
 			element.hidden = name !== view;
 		}
+	}
+
+	function route() {
+		stopPolling();
+		const { view, id } = parseRoute(location.hash);
+		showView(view === 'system' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		if (view === 'home' && latestGame()) {
@@ -315,10 +448,22 @@
 			setTitle('New game', 'Choose how long the game lasts, then invite the players.');
 			$('turns').focus();
 			loadYourGames();
+		} else if (view === 'unknown') {
+			showUnknown(id);
 		} else {
 			$('nav-home').setAttribute('aria-current', 'page');
+			focusSystemTitle = view === 'system';
 			openGame(id);
 		}
+	}
+
+	/** s08: an unknown screen, with a way back to the Deck of the game it was in (or to the Deck itself). */
+	function showUnknown(gameId) {
+		stopPolling();
+		showView('unknown');
+		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
+		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
+		$('unknown-title').focus();
 	}
 
 	/**
@@ -411,12 +556,43 @@
 	// ── s12: Lobby / game view ──
 
 	function openGame(id) {
+		const sameGame = lastGame !== null && lastGame.id === id;
 		currentGameId = id;
 		pollGeneration += 1;
-		setTitle('Game', 'Loading…');
-		$('refresh-message').textContent = '';
-		showPanels('game-loading');
+		renderedKey = null;
+		if (sameGame) {
+			render(lastGame, false); // Deck ↔ System details within one game: no loading screen in between
+		} else {
+			lastGame = null;
+			setTitle('Game', 'Loading…');
+			$('stale-notice').hidden = true;
+			showPanels('game-loading'); // s06
+		}
 		poll();
+	}
+
+	/** S02-12: a failed poll keeps the last state on screen and says how old it is. */
+	function pollFailed(id) {
+		$('stale-text').textContent = lastGame
+			? staleText((Date.now() - lastLoadedAt) / 1000)
+			: "Couldn't load the game. Trying again\u2026";
+		$('stale-notice').hidden = false;
+		schedulePoll(id);
+	}
+
+	$('retry-now').addEventListener('click', () => {
+		clearTimeout(pollTimer);
+		pollGeneration += 1; // a poll still in flight must not schedule a second loop
+		poll();
+	});
+
+	/** s07 and the lobby invitation: none of the game's state stays on screen. */
+	function showNotAPlayer() {
+		lastGame = null;
+		renderedKey = null;
+		$('stale-notice').hidden = true;
+		setTitle('Game', 'Someone sent you a link to their game.');
+		showPanels('join-panel');
 	}
 
 	async function poll() {
@@ -432,30 +608,38 @@
 			return; // the player has moved on, or reopened the game and a newer loop owns it
 		}
 		if (!response) {
-			$('refresh-message').textContent = "Couldn't refresh. Trying again…";
-			schedulePoll(id);
+			pollFailed(id);
 			return;
 		}
-		$('refresh-message').textContent = '';
 		if (response.status === 404) {
 			forgetGame(id);
+			lastGame = null;
+			$('stale-notice').hidden = true;
 			setTitle('Game', 'Not found');
 			showPanels('missing-panel');
 			return;
 		}
 		if (response.status === 403) {
 			forgetGame(id);
-			setTitle('Join a game', 'Someone sent you a link to their game.');
-			showPanels('join-panel');
+			showNotAPlayer();
 			return;
 		}
-		if (!response.ok) {
-			$('refresh-message').textContent = "Couldn't refresh. Trying again…";
-			schedulePoll(id);
+		let game;
+		try {
+			game = response.ok ? await response.json() : null;
+		} catch {
+			game = null;
+		}
+		if (generation !== pollGeneration) {
+			return;
+		}
+		if (!game) {
+			pollFailed(id);
 			return;
 		}
 		rememberGame(id);
-		render(await response.json());
+		$('stale-notice').hidden = true;
+		render(game);
 		schedulePoll(id);
 	}
 
@@ -506,8 +690,14 @@
 		}, POLL_INTERVAL_MS);
 	}
 
-	function render(game) {
+	/** [fresh] is false when redrawing the last state, which mustn't make it look newer than it is. */
+	function render(game, fresh = true) {
+		lastGame = game;
+		if (fresh) {
+			lastLoadedAt = Date.now();
+		}
 		if (game.status === 'LOBBY') {
+			views.game.classList.remove('view--wide');
 			renderLobby(game);
 		} else {
 			renderRunning(game);
@@ -529,13 +719,150 @@
 		showPanels('lobby-panel', 'players-panel', state.isCreator ? 'start-panel' : 'waiting-panel');
 	}
 
+	// ── s01 Deck and s02 System details ──
+
 	function renderRunning(game) {
-		setTitle(turnText(game), 'The game has started.');
-		const me = game.players.find(p => p.email === session.email);
-		$('money-value').textContent = `${game.you?.money ?? 0} HT`;
-		fillList($('fleet-list'), (me?.ships ?? []).map(shipLine));
+		const { view, systemId } = parseRoute(location.hash);
+		setTitle(turnText(game), `Money: ${game.you?.money ?? 0} HT`); // the top bar (S01-1, R29)
+		views.game.classList.add('view--wide');
+		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
+		const changed = key !== renderedKey;
+		renderedKey = key;
+		if (view === 'system') {
+			const system = game.board.find(s => s.id === systemId);
+			if (!system) {
+				showUnknown(game.id);
+				return;
+			}
+			if (changed) {
+				renderSystem(game, system);
+			}
+			showPanels('system-panel');
+			if (focusSystemTitle) {
+				focusSystemTitle = false;
+				$('system-title').focus();
+			}
+			return;
+		}
+		if (changed) {
+			renderDeck(game);
+		}
+		showPanels('deck-panel');
+	}
+
+	function element(tag, attributes = {}, ...children) {
+		const node = document.createElement(tag);
+		for (const [name, value] of Object.entries(attributes)) {
+			node.setAttribute(name, value);
+		}
+		node.append(...children); // strings become text nodes: player-typed names never reach innerHTML
+		return node;
+	}
+
+	const SVG_NS = 'http://www.w3.org/2000/svg';
+
+	function svgElement(tag, attributes = {}, text = null) {
+		const node = document.createElementNS(SVG_NS, tag);
+		for (const [name, value] of Object.entries(attributes)) {
+			node.setAttribute(name, value);
+		}
+		if (text !== null) {
+			node.textContent = text;
+		}
+		return node;
+	}
+
+	function levelLabel(level) {
+		return element('span', { class: 'market-level', 'data-step': level.step }, `${level.arrow} ${level.label}`);
+	}
+
+	function renderDeck(game) {
+		renderMap(game);
+		$('fleet-list').replaceChildren(...fleet(game, session.email).map(ship => element('li', {},
+			element('strong', {}, ship.name), ' \u2014 ',
+			element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.systemName),
+			` \u00b7 ${ship.location} \u2014 `,
+			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		fillList($('log-list'), game.log);
-		showPanels('money-panel', 'fleet-panel', 'log-panel');
+	}
+
+	/** S02-1/2/4: the hexagon ring, each system a link holding its goods and prices, ships underneath. */
+	function renderMap(game) {
+		const map = svgElement('svg', {
+			viewBox: MAP_VIEW_BOX,
+			role: 'group',
+			'aria-label': 'Map of the six star systems with their goods and prices. Each system links to its details.',
+		});
+		const systems = game.board.filter(system => NODE_POSITIONS[system.id]);
+		for (const [from, to] of mapEdges(systems.map(system => system.id))) {
+			const [x1, y1] = NODE_POSITIONS[from];
+			const [x2, y2] = NODE_POSITIONS[to];
+			map.append(svgElement('line', { x1, y1, x2, y2, class: 'map-edge' }));
+		}
+		for (const system of systems) {
+			const [x, y] = NODE_POSITIONS[system.id];
+			const node = svgElement('a', {
+				href: systemLink(game.id, system.id),
+				class: 'map-node',
+				'aria-label': systemAccessibleName(game, system, session.email),
+			});
+			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
+			node.append(svgElement('text', { x, y: y - NODE_RADIUS - 12, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
+			const lineHeight = 22;
+			const top = y - ((system.market.length - 1) * lineHeight) / 2 + 6;
+			system.market.forEach((entry, index) => {
+				const good = mapGood(entry);
+				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
+				line.append(svgElement('tspan', {}, `${good.goods} `));
+				line.append(svgElement('tspan', { class: 'market-level', 'data-step': good.level.step }, good.price));
+				node.append(line);
+			});
+			const labels = shipsAt(game, system.id, session.email).map(ship => ship.label);
+			const rows = [];
+			for (let i = 0; i < labels.length; i += 2) {
+				rows.push(labels.slice(i, i + 2).join('  '));
+			}
+			const ships = svgElement('text', { x, y: y + NODE_RADIUS + 24, 'text-anchor': 'middle', class: 'map-node__ships' });
+			(rows.length ? rows : ['no ships']).forEach((row, index) => {
+				ships.append(svgElement('tspan', { x, dy: index === 0 ? 0 : 20 }, row));
+			});
+			node.append(ships);
+			map.append(node);
+		}
+		$('map').replaceChildren(map);
+	}
+
+	function renderLegend() {
+		const parts = ['Prices in HT. '];
+		MARKET_LEVELS.forEach((level, index) => {
+			parts.push(index ? ' \u00b7 ' : '', levelLabel(level), ` (${level.hint})`);
+		});
+		$('map-legend').replaceChildren(...parts);
+	}
+
+	/** S02-7/8: locations with ships, the market, and who holds which market position. */
+	function renderSystem(game, system) {
+		$('system-title').textContent = system.name;
+		$('system-back').href = deckLink(game.id);
+		$('system-locations').replaceChildren(...locations(game, system, session.email).map(place => element('div', { class: 'place' },
+			element('h3', {}, place.name),
+			element('p', { class: 'muted' }, place.stats),
+			element('ul', {}, ...(place.ships.length
+				? place.ships.map(ship => element('li', {}, ship.text))
+				: [element('li', { class: 'muted' }, 'No ships')])))));
+		$('system-market').replaceChildren(...system.market.map(entry => {
+			const level = marketLevel(entry.indicator);
+			return element('tr', {},
+				element('td', {}, element('span', { class: `good good--${entry.goods.toLowerCase()}` }, entry.goods)),
+				element('td', { class: 'num' }, `${entry.price} HT`),
+				element('td', { class: 'num' }, signedIndicator(entry.indicator)),
+				element('td', {}, levelLabel(level), ` \u2014 ${level.hint}`));
+		}));
+		$('system-positions').replaceChildren(...marketPositions(game, system).map(row => element('tr', {},
+			element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
+			...(row.nobody
+				? [element('td', { colspan: '3', class: 'muted' }, 'Nobody holds a position for this good yet')]
+				: row.tiers.map(tier => element('td', {}, tier.holders.join(', ') || '\u2014'))))));
 	}
 
 	$('copy-link').addEventListener('click', async () => {
@@ -587,6 +914,7 @@
 	});
 
 	// Signed out, or the server no longer knows the session: sign in (s10), then come back here (E01-S03).
+	renderLegend();
 	session = await requireSession();
 	if (session) {
 		window.addEventListener('hashchange', route);

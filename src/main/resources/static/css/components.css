@@ -231,3 +231,12 @@ h1, h2, h3 {
 
 .muted { color: var(--text-muted); }
 .empty { color: var(--text-muted); font-size: var(--text-body); }
+
+/* ── Market level (D08): arrow + label, colour stepped by buy chance. "balance" is grey until the design
+   system has a fifth colour (D08 follow-up); the arrow and the word carry the meaning either way. ── */
+.market-level { font-weight: 700; }
+.market-level[data-step="easy"] { color: var(--sd-easy); fill: var(--sd-easy); }
+.market-level[data-step="fair"] { color: var(--sd-fair); fill: var(--sd-fair); }
+.market-level[data-step="balance"] { color: var(--text-muted); fill: var(--text-muted); }
+.market-level[data-step="hard"] { color: var(--sd-hard); fill: var(--sd-hard); }
+.market-level[data-step="bad"] { color: var(--sd-bad); fill: var(--sd-bad); }
