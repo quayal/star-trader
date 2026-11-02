@@ -232,11 +232,11 @@ h1, h2, h3 {
 .muted { color: var(--text-muted); }
 .empty { color: var(--text-muted); font-size: var(--text-body); }
 
-/* ── Market level (D08): arrow + label, colour stepped by buy chance. "balance" is grey until the design
-   system has a fifth colour (D08 follow-up); the arrow and the word carry the meaning either way. ── */
+/* ── Market level (D08): ▲/▼/— gives the direction, the colour how likely it is (bright high, muted moderate).
+   `color` for HTML, `fill` for the map's SVG text. ── */
 .market-level { font-weight: 700; }
-.market-level[data-step="easy"] { color: var(--sd-easy); fill: var(--sd-easy); }
-.market-level[data-step="fair"] { color: var(--sd-fair); fill: var(--sd-fair); }
-.market-level[data-step="balance"] { color: var(--text-muted); fill: var(--text-muted); }
-.market-level[data-step="hard"] { color: var(--sd-hard); fill: var(--sd-hard); }
-.market-level[data-step="bad"] { color: var(--sd-bad); fill: var(--sd-bad); }
+.market-level[data-level="high-demand"] { color: var(--market-demand-high); fill: var(--market-demand-high); }
+.market-level[data-level="moderate-demand"] { color: var(--market-demand-moderate); fill: var(--market-demand-moderate); }
+.market-level[data-level="in-balance"] { color: var(--market-balance); fill: var(--market-balance); }
+.market-level[data-level="moderate-supply"] { color: var(--market-supply-moderate); fill: var(--market-supply-moderate); }
+.market-level[data-level="high-supply"] { color: var(--market-supply-high); fill: var(--market-supply-high); }

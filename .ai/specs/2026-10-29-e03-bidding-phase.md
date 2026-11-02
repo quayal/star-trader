@@ -50,6 +50,7 @@ Each criterion names its screen and the rule it comes from. `proto-A…` IDs are
 5. [s01] [R42] "Your fleet" lists each of your ships separately with its system (link to s02), location (Port / Planet / Space), every good it carries with the amount, and the cargo space it has used: "Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used". An empty ship says "Empty · cargo 0 / 10 used".
 6. [s01→s02] Selecting a system on the map, a fleet entry or an offer's system opens s02 with its heading focused.
 7. [s02] [D07, R31] Three foldable sections: **Locations and ships** (Port: class, legal system; Space: police; Planet: security; ships in each; your own ships there also show their goods and cargo space used, as in S02-5; other players' cargo is never shown), **Market** (good, price, S/D, label with arrow and hint), **Market positions** (Dictator / Wholesaler / Retailer per good, R28; players without a position are not listed). The first two are open by default. Warehouses and factories are not shown (N08).
+   > Changed during implementation (creator, 2026-11-02, PR #70): the arrows ↑ ↗ → ↘ ↓ in S02-2 and S02-7 are ▲ / ▼ / —, with how likely shown by bright or muted colour (brief D08).
 8. [s02] [—] Empty states: "No ships" per location; "Nobody holds a position for this good yet" in Market positions (everyone starts with none, R40).
 9. [s06] While the first state load is in flight, "Loading game…" is shown.
 10. [s07] [E02-S04, A05] A signed-in user who isn't in this game sees "You're not a player in this game" and none of its state.

@@ -11,16 +11,20 @@
 export const MODERATE_DEMAND_MIN_CHANCE = 0.2;
 
 /**
- * The five market levels of D08, from the demand end to the supply end (legend order). `step` picks the
- * colour token: the S/D steps of the design system, with "in balance" muted grey (no fifth colour yet).
+ * The five market levels of D08, from the demand end to the supply end (legend order). The symbol gives the
+ * direction (▲ the price may rise, ▼ it may fall, — steady) and the colour how likely it is: bright for high,
+ * muted for moderate (creator, 2026-11-02). `key` is the `data-level` that `.market-level` colours.
  */
 export const MARKET_LEVELS = [
-	{ key: 'high-demand', label: 'high demand', arrow: '↑', hint: 'price likely to rise', step: 'bad' },
-	{ key: 'moderate-demand', label: 'moderate demand', arrow: '↗', hint: 'price may rise', step: 'hard' },
-	{ key: 'in-balance', label: 'in balance', arrow: '→', hint: 'price steady', step: 'balance' },
-	{ key: 'moderate-supply', label: 'moderate supply', arrow: '↘', hint: 'price may fall', step: 'fair' },
-	{ key: 'high-supply', label: 'high supply', arrow: '↓', hint: 'price likely to fall', step: 'easy' },
+	{ key: 'high-demand', label: 'high demand', symbol: '▲', hint: 'price likely to rise' },
+	{ key: 'moderate-demand', label: 'moderate demand', symbol: '▲', hint: 'price may rise' },
+	{ key: 'in-balance', label: 'in balance', symbol: '—', hint: 'price steady' },
+	{ key: 'moderate-supply', label: 'moderate supply', symbol: '▼', hint: 'price may fall' },
+	{ key: 'high-supply', label: 'high supply', symbol: '▼', hint: 'price likely to fall' },
 ];
+
+/** A no-break space between symbol and price, so "— 10" never reads as minus ten. */
+const SYMBOL_GAP = '\u00a0';
 
 const LEVEL = Object.fromEntries(MARKET_LEVELS.map(level => [level.key, level]));
 
@@ -135,17 +139,22 @@ export function shipsUnderText(game, systemId, myEmail) {
 	return ships.length ? ships.map(ship => ship.label).join('  ') : 'no ships';
 }
 
-/** One good inside a map node: "POLY", "↓6" and its level. */
+/** One good inside a map node: "POLY", "▼ 6" and its level. */
 export function mapGood(entry) {
 	const level = marketLevel(entry.indicator);
-	return { goods: entry.goods, price: `${level.arrow}${entry.price}`, level };
+	return { goods: entry.goods, price: `${level.symbol}${SYMBOL_GAP}${entry.price}`, level };
 }
 
-/** S02-2: the arrow and label are in the accessible name, so colour is never the only cue. */
+/** "▲ high demand": the symbol and the word, so colour is never the only cue. */
+export function levelText(level) {
+	return `${level.symbol} ${level.label}`;
+}
+
+/** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
 export function systemAccessibleName(game, system, myEmail) {
 	const goods = system.market.map(entry => {
 		const level = marketLevel(entry.indicator);
-		return `${entry.goods} ${entry.price} HT, ${level.arrow} ${level.label}, ${level.hint}`;
+		return `${entry.goods} ${entry.price} HT, ${level.label}, ${level.hint}`;
 	}).join('; ');
 	const ships = shipsAt(game, system.id, myEmail);
 	const mine = ships.filter(ship => ship.mine).length;

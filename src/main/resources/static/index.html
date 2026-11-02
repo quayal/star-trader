@@ -121,7 +121,7 @@
 		.map-node:focus { outline: none; }
 		.map-node text { fill: var(--text-primary); font-family: var(--font-body); }
 		.map-node .map-node__name { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
-		.map-node .map-node__good { font-size: 18px; font-weight: 600; }
+		.map-node .map-node__good { font-size: 15px; font-weight: 600; }
 		.map-node .map-node__ships { fill: var(--text-muted); font-size: 16px; }
 		.map-key, .map-legend { margin: var(--space-related) 0 0; font-size: var(--text-body); }
 		.map-legend { color: var(--text-muted); }
@@ -371,6 +371,7 @@
 		shipsAt,
 		signedIndicator,
 		STALE_MESSAGE,
+		levelText,
 		staleAgeText,
 		systemAccessibleName,
 	} from './js/board.js';
@@ -784,7 +785,7 @@
 	}
 
 	function levelLabel(level) {
-		return element('span', { class: 'market-level', 'data-step': level.step }, `${level.arrow} ${level.label}`);
+		return element('span', { class: 'market-level', 'data-level': level.key }, levelText(level));
 	}
 
 	function renderDeck(game) {
@@ -819,13 +820,13 @@
 			});
 			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
 			node.append(svgElement('text', { x, y: y - NODE_RADIUS - 12, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
-			const lineHeight = 22;
+			const lineHeight = 19;
 			const top = y - ((system.market.length - 1) * lineHeight) / 2 + 6;
 			system.market.forEach((entry, index) => {
 				const good = mapGood(entry);
 				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
 				line.append(svgElement('tspan', {}, `${good.goods} `));
-				line.append(svgElement('tspan', { class: 'market-level', 'data-step': good.level.step }, good.price));
+				line.append(svgElement('tspan', { class: 'market-level', 'data-level': good.level.key }, good.price));
 				node.append(line);
 			});
 			const labels = shipsAt(game, system.id, session.email).map(ship => ship.label);

@@ -11,6 +11,7 @@ import {
 	fleet,
 	fleetLine,
 	initials,
+	levelText,
 	locations,
 	mapEdges,
 	mapGood,
@@ -92,9 +93,12 @@ describe('marketLevel (D08)', () => {
 		assert.ok(buyChance(-9) >= MODERATE_DEMAND_MIN_CHANCE && buyChance(-10) < MODERATE_DEMAND_MIN_CHANCE);
 	});
 
-	it('gives each level an arrow and a hint, so colour is never the only cue', () => {
-		assert.deepEqual(MARKET_LEVELS.map(level => level.arrow), ['↑', '↗', '→', '↘', '↓']);
-		assert.ok(MARKET_LEVELS.every(level => level.hint && level.step));
+	it('shows direction with a triangle (— in balance) and leaves likelihood to colour and words', () => {
+		assert.deepEqual(MARKET_LEVELS.map(level => level.symbol), ['▲', '▲', '—', '▼', '▼']);
+		assert.deepEqual(MARKET_LEVELS.map(level => levelText(level)), [
+			'▲ high demand', '▲ moderate demand', '— in balance', '▼ moderate supply', '▼ high supply',
+		]);
+		assert.ok(MARKET_LEVELS.every(level => level.hint && level.key));
 	});
 });
 
@@ -123,17 +127,18 @@ describe('the map', () => {
 		assert.equal(new Set(edges.map(edge => edge.join('-'))).size, 15);
 	});
 
-	it('lists a good with its arrow and price', () => {
+	it('lists a good with its triangle and price, never "—10" for a steady price', () => {
 		const good = mapGood({ goods: 'POLY', price: 6, indicator: -10 });
 		assert.equal(good.goods, 'POLY');
-		assert.equal(good.price, '↑6');
-		assert.equal(good.level.label, 'high demand');
+		assert.equal(good.price, '▲\u00a06');
+		assert.equal(good.level.key, 'high-demand');
+		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).price, '—\u00a010');
 	});
 
-	it('puts every good, its price and its market label in the accessible name', () => {
+	it('puts every good, its price and its market label in words in the accessible name', () => {
 		assert.equal(
 			systemAccessibleName(game, tauCeti, 'ada@example.com'),
-			'Tau Ceti: ISO 4 HT, ↗ moderate demand, price may rise; POLY 6 HT, ↑ high demand, price likely to rise. '
+			'Tau Ceti: ISO 4 HT, moderate demand, price may rise; POLY 6 HT, high demand, price likely to rise. '
 				+ '1 of your ships, 1 other ship. Open system details.',
 		);
 	});

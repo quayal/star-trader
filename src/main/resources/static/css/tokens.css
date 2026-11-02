@@ -20,6 +20,8 @@
 	--amber-400: #fbbf24;
 	--orange-400: #fb923c;
 	--red-400: #f87171;
+	--red-muted: #c27c76;
+	--green-muted: #6fa98c;
 	--blue-400: #4d8dff;
 	--pink-400: #f472b6;
 	--lime-400: #a3e635;
@@ -62,6 +64,13 @@
 	--sd-fair: var(--amber-400);            /* R03.5 — buy chance 72–92% */
 	--sd-hard: var(--orange-400);           /* R03.5 — buy chance 42–58% */
 	--sd-bad: var(--red-400);               /* R03.5 — buy chance ≤ 28% */
+
+	/* Market levels (D08): bright at the extremes, muted in between, grey in balance. Text ≥ 4.5:1 on every surface (4.9 on raised). */
+	--market-demand-high: var(--red-400);          /* D08 — ▲ price likely to rise */
+	--market-demand-moderate: var(--red-muted);    /* D08 — ▲ price may rise (pick, 2026-11-02) */
+	--market-balance: var(--ink-400);              /* D08 — — price steady */
+	--market-supply-moderate: var(--green-muted);  /* D08 — ▼ price may fall (pick, 2026-11-02) */
+	--market-supply-high: var(--green-400);        /* D08 — ▼ price likely to fall */
 
 	/* Typography (R01.2; 12 px floor) */
 	--font-display: 'Orbitron', sans-serif; /* R01.2 — titles, badges, numerals; not body text */
