@@ -1,11 +1,11 @@
 package dev.adriangrzebyk.trader.trading.adapter.memory
 
+import dev.adriangrzebyk.trader.trading.TradeDesk
 import dev.adriangrzebyk.trader.trading.TradeOffer
 import dev.adriangrzebyk.trader.trading.TradeOfferBook
-import org.springframework.stereotype.Component
 import java.util.concurrent.CopyOnWriteArrayList
 
-@Component
+/** One unscoped list of offers: the [TradeDesk] tests' book. No game uses it (engineering standards §11). */
 class InMemoryTradeOfferBook : TradeOfferBook {
 
 	private val initiativeSequence = TradeOfferSequence()
