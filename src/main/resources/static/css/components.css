@@ -28,6 +28,10 @@ h1, h2, h3 {
 	outline-offset: 2px;
 }
 
+/* A heading that only receives focus when a screen opens (tabindex="-1", S02-6) isn't a control: focus moves
+   there for keyboard and screen-reader users, without a ring (creator, 2026-11-02). */
+[tabindex="-1"]:focus { outline: none; }
+
 /* ── Panel (R01.1) ── */
 .panel {
 	background: var(--surface-panel);
