@@ -830,13 +830,10 @@
 				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
 				line.append(svgElement('tspan', {}, `${good.goods} `));
 				const level = svgElement('tspan', { class: 'market-level', 'data-level': good.level.key });
+				level.append(good.price);
 				if (good.symbol) {
-					// SVG text has no vertical-align: dy lifts the small triangle to mid-height and the price drops back.
-					level.append(
-						svgElement('tspan', { class: 'market-level__triangle', dy: -TRIANGLE_LIFT }, good.symbol),
-						svgElement('tspan', { dy: TRIANGLE_LIFT }, good.price));
-				} else {
-					level.append(good.price);
+					// After the price (creator, 2026-11-02). SVG text has no vertical-align: dy lifts the small triangle to mid-height.
+					level.append(svgElement('tspan', { class: 'market-level__triangle', dy: -TRIANGLE_LIFT }, good.symbol));
 				}
 				line.append(level);
 				node.append(line);

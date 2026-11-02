@@ -140,10 +140,10 @@ export function shipsUnderText(game, systemId, myEmail) {
 	return ships.length ? ships.map(ship => ship.label).join('  ') : 'no ships';
 }
 
-/** One good inside a map node: "POLY", its level's triangle ("" in balance), the price ("\u00a06" after a triangle) and the level. */
+/** One good inside a map node: "POLY", the price ("6\u00a0" when a triangle follows), its level's triangle ("" in balance) and the level. */
 export function mapGood(entry) {
 	const level = marketLevel(entry.indicator);
-	return { goods: entry.goods, symbol: level.symbol, price: level.symbol ? `${SYMBOL_GAP}${entry.price}` : `${entry.price}`, level };
+	return { goods: entry.goods, price: level.symbol ? `${entry.price}${SYMBOL_GAP}` : `${entry.price}`, symbol: level.symbol, level };
 }
 
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */

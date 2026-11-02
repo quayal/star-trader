@@ -123,11 +123,11 @@ describe('the map', () => {
 		assert.equal(new Set(edges.map(edge => edge.join('-'))).size, 15);
 	});
 
-	it('lists a good with its triangle and price, and a steady price on its own', () => {
+	it('lists a good with its price then its triangle, and a steady price on its own', () => {
 		const good = mapGood({ goods: 'POLY', price: 6, indicator: -10 });
 		assert.equal(good.goods, 'POLY');
 		assert.equal(good.symbol, '▲');
-		assert.equal(good.price, '\u00a06');
+		assert.equal(good.price, '6\u00a0');
 		assert.equal(good.level.key, 'high-demand');
 		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).symbol, '');
 		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).price, '10');
