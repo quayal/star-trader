@@ -96,6 +96,8 @@ listing is gone.
 
 ## Progress
 
+PR: #73
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Domain
@@ -121,4 +123,4 @@ listing is gone.
 
 ### Phase 5: Verification
 
-- [ ] 5.1 Full gate and browser walk with screenshots
+- [x] 5.1 Full gate and browser walk with screenshots — https://github.com/quayal/star-trader/pull/73#issuecomment-6584997515
