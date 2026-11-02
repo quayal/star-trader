@@ -107,12 +107,43 @@
 			background: var(--surface-panel);
 		}
 		.stale-notice[hidden], .deck[hidden], .system[hidden] { display: none; }
-		/* s01: fleet and log left of the map; one column on a narrow screen, map first. */
-		.deck { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr); gap: var(--space-panel); align-items: start; }
+		/* s01: fleet and log left of the map, offers right of it (D07); one column on a narrow screen, map first. */
+		.deck {
+			display: grid;
+			grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr) minmax(240px, 1fr);
+			gap: var(--space-panel);
+			align-items: start;
+		}
 		.deck__side { display: grid; gap: var(--space-panel); }
+		@media (max-width: 1200px) {
+			.deck { grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr); }
+			.deck__offers { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+		}
 		@media (max-width: 900px) {
 			.deck { grid-template-columns: minmax(0, 1fr); }
 			.deck__map { order: -1; }
+		}
+		/* E03-S03: the offer forms on s01 and s02. */
+		.offer-form { max-width: none; gap: var(--space-related); }
+		.offer-form .control { width: 100%; }
+		.offer-form .price-input { max-width: 120px; font-variant-numeric: tabular-nums; }
+		.offer-form .message { margin: var(--space-hairline) 0 0; }
+		.offer-form .message:empty { display: none; }
+		.offer-type { border: 0; padding: 0; margin: 0; }
+		.offer-type .choices { display: flex; gap: var(--space-group); }
+		.offer-type .choice { flex: 1; }
+		.offer-warning { margin: 0; padding: var(--space-related); border: var(--border-width) solid var(--status-warn); border-radius: var(--radius-control); }
+		.offer-warning[hidden], .offer-notes:empty, .offer-fields[hidden] { display: none; }
+		.offer-fields { display: grid; gap: var(--space-related); }
+		.offer-notes { display: grid; gap: var(--space-hairline); }
+		.offer-notes p { margin: 0; }
+		.offer-list { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-group); }
+		.offer-list .trade { padding: 0 var(--space-hairline); border-radius: var(--radius-control); }
+		.system__body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: var(--space-panel); align-items: start; }
+		.system__main { display: grid; gap: var(--space-panel); }
+		.system__body > [hidden] { display: none; }
+		@media (max-width: 900px) {
+			.system__body { grid-template-columns: minmax(0, 1fr); }
 		}
 		.map svg { display: block; width: 100%; height: auto; }
 		.map-edge { stroke: var(--border-subtle); stroke-width: 1; }
@@ -260,7 +291,7 @@
 			<p><span class="badge badge--warn">Waiting</span> <span id="waiting-text"></span></p>
 		</section>
 
-		<!-- s01: the Deck. The right column (offers, initiative bid) arrives with E03-S03 and S05. -->
+		<!-- s01: the Deck. The initiative bid (S05) joins the right column later. -->
 		<div class="deck" id="deck-panel" hidden>
 			<div class="deck__side">
 				<section class="panel" aria-labelledby="fleet-title">
@@ -278,12 +309,25 @@
 				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials). Select a system for its details.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
+			<div class="deck__side deck__offers">
+				<section class="panel" id="deck-offer-panel" aria-labelledby="deck-offer-title" hidden>
+					<h2 id="deck-offer-title">Place an offer</h2>
+					<div id="deck-offer"></div>
+				</section>
+				<section class="panel" aria-labelledby="your-offers-title">
+					<h2 id="your-offers-title">Your offers this turn</h2>
+					<ul class="offer-list" id="your-offers"></ul>
+					<p class="muted">Only you can see these until Trading resolves them.</p>
+				</section>
+			</div>
 		</div>
 
 		<!-- s02: System details -->
 		<div class="system" id="system-panel" hidden>
 			<p><a class="link" id="system-back" href="/">&larr; Back to the Deck</a></p>
 			<h2 class="system__title" id="system-title" tabindex="-1"></h2>
+			<div class="system__body">
+			<div class="system__main">
 			<details class="panel section" open>
 				<summary>Locations and ships</summary>
 				<div class="places" id="system-locations"></div>
@@ -307,6 +351,12 @@
 				</div>
 				<p class="muted">Players without a position for a good aren't listed.</p>
 			</details>
+			</div>
+			<section class="panel" id="system-offer-panel" aria-labelledby="system-offer-title" hidden>
+				<h2 id="system-offer-title">Place an offer</h2>
+				<div id="system-offer"></div>
+			</section>
+			</div>
 		</div>
 	</div>
 
@@ -373,6 +423,17 @@
 		staleAgeText,
 		systemAccessibleName,
 	} from './js/board.js';
+	import {
+		NO_SHIP_WARNING,
+		hasShipAt,
+		isBidding,
+		isClosedRefusal,
+		noOffersText,
+		offerChoices,
+		placedText,
+		refusalText,
+		validatePrice,
+	} from './js/offers.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -746,6 +807,7 @@
 			if (changed) {
 				renderSystem(game, system);
 			}
+			updateOfferForm(systemOfferForm, game, system.id);
 			showPanels('system-panel');
 			if (focusSystemTitle) {
 				focusSystemTitle = false;
@@ -757,6 +819,7 @@
 		if (changed) {
 			renderDeck(game);
 		}
+		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		showPanels('deck-panel');
 	}
 
@@ -798,6 +861,206 @@
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		fillList($('log-list'), game.log);
+		renderYourOffers(game);
+	}
+
+	// ── E03-S03: secret trade offers ──
+
+	const TYPE_NAMES = { BUY: 'Buy', SELL: 'Sell' };
+
+	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
+	function renderYourOffers(game) {
+		const offers = game.you?.offers ?? [];
+		$('your-offers').replaceChildren(...(offers.length
+			? offers.map(offer => element('li', {},
+				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
+				element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
+				` at ${offer.price} HT \u2014 `,
+				element('a', { class: 'link', href: systemLink(game.id, offer.system) }, offer.systemName)))
+			: [element('li', { class: 'muted' }, noOffersText(game))]));
+	}
+
+	/**
+	 * Builds one offer form (S03-1/2) once. It's never rebuilt on a poll, so what the player has typed and where
+	 * their focus is survive the 2 s refresh; updateOfferForm only changes the goods list and what's shown.
+	 */
+	function buildOfferForm(prefix, withSystem) {
+		const id = name => `${prefix}-${name}`;
+		const form = {
+			prefix,
+			closedInTurn: null,
+			system: withSystem ? element('select', { class: 'control', id: id('system') }) : null,
+			systemId: null,
+			goods: element('select', { class: 'control', id: id('goods'), 'aria-describedby': id('notes') }),
+			notes: element('div', { class: 'offer-notes', id: id('notes') }),
+			warning: withSystem ? null : element('p', { class: 'offer-warning', hidden: '' }, NO_SHIP_WARNING),
+			price: element('input', {
+				class: 'control price-input', id: id('price'), inputmode: 'numeric', placeholder: '1\u201320',
+				'aria-describedby': `${id('price-hint')} ${id('price-error')}`,
+			}),
+			priceError: element('p', { class: 'message message--error field-error', id: id('price-error') }),
+			types: ['BUY', 'SELL'].map(type => element('input', { type: 'radio', name: id('type'), value: type })),
+			button: element('button', { class: 'btn', type: 'submit' }, 'Place offer'),
+			message: element('p', { class: 'message', id: id('message'), role: 'status' }),
+		};
+		form.types[0].checked = true;
+		// Hidden once no good is left to offer there, so only the reason (in notes) shows.
+		form.fields = element('div', { class: 'offer-fields' },
+			element('div', {}, element('label', { class: 'field-label', for: id('goods') }, 'Goods'), form.goods),
+			element('div', {},
+				element('label', { class: 'field-label', for: id('price') }, 'Price (HT)'), form.price,
+				element('p', { class: 'message muted', id: id('price-hint') }, 'A whole number from 1 to 20. One offer per good per system.'),
+				form.priceError),
+			element('fieldset', { class: 'offer-type' }, element('legend', { class: 'field-label' }, 'Buy or sell'),
+				element('div', { class: 'choices' }, ...form.types.map(radio => element('label', { class: 'choice' }, radio, TYPE_NAMES[radio.value])))),
+			element('div', {}, form.button));
+		form.element = element('form', { class: 'offer-form', novalidate: '' },
+			...(form.warning ? [form.warning] : []),
+			...(form.system ? [element('div', {}, element('label', { class: 'field-label', for: id('system') }, 'Star system'), form.system)] : []),
+			form.notes,
+			form.fields,
+			form.message);
+		form.element.addEventListener('submit', event => {
+			event.preventDefault();
+			submitOffer(form);
+		});
+		if (form.system) {
+			form.system.addEventListener('change', () => {
+				form.message.textContent = '';
+				if (lastGame) {
+					updateOfferForm(form, lastGame, form.system.value);
+				}
+			});
+		}
+		return form;
+	}
+
+	const deckOfferForm = buildOfferForm('deck-offer', true);
+	const systemOfferForm = buildOfferForm('system-offer', false);
+	$('deck-offer').replaceChildren(deckOfferForm.element);
+	$('system-offer').replaceChildren(systemOfferForm.element);
+
+	function setControlsDisabled(form, disabled) {
+		for (const control of [form.system, form.goods, form.price, ...form.types, form.button].filter(Boolean)) {
+			control.disabled = disabled;
+		}
+	}
+
+	/**
+	 * Shows the form during Bidding for [systemId]: its goods minus those already offered (R33) or held as Dictator
+	 * (R38), with the reason, and on s02 the no-ship warning (R23). After a "Bidding has closed" refusal (S03-7) the
+	 * form stays, disabled, with the typed values and the message, until the next turn.
+	 */
+	function updateOfferForm(form, game, systemId) {
+		const panel = $(`${form.prefix}-panel`);
+		const turnNumber = game.turn?.number ?? null;
+		if (form.closedInTurn !== null && form.closedInTurn === turnNumber && game.status === 'RUNNING') {
+			panel.hidden = false;
+			setControlsDisabled(form, true);
+			return;
+		}
+		form.closedInTurn = null;
+		panel.hidden = !isBidding(game);
+		if (panel.hidden) {
+			return;
+		}
+		if (form.system && form.system.options.length !== game.board.length) {
+			form.system.replaceChildren(...game.board.map(system => element('option', { value: system.id }, system.name)));
+			systemId = form.system.value;
+		}
+		if (form.systemId !== systemId) {
+			form.systemId = systemId;
+			form.message.textContent = ''; // a status about another system doesn't belong here
+		}
+		const { goods, notes } = offerChoices(game, systemId, session.email);
+		// Only rebuilt when it changes: replacing the options on every poll would close an open dropdown.
+		if ([...form.goods.options].map(option => option.value).join() !== goods.join()) {
+			const selected = form.goods.value;
+			form.goods.replaceChildren(...goods.map(g => element('option', { value: g }, g)));
+			if (goods.includes(selected)) {
+				form.goods.value = selected;
+			}
+		}
+		if ([...form.notes.children].map(note => note.textContent).join('\n') !== notes.join('\n')) {
+			form.notes.replaceChildren(...notes.map(note => element('p', { class: 'muted' }, note)));
+		}
+		setControlsDisabled(form, false);
+		form.fields.hidden = goods.length === 0; // the notes say why
+		if (form.warning) {
+			form.warning.hidden = goods.length === 0 || hasShipAt(game, systemId, session.email);
+		}
+	}
+
+	function setPriceError(form, text) {
+		form.priceError.textContent = text;
+		if (text) {
+			form.price.setAttribute('aria-invalid', 'true');
+			form.price.focus();
+		} else {
+			form.price.removeAttribute('aria-invalid');
+		}
+	}
+
+	function setOfferMessage(form, text, error) {
+		form.message.textContent = text;
+		form.message.className = error ? 'message message--error' : 'message message--success';
+	}
+
+	async function submitOffer(form) {
+		setPriceError(form, '');
+		form.message.textContent = '';
+		if (form.fields.hidden || !form.goods.value) {
+			return;
+		}
+		const checked = validatePrice(form.price.value);
+		if (checked.error) {
+			setPriceError(form, checked.error);
+			return;
+		}
+		const systemId = form.systemId;
+		const offer = { system: systemId, goods: form.goods.value, type: form.types.find(radio => radio.checked).value, price: checked.price };
+		const gameId = currentGameId;
+		form.button.disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/offers`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(offer),
+			});
+		} catch {
+			form.button.disabled = false;
+			setOfferMessage(form, UNREACHABLE, true);
+			return;
+		}
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			const game = await response.json();
+			form.price.value = '';
+			render(game);
+			const systemName = game.board.find(system => system.id === systemId)?.name ?? systemId;
+			setOfferMessage(form, placedText(offer, systemName), false);
+			form.price.focus();
+			return;
+		}
+		const message = await errorText(response, '');
+		if (isClosedRefusal(response.status, message)) {
+			form.closedInTurn = lastGame?.turn?.number ?? null;
+			setControlsDisabled(form, true);
+			setOfferMessage(form, refusalText(response.status, message, ''), true);
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the top bar catches up with the close; the form keeps what was typed
+			return;
+		}
+		form.button.disabled = false;
+		if (response.status === 400 && message.startsWith('Price')) {
+			setPriceError(form, message);
+			return;
+		}
+		setOfferMessage(form, refusalText(response.status, message, "The offer couldn't be placed."), true);
 	}
 
 	/** S02-1/2/4: the hexagon ring, each system a link holding its goods and prices, ships underneath. */
