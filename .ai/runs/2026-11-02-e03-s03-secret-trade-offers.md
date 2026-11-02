@@ -58,6 +58,10 @@ listing is gone.
 - **Forms are static markup, not rebuilt on poll**, so typed values and focus survive the 2 s poll. After a
   `409` close the form stays on screen, disabled, with the message and the typed values until the next turn.
 
+- **Found in the browser walk**: with every good at a system offered, the form showed an empty, disabled form;
+  now its fields hide and only the reason shows (as the prototype does). Between 900 and 1200 px the offers
+  column moves below the map, since three columns leave the map too narrow; above 1200 px it's right of the map.
+
 ## Risks
 
 - `risk-high`: confidential read (A05). Covered by the denied-path controller test and the DTO test.
@@ -107,13 +111,13 @@ listing is gone.
 
 ### Phase 3: Client logic
 
-- [ ] 3.1 `offers.js` with tests
+- [x] 3.1 `offers.js` with tests — 8fae1df, 985241c
 
 ### Phase 4: Screens
 
-- [ ] 4.1 Deck (s01) offer form and Your offers
-- [ ] 4.2 System details (s02) offer form
-- [ ] 4.3 `docs/design-system.md` known gaps
+- [x] 4.1 Deck (s01) offer form and Your offers — 86a5889
+- [x] 4.2 System details (s02) offer form — 86a5889
+- [x] 4.3 `docs/design-system.md` known gaps — 29f8252
 
 ### Phase 5: Verification
 
