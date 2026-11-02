@@ -20,8 +20,8 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
 
 /**
  * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, their
- * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems; it's fixed today and sent per game so that trading can
- * move its prices (E05) without changing the shape.
+ * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems; it's fixed today and sent per game
+ * so that trading can move its prices (E05) without changing the shape.
  */
 data class GameResponseDto(
 	val id: String,

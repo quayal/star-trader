@@ -12,7 +12,6 @@ export const PRICE_ERROR = 'Price must be a whole number from 1 to 20.';
 export const ALL_OFFERED = 'You have an offer on every good there this turn.';
 export const NO_SHIP_WARNING = 'You have no ship here. If a buy wins, the goods are lost; a sell has nothing to draw from. '
 	+ 'A ship can still jump here before Trading.';
-export const PRIVATE_NOTE = 'Only you can see these until Trading resolves them.';
 /** S03-7 (proposed wording): what a player sees when their offer reached the server after Bidding closed. */
 export const CLOSED_TEXT = "Bidding has closed — this offer wasn't placed.";
 /** The server's A04 message (BACKWARD_COMPATIBILITY.md §6). */

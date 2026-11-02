@@ -954,7 +954,8 @@
 	function updateOfferForm(form, game, systemId) {
 		const panel = $(`${form.prefix}-panel`);
 		const turnNumber = game.turn?.number ?? null;
-		if (form.closedInTurn !== null && form.closedInTurn === turnNumber && game.status === 'RUNNING') {
+		// The refused offer's values stay only on the screen it was typed on: another system's form starts fresh.
+		if (form.closedInTurn !== null && form.closedInTurn === turnNumber && form.systemId === systemId && game.status === 'RUNNING') {
 			panel.hidden = false;
 			setControlsDisabled(form, true);
 			return;
