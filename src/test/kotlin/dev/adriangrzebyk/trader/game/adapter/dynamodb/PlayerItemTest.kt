@@ -22,7 +22,15 @@ class PlayerItemTest {
 		corporationName = "Guest Freight",
 		money = 275,
 		ships = listOf(
-			Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET, cargo = mapOf(Goods.POLY to 4, Goods.CHIPS to 12)),
+			Ship(
+				name = "Meridian",
+				system = StarSystem.GAMMA_LEPORIS,
+				location = ShipLocation.PLANET,
+				cargo = mapOf(
+					Goods.POLY to 4,
+					Goods.CHIPS to 12
+				)
+			),
 			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
 		),
 		marketPositions = listOf(
