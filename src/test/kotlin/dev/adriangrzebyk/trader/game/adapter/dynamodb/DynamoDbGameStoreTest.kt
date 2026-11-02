@@ -5,6 +5,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
@@ -143,6 +144,22 @@ class DynamoDbGameStoreTest {
 
 		assertThat(store.find("game-1")!!.players).hasSize(6)
 		assertThat(storedVersion("game-1")).isEqualTo(5)
+	}
+
+	@Test
+	fun shouldCloseBiddingExactlyOnceWhenEveryPlayerSignalsDoneAtOnce() {
+		val full = (2..6).fold(game) { lobby, n -> lobby.addPlayer(Player.newcomer("p$n@example.com", "P$n", "Corp $n")) }
+		val pairs = List(6) { StarSystem.TAU_CETI to StarSystem.BETA_HYDRI }.toTypedArray()
+		store.create(full.start("creator@example.com", FakeStartingSystemPicker(*pairs)))
+		val executor = Executors.newFixedThreadPool(6)
+
+		val signals = full.players.map { player -> executor.submit { store.update("game-1") { it.signalDoneBidding(player.email) } } }
+		signals.forEach { it.get(30, TimeUnit.SECONDS) }
+		executor.shutdown()
+
+		// Every signal applied once, the last one closed Bidding, and nothing skipped past Ship-jumps (A04).
+		assertThat(store.find("game-1")!!.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList()))
+		assertThat(storedVersion("game-1")).isEqualTo(6)
 	}
 
 	private fun storedVersion(id: String): Long = GameItem(

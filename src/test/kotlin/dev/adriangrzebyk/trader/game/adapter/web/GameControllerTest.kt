@@ -240,7 +240,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING"))
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList()))
 		assertThat(started.you).isEqualTo(YouResponseDto(300))
 		assertThat(started.players).allSatisfy { player ->
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
@@ -306,6 +306,63 @@ class GameControllerTest {
 		val game = createdGame(signIn("start-open-door@example.com"))
 		startGame(null, game.id).expectStatus().isUnauthorized
 		startGame("not-a-real-token", game.id).expectStatus().isUnauthorized
+	}
+
+	@Test
+	fun shouldCloseBiddingForEveryoneWhenTheLastPlayerSignalsDone() {
+		val (creatorToken, joinerToken, gameId) = startedGame("done")
+
+		val afterFirst = signalDone(joinerToken, gameId)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com")))
+
+		signalDone(creatorToken, gameId).expectStatus().isOk
+
+		val polled = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(polled.turn).isEqualTo(TurnResponseDto(1, "SHIP_JUMPS", emptyList()))
+	}
+
+	@Test
+	fun shouldTellAPlayerWhoseDoneArrivesAfterBiddingClosed() {
+		val (creatorToken, joinerToken, gameId) = startedGame("late")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		signalDone(creatorToken, gameId).expectStatus().isOk
+
+		signalDone(joinerToken, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Bidding has closed")
+	}
+
+	@Test
+	fun shouldRefuseDoneFromOutsidersBeforeTheStartAndWithoutASession() {
+		val (_, _, gameId) = startedGame("outsider")
+		signalDone(signIn("outsider-stranger@example.com"), gameId)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).isEqualTo("You are not a player in this game")
+		signalDone(signIn("outsider-lost@example.com"), "no-such-game").expectStatus().isNotFound
+		signalDone(null, gameId).expectStatus().isUnauthorized
+
+		val lobbyToken = signIn("outsider-lobby@example.com")
+		signalDone(lobbyToken, createdGame(lobbyToken).id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game hasn't started")
+	}
+
+	/** A started two-player game for this test's own emails: the creator's token, the joiner's token, the game id. */
+	private fun startedGame(prefix: String): Triple<String, String, String> {
+		val creatorToken = signIn("$prefix-host@example.com")
+		val joinerToken = signIn("$prefix-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+		startGame(creatorToken, game.id).expectStatus().isOk
+		return Triple(creatorToken, joinerToken, game.id)
+	}
+
+	private fun signalDone(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/bidding/done", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun startGame(token: String?, gameId: String): RestTestClient.ResponseSpec {

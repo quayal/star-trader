@@ -99,7 +99,16 @@ describe('lobbyState', () => {
 
 describe('turnText', () => {
 	it('shows the turn out of the game length and the phase', () => {
-		assert.equal(turnText({ turns: 20, turn: { number: 1, phase: 'BIDDING' } }), 'Turn 1 of 20 · Bidding');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 1, phase: 'BIDDING' } }), 'Turn 1 of 20 · Bidding');
+	});
+
+	it('names every phase of a turn', () => {
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'SHIP_JUMPS' } }), 'Turn 4 of 20 · Ship-jumps');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'TRADING' } }), 'Turn 4 of 20 · Trading');
+	});
+
+	it('says the game is over instead of naming the last phase', () => {
+		assert.equal(turnText({ status: 'FINISHED', turns: 20, turn: { number: 20, phase: 'TRADING' } }), 'Turn 20 of 20 · Game over');
 	});
 });
 

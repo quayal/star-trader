@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
+import dev.adriangrzebyk.trader.game.Turn
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -31,7 +32,7 @@ data class GameResponseDto(
 		game.status.name,
 		game.creatorEmail,
 		game.players.map { PlayerResponseDto(it) },
-		game.turn?.let { TurnResponseDto(it.number, it.phase.name) },
+		game.turn?.let { TurnResponseDto(it) },
 		game.log,
 		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) }
 	)
@@ -48,6 +49,10 @@ data class ShipResponseDto(val name: String, val system: String, val systemName:
 	constructor(ship: Ship) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name)
 }
 
-data class TurnResponseDto(val number: Int, val phase: String)
+/** Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09). */
+data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>) {
+
+	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding)
+}
 
 data class YouResponseDto(val money: Int)
