@@ -1,16 +1,23 @@
 package dev.adriangrzebyk.trader.login.adapter.web
 
+import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.OneTimeCodeStore
+import dev.adriangrzebyk.trader.login.adapter.dynamodb.DynamoDbSessionStore
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistrar
 import org.springframework.test.web.servlet.client.RestTestClient
 
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
+// Sessions go to DynamoDB Local, the same store bootRun uses.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
@@ -28,6 +35,26 @@ class LoginControllerTest {
 	@BeforeEach
 	fun setUp() {
 		restTestClient = RestTestClient.bindToServer().baseUrl("http://localhost:$port").build()
+	}
+
+	companion object {
+
+		private const val TABLE_NAME = "login-controller-test"
+
+		@JvmStatic
+		@BeforeAll
+		fun requireDynamoDbLocal() = DynamoDbLocal.assumeAvailable()
+	}
+
+	// Found by @SpringBootTest as a nested configuration; points the stores at the DynamoDB Local container.
+	@TestConfiguration
+	class DynamoDbLocalProperties {
+
+		@Bean
+		fun useDynamoDbLocal() = DynamicPropertyRegistrar { registry ->
+			registry.add("star-trader.dynamodb.endpoint-override") { DynamoDbLocal.endpoint }
+			registry.add("star-trader.dynamodb.table-name") { TABLE_NAME }
+		}
 	}
 
 	@Test
@@ -91,6 +118,19 @@ class LoginControllerTest {
 			.expectStatus().isOk
 			.expectBody(SessionResponseDto::class.java)
 			.isEqualTo(SessionResponseDto("Adrian", "Adrian Star Traders", email))
+	}
+
+	@Test
+	fun shouldKeepTheSessionAcrossARestart() {
+		val email = "restart@example.com"
+		val token = exchange(email, requestCode(email))
+			.expectStatus().isOk
+			.expectBody(SessionTokenResponseDto::class.java).returnResult().responseBody!!.sessionToken
+
+		// A store over a new client keeps nothing in memory, as a restarted server wouldn't.
+		val restarted = DynamoDbLocal.client().use { DynamoDbSessionStore(it, TABLE_NAME).find(token) }
+
+		assertThat(restarted?.email).isEqualTo(email)
 	}
 
 	@Test

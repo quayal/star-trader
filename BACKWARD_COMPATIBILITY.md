@@ -40,7 +40,7 @@ The passwordless login flow (D03). The sign-in screens (E01-S03) and every later
 | POST | `/login/exchange-code` | `{ email, code }` | `200` + `{ sessionToken }`; `400` for a blank field; `401` for a wrong, expired, reused or never-requested code, or once the code's 5 attempts are used up |
 | GET | `/login/session` | `Authorization: Bearer <sessionToken>` | `200` + `{ playerName, corporationName, email }`; `401` for a missing, malformed or unknown token |
 
-- **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions live in memory and are lost when the server restarts (E02-S03 persisted games only), so players sign in again after a restart. A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
+- **Session lifecycle**: a session token is an opaque string and never expires (D05); sessions are stored in the games table (§7) and survive a server restart, so a token kept in the browser stays valid (2026-11-02). A one-time code is valid for 10 minutes and for at most 5 attempts, and is used up by a successful exchange.
 - **Breaking change**: renaming or removing a field above; changing a status code; changing how the token is sent (bearer header → cookie, say); giving sessions an expiry; letting a `401` reveal *which* reason applied.
 - **In-repo consumers**: `static/sign-in.html` (request and exchange the code) and `static/js/session.js` (keeps the token in `localStorage` as `starTrader.sessionToken` and checks it with `GET /login/session` on every game screen). The sign-in screen maps E01-S01's 400 messages to its fields by their exact text (`static/js/sign-in.js`), so rewording one of those messages must update that map too.
 - **Required path**: update the in-repo consumers above in the same PR, and state the change in the PR body's "Decisions touched". Session expiry would also need a superseding entry for D05.
@@ -80,7 +80,7 @@ Stored data outlives the code that wrote it, so the item shape is a contract wit
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `id` | S, partition key | the game id |
+| `id` | S, partition key | the game id (a UUID; ids containing `#` are other kinds of item, see sessions below) |
 | `turns` | N | game length |
 | `status` | S | `LOBBY`, `RUNNING` or `FINISHED` |
 | `creatorEmail` | S | the creator's email |
@@ -94,7 +94,8 @@ Stored data outlives the code that wrote it, so the item shape is a contract wit
 - Table `star-trader-games` (`DYNAMODB_TABLE_NAME`), on-demand billing, no secondary index. In real AWS it's provisioned outside the app.
 - **Additive change** (a new attribute, a new field in a player map): safe once its item class defaults it when reading an older item.
 - **Breaking change**: renaming or removing an attribute, changing its type or the meaning of a value (including renaming a `StarSystem`, `ShipLocation`, `GameStatus`, `TurnPhase`, `Goods` or `MarketTier` constant, since they're stored by name), changing the key. Needs a migration of stored items, or — before any game worth keeping exists — an explicit note in the PR that local data must be cleared (`docker compose down -v`).
-- **Required path**: change the type's item class (`GameItem`, `PlayerItem`, `ShipItem`, `MarketPositionItem`, `TurnItem`) and its round-trip test together (engineering standards §12), and state the change in the PR body.
+- **Sessions** share the table, one item per login session (`login/adapter/dynamodb/SessionItem`): `id` is `session#` plus the SHA-256 (hex) of the session token, so the token itself is never stored; `playerName`, `corporationName` and `email` are S. Changing how the id is derived from the token signs every player out, so it needs the same care as changing the key.
+- **Required path**: change the type's item class (`GameItem`, `PlayerItem`, `ShipItem`, `MarketPositionItem`, `TurnItem`, `SessionItem`) and its round-trip test together (engineering standards §12), and state the change in the PR body.
 
 ## Not yet applicable (no contract exists)
 

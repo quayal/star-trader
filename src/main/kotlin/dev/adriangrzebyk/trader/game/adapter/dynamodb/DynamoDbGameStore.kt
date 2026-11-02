@@ -49,9 +49,13 @@ class DynamoDbGameStore(private val client: DynamoDbClient, private val tableNam
 		throw IllegalStateException("Gave up updating game $id after $MAX_ATTEMPTS attempts: it kept changing underneath")
 	}
 
-	private fun read(id: String): GameItem? = client.getItem {
-		it.tableName(tableName).key(mapOf(GameItem.ID to AttributeValue.fromS(id))).consistentRead(true)
-	}.takeIf { it.hasItem() }?.let { GameItem(it.item()) }
+	// The table also holds other kinds of item (`session#…`, login/adapter/dynamodb); a game id is a UUID and has no `#`.
+	private fun read(id: String): GameItem? {
+		if ('#' in id) return null
+		return client.getItem {
+			it.tableName(tableName).key(mapOf(GameItem.ID to AttributeValue.fromS(id))).consistentRead(true)
+		}.takeIf { it.hasItem() }?.let { GameItem(it.item()) }
+	}
 
 	companion object {
 		// At most 5 players can join at once and each round lets at least one through, so 10 leaves a margin.
