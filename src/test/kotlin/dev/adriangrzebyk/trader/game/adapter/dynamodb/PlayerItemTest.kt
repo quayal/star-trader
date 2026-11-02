@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -18,8 +19,8 @@ class PlayerItemTest {
 		corporationName = "Guest Freight",
 		money = 275,
 		ships = listOf(
-			Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET),
-			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT)
+			Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET, cargo = mapOf(Goods.POLY to 4, Goods.CHIPS to 12)),
+			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
 		)
 	)
 

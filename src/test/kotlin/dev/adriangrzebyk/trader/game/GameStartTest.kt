@@ -21,12 +21,12 @@ class GameStartTest {
 
 		assertThat(started.players.map { it.money }).containsOnly(300)
 		assertThat(started.players[0].ships).containsExactly(
-			Ship("Wayfarer", TAU_CETI, ShipLocation.PORT),
-			Ship("Lantern", BETA_HYDRI, ShipLocation.PORT)
+			Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT),
+			Ship.emptyAt("Lantern", BETA_HYDRI, ShipLocation.PORT)
 		)
 		assertThat(started.players[1].ships).containsExactly(
-			Ship("Meridian", GAMMA_LEPORIS, ShipLocation.PORT),
-			Ship("Halcyon", TAU_CETI, ShipLocation.PORT)
+			Ship.emptyAt("Meridian", GAMMA_LEPORIS, ShipLocation.PORT),
+			Ship.emptyAt("Halcyon", TAU_CETI, ShipLocation.PORT)
 		)
 	}
 
