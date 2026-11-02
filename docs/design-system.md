@@ -73,6 +73,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.good .good--poly/…` | The goods name in a goods column (R04.1) | Elsewhere |
 | `.sd-value[data-step]` | The S/D indicator. Number always shown (R03.5) | Without the number |
 | `.cargo-meter` | Used / capacity of a ship or depot (R01.3) | Percentages without the absolute numbers |
+| `.market-level[data-step]` | A market level (D08): its arrow and label, or a price next to its arrow. Works in HTML (`color`) and SVG (`fill`). Steps: `easy` high supply, `fair` moderate supply, `balance` in balance (muted grey), `hard` moderate demand, `bad` high demand | Without the arrow or the word next to it |
 | `.flash` | Add once when a poll changes a value (Gap 1) | Anything that repeats |
 
 Hover and focus states can be frozen for documentation with `data-preview-state="hover|focus"` (used on `/design-system.html` only).
@@ -84,6 +85,7 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 - **A color means something** → put the word or number next to it (WCAG 1.4.1). S/D shows `S/D −7`, a badge says "Outbid".
 - **Red text** → check which red: Sell column, danger status or S/D bad. They share a hue and are told apart by placement (tokens.md flag 4).
 - **S/D color** → compute buy chance = P(2d6 + indicator ≥ 0) and step it: ≥ 95% easy, ≥ 70% fair, ≥ 40% hard, else bad (boundaries sit between the discrete 2d6 outcomes). Never hard-code indicator endpoints (conflict 48). Always stepped, never a smooth blend (creator decision 2026-10-28, Gap 1).
+- **Market level** (D08: five levels, arrow + word) → `marketLevel(indicator)` in `js/board.js` gives the label, arrow, hint and `data-step` for `.market-level`; the moderate/high demand split is `MODERATE_DEMAND_MIN_CHANCE` there (20%). Don't recompute the bands on a page.
 - **A button is disabled** → say why next to it.
 - **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17).
 - **A feature isn't implemented** (fuel, hull, repair, ETA, upgrades) → show nothing for it (R01.4, R02.1).
@@ -110,11 +112,12 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 
 ## Known gaps
 
-- Layout of the existing pages is unchanged (they still have A01's structure) and the Deck page overflows at 320 px (fixed 220 px sidebar). The redesign waits for mockups (reference.md Gap 5).
+- The home "Market Overview" and `trade-offers.html` still have A01's structure. The game screens (s01, s02) follow the accepted prototype; below 700 px the rail stacks above the screen instead of overflowing (E03-S02).
 - `trade-offers.html` still lists every player's submitted offers, which A03 forbids once Bidding is real. Product change, tracked separately.
 - No icons yet; no icon set chosen.
 - The prototype accepted 2026-10-28 (`.ai/prototypes/discovery/dashboard-map-system/revision-013/`) needs these design-system changes before the redesign:
-  - **Five market levels instead of four S/D steps** (brief D08): high supply, moderate supply, in balance, moderate demand, high demand. The extremes are bright, the moderate levels muted, and "in balance" is grey. `tokens.css` has only `--sd-easy/fair/hard/bad`.
-  - **A price-direction arrow on every price**: ↑ ↗ → ↘ ↓. It is the non-colour cue, so colour never carries the meaning alone.
-  - **A map node holds its goods and prices inside a larger circle** and is laid out as a flat-topped hexagon ring.
+  - **Five market colours instead of four S/D steps** (brief D08): the extremes bright, the moderate levels muted, "in balance" grey. Until then (E03-S02) `.market-level` maps the five levels onto `--sd-easy/fair/hard/bad` with "in balance" in `--text-muted`, so moderate supply (amber) and moderate demand (orange) are close in hue; the arrow and the word tell them apart.
+  - ~~A price-direction arrow on every price~~ — done in E03-S02 (`.market-level`, `js/board.js`).
+  - ~~A map node holds its goods and prices inside a larger circle, as a flat-topped hexagon ring~~ — done in E03-S02 (the Deck, `index.html`).
+- **The Deck's map on a phone**: below 700 px the rail stacks above the screen and the map takes the full width, but its text still scales to about 8 px at 390 px, under the 12 px floor. Everything on it is also on System details and in Your fleet; a readable mobile map needs a design decision.
   - **The money unit is HT.**
