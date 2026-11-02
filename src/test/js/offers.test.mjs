@@ -99,7 +99,7 @@ describe('offerChoices', () => {
 
 describe('texts', () => {
 	it('words the Dictator refusal as the spec does', () => {
-		assert.equal(dictatorText('POLY'), 'You’re Dictator of POLY here — you place that offer when it resolves in Trading.');
+		assert.equal(dictatorText('POLY'), "You're Dictator of POLY here — you place that offer when it resolves in Trading.");
 	});
 
 	it('describes an offer and its placement', () => {
@@ -137,7 +137,7 @@ describe('refusals', () => {
 	it('words a close as S03-7 does', () => {
 		assert.equal(isClosedRefusal(409, 'Bidding has closed'), true);
 		assert.equal(refusalText(409, 'Bidding has closed', 'x'), CLOSED_TEXT);
-		assert.equal(CLOSED_TEXT, 'Bidding has closed — this offer wasn’t placed.');
+		assert.equal(CLOSED_TEXT, "Bidding has closed — this offer wasn't placed.");
 	});
 
 	it('shows any other refusal as the server words it, or the fallback', () => {

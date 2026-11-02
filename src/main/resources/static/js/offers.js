@@ -14,7 +14,7 @@ export const NO_SHIP_WARNING = 'You have no ship here. If a buy wins, the goods 
 	+ 'A ship can still jump here before Trading.';
 export const PRIVATE_NOTE = 'Only you can see these until Trading resolves them.';
 /** S03-7 (proposed wording): what a player sees when their offer reached the server after Bidding closed. */
-export const CLOSED_TEXT = 'Bidding has closed — this offer wasn’t placed.';
+export const CLOSED_TEXT = "Bidding has closed — this offer wasn't placed.";
 /** The server's A04 message (BACKWARD_COMPATIBILITY.md §6). */
 const SERVER_CLOSED = 'Bidding has closed';
 
@@ -39,7 +39,7 @@ export function isBidding(game) {
 
 /** R38's refusal, shown in place of the good the player is Dictator of at that system. */
 export function dictatorText(goods) {
-	return `You’re Dictator of ${goods} here — you place that offer when it resolves in Trading.`;
+	return `You're Dictator of ${goods} here — you place that offer when it resolves in Trading.`;
 }
 
 /**
