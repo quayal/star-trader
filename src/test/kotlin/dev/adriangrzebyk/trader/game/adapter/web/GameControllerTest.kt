@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
+import dev.adriangrzebyk.trader.login.adapter.dynamodb.sessionItemId
 import dev.adriangrzebyk.trader.trading.Goods
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
@@ -221,6 +222,13 @@ class GameControllerTest {
 		pollGame(signIn("poll-lost@example.com"), "no-such-game")
 			.expectStatus().isNotFound
 			.expectBody(String::class.java).isEqualTo("This game doesn't exist")
+	}
+
+	@Test
+	fun shouldNotServeASessionItemAsAGame() {
+		val token = signIn("session-probe@example.com")
+
+		pollGame(token, sessionItemId(token)).expectStatus().isNotFound
 	}
 
 	@Test
