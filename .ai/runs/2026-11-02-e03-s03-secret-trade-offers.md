@@ -61,6 +61,9 @@ listing is gone.
 - **Found in the browser walk**: with every good at a system offered, the form showed an empty, disabled form;
   now its fields hide and only the reason shows (as the prototype does). Between 900 and 1200 px the offers
   column moves below the map, since three columns leave the map too narrow; above 1200 px it's right of the map.
+- **Review** (om-auto-review-pr on #73, 7a41f18): a refused offer's closed form no longer follows the player to
+  another system's details; unused `PRIVATE_NOTE` dropped. Open nit: `Offer` and `TradeDesk` both define the 1–20
+  price bounds. Self-approval was not possible (own PR); the review is a comment and approval is the maintainer's.
 
 ## Risks
 
