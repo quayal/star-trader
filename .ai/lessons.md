@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-11-02: **Without `Cache-Control`, browsers keep a stale stylesheet after a change.** Spring served `static/` with only `Last-Modified`, so Safari and Firefox guessed a cache lifetime and kept the old `components.css`. The new `.market-level` colours were missing while the older `.good--*` colours showed, and Chrome (fresh) looked fine. Fixed with `spring.web.resources.cache.cachecontrol.no-cache=true` (revalidate every load, 304 when unchanged; `StaticResourcesTest`). When one browser shows a CSS change and another doesn't, suspect the cache before the CSS.
+
 - 2026-11-01: **`baseBranch: "auto"` in `.ai/agentic.config.json` means "the repo's default branch", not a branch named `auto`.** The om-* skills resolve it through the tracker's **default-branch** operation (`references/agentic-setup.md` in each skill). During E03-S01 I read the raw value, saw no `origin/auto`, and told the creator the config was broken; it wasn't. Before calling a config value wrong, check how the skills consuming it interpret it.
 
 - 2026-11-01: **`trader:functions-in-classes` reports Spring's `@DynamicPropertySource` companion function** (one parameter of a non-built-in type reads as a conversion). Don't suppress it: register test properties with a `DynamicPropertyRegistrar` `@Bean` in a nested `@TestConfiguration` class, which `@SpringBootTest` picks up (see `GameControllerTest`).
