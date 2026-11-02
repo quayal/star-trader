@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.PhaseClosedException
@@ -127,6 +128,38 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * Places the caller's secret offer (R17) and answers with their view of the game, which carries their own
+	 * offers only. `409` "Bidding has closed" once it has (A04); `400` for an offer the rules refuse.
+	 */
+	@PostMapping("/games/{id}/offers")
+	@ResponseStatus(HttpStatus.CREATED)
+	fun placeOffer(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: PlaceOfferRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val system = request?.system() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a star system.")
+		val goods = request.goods() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a good.")
+		val type = request.type() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Buy or Sell.")
+		val game = try {
+			biddingService.placeOffer(id, session.email, system, goods, type, request.wholePrice())
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidOfferException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: PhaseClosedException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: InvalidGameOperationException) {

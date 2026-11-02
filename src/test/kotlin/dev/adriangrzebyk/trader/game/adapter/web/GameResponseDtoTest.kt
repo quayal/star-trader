@@ -6,6 +6,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -70,5 +71,24 @@ class GameResponseDtoTest {
 		val you = GameResponseDto(game, "host@example.com").you!!
 
 		assertThat(you.ships).containsExactly(YourShipResponseDto("Wayfarer", mapOf("CHIPS" to 12, "ISO" to 3, "POLY" to 4), 7, 10))
+	}
+
+	@Test
+	fun shouldSendTheViewerTheirOwnOffersOnly() {
+		val game = started
+			.placeOffer("guest@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.SELL, 19)
+			.placeOffer("host@example.com", StarSystem.BETA_HYDRI, Goods.CHIPS, OfferType.BUY, 3)
+
+		val seenByHost = GameResponseDto(game, "host@example.com")
+
+		assertThat(seenByHost.you!!.offers).containsExactly(YourOfferResponseDto("BETA_HYDRI", "Beta Hydri", "CHIPS", "BUY", 3))
+		assertThat(seenByHost.toString()).doesNotContain("SELL").doesNotContain("price=19")
+	}
+
+	@Test
+	fun shouldSendNoOffersBeforeTheGameStarts() {
+		val lobby = Game.lobby("game-2", 20, Player.newcomer("host@example.com", "Ada", "Orion Freight"))
+
+		assertThat(GameResponseDto(lobby, "host@example.com").you!!.offers).isEmpty()
 	}
 }

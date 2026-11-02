@@ -3,12 +3,15 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
+import dev.adriangrzebyk.trader.game.MarketPosition
+import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import dev.adriangrzebyk.trader.login.adapter.dynamodb.sessionItemId
 import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -82,7 +85,7 @@ class GameControllerTest {
 		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList()))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList()))
 	}
 
 	@Test
@@ -396,6 +399,110 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("This game hasn't started")
 	}
 
+	@Test
+	fun shouldPlaceAnOfferAndShowItOnlyToItsPlayer() {
+		val (creatorToken, joinerToken, gameId) = startedGame("offer")
+
+		val placed = placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""")
+			.expectStatus().isCreated
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		val mine = YourOfferResponseDto("TAU_CETI", "Tau Ceti", "POLY", "BUY", 8)
+		assertThat(placed.you!!.offers).containsExactly(mine)
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.offers)
+			.containsExactly(mine)
+		assertThat(pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.offers)
+			.isEmpty()
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersOffers() {
+		val (creatorToken, joinerToken, gameId) = startedGame("secret")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "SELL", "price": 19}""").expectStatus().isCreated
+
+		// Every response the creator can get during Bidding: the poll, their own offer, their own done (R17, A05).
+		val seenByCreator = listOf(
+			pollGame(creatorToken, gameId),
+			placeOffer(creatorToken, gameId, """{"system": "TAU_CETI", "goods": "ISO", "type": "BUY", "price": 3}"""),
+			signalDone(creatorToken, gameId)
+		).map { it.expectBody(String::class.java).returnResult().responseBody!! }
+
+		seenByCreator.forEach { raw ->
+			assertThat(raw).doesNotContain("\"price\":19").doesNotContain("SELL")
+			assertThat(Regex("\"offers\"").findAll(raw).count()).isEqualTo(1) // only "you.offers"
+		}
+	}
+
+	@Test
+	fun shouldRefuseAnOfferTheRulesDoNotAllow() {
+		val (_, joinerToken, gameId) = startedGame("bad-offer")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""").expectStatus().isCreated
+
+		listOf(
+			"""{"system": "TAU_CETI", "goods": "ISO", "type": "BUY", "price": 21}""" to "Price must be a whole number from 1 to 20.",
+			"""{"system": "TAU_CETI", "goods": "ISO", "type": "BUY", "price": 2.5}""" to "Price must be a whole number from 1 to 20.",
+			"""{"system": "TAU_CETI", "goods": "ISO", "type": "BUY"}""" to "Price must be a whole number from 1 to 20.",
+			"""{"system": "TAU_CETI", "goods": "POLY", "type": "SELL", "price": 9}""" to "You already have an offer on POLY at Tau Ceti this turn.",
+			"""{"system": "GAMMA_LEPORIS", "goods": "FOOD", "type": "BUY", "price": 9}""" to "FOOD isn't traded at Gamma Leporis.",
+			"""{"system": "NOWHERE", "goods": "ISO", "type": "BUY", "price": 9}""" to "Choose a star system.",
+			"""{"system": "TAU_CETI", "goods": "GOLD", "type": "BUY", "price": 9}""" to "Choose a good.",
+			"""{"system": "TAU_CETI", "goods": "ISO", "type": "SWAP", "price": 9}""" to "Choose Buy or Sell."
+		).forEach { (body, message) ->
+			placeOffer(joinerToken, gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo(message)
+		}
+		assertThat(gameStore.find(gameId)!!.turn!!.offers).hasSize(1)
+	}
+
+	@Test
+	fun shouldRefuseTheDictatorsOfferForTheirGood() {
+		val (_, joinerToken, gameId) = startedGame("dictator")
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != "dictator-guest@example.com") {
+						player
+					} else {
+						player.copy(marketPositions = listOf(MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.DICTATOR)))
+					}
+				}
+			)
+		}
+
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You're Dictator of POLY here — you place that offer when it resolves in Trading.")
+	}
+
+	@Test
+	fun shouldTellAPlayerWhoseOfferArrivesAfterBiddingClosed() {
+		val (creatorToken, joinerToken, gameId) = startedGame("offer-late")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		signalDone(creatorToken, gameId).expectStatus().isOk
+
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Bidding has closed")
+		assertThat(gameStore.find(gameId)!!.turn!!.offers).isEmpty()
+	}
+
+	@Test
+	fun shouldRefuseOffersFromOutsidersForUnknownGamesAndWithoutASession() {
+		val (_, _, gameId) = startedGame("offer-outsider")
+		val body = """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}"""
+
+		placeOffer(signIn("offer-stranger@example.com"), gameId, body)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).isEqualTo("You are not a player in this game")
+		placeOffer(signIn("offer-lost@example.com"), "no-such-game", body).expectStatus().isNotFound
+		placeOffer(null, gameId, body).expectStatus().isUnauthorized
+		val lobbyToken = signIn("offer-lobby@example.com")
+		placeOffer(lobbyToken, createdGame(lobbyToken).id, body)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game hasn't started")
+	}
+
 	/** A started two-player game for this test's own emails: the creator's token, the joiner's token, the game id. */
 	private fun startedGame(prefix: String): Triple<String, String, String> {
 		val creatorToken = signIn("$prefix-host@example.com")
@@ -410,6 +517,12 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/bidding/done", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
+	}
+
+	private fun placeOffer(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/offers", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	private fun startGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
