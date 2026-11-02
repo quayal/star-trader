@@ -17,7 +17,7 @@ class GameTurnEngineTest {
 
 	@Test
 	fun shouldStartInTurnOneBiddingWithNobodyDone() {
-		assertThat(started.turn).isEqualTo(Turn(1, TurnPhase.BIDDING, emptyList()))
+		assertThat(started.turn).isEqualTo(Turn(1, TurnPhase.BIDDING, emptyList(), emptyList()))
 	}
 
 	@Test
@@ -25,22 +25,22 @@ class GameTurnEngineTest {
 		val phases = generateSequence(started) { it.advancePhase() }.take(4).map { it.turn }.toList()
 
 		assertThat(phases).containsExactly(
-			Turn(1, TurnPhase.BIDDING, emptyList()),
-			Turn(1, TurnPhase.SHIP_JUMPS, emptyList()),
-			Turn(1, TurnPhase.TRADING, emptyList()),
-			Turn(2, TurnPhase.BIDDING, emptyList())
+			Turn(1, TurnPhase.BIDDING, emptyList(), emptyList()),
+			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()),
+			Turn(1, TurnPhase.TRADING, emptyList(), emptyList()),
+			Turn(2, TurnPhase.BIDDING, emptyList(), emptyList())
 		)
 	}
 
 	@Test
 	fun shouldFinishTheGameAfterTheLastTurnsTrading() {
 		val lastTrading = (1..5).fold(started) { game, _ -> game.advancePhase() }
-		assertThat(lastTrading.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList()))
+		assertThat(lastTrading.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList()))
 
 		val finished = lastTrading.advancePhase()
 
 		assertThat(finished.status).isEqualTo(GameStatus.FINISHED)
-		assertThat(finished.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList()))
+		assertThat(finished.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList()))
 	}
 
 	@Test
@@ -63,14 +63,14 @@ class GameTurnEngineTest {
 	fun shouldRecordAPlayerAsDoneWhileOthersStillBid() {
 		val game = started.signalDoneBidding("joiner@example.com")
 
-		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com")))
+		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList()))
 	}
 
 	@Test
 	fun shouldCloseBiddingTheMomentTheLastPlayerSignalsDone() {
 		val game = started.signalDoneBidding("joiner@example.com").signalDoneBidding("creator@example.com")
 
-		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList()))
+		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()))
 	}
 
 	@Test

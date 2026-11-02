@@ -167,7 +167,7 @@ class DynamoDbGameStoreTest {
 		executor.shutdown()
 
 		// Every signal applied once, the last one closed Bidding, and nothing skipped past Ship-jumps (A04).
-		assertThat(store.find("game-1")!!.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList()))
+		assertThat(store.find("game-1")!!.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()))
 		assertThat(storedVersion("game-1")).isEqualTo(6)
 	}
 
