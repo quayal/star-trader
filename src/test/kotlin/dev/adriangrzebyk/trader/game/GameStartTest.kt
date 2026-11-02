@@ -31,6 +31,14 @@ class GameStartTest {
 	}
 
 	@Test
+	fun shouldStartEveryPlayerWithEmptyShipsAndNoMarketPosition() {
+		val started = lobby.start("creator@example.com", picker)
+
+		assertThat(started.players.flatMap { it.ships }.map { it.cargo }).containsOnly(emptyMap())
+		assertThat(started.players.flatMap { it.marketPositions }).isEmpty()
+	}
+
+	@Test
 	fun shouldMoveTheGameToTurnOneBidding() {
 		val started = lobby.start("creator@example.com", picker)
 
