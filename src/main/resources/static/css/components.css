@@ -187,10 +187,11 @@ h1, h2, h3 {
 
 /* ── Goods name in its own color (R04.1: goods column / icons only) ── */
 .good { font-weight: 700; letter-spacing: 0.04em; }
-.good--poly { color: var(--good-poly); }
-.good--chips { color: var(--good-chips); }
-.good--food { color: var(--good-food); }
-.good--iso { color: var(--good-iso); }
+/* `color` for HTML, `fill` for the map's SVG text. */
+.good--poly { color: var(--good-poly); fill: var(--good-poly); }
+.good--chips { color: var(--good-chips); fill: var(--good-chips); }
+.good--food { color: var(--good-food); fill: var(--good-food); }
+.good--iso { color: var(--good-iso); fill: var(--good-iso); }
 
 /* ── S/D value (R03.5): number always visible; color from buy chance ── */
 .sd-value {

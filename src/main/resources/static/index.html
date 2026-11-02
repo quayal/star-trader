@@ -828,7 +828,7 @@
 			system.market.forEach((entry, index) => {
 				const good = mapGood(entry);
 				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
-				line.append(svgElement('tspan', {}, `${good.goods} `));
+				line.append(svgElement('tspan', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ' ');
 				const level = svgElement('tspan', { class: 'market-level', 'data-level': good.level.key });
 				level.append(good.price);
 				if (good.symbol) {
