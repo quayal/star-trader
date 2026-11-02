@@ -1,6 +1,7 @@
 /*
  * Pure helpers for the game screens on index.html: Create a game (s11, `#new`), the lobby
- * (s12, `#game/{id}` before the start) and the game view after it (E02-S05).
+ * (s12, `#game/{id}` before the start), the routes of the Deck and System details (s01, s02; their board
+ * helpers are in board.js) and the unknown screen (s08).
  */
 
 export const TURNS_ERROR = 'Enter a whole number of turns from 1 to 50.';
@@ -12,16 +13,39 @@ export const POLL_INTERVAL_MS = 2000;
 const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
 
-/** `#new` → create; `#game/{id}` → that game; anything else → the home view. */
+/**
+ * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
+ * `#game/{id}/system/{SYSTEM}` → System details (s02). Any other fragment is an unknown screen (s08), carrying
+ * the game id when there is one so its "back to the Deck" link stays in that game.
+ */
 export function parseRoute(hash) {
-	if (hash === '#new') {
+	const text = hash ?? '';
+	if (text === '' || text === '#') {
+		return { view: 'home' };
+	}
+	if (text === '#new') {
 		return { view: 'new' };
 	}
-	const match = /^#game\/(.+)$/.exec(hash ?? '');
-	if (match) {
-		return { view: 'game', id: decodeURIComponent(match[1]) };
+	const system = /^#game\/([^/]+)\/system\/([A-Z_]+)$/.exec(text);
+	if (system) {
+		return { view: 'system', id: decodeURIComponent(system[1]), systemId: system[2] };
 	}
-	return { view: 'home' };
+	const game = /^#game\/([^/]+)$/.exec(text);
+	if (game) {
+		return { view: 'game', id: decodeURIComponent(game[1]) };
+	}
+	const inGame = /^#game\/([^/]+)\//.exec(text);
+	return inGame ? { view: 'unknown', id: decodeURIComponent(inGame[1]) } : { view: 'unknown' };
+}
+
+/** The Deck (s01) of game [id]. */
+export function deckLink(id) {
+	return `#game/${encodeURIComponent(id)}`;
+}
+
+/** System details (s02) of [systemId] in game [id]. */
+export function systemLink(id, systemId) {
+	return `#game/${encodeURIComponent(id)}/system/${systemId}`;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */

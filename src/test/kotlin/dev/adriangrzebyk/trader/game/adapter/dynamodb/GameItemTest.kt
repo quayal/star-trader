@@ -28,9 +28,10 @@ class GameItemTest {
 				corporationName = "Host Corp",
 				money = 300,
 				ships = listOf(
-					Ship(name = "Wayfarer", system = StarSystem.TAU_CETI, location = ShipLocation.PORT),
-					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE)
-				)
+					Ship(name = "Wayfarer", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap()),
+					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE, cargo = emptyMap())
+				),
+				marketPositions = emptyList()
 			),
 			Player(
 				email = "guest@example.com",
@@ -38,9 +39,10 @@ class GameItemTest {
 				corporationName = "Guest Freight",
 				money = 275,
 				ships = listOf(
-					Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET),
-					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT)
-				)
+					Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET, cargo = emptyMap()),
+					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
+				),
+				marketPositions = emptyList()
 			)
 		),
 		turn = Turn(number = 1, phase = TurnPhase.BIDDING, doneBidding = emptyList()),

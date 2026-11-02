@@ -44,8 +44,8 @@ data class Game(
 		val setUp = players.mapIndexed { index, player ->
 			val (first, second) = picker.pickTwoDifferentSystems()
 			val ships = listOf(
-				Ship(Ship.NAMES[index * 2], first, ShipLocation.PORT),
-				Ship(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
+				Ship.emptyAt(Ship.NAMES[index * 2], first, ShipLocation.PORT),
+				Ship.emptyAt(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
 			)
 			player.copy(money = STARTING_MONEY, ships = ships)
 		}
