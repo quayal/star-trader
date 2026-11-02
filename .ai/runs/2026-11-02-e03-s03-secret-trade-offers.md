@@ -53,6 +53,8 @@ listing is gone.
 - **Legacy API removed rather than scoped**: it has no game id and no session (§11, A05); the game-scoped
   endpoint replaces it, as `BACKWARD_COMPATIBILITY.md` §2 anticipated. The `InMemoryTradeOfferBook` stops
   being a Spring bean (it stays as the `TradeDesk` test fake).
+- **Persistence lands with the domain field** (1.1 also does 2.1): §12 makes a new `Turn` field fail to compile
+  until `TurnItem` reads it.
 - **Forms are static markup, not rebuilt on poll**, so typed values and focus survive the 2 s poll. After a
   `409` close the form stays on screen, disabled, with the message and the typed values until the next turn.
 
@@ -94,14 +96,14 @@ listing is gone.
 
 ### Phase 1: Domain
 
-- [ ] 1.1 `Offer`, `Turn.offers`, `Game.placeOffer` with the S03 rules, TDD
-- [ ] 1.2 `BiddingService.placeOffer` inside `GameStore.update`
+- [x] 1.1 `Offer`, `Turn.offers`, `Game.placeOffer` with the S03 rules, TDD — ae99e96
+- [x] 1.2 `BiddingService.placeOffer` inside `GameStore.update` — a0c35aa
 
 ### Phase 2: Persistence and API
 
-- [ ] 2.1 `OfferItem` and `TurnItem.offers` with older-item default
-- [ ] 2.2 `POST /api/games/{id}/offers`, `you.offers`; denied-path tests
-- [ ] 2.3 Remove `/api/trade-offers` and `trade-offers.html`; compatibility doc
+- [x] 2.1 `OfferItem` and `TurnItem.offers` with older-item default — ae99e96
+- [x] 2.2 `POST /api/games/{id}/offers`, `you.offers`; denied-path tests — cd81559
+- [x] 2.3 Remove `/api/trade-offers` and `trade-offers.html`; compatibility doc — b0c6ef9
 
 ### Phase 3: Client logic
 
