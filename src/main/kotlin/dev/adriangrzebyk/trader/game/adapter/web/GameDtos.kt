@@ -1,9 +1,12 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.Turn
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.StarSystem
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -13,7 +16,11 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
 	fun wholeTurns(): Int? = turns?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
-/** One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29). */
+/**
+ * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, and
+ * their ships' cargo, S02-7). [board] is the six systems; it's fixed today and sent per game so that trading can
+ * move its prices (E05) without changing the shape.
+ */
 data class GameResponseDto(
 	val id: String,
 	val turns: Int,
@@ -22,6 +29,7 @@ data class GameResponseDto(
 	val players: List<PlayerResponseDto>,
 	val turn: TurnResponseDto?,
 	val log: List<String>,
+	val board: List<SystemResponseDto>,
 	val you: YouResponseDto?
 ) {
 
@@ -34,19 +42,66 @@ data class GameResponseDto(
 		game.players.map { PlayerResponseDto(it) },
 		game.turn?.let { TurnResponseDto(it) },
 		game.log,
-		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it.money) }
+		StarSystem.entries.map { SystemResponseDto(it) },
+		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it) }
 	)
 }
 
-/** Public: no money here, ever (R29). */
-data class PlayerResponseDto(val email: String, val name: String, val corporationName: String, val ships: List<ShipResponseDto>) {
+/** Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28). */
+data class PlayerResponseDto(
+	val email: String,
+	val name: String,
+	val corporationName: String,
+	val ships: List<ShipResponseDto>,
+	val marketPositions: List<MarketPositionResponseDto>
+) {
 
-	constructor(player: Player) : this(player.email, player.name, player.corporationName, player.ships.map { ShipResponseDto(it) })
+	constructor(player: Player) : this(
+		player.email,
+		player.name,
+		player.corporationName,
+		player.ships.map { ShipResponseDto(it) },
+		player.marketPositions.map { MarketPositionResponseDto(it) }
+	)
 }
 
+/** Where a ship is, which every player may see; what it carries is only in [YourShipResponseDto]. */
 data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String) {
 
 	constructor(ship: Ship) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name)
+}
+
+data class MarketPositionResponseDto(val system: String, val goods: String, val tier: String) {
+
+	constructor(position: MarketPosition) : this(position.system.name, position.goods.name, position.tier.name)
+}
+
+/** One system of the board: its R31 location statistics and its market (D07, D08). */
+data class SystemResponseDto(
+	val id: String,
+	val name: String,
+	val portClass: Int,
+	val legalSystem: Int,
+	val police: Int,
+	val security: Int,
+	val market: List<MarketEntryResponseDto>
+) {
+
+	constructor(system: StarSystem) : this(
+		system.name,
+		system.displayName,
+		system.locations.portClass,
+		system.locations.legalSystem,
+		system.locations.police,
+		system.locations.security,
+		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(system, it) }
+	)
+}
+
+/** [indicator] is the S/D number; the client steps it into a market label (D08). */
+data class MarketEntryResponseDto(val goods: String, val price: Int, val indicator: Int) {
+
+	constructor(system: StarSystem, goods: Goods) : this(goods.name, system.getPrice(goods), system.getIndicator(goods))
 }
 
 /** Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09). */
@@ -55,4 +110,19 @@ data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: 
 	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding)
 }
 
-data class YouResponseDto(val money: Int)
+/** Only for the viewer: their money (R29) and what their own ships carry (S02-5). */
+data class YouResponseDto(val money: Int, val ships: List<YourShipResponseDto>) {
+
+	constructor(player: Player) : this(player.money, player.ships.map { YourShipResponseDto(it) })
+}
+
+/** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */
+data class YourShipResponseDto(val name: String, val cargo: Map<String, Int>, val cargoUsed: Int, val cargoSpaces: Int) {
+
+	constructor(ship: Ship) : this(
+		ship.name,
+		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
+		ship.cargoSpacesUsed(),
+		Ship.CARGO_SPACES
+	)
+}

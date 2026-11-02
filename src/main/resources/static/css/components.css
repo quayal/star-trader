@@ -187,10 +187,11 @@ h1, h2, h3 {
 
 /* ── Goods name in its own color (R04.1: goods column / icons only) ── */
 .good { font-weight: 700; letter-spacing: 0.04em; }
-.good--poly { color: var(--good-poly); }
-.good--chips { color: var(--good-chips); }
-.good--food { color: var(--good-food); }
-.good--iso { color: var(--good-iso); }
+/* `color` for HTML, `fill` for the map's SVG text. */
+.good--poly { color: var(--good-poly); fill: var(--good-poly); }
+.good--chips { color: var(--good-chips); fill: var(--good-chips); }
+.good--food { color: var(--good-food); fill: var(--good-food); }
+.good--iso { color: var(--good-iso); fill: var(--good-iso); }
 
 /* ── S/D value (R03.5): number always visible; color from buy chance ── */
 .sd-value {
@@ -231,3 +232,18 @@ h1, h2, h3 {
 
 .muted { color: var(--text-muted); }
 .empty { color: var(--text-muted); font-size: var(--text-body); }
+
+/* ── Market level (D08): ▲/▼ gives the direction (none in balance), the colour how likely it is: green up, red
+   down, bright high, muted moderate.
+   `color` for HTML, `fill` for the map's SVG text. ── */
+.market-level { font-weight: 700; }
+/* ▲/▼ sized as on the map (creator, 2026-11-02): 0.45em of the map's 15 px, which the map scales up ~1.25× on a
+   desktop, so 0.6em of the 14 px body text elsewhere. Centred on the digits; in the map's SVG the lift is a dy on
+   the tspan, as SVG text ignores vertical-align. */
+.market-level__triangle { font-size: 0.6em; vertical-align: 0.3em; }
+tspan.market-level__triangle { font-size: 0.45em; }
+.market-level[data-level="high-demand"] { color: var(--market-demand-high); fill: var(--market-demand-high); }
+.market-level[data-level="moderate-demand"] { color: var(--market-demand-moderate); fill: var(--market-demand-moderate); }
+.market-level[data-level="in-balance"] { color: var(--market-balance); fill: var(--market-balance); }
+.market-level[data-level="moderate-supply"] { color: var(--market-supply-moderate); fill: var(--market-supply-moderate); }
+.market-level[data-level="high-supply"] { color: var(--market-supply-high); fill: var(--market-supply-high); }

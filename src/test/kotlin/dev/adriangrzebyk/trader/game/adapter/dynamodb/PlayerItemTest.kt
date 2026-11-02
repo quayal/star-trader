@@ -1,12 +1,16 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.MarketPosition
+import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 // A story that adds a field to Player extends this round trip in the same PR (engineering standards §12).
 class PlayerItemTest {
@@ -18,8 +22,20 @@ class PlayerItemTest {
 		corporationName = "Guest Freight",
 		money = 275,
 		ships = listOf(
-			Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET),
-			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT)
+			Ship(
+				name = "Meridian",
+				system = StarSystem.GAMMA_LEPORIS,
+				location = ShipLocation.PLANET,
+				cargo = mapOf(
+					Goods.POLY to 4,
+					Goods.CHIPS to 12
+				)
+			),
+			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
+		),
+		marketPositions = listOf(
+			MarketPosition(system = StarSystem.TAU_CETI, goods = Goods.POLY, tier = MarketTier.WHOLESALER),
+			MarketPosition(system = StarSystem.MU_HERCULIS, goods = Goods.ISO, tier = MarketTier.DICTATOR)
 		)
 	)
 
@@ -39,9 +55,27 @@ class PlayerItemTest {
 	fun shouldStoreAPlayerUnderTheseAttributeNames() {
 		val attributes = PlayerItem(player).attributes
 
-		assertThat(attributes.keys).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships")
+		assertThat(attributes.keys).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions")
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
+	}
+
+	@Test
+	fun shouldStoreEachMarketPositionByConstantName() {
+		val positions = PlayerItem(player).attributes.getValue("marketPositions").l().map { it.m() }
+
+		assertThat(positions.first()).isEqualTo(
+			mapOf(
+				"system" to AttributeValue.fromS("TAU_CETI"),
+				"goods" to AttributeValue.fromS("POLY"),
+				"tier" to AttributeValue.fromS("WHOLESALER")
+			)
+		)
+	}
+
+	@Test
+	fun shouldReadAPlayerStoredBeforeMarketPositionsExistedAsHoldingNone() {
+		assertThat(PlayerItem(PlayerItem(player).attributes - "marketPositions").toPlayer().marketPositions).isEmpty()
 	}
 
 	@Test
