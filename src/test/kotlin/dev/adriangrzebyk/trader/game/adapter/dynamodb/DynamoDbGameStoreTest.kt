@@ -51,6 +51,15 @@ class DynamoDbGameStoreTest {
 	}
 
 	@Test
+	fun shouldNotTakeAnotherKindOfItemInTheTableForAGame() {
+		client.putItem {
+			it.tableName(tableName).item(mapOf("id" to AttributeValue.fromS("session#abc"), "email" to AttributeValue.fromS("a@example.com")))
+		}
+
+		assertThat(store.find("session#abc")).isNull()
+	}
+
+	@Test
 	fun shouldStillFindTheGameThroughANewStoreAsAfterARestart() {
 		store.create(game)
 		store.update("game-1") { it.addPlayer(Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")) }
