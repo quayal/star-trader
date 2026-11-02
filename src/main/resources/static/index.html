@@ -363,7 +363,6 @@
 		NODE_POSITIONS,
 		NODE_RADIUS,
 		fleet,
-		isTriangle,
 		locations,
 		mapEdges,
 		mapGood,
@@ -786,13 +785,10 @@
 		return node;
 	}
 
-	/** "▲ high demand": the symbol and the word, so colour is never the only cue. */
+	/** "▲ high demand" (just "in balance"): the triangle and the word, so colour is never the only cue. */
 	function levelLabel(level) {
-		return element('span', { class: 'market-level', 'data-level': level.key }, symbolMark(level.symbol), ` ${level.label}`);
-	}
-
-	function symbolMark(symbol) {
-		return isTriangle(symbol) ? element('span', { class: 'market-level__triangle' }, symbol) : symbol;
+		const triangle = level.symbol ? [element('span', { class: 'market-level__triangle' }, level.symbol), ' '] : [];
+		return element('span', { class: 'market-level', 'data-level': level.key }, ...triangle, level.label);
 	}
 
 	function renderDeck(game) {
@@ -834,11 +830,14 @@
 				const line = svgElement('text', { x, y: top + index * lineHeight, 'text-anchor': 'middle', class: 'map-node__good' });
 				line.append(svgElement('tspan', {}, `${good.goods} `));
 				const level = svgElement('tspan', { class: 'market-level', 'data-level': good.level.key });
-				// SVG text has no vertical-align: dy lifts the small triangle to mid-height and the price drops back.
-				const lift = isTriangle(good.symbol) ? TRIANGLE_LIFT : 0;
-				level.append(
-					svgElement('tspan', lift ? { class: 'market-level__triangle', dy: -lift } : {}, good.symbol),
-					svgElement('tspan', { dy: lift }, good.price));
+				if (good.symbol) {
+					// SVG text has no vertical-align: dy lifts the small triangle to mid-height and the price drops back.
+					level.append(
+						svgElement('tspan', { class: 'market-level__triangle', dy: -TRIANGLE_LIFT }, good.symbol),
+						svgElement('tspan', { dy: TRIANGLE_LIFT }, good.price));
+				} else {
+					level.append(good.price);
+				}
 				line.append(level);
 				node.append(line);
 			});

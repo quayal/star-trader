@@ -232,12 +232,15 @@ h1, h2, h3 {
 .muted { color: var(--text-muted); }
 .empty { color: var(--text-muted); font-size: var(--text-body); }
 
-/* ── Market level (D08): ▲/▼/— gives the direction, the colour how likely it is (bright high, muted moderate).
+/* ── Market level (D08): ▲/▼ gives the direction (none in balance), the colour how likely it is: green up, red
+   down, bright high, muted moderate.
    `color` for HTML, `fill` for the map's SVG text. ── */
 .market-level { font-weight: 700; }
-/* ▲/▼ at about a third of the text height (creator, 2026-11-02), centred on the digits; the — keeps text size.
-   In the map's SVG the lift is a dy on the tspan instead, as SVG text ignores vertical-align. */
-.market-level__triangle { font-size: 0.45em; vertical-align: 0.4em; }
+/* ▲/▼ sized as on the map (creator, 2026-11-02): 0.45em of the map's 15 px, which the map scales up ~1.25× on a
+   desktop, so 0.6em of the 14 px body text elsewhere. Centred on the digits; in the map's SVG the lift is a dy on
+   the tspan, as SVG text ignores vertical-align. */
+.market-level__triangle { font-size: 0.6em; vertical-align: 0.3em; }
+tspan.market-level__triangle { font-size: 0.45em; }
 .market-level[data-level="high-demand"] { color: var(--market-demand-high); fill: var(--market-demand-high); }
 .market-level[data-level="moderate-demand"] { color: var(--market-demand-moderate); fill: var(--market-demand-moderate); }
 .market-level[data-level="in-balance"] { color: var(--market-balance); fill: var(--market-balance); }

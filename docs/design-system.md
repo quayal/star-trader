@@ -73,7 +73,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.good .good--poly/…` | The goods name in a goods column (R04.1) | Elsewhere |
 | `.sd-value[data-step]` | The S/D indicator. Number always shown (R03.5) | Without the number |
 | `.cargo-meter` | Used / capacity of a ship or depot (R01.3) | Percentages without the absolute numbers |
-| `.market-level[data-level]` | A market level (D08): its symbol and label ("▲ high demand"), or a price after its symbol. Works in HTML (`color`) and SVG (`fill`). ▲/▼ sit in a `.market-level__triangle` at about a third of the text height, centred on the text (in SVG a `dy` lift, as SVG text ignores `vertical-align`); the — stays text-sized. `data-level` is the level key from `js/board.js` (`high-demand` … `high-supply`); colours are the `--market-*` tokens | Without the symbol or the word next to it |
+| `.market-level[data-level]` | A market level (D08): its triangle and label ("▲ high demand"; just "in balance"), or a price after its triangle. Works in HTML (`color`) and SVG (`fill`). ▲/▼ sit in a `.market-level__triangle`, small and centred on the text (in SVG a `dy` lift, as SVG text ignores `vertical-align`); the map's size is the reference. `data-level` is the level key from `js/board.js` (`high-demand` … `high-supply`); colours are the `--market-*` tokens | Without the triangle or the word next to it |
 | `.flash` | Add once when a poll changes a value (Gap 1) | Anything that repeats |
 
 Hover and focus states can be frozen for documentation with `data-preview-state="hover|focus"` (used on `/design-system.html` only).
@@ -85,7 +85,7 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 - **A color means something** → put the word or number next to it (WCAG 1.4.1). S/D shows `S/D −7`, a badge says "Outbid".
 - **Red text** → check which red: Sell column, danger status or S/D bad. They share a hue and are told apart by placement (tokens.md flag 4).
 - **S/D color** → compute buy chance = P(2d6 + indicator ≥ 0) and step it: ≥ 95% easy, ≥ 70% fair, ≥ 40% hard, else bad (boundaries sit between the discrete 2d6 outcomes). Never hard-code indicator endpoints (conflict 48). Always stepped, never a smooth blend (creator decision 2026-10-28, Gap 1).
-- **Market level** (D08: five levels; ▲/▼/— for direction, bright/muted colour for how likely, plus the word) → `marketLevel(indicator)` in `js/board.js` gives the label, symbol, hint and the `data-level` key for `.market-level`; the moderate/high demand split is `MODERATE_DEMAND_MIN_CHANCE` there (20%). Don't recompute the bands on a page.
+- **Market level** (D08: five levels; ▲/▼ for direction, none in balance; green up, red down, bright/muted for how likely, plus the word) → `marketLevel(indicator)` in `js/board.js` gives the label, symbol, hint and the `data-level` key for `.market-level`; the moderate/high demand split is `MODERATE_DEMAND_MIN_CHANCE` there (20%). Don't recompute the bands on a page.
 - **A button is disabled** → say why next to it.
 - **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17).
 - **A feature isn't implemented** (fuel, hull, repair, ETA, upgrades) → show nothing for it (R01.4, R02.1).
@@ -116,8 +116,8 @@ Hover and focus states can be frozen for documentation with `data-preview-state=
 - `trade-offers.html` still lists every player's submitted offers, which A03 forbids once Bidding is real. Product change, tracked separately.
 - No icons yet; no icon set chosen.
 - The prototype accepted 2026-10-28 (`.ai/prototypes/discovery/dashboard-map-system/revision-013/`) needs these design-system changes before the redesign:
-  - ~~Five market colours~~ — done in E03-S02: `--market-demand-high/-moderate`, `--market-balance`, `--market-supply-moderate/-high` (bright at the extremes, muted in between, grey in balance).
-  - ~~A price-direction mark on every price~~ — done in E03-S02 as ▲ / ▼ / — (creator, 2026-11-02; the earlier arrows ↑ ↗ → ↘ ↓ are gone).
+  - ~~Five market colours~~ — done in E03-S02: `--market-demand-high/-moderate`, `--market-balance`, `--market-supply-moderate/-high` (green ▲, red ▼, bright at the extremes, muted in between, grey in balance).
+  - ~~A price-direction mark on every price~~ — done in E03-S02 as ▲ / ▼, nothing in balance (creator, 2026-11-02; the earlier arrows ↑ ↗ → ↘ ↓ and the — are gone).
   - ~~A map node holds its goods and prices inside a larger circle, as a flat-topped hexagon ring~~ — done in E03-S02 (the Deck, `index.html`).
 - **The Deck's map on a phone**: below 700 px the rail stacks above the screen and the map takes the full width, but its text still scales to about 8 px at 390 px, under the 12 px floor. Everything on it is also on System details and in Your fleet; a readable mobile map needs a design decision.
   - **The money unit is HT.**

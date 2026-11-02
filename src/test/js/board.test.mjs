@@ -11,7 +11,6 @@ import {
 	fleet,
 	fleetLine,
 	initials,
-	isTriangle,
 	locations,
 	mapEdges,
 	mapGood,
@@ -93,9 +92,8 @@ describe('marketLevel (D08)', () => {
 		assert.ok(buyChance(-9) >= MODERATE_DEMAND_MIN_CHANCE && buyChance(-10) < MODERATE_DEMAND_MIN_CHANCE);
 	});
 
-	it('shows direction with a triangle (— in balance) and leaves likelihood to colour and words', () => {
-		assert.deepEqual(MARKET_LEVELS.map(level => level.symbol), ['▲', '▲', '—', '▼', '▼']);
-		assert.deepEqual(MARKET_LEVELS.map(level => isTriangle(level.symbol)), [true, true, false, true, true]);
+	it('shows direction with a triangle (none in balance) and leaves likelihood to colour and words', () => {
+		assert.deepEqual(MARKET_LEVELS.map(level => level.symbol), ['▲', '▲', '', '▼', '▼']);
 		assert.ok(MARKET_LEVELS.every(level => level.hint && level.key));
 	});
 });
@@ -125,14 +123,14 @@ describe('the map', () => {
 		assert.equal(new Set(edges.map(edge => edge.join('-'))).size, 15);
 	});
 
-	it('lists a good with its triangle and price, never "—10" for a steady price', () => {
+	it('lists a good with its triangle and price, and a steady price on its own', () => {
 		const good = mapGood({ goods: 'POLY', price: 6, indicator: -10 });
 		assert.equal(good.goods, 'POLY');
 		assert.equal(good.symbol, '▲');
 		assert.equal(good.price, '\u00a06');
 		assert.equal(good.level.key, 'high-demand');
-		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).symbol, '—');
-		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).price, '\u00a010');
+		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).symbol, '');
+		assert.equal(mapGood({ goods: 'ISO', price: 10, indicator: -7 }).price, '10');
 	});
 
 	it('puts every good, its price and its market label in words in the accessible name', () => {

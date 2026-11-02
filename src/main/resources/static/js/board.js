@@ -11,19 +11,20 @@
 export const MODERATE_DEMAND_MIN_CHANCE = 0.2;
 
 /**
- * The five market levels of D08, from the demand end to the supply end (legend order). The symbol gives the
- * direction (▲ the price may rise, ▼ it may fall, — steady) and the colour how likely it is: bright for high,
- * muted for moderate (creator, 2026-11-02). `key` is the `data-level` that `.market-level` colours.
+ * The five market levels of D08, from the demand end to the supply end (legend order). The triangle gives the
+ * direction (▲ the price may rise, ▼ it may fall; in balance has none) and the colour how likely it is: green up,
+ * red down, bright for high, muted for moderate (creator, 2026-11-02). `key` is the `data-level` that
+ * `.market-level` colours.
  */
 export const MARKET_LEVELS = [
 	{ key: 'high-demand', label: 'high demand', symbol: '▲', hint: 'price likely to rise' },
 	{ key: 'moderate-demand', label: 'moderate demand', symbol: '▲', hint: 'price may rise' },
-	{ key: 'in-balance', label: 'in balance', symbol: '—', hint: 'price steady' },
+	{ key: 'in-balance', label: 'in balance', symbol: '', hint: 'price steady' },
 	{ key: 'moderate-supply', label: 'moderate supply', symbol: '▼', hint: 'price may fall' },
 	{ key: 'high-supply', label: 'high supply', symbol: '▼', hint: 'price likely to fall' },
 ];
 
-/** A no-break space between symbol and price, so "— 10" never reads as minus ten. */
+/** A no-break space between triangle and price, so the two never wrap apart. */
 const SYMBOL_GAP = '\u00a0';
 
 const LEVEL = Object.fromEntries(MARKET_LEVELS.map(level => [level.key, level]));
@@ -139,15 +140,10 @@ export function shipsUnderText(game, systemId, myEmail) {
 	return ships.length ? ships.map(ship => ship.label).join('  ') : 'no ships';
 }
 
-/** One good inside a map node: "POLY", its level's symbol, "\u00a06" (the price after a no-break gap) and the level. */
+/** One good inside a map node: "POLY", its level's triangle ("" in balance), the price ("\u00a06" after a triangle) and the level. */
 export function mapGood(entry) {
 	const level = marketLevel(entry.indicator);
-	return { goods: entry.goods, symbol: level.symbol, price: `${SYMBOL_GAP}${entry.price}`, level };
-}
-
-/** ▲ and ▼ are drawn at about a third of the text height (creator, 2026-11-02); the — stays text-sized. */
-export function isTriangle(symbol) {
-	return symbol === '▲' || symbol === '▼';
+	return { goods: entry.goods, symbol: level.symbol, price: level.symbol ? `${SYMBOL_GAP}${entry.price}` : `${entry.price}`, level };
 }
 
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
