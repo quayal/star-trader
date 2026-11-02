@@ -233,8 +233,14 @@ export function marketPositions(game, system) {
 	});
 }
 
-/** S02-12: the notice over a stale board. */
-export function staleText(secondsAgo) {
+/** S02-12: the notice over a stale board is this sentence, announced once, then the age, which isn't. */
+export const STALE_MESSAGE = "Couldn't refresh the game.";
+
+export function staleAgeText(secondsAgo) {
 	const seconds = Math.max(0, Math.round(secondsAgo));
-	return `Couldn't refresh the game. Showing the state from ${seconds} ${seconds === 1 ? 'second' : 'seconds'} ago.`;
+	return `Showing the state from ${seconds} ${seconds === 1 ? 'second' : 'seconds'} ago.`;
+}
+
+export function staleText(secondsAgo) {
+	return `${STALE_MESSAGE} ${staleAgeText(secondsAgo)}`;
 }

@@ -18,6 +18,8 @@ import {
 	marketPositions,
 	shipsUnderText,
 	signedIndicator,
+	STALE_MESSAGE,
+	staleAgeText,
 	staleText,
 	systemAccessibleName,
 } from '../../main/resources/static/js/board.js';
@@ -207,5 +209,10 @@ describe('staleText (S02-12)', () => {
 	it('says how old the state on screen is', () => {
 		assert.equal(staleText(12.4), "Couldn't refresh the game. Showing the state from 12 seconds ago.");
 		assert.equal(staleText(1), "Couldn't refresh the game. Showing the state from 1 second ago.");
+	});
+
+	it('keeps the announced sentence apart from the age, which changes on every failed poll', () => {
+		assert.equal(STALE_MESSAGE, "Couldn't refresh the game.");
+		assert.equal(staleAgeText(0.4), 'Showing the state from 0 seconds ago.');
 	});
 });

@@ -206,8 +206,9 @@
 
 	<!-- s12: Lobby, and the game view once the game has started -->
 	<div class="view" id="game-view" hidden>
-		<div class="stale-notice" id="stale-notice" role="status" hidden>
-			<span id="stale-text"></span>
+		<!-- Only the first sentence is a live region: the age changes on every failed poll and mustn't be re-announced. -->
+		<div class="stale-notice" id="stale-notice" hidden>
+			<span><span id="stale-announce" role="status"></span> <span id="stale-text"></span></span>
 			<button class="text-action" id="retry-now" type="button">Retry now</button>
 		</div>
 
@@ -369,7 +370,8 @@
 		marketPositions,
 		shipsAt,
 		signedIndicator,
-		staleText,
+		STALE_MESSAGE,
+		staleAgeText,
 		systemAccessibleName,
 	} from './js/board.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -460,6 +462,7 @@
 	/** s08: an unknown screen, with a way back to the Deck of the game it was in (or to the Deck itself). */
 	function showUnknown(gameId) {
 		stopPolling();
+		currentGameId = null; // a poll that called this must not schedule the next one (it would refocus every 2 s)
 		showView('unknown');
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -565,17 +568,23 @@
 		} else {
 			lastGame = null;
 			setTitle('Game', 'Loading…');
-			$('stale-notice').hidden = true;
+			hideStale();
 			showPanels('game-loading'); // s06
 		}
 		poll();
 	}
 
+	function hideStale() {
+		$('stale-notice').hidden = true;
+		$('stale-announce').textContent = ''; // so the next outage is announced again
+	}
+
 	/** S02-12: a failed poll keeps the last state on screen and says how old it is. */
 	function pollFailed(id) {
-		$('stale-text').textContent = lastGame
-			? staleText((Date.now() - lastLoadedAt) / 1000)
-			: "Couldn't load the game. Trying again\u2026";
+		if ($('stale-notice').hidden) {
+			$('stale-announce').textContent = lastGame ? STALE_MESSAGE : "Couldn't load the game.";
+		}
+		$('stale-text').textContent = lastGame ? staleAgeText((Date.now() - lastLoadedAt) / 1000) : 'Trying again\u2026';
 		$('stale-notice').hidden = false;
 		schedulePoll(id);
 	}
@@ -590,7 +599,7 @@
 	function showNotAPlayer() {
 		lastGame = null;
 		renderedKey = null;
-		$('stale-notice').hidden = true;
+		hideStale();
 		setTitle('Game', 'Someone sent you a link to their game.');
 		showPanels('join-panel');
 	}
@@ -614,7 +623,7 @@
 		if (response.status === 404) {
 			forgetGame(id);
 			lastGame = null;
-			$('stale-notice').hidden = true;
+			hideStale();
 			setTitle('Game', 'Not found');
 			showPanels('missing-panel');
 			return;
@@ -638,7 +647,7 @@
 			return;
 		}
 		rememberGame(id);
-		$('stale-notice').hidden = true;
+		hideStale();
 		render(game);
 		schedulePoll(id);
 	}
@@ -705,6 +714,7 @@
 	}
 
 	function renderLobby(game) {
+		focusSystemTitle = false; // a System details link to a game that hasn't started shows the lobby
 		const state = lobbyState(game, session.email);
 		setTitle('Lobby', 'Waiting for players to join.');
 		$('lobby-length').textContent = lengthText(game.turns);
@@ -744,6 +754,7 @@
 			}
 			return;
 		}
+		focusSystemTitle = false;
 		if (changed) {
 			renderDeck(game);
 		}
