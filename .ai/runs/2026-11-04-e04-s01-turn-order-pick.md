@@ -45,6 +45,8 @@ and then the full order are logged, and the Deck shows who holds each place and 
 - **Log lines** (S01-5): "{corp} chose 2nd"; the auto-assigned last place "{corp} gets 4th, the only place left"
   (S01-6, proposed); then "Turn order (for this turn): A → B → C".
 - **Place comes in as a `BigDecimal`**, like `turns`, `price` and `amount`, so 2.5 reaches the domain's message.
+- **Steps 1.1–1.3 landed in one commit**: `Turn` gains a field, and §12 makes `TurnItem` fail to compile until it
+  reads it (as in E03-S05).
 - **After the order is set the phase stays Ship-jumps.** Jumps (S02) take it from there; until S02 ships, a game
   waits there, as it already does today.
 
@@ -81,18 +83,20 @@ and then the full order are logged, and the Deck shows who holds each place and 
 
 ## Progress
 
+PR: #82
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Domain and persistence
 
-- [ ] 1.1 `TurnOrderPick`, `Turn.turnOrderPicks`, `turnOrder()`, `picker()` and `Game.pickTurnOrderPlace`, TDD
-- [ ] 1.2 `ShipJumpsService.pickPlace`
-- [ ] 1.3 `TurnOrderPickItem` and `TurnItem.turnOrderPicks` with the older-item default
+- [x] 1.1 `TurnOrderPick`, `Turn.turnOrderPicks`, `turnOrder()`, `picker()` and `Game.pickTurnOrderPlace`, TDD — da1fa65
+- [x] 1.2 `ShipJumpsService.pickPlace` — da1fa65
+- [x] 1.3 `TurnOrderPickItem` and `TurnItem.turnOrderPicks` with the older-item default — da1fa65
 
 ### Phase 2: API
 
-- [ ] 2.1 `POST /api/games/{id}/ship-jumps/turn-order` and `turn.turnOrder`, controller tests
-- [ ] 2.2 `BACKWARD_COMPATIBILITY.md` §6 and §7
+- [x] 2.1 `POST /api/games/{id}/ship-jumps/turn-order` and `turn.turnOrder`, controller tests — e2cac84
+- [x] 2.2 `BACKWARD_COMPATIBILITY.md` §6 and §7 — 2118a47
 
 ### Phase 3: Client logic
 
