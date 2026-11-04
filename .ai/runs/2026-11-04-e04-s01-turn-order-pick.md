@@ -57,6 +57,10 @@ and then the full order are logged, and the Deck shows who holds each place and 
   Deck within a poll; Ada picking 2nd in the UI; Vega given 1st; the four log lines; Vega's Deck at 390 px. Seen in
   passing, not from this PR: on the map, a system with three ships clips its marker line (Tau Ceti), a follow-up.
 
+- **Review** (om-auto-review-pr on #82): approve, no blockers or majors. One minor fixed in cdb8fc3: a replayed-update test
+  for the pick, as BiddingServiceTest has for every action. Self-approval isn't possible on the author's own PR, so
+  the review is a comment.
+
 ## Risks
 
 - `risk-medium`: a new stored attribute and a new endpoint with an ordering rule. Covered by domain tests on whose
