@@ -74,8 +74,8 @@ describe('phaseText', () => {
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is choosing their place in the turn order');
 		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', null] };
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — choose your place in the turn order');
-		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', ME] };
-		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps');
+		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', ME], doneJumping: [] };
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is jumping'); // E04-S02 takes over
 	});
 });
 
