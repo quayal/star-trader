@@ -55,6 +55,8 @@ player's bid or money (R29).
   (`closedInTurn`) has the same turn-only key; that's left for a follow-up, out of this story's scope.
 - **The bid hint names the money**: "You have 300 HT. Every bidder pays their bid when Bidding closes, win or lose;
   the order is bid + d2." It's the viewer's own money, so R29 holds.
+- **Review** (om-auto-review-pr on #76, c42e5de): approve, with no blockers or majors. The offer form's turn-only
+  key is filed as #77. Self-approval isn't possible on the author's own PR, so the review is a comment.
 - **Bids stay on `Turn` through the turn** (like offers), so "Your offers this turn" can still show the paid bid, and
   the next turn starts with none.
 
