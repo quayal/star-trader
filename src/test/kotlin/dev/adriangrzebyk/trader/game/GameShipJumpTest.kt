@@ -186,6 +186,16 @@ class GameShipJumpTest {
 	}
 
 	@Test
+	fun shouldRefuseJumpsInAGameSavedInShipJumpsBeforeInitiativeExisted() {
+		// E03-S05 added the initiative order; a game saved in Ship-jumps before then has nobody to pick or jump.
+		val older = started.copy(turn = started.turn!!.copy(phase = TurnPhase.SHIP_JUMPS))
+
+		assertThatThrownBy { older.finishJumping("ada@example.com") }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Nobody is jumping now.")
+	}
+
+	@Test
 	fun shouldRefuseSomeoneWhoIsNotAPlayer() {
 		assertThatThrownBy { jumping.jumpShip("eve@example.com", "Meridian", TAU_CETI) }
 			.isInstanceOf(NotAGameMemberException::class.java)
