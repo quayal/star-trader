@@ -212,7 +212,7 @@
 		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
 		<!-- A live region that stays in the tree: its text appears when the player is done, so it's announced. -->
 		<p id="done-text" role="status" tabindex="-1"></p>
-		<p class="message" id="done-message" role="status"></p>
+		<p class="message" id="done-message" role="status" tabindex="-1"></p>
 	</div>
 </header>
 
@@ -1024,8 +1024,8 @@
 
 	// ── E03-S04: "I'm done bidding" in the top bar ──
 
-	// The turn and phase the done message belongs to: 'pending' until the next render records it, so the message
-	// stays through the phase it's about and clears when the game moves on.
+	// The game, turn and phase the done message belongs to: 'pending' until the next render records it, so the
+	// message stays through the phase it's about and clears when the game moves on or the player opens another game.
 	let doneMessageKey = null;
 
 	function setDoneMessage(text, error) {
@@ -1036,7 +1036,7 @@
 
 	/** S04-1: the button until pressed, then the done text; the bar stays while a done message is about this phase. */
 	function updateDoneBar(game) {
-		const key = `${game.turn.number}/${game.turn.phase}/${game.status}`;
+		const key = `${game.id}/${game.turn.number}/${game.turn.phase}/${game.status}`;
 		if (doneMessageKey === 'pending') {
 			doneMessageKey = key;
 		} else if (doneMessageKey !== null && doneMessageKey !== key) {
@@ -1065,17 +1065,15 @@
 			setDoneMessage(UNREACHABLE, true);
 			return;
 		}
+		button.disabled = false; // the button is shared by every game, so it's re-enabled even if the player has left
 		if (gameId !== currentGameId) {
 			return; // the player has left this game
 		}
-		button.disabled = false;
 		if (response.ok) {
 			const game = await response.json();
 			setDoneMessage(doneAcceptedText(game), false);
 			render(game);
-			if (isBidding(game)) {
-				$('done-text').focus(); // the button is gone; keep keyboard focus in the top bar
-			}
+			$(isBidding(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
 			return;
 		}
 		const message = await errorText(response, '');
