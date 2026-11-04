@@ -50,6 +50,11 @@ player's bid or money (R29).
   negative.
 - **Steps 1.2–1.4 and 2.1 landed in one commit**: §12 makes the new `Turn` fields fail to compile until `TurnItem`
   reads them, and the dice reach `signalDone` through the same signature change.
+- **Found in the browser walk**: a bid refused after the close kept its disabled form in the player's *next* game
+  at the same turn number, because the key was the turn only. It's now keyed by game and turn. The S03 offer form
+  (`closedInTurn`) has the same turn-only key; that's left for a follow-up, out of this story's scope.
+- **The bid hint names the money**: "You have 300 HT. Every bidder pays their bid when Bidding closes, win or lose;
+  the order is bid + d2." It's the viewer's own money, so R29 holds.
 - **Bids stay on `Turn` through the turn** (like offers), so "Your offers this turn" can still show the paid bid, and
   the next turn starts with none.
 
@@ -89,6 +94,8 @@ player's bid or money (R29).
 
 ## Progress
 
+PR: #76
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Domain
@@ -106,13 +113,13 @@ player's bid or money (R29).
 
 ### Phase 3: Client logic
 
-- [ ] 3.1 `initiative.js` with tests
+- [x] 3.1 `initiative.js` with tests — 3676fec
 
 ### Phase 4: Screens
 
-- [ ] 4.1 Deck (s01): "Bid for initiative" panel and the bid line
-- [ ] 4.2 Top bar: "Initiative: A → B → C" from Ship-jumps on
+- [x] 4.1 Deck (s01): "Bid for initiative" panel and the bid line — 0f5da61
+- [x] 4.2 Top bar: "Initiative: A → B → C" from Ship-jumps on — 0f5da61
 
 ### Phase 5: Verification
 
-- [ ] 5.1 Full gate (`./gradlew build`) and a browser walk with screenshots
+- [x] 5.1 Full gate (`./gradlew build`) and a browser walk with screenshots — 0f5da61, 2a41dde
