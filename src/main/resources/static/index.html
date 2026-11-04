@@ -114,7 +114,7 @@
 			border-radius: var(--radius-panel);
 			background: var(--surface-panel);
 		}
-		.stale-notice[hidden], .deck[hidden], .system[hidden], .nav-item[hidden] { display: none; }
+		.stale-notice[hidden], .deck[hidden], .system[hidden], .game-log[hidden], .nav-item[hidden] { display: none; }
 		/* s01: fleet and log left of the map, offers right of it (D07); one column on a narrow screen, map first. */
 		.deck {
 			display: grid;
@@ -167,7 +167,7 @@
 		.fleet-list .muted { font-size: var(--text-body); }
 		/* Narrow screens: the rail becomes a row above the screen, so the map keeps the full width. */
 		@media (max-width: 700px) {
-			body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "topbar" "main"; }
+			body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; grid-template-areas: "sidebar" "topbar" "main"; }
 			.sidebar {
 				flex-direction: row;
 				flex-wrap: wrap;
