@@ -12,6 +12,7 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
+import dev.adriangrzebyk.trader.game.InvalidLandingException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.InvalidPlaceException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
@@ -246,6 +247,32 @@ class GameController(
 		val game = try {
 			shipJumpsService.jump(id, session.email, request?.ship, request?.destination())
 		} catch (ex: InvalidJumpException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	@PostMapping("/games/{id}/ship-jumps/landing")
+	fun landShip(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: LandShipRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			shipJumpsService.land(id, session.email, request?.location())
+		} catch (ex: InvalidLandingException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: GameNotFoundException) {
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
