@@ -66,6 +66,17 @@ describe('phaseText', () => {
 	it('is the plain turn text outside Bidding', () => {
 		assert.equal(phaseText(game({ phase: 'SHIP_JUMPS' }), ME), 'Turn 4 of 20 · Ship-jumps');
 	});
+
+	it('names who is choosing their place in the turn order during Ship-jumps (E04-S01)', () => {
+		const picking = { ...game({ phase: 'SHIP_JUMPS' }) };
+		picking.turn = { ...picking.turn, initiative: ['vega@example.com', ME], turnOrder: [null, null] };
+
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is choosing their place in the turn order');
+		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', null] };
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — choose your place in the turn order');
+		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', ME] };
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps');
+	});
 });
 
 describe('doneAcceptedText', () => {
