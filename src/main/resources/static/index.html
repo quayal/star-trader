@@ -141,6 +141,22 @@
 		.pick-form[hidden] { display: none; }
 		#turn-order-panel > #pick-message:empty, #turn-order-panel > #jump-message:empty { margin: 0; } /* stay in the tree, so their text is announced */
 		.jump-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-panel); }
+		/* E04-S03: s05, the landing dialog. A native <dialog> opened with showModal() traps focus and closes on Escape. */
+		.landing {
+			width: min(480px, calc(100vw - 2 * var(--space-panel)));
+			padding: var(--space-panel);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			border: var(--border-width) solid var(--border-subtle);
+			border-radius: var(--radius-panel);
+		}
+		.landing::backdrop { background: var(--surface-backdrop); }
+		.landing form { display: grid; gap: var(--space-related); }
+		.landing h2 { margin: 0; }
+		.landing fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
+		.landing .choice { justify-content: flex-start; text-align: left; }
+		.landing .message:empty { display: none; }
+		.landing .message { margin: 0; }
 		#turn-order-panel > p { margin: 0 0 var(--space-related); }
 		.offer-type .choices { display: flex; gap: var(--space-group); }
 		.offer-type .choice { flex: 1; }
@@ -394,6 +410,19 @@
 			</div>
 		</div>
 
+		<!-- s05: the landing dialog (E04-S03), static markup shared by every game, filled on render. -->
+		<dialog class="landing" id="landing-dialog" aria-labelledby="landing-title">
+			<form id="landing-form" novalidate>
+				<h2 id="landing-title"></h2>
+				<fieldset>
+					<legend class="field-label" id="landing-legend"></legend>
+					<div id="landing-choices"></div>
+				</fieldset>
+				<p class="message message--error" id="landing-error" role="status"></p>
+				<div><button class="btn" id="landing-button" type="submit"></button></div>
+			</form>
+		</dialog>
+
 		<!-- s04: Game log, public events by turn (E03-S06) -->
 		<div class="game-log" id="log-panel" hidden>
 			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
@@ -500,6 +529,16 @@
 		validateJump,
 	} from './js/ship-jumps.js';
 	import {
+		DEFAULT_LOCATION,
+		ESCAPE_LOCATION,
+		LANDING_BUTTON,
+		LANDING_QUESTION,
+		landedText,
+		landingFor,
+		landingHeading,
+		landingOptions,
+	} from './js/landing.js';
+	import {
 		MAP_VIEW_BOX,
 		MARKET_LEVELS,
 		NODE_POSITIONS,
@@ -594,6 +633,7 @@
 
 	function route() {
 		stopPolling();
+		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
 		showView(view === 'system' || view === 'log' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
@@ -907,6 +947,7 @@
 		if (view !== 'log') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1)
 		}
+		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
 		const changed = key !== renderedKey;
@@ -1370,10 +1411,17 @@
 		}
 	}
 
-	/** After a jump or a finish: the next ship takes focus, or "Your jumps are done." once the slot has ended (S02-6). */
-	function afterJumpStep(game) {
+	/**
+	 * After a jump, a landing or a finish: the landing dialog takes focus after a jump (S03-1); otherwise the next ship
+	 * takes focus (S03-4), or "Your jumps are done." once the slot has ended (S02-6). [announce] is said either way.
+	 */
+	function afterJumpStep(game, announce = '') {
 		render(game);
+		if ($('landing-dialog').open || $('deck-panel').hidden) {
+			return; // showModal() has put focus in the dialog; off the Deck there's no form to return to
+		}
 		if (!$('jump-panel').hidden) {
+			setJumpMessage(announce, false);
 			$('jump-ship').focus();
 			return;
 		}
@@ -1426,6 +1474,80 @@
 			return;
 		}
 		sendJumpStep('jumps', { ship: $('jump-ship').value, destination: $('jump-destination').value });
+	}
+
+	// ── E04-S03: the landing dialog (s05) ──
+
+	// What the dialog was last filled for, so a poll doesn't reset the player's choice while it's open.
+	let landingKey = null;
+	let landingSending = false;
+
+	function closeLanding() {
+		landingKey = null;
+		if ($('landing-dialog').open) {
+			$('landing-dialog').close();
+		}
+	}
+
+	/** S03-1/2/6: open the dialog for the ship you jumped until you confirm where it ends up; Port pre-selected. */
+	function updateLanding(game) {
+		const landing = game.status === 'RUNNING' ? landingFor(game, session.email) : null;
+		if (!landing) {
+			closeLanding(); // landed (here or in another tab), or nothing to land
+			return;
+		}
+		const key = JSON.stringify([game.id, game.turn.number, landing.ship.name]);
+		if (key !== landingKey) {
+			landingKey = key;
+			$('landing-title').textContent = landingHeading(landing);
+			$('landing-legend').textContent = LANDING_QUESTION;
+			$('landing-button').textContent = LANDING_BUTTON;
+			$('landing-error').textContent = '';
+			$('landing-choices').replaceChildren(...landingOptions(landing.system).map(option => {
+				const radio = element('input', { type: 'radio', name: 'landing-location', value: option.value });
+				radio.checked = option.value === DEFAULT_LOCATION;
+				return element('label', { class: 'choice' }, radio, option.label);
+			}));
+		}
+		if (!$('landing-dialog').open) {
+			$('landing-dialog').showModal(); // focus moves inside, to the pre-selected Port
+		}
+	}
+
+	async function submitLanding(location) {
+		if (landingSending) {
+			return;
+		}
+		const gameId = currentGameId;
+		const shipName = lastGame?.turn?.landingShip ?? '';
+		landingSending = true;
+		$('landing-button').disabled = true;
+		$('landing-error').textContent = '';
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/ship-jumps/landing`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ location }),
+			});
+		} catch {
+			response = null;
+		}
+		landingSending = false;
+		$('landing-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response?.ok) {
+			afterJumpStep(await response.json(), landedText(shipName, location));
+			return;
+		}
+		$('landing-error').textContent = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the landing may already have happened in another tab; the dialog catches up
+		}
 	}
 
 	async function submitBid(event) {
@@ -1487,6 +1609,14 @@
 	$('pick-form').addEventListener('submit', submitPick);
 	$('jump-form').addEventListener('submit', submitJump);
 	$('finish-button').addEventListener('click', () => sendJumpStep('finish', null));
+	$('landing-form').addEventListener('submit', event => {
+		event.preventDefault();
+		submitLanding($('landing-choices').querySelector('input:checked')?.value ?? DEFAULT_LOCATION);
+	});
+	$('landing-dialog').addEventListener('cancel', event => {
+		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
+		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)
+	});
 	$('jump-ship').addEventListener('change', () => setJumpError(''));
 	$('jump-destination').addEventListener('change', () => setJumpError(''));
 

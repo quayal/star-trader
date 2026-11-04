@@ -66,7 +66,9 @@ class GameShipJumpTest {
 
 	@Test
 	fun shouldPassTheSlotOnWhenThePlayerJumpsTheirLastShip() {
-		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI).landShip("grace@example.com", ShipLocation.PORT).jumpShip("grace@example.com", "Halcyon", TAU_CETI)
+		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI)
+			.landShip("grace@example.com", ShipLocation.PORT)
+			.jumpShip("grace@example.com", "Halcyon", TAU_CETI)
 			.landShip("grace@example.com", ShipLocation.SPACE)
 
 		assertThat(game.turn!!.doneJumping).containsExactly("grace@example.com")
@@ -75,7 +77,9 @@ class GameShipJumpTest {
 
 	@Test
 	fun shouldPassTheSlotOnWhenThePlayerFinishesJumpingAndLeaveTheOtherShipsWhereTheyAre() {
-		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI).landShip("grace@example.com", ShipLocation.PORT).finishJumping("grace@example.com")
+		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI)
+			.landShip("grace@example.com", ShipLocation.PORT)
+			.finishJumping("grace@example.com")
 
 		assertThat(game.turn!!.jumper()).isEqualTo("ada@example.com")
 		assertThat(shipOf(game, "Halcyon")).isEqualTo(shipOf(jumping, "Halcyon"))
@@ -101,7 +105,9 @@ class GameShipJumpTest {
 	@Test
 	fun shouldMoveToTradingWhenTheLastPlayerJumpsTheirLastShip() {
 		val game = jumping.finishJumping("grace@example.com").finishJumping("ada@example.com")
-			.jumpShip("kim@example.com", "Corvid", TAU_CETI).landShip("kim@example.com", ShipLocation.PORT).jumpShip("kim@example.com", "Bright Reach", TAU_CETI)
+			.jumpShip("kim@example.com", "Corvid", TAU_CETI)
+			.landShip("kim@example.com", ShipLocation.PORT)
+			.jumpShip("kim@example.com", "Bright Reach", TAU_CETI)
 			.landShip("kim@example.com", ShipLocation.PLANET)
 
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.TRADING)
@@ -109,7 +115,9 @@ class GameShipJumpTest {
 
 	@Test
 	fun shouldStartTheNextTurnWithNoShipJumpedAndNobodyDone() {
-		val trading = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI).landShip("grace@example.com", ShipLocation.PORT).finishJumping("grace@example.com")
+		val trading = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI)
+			.landShip("grace@example.com", ShipLocation.PORT)
+			.finishJumping("grace@example.com")
 			.finishJumping("ada@example.com").finishJumping("kim@example.com")
 
 		val next = trading.advancePhase(FakeDice()).turn!!
