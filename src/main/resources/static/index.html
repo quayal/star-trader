@@ -328,6 +328,21 @@
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
+				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
+				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
+					<h2 id="bid-title">Bid for initiative</h2>
+					<form class="offer-form" id="bid-form" novalidate>
+						<div>
+							<label class="field-label" for="bid-amount">Your bid (HT)</label>
+							<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
+								aria-describedby="bid-hint bid-error">
+							<p class="message muted" id="bid-hint"></p>
+							<p class="message message--error field-error" id="bid-error"></p>
+						</div>
+						<div><button class="btn" id="bid-button" type="submit">Place bid</button></div>
+						<p class="message" id="bid-message" role="status"></p>
+					</form>
+				</section>
 				<section class="panel" id="deck-offer-panel" aria-labelledby="deck-offer-title" hidden>
 					<h2 id="deck-offer-title">Place an offer</h2>
 					<div id="deck-offer"></div>
@@ -452,6 +467,7 @@
 		validatePrice,
 	} from './js/offers.js';
 	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -812,7 +828,9 @@
 
 	function renderRunning(game) {
 		const { view, systemId } = parseRoute(location.hash);
-		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT`); // the top bar (S01-1, R29, S04-3)
+		// The top bar (S01-1, R29, S04-3, S05-5): the initiative order joins the money once Bidding has closed.
+		const order = initiativeText(game);
+		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
 		updateDoneBar(game);
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
@@ -840,6 +858,7 @@
 			renderDeck(game);
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
+		updateBidForm(game);
 		showPanels('deck-panel');
 	}
 
@@ -891,7 +910,8 @@
 	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
 	function renderYourOffers(game) {
 		const offers = game.you?.offers ?? [];
-		$('your-offers').replaceChildren(...(offers.length
+		const bid = bidLine(game); // S05-2: the bid sits with the offers, just as private
+		$('your-offers').replaceChildren(...(bid ? [element('li', {}, bid)] : []), ...(offers.length
 			? offers.map(offer => element('li', {},
 				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
 				element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
@@ -1021,6 +1041,114 @@
 			form.price.removeAttribute('aria-invalid');
 		}
 	}
+
+	// ── E03-S05: the initiative bid on the Deck ──
+
+	// The game and turn whose bid reached the server after Bidding closed (S03-7's rule): the form stays, disabled,
+	// with the typed bid and the message, until the next turn; another game's Deck starts fresh.
+	let bidClosedKey = null;
+
+	function setBidError(text) {
+		$('bid-error').textContent = text;
+		if (text) {
+			$('bid-amount').setAttribute('aria-invalid', 'true');
+		} else {
+			$('bid-amount').removeAttribute('aria-invalid');
+		}
+	}
+
+	function setBidMessage(text, error) {
+		$('bid-message').textContent = text;
+		$('bid-message').className = error ? 'message message--error' : 'message message--success';
+	}
+
+	/** S05-1/2: the form during Bidding, with what the player has and the button's label for a first or changed bid. */
+	function updateBidForm(game) {
+		const panel = $('bid-panel');
+		if (bidClosedKey !== null && bidClosedKey === `${game.id}/${game.turn?.number}` && game.status === 'RUNNING') {
+			panel.hidden = false;
+			$('bid-amount').disabled = true;
+			$('bid-button').disabled = true;
+			return;
+		}
+		if (bidClosedKey !== null) {
+			bidClosedKey = null;
+			setBidMessage('', false);
+			$('bid-amount').value = '';
+		}
+		panel.hidden = !isBidding(game);
+		if (panel.hidden) {
+			return;
+		}
+		$('bid-amount').disabled = false;
+		$('bid-button').disabled = false;
+		const label = bidButtonLabel(game);
+		if ($('bid-button').textContent !== label) {
+			$('bid-button').textContent = label;
+		}
+		const money = game.you?.money ?? 0;
+		const hint = `You have ${money} HT. Every bidder pays their bid when Bidding closes, win or lose; the order is bid + d2.`;
+		if ($('bid-hint').textContent !== hint) {
+			$('bid-hint').textContent = hint;
+		}
+	}
+
+	async function submitBid(event) {
+		event.preventDefault();
+		setBidError('');
+		setBidMessage('', false);
+		const checked = validateBid($('bid-amount').value, lastGame?.you?.money ?? 0);
+		if (checked.error) {
+			setBidError(checked.error);
+			$('bid-amount').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		$('bid-button').disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/bidding/bid`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ amount: checked.amount }),
+			});
+		} catch {
+			$('bid-button').disabled = false;
+			setBidMessage(UNREACHABLE, true);
+			return;
+		}
+		$('bid-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			const game = await response.json();
+			$('bid-amount').value = '';
+			render(game);
+			setBidMessage(bidPlacedText(checked.amount), false);
+			$('bid-amount').focus();
+			return;
+		}
+		const message = await errorText(response, '');
+		if (isClosedRefusal(response.status, message)) {
+			bidClosedKey = `${gameId}/${lastGame?.turn?.number}`;
+			$('bid-amount').disabled = true;
+			$('bid-button').disabled = true;
+			setBidMessage(BID_CLOSED_TEXT, true);
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the top bar catches up with the close; the form keeps what was typed
+			return;
+		}
+		if (response.status === 400) {
+			setBidError(message);
+			$('bid-amount').focus();
+			return;
+		}
+		setBidMessage(message || "The bid couldn't be placed.", true);
+	}
+
+	$('bid-form').addEventListener('submit', submitBid);
 
 	// ── E03-S04: "I'm done bidding" in the top bar ──
 
