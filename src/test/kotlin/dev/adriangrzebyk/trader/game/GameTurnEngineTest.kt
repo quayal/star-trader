@@ -26,8 +26,8 @@ class GameTurnEngineTest {
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
-			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")),
-			Turn(1, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")),
+			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList()),
+			Turn(1, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList()),
 			Turn.bidding(2)
 		)
 	}
@@ -37,14 +37,18 @@ class GameTurnEngineTest {
 		val lastTrading = (1..5).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 		assertThat(
 			lastTrading.turn
-		).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		).isEqualTo(
+			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+		)
 
 		val finished = lastTrading.advancePhase(FakeDice(2, 1))
 
 		assertThat(finished.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(
 			finished.turn
-		).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		).isEqualTo(
+			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+		)
 	}
 
 	@Test
@@ -67,7 +71,9 @@ class GameTurnEngineTest {
 	fun shouldRecordAPlayerAsDoneWhileOthersStillBid() {
 		val game = started.signalDoneBidding("joiner@example.com", FakeDice(2, 1))
 
-		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList(), emptyList(), emptyList()))
+		assertThat(
+			game.turn
+		).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
 	}
 
 	@Test
@@ -76,7 +82,9 @@ class GameTurnEngineTest {
 
 		assertThat(
 			game.turn
-		).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		).isEqualTo(
+			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+		)
 	}
 
 	@Test

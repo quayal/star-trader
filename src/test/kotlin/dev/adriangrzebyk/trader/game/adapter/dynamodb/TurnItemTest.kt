@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Turn
+import dev.adriangrzebyk.trader.game.TurnOrderPick
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -22,7 +23,8 @@ class TurnItemTest {
 		doneBidding = listOf("grace@example.com", "ada@example.com"),
 		offers = listOf(offer, Offer("ada@example.com", StarSystem.BETA_HYDRI, Goods.CHIPS, OfferType.BUY, 3)),
 		bids = listOf(InitiativeBid("grace@example.com", 40), InitiativeBid("ada@example.com", 0)),
-		initiative = listOf("ada@example.com", "grace@example.com")
+		initiative = listOf("ada@example.com", "grace@example.com"),
+		turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2), TurnOrderPick("grace@example.com", 1))
 	)
 
 	@Test
@@ -34,14 +36,26 @@ class TurnItemTest {
 	fun shouldReadBackEveryPhase() {
 		TurnPhase.entries.forEach { phase ->
 			val inPhase =
-				Turn(number = 4, phase = phase, doneBidding = emptyList(), offers = emptyList(), bids = emptyList(), initiative = emptyList())
+				Turn(
+					number = 4,
+					phase = phase,
+					doneBidding = emptyList(),
+					offers = emptyList(),
+					bids = emptyList(),
+					initiative = emptyList(),
+					turnOrderPicks = emptyList()
+				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
 	}
 
 	@Test
 	fun shouldStoreATurnUnderTheseAttributeNames() {
-		val withOneOfEach = turn.copy(offers = listOf(offer), bids = listOf(InitiativeBid("grace@example.com", 40)))
+		val withOneOfEach = turn.copy(
+			offers = listOf(offer),
+			bids = listOf(InitiativeBid("grace@example.com", 40)),
+			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2))
+		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
 			mapOf(
@@ -68,13 +82,16 @@ class TurnItemTest {
 						)
 					)
 				),
-				"initiative" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"), AttributeValue.fromS("grace@example.com")))
+				"initiative" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"), AttributeValue.fromS("grace@example.com"))),
+				"turnOrderPicks" to AttributeValue.fromL(
+					listOf(AttributeValue.fromM(mapOf("playerEmail" to AttributeValue.fromS("ada@example.com"), "place" to AttributeValue.fromN("2"))))
+				)
 			)
 		)
 	}
 
 	@Test
-	fun shouldReadATurnSavedBeforeDoneBiddingOffersAndBidsExistedAsNobodyDoneAndNothingPlaced() {
+	fun shouldReadATurnSavedBeforeDoneBiddingOffersBidsAndPicksExistedAsNobodyDoneAndNothingPlaced() {
 		val older = mapOf("number" to AttributeValue.fromN("1"), "phase" to AttributeValue.fromS("BIDDING"))
 
 		val expected =
@@ -84,7 +101,8 @@ class TurnItemTest {
 				doneBidding = emptyList(),
 				offers = emptyList(),
 				bids = emptyList(),
-				initiative = emptyList()
+				initiative = emptyList(),
+				turnOrderPicks = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)
@@ -116,5 +134,16 @@ class TurnItemTest {
 		}
 			.isInstanceOf(IllegalStateException::class.java)
 			.hasMessageContaining("amount")
+	}
+
+	@Test
+	fun shouldNameTheMissingAttributeWhenAStoredPickIsIncomplete() {
+		val brokenPick = TurnOrderPickItem(TurnOrderPick("grace@example.com", 1)).attributes - "place"
+
+		assertThatThrownBy {
+			TurnItem(TurnItem(turn).attributes + ("turnOrderPicks" to AttributeValue.fromL(listOf(AttributeValue.fromM(brokenPick))))).toTurn()
+		}
+			.isInstanceOf(IllegalStateException::class.java)
+			.hasMessageContaining("place")
 	}
 }

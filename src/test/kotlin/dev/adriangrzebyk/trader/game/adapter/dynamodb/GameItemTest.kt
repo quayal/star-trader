@@ -52,7 +52,8 @@ class GameItemTest {
 			doneBidding = emptyList(),
 			offers = emptyList(),
 			bids = emptyList(),
-			initiative = emptyList()
+			initiative = emptyList(),
+			turnOrderPicks = emptyList()
 		),
 		log = listOf(
 			LogEntry(1, "Game started: 2 players, 20 turns"),

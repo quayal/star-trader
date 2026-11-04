@@ -40,6 +40,7 @@ class GameOfferTest {
 				listOf("joiner@example.com"),
 				listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)),
 				emptyList(),
+				emptyList(),
 				emptyList()
 			)
 		)
@@ -180,7 +181,9 @@ class GameOfferTest {
 
 		assertThat(
 			trading.turn
-		).isEqualTo(Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		).isEqualTo(
+			Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+		)
 	}
 
 	@Test
