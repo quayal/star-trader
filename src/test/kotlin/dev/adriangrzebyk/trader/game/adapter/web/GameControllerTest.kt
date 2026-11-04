@@ -254,7 +254,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList()))
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList()))
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
@@ -365,7 +365,7 @@ class GameControllerTest {
 		val afterFirst = signalDone(joinerToken, gameId)
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList()))
+		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList()))
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
@@ -628,6 +628,60 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("This game hasn't started")
 	}
 
+	@Test
+	fun shouldLetPlayersPickTheirPlaceInInitiativeOrderOnceBiddingCloses() {
+		val (creatorToken, joinerToken, gameId) = startedGame("pick")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(closed.turn!!.turnOrder).containsExactly(null, null)
+		val (first, second) = closed.turn!!.initiative
+
+		// E04-S01: the first in initiative order may take last place; the other player gets the place left (S01-6).
+		val picked = pickPlace("token-$first", gameId, """{"place": 2}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(picked.turn!!.turnOrder).containsExactly(second, first)
+		assertThat(picked.turn!!.phase).isEqualTo("SHIP_JUMPS")
+		assertThat(picked.log.map { it.text }.last()).startsWith("Turn order (for this turn): ")
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.turnOrder)
+			.containsExactly(second, first)
+	}
+
+	@Test
+	fun shouldRefuseAPickOutOfTurnOrForAPlaceThatIsNotFree() {
+		val (creatorToken, joinerToken, gameId) = startedGame("bad-pick")
+		pickPlace(joinerToken, gameId, """{"place": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		val firstName = if (first == "bad-pick-guest@example.com") "Grace Freight" else "Adrian Star Traders"
+
+		pickPlace("token-$second", gameId, """{"place": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("It's $firstName's turn to choose a place.")
+		listOf("""{"place": 3}""", """{"place": 0}""", """{"place": 1.5}""", """{}""").forEach { body ->
+			pickPlace("token-$first", gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Choose a free place in the turn order.")
+		}
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		pickPlace("token-$second", gameId, """{"place": 2}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("The turn order is already set.")
+	}
+
+	@Test
+	fun shouldRefuseAPickFromSomeoneWhoIsNotAPlayerOrForAGameThatDoesNotExist() {
+		val (_, _, gameId) = startedGame("pick-outsider")
+
+		pickPlace(signIn("pick-outsider-stranger@example.com"), gameId, """{"place": 1}""").expectStatus().isForbidden
+		pickPlace(signIn("pick-outsider-host@example.com"), "missing-game", """{"place": 1}""").expectStatus().isNotFound
+		pickPlace(null, gameId, """{"place": 1}""").expectStatus().isUnauthorized
+	}
+
 	/** A started two-player game for this test's own emails: the creator's token, the joiner's token, the game id. */
 	private fun startedGame(prefix: String): Triple<String, String, String> {
 		val creatorToken = signIn("$prefix-host@example.com")
@@ -646,6 +700,12 @@ class GameControllerTest {
 
 	private fun placeOffer(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/offers", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun pickPlace(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/turn-order", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}
