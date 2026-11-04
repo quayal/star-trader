@@ -11,7 +11,8 @@ package dev.adriangrzebyk.trader.game
  * Bidding closes and empty before. [turnOrderPicks] are the places players picked in this turn's turn order (R26), in
  * pick order; public, and empty until the first pick. [jumpedShips] names the ships that jumped this turn (each may
  * jump once, R26; names are unique in a game) and [doneJumping] the players whose jump slot has ended, in order; both
- * public and empty until the first jump.
+ * public and empty until the first jump. [landingShip] is the ship that jumped and whose player hasn't chosen where it
+ * ends up yet (R30, S03); public, and null when no ship waits to land.
  */
 data class Turn(
 	val number: Int,
@@ -22,7 +23,8 @@ data class Turn(
 	val initiative: List<String>,
 	val turnOrderPicks: List<TurnOrderPick>,
 	val jumpedShips: List<String>,
-	val doneJumping: List<String>
+	val doneJumping: List<String>,
+	val landingShip: String?
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -67,7 +69,8 @@ data class Turn(
 			emptyList(),
 			emptyList(),
 			emptyList(),
-			emptyList()
+			emptyList(),
+			null
 		)
 	}
 }

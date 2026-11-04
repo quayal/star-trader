@@ -191,12 +191,12 @@ data class Game(
 
 	/**
 	 * [email] jumps their ship [shipName] to [destination] during their slot (R26, S02): instantly, with no fuel, damage
-	 * or transit time (R19), arriving in Space until the player chooses where it ends up (S03). Each ship jumps at most
-	 * once per turn, and never to the system it's already at (S02-4). The jump is logged (S02-7); jumping the player's
-	 * last ship ends their slot (S02-6).
+	 * or transit time (R19), arriving in Space and waiting for the player to choose where it ends up (S03). Each ship
+	 * jumps at most once per turn, and never to the system it's already at (S02-4). The jump is logged (S02-7).
 	 */
 	fun jumpShip(email: String, shipName: String?, destination: StarSystem?): Game {
 		val current = jumpSlotOf(email)
+		refuseWhileAShipWaitsToLand(current)
 		val player = players.first { it.email == email }
 		val ship = player.ships.firstOrNull { it.name == shipName && it.name !in current.jumpedShips }
 			?: throw InvalidJumpException("Choose one of your ships that hasn't jumped this turn.")
@@ -207,18 +207,48 @@ data class Game(
 			throw InvalidJumpException("${ship.name} is already at ${destination.displayName}. Pick another destination.")
 		}
 		val moved = player.copy(ships = player.ships.map { if (it == ship) it.copy(system = destination, location = ShipLocation.SPACE) else it })
-		val jumped = copy(
+		return copy(
 			players = players.map { if (it.email == email) moved else it },
-			turn = current.copy(jumpedShips = current.jumpedShips + ship.name),
+			turn = current.copy(jumpedShips = current.jumpedShips + ship.name, landingShip = ship.name),
 			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${ship.name} → ${destination.displayName}")
 		)
-		return if (moved.ships.all { it.name in jumped.runningTurn().jumpedShips }) jumped.endJumpSlot(email) else jumped
+	}
+
+	/**
+	 * [email] chooses where the ship that just jumped ends up (R30, S03): at the Port, on the Planet or in Space. That
+	 * finishes the jump; the landing is logged (S03-3), and landing the player's last ship ends their slot (S02-6, S03-4).
+	 */
+	fun landShip(email: String, location: ShipLocation?): Game {
+		val current = jumpSlotOf(email)
+		val shipName = current.landingShip ?: throw InvalidGameOperationException("No ship is waiting to land.")
+		if (location == null) {
+			throw InvalidLandingException()
+		}
+		val player = players.first { it.email == email }
+		val ship = player.ships.first { it.name == shipName }
+		val where = when (location) {
+			ShipLocation.PORT -> "lands at the port"
+			ShipLocation.PLANET -> "lands on the planet"
+			ShipLocation.SPACE -> "stays in space"
+		}
+		val landed = player.copy(ships = player.ships.map { if (it == ship) it.copy(location = location) else it })
+		val game = copy(
+			players = players.map { if (it.email == email) landed else it },
+			turn = current.copy(landingShip = null),
+			log = log + LogEntry(current.number, "Landing: ${player.corporationName} — ${ship.name} $where (${ship.system.displayName})")
+		)
+		return if (landed.ships.all { it.name in current.jumpedShips }) game.endJumpSlot(email) else game
 	}
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
 	fun finishJumping(email: String): Game {
-		jumpSlotOf(email)
+		refuseWhileAShipWaitsToLand(jumpSlotOf(email))
 		return endJumpSlot(email)
+	}
+
+	/** S02-3, S03-6: a jump isn't finished until its ship has landed, so nothing else happens in the slot until then. */
+	private fun refuseWhileAShipWaitsToLand(current: Turn) {
+		current.landingShip?.let { throw InvalidGameOperationException("Choose where $it ends up first.") }
 	}
 
 	/** The running turn, once checked that it's [email]'s jump slot (R04: an ordered step out of turn is refused). */
