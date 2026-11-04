@@ -70,7 +70,7 @@ next jump" (S04-2).
 
 ### Phase 1: Web
 
-- [ ] 1.1 progress.js
-- [ ] 1.2 Live region and Turn order flash
+- [x] 1.1 progress.js — 5c89d16
+- [x] 1.2 Live region and Turn order flash — 1bfd307
 - [ ] 1.3 S04-2 controller test
 - [ ] 1.4 Browser walk
