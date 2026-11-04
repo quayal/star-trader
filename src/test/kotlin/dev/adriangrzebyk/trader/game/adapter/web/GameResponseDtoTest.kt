@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.MarketPosition
@@ -83,6 +84,24 @@ class GameResponseDtoTest {
 
 		assertThat(seenByHost.you!!.offers).containsExactly(YourOfferResponseDto("BETA_HYDRI", "Beta Hydri", "CHIPS", "BUY", 3))
 		assertThat(seenByHost.toString()).doesNotContain("SELL").doesNotContain("price=19")
+	}
+
+	@Test
+	fun shouldSendTheViewerTheirOwnBidOnlyAndNobodyElsesMoney() {
+		val game = started.placeInitiativeBid("guest@example.com", 137).placeInitiativeBid("host@example.com", 5)
+
+		val seenByHost = GameResponseDto(game, "host@example.com")
+
+		assertThat(seenByHost.you!!.bid).isEqualTo(5)
+		assertThat(seenByHost.toString()).doesNotContain("137")
+	}
+
+	@Test
+	fun shouldSendTheInitiativeOrderToEveryoneOnceBiddingCloses() {
+		val closed = started.advancePhase(FakeDice(2, 1))
+
+		assertThat(GameResponseDto(closed, "guest@example.com").turn!!.initiative).containsExactly("host@example.com", "guest@example.com")
+		assertThat(GameResponseDto(started, "guest@example.com").turn!!.initiative).isEmpty()
 	}
 
 	@Test

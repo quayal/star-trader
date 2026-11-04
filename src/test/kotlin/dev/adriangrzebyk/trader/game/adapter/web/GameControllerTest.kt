@@ -85,7 +85,7 @@ class GameControllerTest {
 		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList()))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null))
 	}
 
 	@Test
@@ -254,7 +254,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList()))
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList()))
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
@@ -365,12 +365,14 @@ class GameControllerTest {
 		val afterFirst = signalDone(joinerToken, gameId)
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com")))
+		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList()))
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
 		val polled = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(polled.turn).isEqualTo(TurnResponseDto(1, "SHIP_JUMPS", emptyList()))
+		assertThat(polled.turn!!.phase).isEqualTo("SHIP_JUMPS")
+		assertThat(polled.turn!!.doneBidding).isEmpty()
+		assertThat(polled.turn!!.initiative).containsExactlyInAnyOrder("done-host@example.com", "done-guest@example.com")
 	}
 
 	@Test
@@ -503,6 +505,109 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("This game hasn't started")
 	}
 
+	@Test
+	fun shouldPlaceAndChangeABidAndShowItOnlyToItsPlayer() {
+		val (creatorToken, joinerToken, gameId) = startedGame("bid")
+
+		val placed = placeBid(joinerToken, gameId, """{"amount": 40}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(placed.you!!.bid).isEqualTo(40)
+
+		placeBid(joinerToken, gameId, """{"amount": 25}""").expectStatus().isOk
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.bid)
+			.isEqualTo(25)
+		assertThat(pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.bid)
+			.isNull()
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersBidOrMoney() {
+		val (creatorToken, joinerToken, gameId) = startedGame("bid-secret")
+		placeBid(joinerToken, gameId, """{"amount": 137}""").expectStatus().isOk
+		signalDone(joinerToken, gameId).expectStatus().isOk
+
+		// Every response the creator can get: the poll, their own bid, the done that closes Bidding, the poll after (R29, S05-6).
+		val seenByCreator = listOf(
+			pollGame(creatorToken, gameId),
+			placeBid(creatorToken, gameId, """{"amount": 5}"""),
+			signalDone(creatorToken, gameId),
+			pollGame(creatorToken, gameId)
+		).map { it.expectBody(String::class.java).returnResult().responseBody!! }
+
+		seenByCreator.forEach { raw ->
+			assertThat(raw).doesNotContain("\"bid\":137").doesNotContain("\"money\":163").doesNotContain("\"amount\"")
+			assertThat(Regex("\"bid\"").findAll(raw).count()).isEqualTo(1) // only "you.bid"
+			assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1) // only "you.money"
+		}
+		assertThat(seenByCreator.last()).contains("\"money\":295")
+	}
+
+	@Test
+	fun shouldChargeEveryBidAndPublishTheOrderWhenBiddingCloses() {
+		val (creatorToken, joinerToken, gameId) = startedGame("all-pay")
+		placeBid(joinerToken, gameId, """{"amount": 40}""").expectStatus().isOk
+		placeBid(creatorToken, gameId, """{"amount": 10}""").expectStatus().isOk
+		signalDone(joinerToken, gameId).expectStatus().isOk
+
+		val closed = signalDone(creatorToken, gameId)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(closed.you!!.money).isEqualTo(290)
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.money)
+			.isEqualTo(260)
+		assertThat(closed.turn!!.initiative).containsExactlyInAnyOrder("all-pay-host@example.com", "all-pay-guest@example.com")
+		val logged = closed.log.last()
+		assertThat(logged).startsWith("Initiative order (bid + d2): ")
+		assertThat(logged.substringAfter(": ")).doesNotContainPattern("[0-9]") // R29: the order, never an amount
+	}
+
+	@Test
+	fun shouldRefuseABidTheRulesDoNotAllow() {
+		val (_, joinerToken, gameId) = startedGame("bad-bid")
+
+		listOf(
+			"""{"amount": 301}""" to "You have 300 HT. Enter 300 or less.",
+			"""{"amount": -1}""" to "A bid can't be negative. Enter 0 to bid nothing.",
+			"""{"amount": 2.5}""" to "Enter a whole number of HT, 0 or more.",
+			"""{}""" to "Enter a whole number of HT, 0 or more."
+		).forEach { (body, message) ->
+			placeBid(joinerToken, gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo(message)
+		}
+		assertThat(gameStore.find(gameId)!!.turn!!.bids).isEmpty()
+	}
+
+	@Test
+	fun shouldTellAPlayerWhoseBidArrivesAfterBiddingClosed() {
+		val (creatorToken, joinerToken, gameId) = startedGame("bid-late")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		signalDone(creatorToken, gameId).expectStatus().isOk
+
+		placeBid(joinerToken, gameId, """{"amount": 40}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Bidding has closed")
+		assertThat(gameStore.find(gameId)!!.turn!!.bids).isEmpty()
+	}
+
+	@Test
+	fun shouldRefuseBidsFromOutsidersForUnknownGamesAndWithoutASession() {
+		val (_, _, gameId) = startedGame("bid-outsider")
+		val body = """{"amount": 40}"""
+
+		placeBid(signIn("bid-stranger@example.com"), gameId, body)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).isEqualTo("You are not a player in this game")
+		placeBid(signIn("bid-lost@example.com"), "no-such-game", body).expectStatus().isNotFound
+		placeBid(null, gameId, body).expectStatus().isUnauthorized
+		val lobbyToken = signIn("bid-lobby@example.com")
+		placeBid(lobbyToken, createdGame(lobbyToken).id, body)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game hasn't started")
+	}
+
 	/** A started two-player game for this test's own emails: the creator's token, the joiner's token, the game id. */
 	private fun startedGame(prefix: String): Triple<String, String, String> {
 		val creatorToken = signIn("$prefix-host@example.com")
@@ -521,6 +626,12 @@ class GameControllerTest {
 
 	private fun placeOffer(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/offers", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun placeBid(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.put().uri("/api/games/{id}/bidding/bid", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

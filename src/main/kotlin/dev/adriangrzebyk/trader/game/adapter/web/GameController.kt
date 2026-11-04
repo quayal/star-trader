@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
+import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
@@ -23,6 +24,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -161,6 +163,34 @@ class GameController(
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidOfferException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * Places or changes the caller's secret initiative bid (R27, S05-1, S05-2). Only the caller's own `you.bid` ever
+	 * carries it (R29); it's paid when Bidding closes.
+	 */
+	@PutMapping("/games/{id}/bidding/bid")
+	fun placeInitiativeBid(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: PlaceBidRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			biddingService.placeInitiativeBid(id, session.email, request?.wholeAmount())
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidBidException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: PhaseClosedException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
