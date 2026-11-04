@@ -269,7 +269,7 @@ class GameControllerTest {
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
 			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
 		}
-		assertThat(started.log.first()).isEqualTo("Game started: 2 players, 20 turns")
+		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns"))
 		joinGame(signIn("start-late@example.com"), game.id)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("This game has already started")
@@ -559,8 +559,28 @@ class GameControllerTest {
 			.isEqualTo(260)
 		assertThat(closed.turn!!.initiative).containsExactlyInAnyOrder("all-pay-host@example.com", "all-pay-guest@example.com")
 		val logged = closed.log.last()
-		assertThat(logged).startsWith("Initiative order (bid + d2): ")
-		assertThat(logged.substringAfter(": ")).doesNotContainPattern("[0-9]") // R29: the order, never an amount
+		assertThat(logged.turn).isEqualTo(1)
+		assertThat(logged.text).startsWith("Initiative order (bid + d2): ")
+		assertThat(logged.text.substringAfter(": ")).doesNotContainPattern("[0-9]") // R29: the order, never an amount
+	}
+
+	@Test
+	fun shouldSendTheLogAsPublicEventsByTurnWithoutOffersBidsOrMoney() {
+		val (creatorToken, joinerToken, gameId) = startedGame("log")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "SELL", "price": 17}""").expectStatus().isCreated
+		placeBid(joinerToken, gameId, """{"amount": 23}""").expectStatus().isOk
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		signalDone(creatorToken, gameId).expectStatus().isOk
+
+		val raw = pollGame(creatorToken, gameId).expectBody(String::class.java).returnResult().responseBody!!
+		val log = pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.log
+
+		// S06-1: every entry carries its turn; S06-3: none names an offer, a bid or money (R17, R29).
+		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\"}")
+		assertThat(log.map { it.turn }).containsOnly(1)
+		assertThat(log.map { it.text }).hasSize(3).noneMatch { text ->
+			listOf("17", "23", "277", "HT", "POLY", "SELL").any { it in text }
+		}
 	}
 
 	@Test

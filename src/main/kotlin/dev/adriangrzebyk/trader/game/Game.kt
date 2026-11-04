@@ -4,7 +4,7 @@ import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
 
-/** [turn] is null until the game starts; [log] holds the public events, oldest first. */
+/** [turn] is null until the game starts; [log] holds the public events, oldest first, each with its turn. */
 data class Game(
 	val id: String,
 	val turns: Int,
@@ -12,7 +12,7 @@ data class Game(
 	val creatorEmail: String,
 	val players: List<Player>,
 	val turn: Turn?,
-	val log: List<String>
+	val log: List<LogEntry>
 ) {
 
 	fun addPlayer(player: Player): Game {
@@ -60,7 +60,7 @@ data class Game(
 			status = GameStatus.RUNNING,
 			players = setUp,
 			turn = Turn.bidding(1),
-			log = log + "Game started: ${setUp.size} players, $turns turns" + "Starting positions: $positions"
+			log = log + LogEntry(1, "Game started: ${setUp.size} players, $turns turns") + LogEntry(1, "Starting positions: $positions")
 		)
 	}
 
@@ -161,7 +161,7 @@ data class Game(
 		return copy(
 			players = players.map { it.pay(bids.getValue(it.email)) },
 			turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order),
-			log = log + "Initiative order (bid + d2): $names"
+			log = log + LogEntry(current.number, "Initiative order (bid + d2): $names")
 		)
 	}
 
