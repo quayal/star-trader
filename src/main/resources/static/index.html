@@ -33,11 +33,20 @@
 		}
 		.topbar {
 			grid-area: topbar;
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--space-related) var(--space-panel);
 			border-bottom: var(--border-width) solid var(--border-subtle);
 			padding: var(--space-between-groups) var(--space-section);
 		}
 		.topbar h1 { font-size: var(--text-heading); margin-bottom: var(--space-hairline); }
 		.topbar p { color: var(--text-muted); margin: 0; }
+		.topbar__done { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
+		/* .btn sets its own display, so hidden must win explicitly (lessons 2026-10-30). */
+		.topbar__done[hidden], .topbar__done > [hidden] { display: none; }
+		.topbar__done #done-text { color: var(--text-primary); }
 		main { grid-area: main; padding: var(--space-section); }
 		/* Each view has its own display rule, so hidden must win explicitly (lessons 2026-10-30). */
 		.view { display: grid; gap: var(--space-panel); max-width: 720px; }
@@ -194,8 +203,17 @@
 </aside>
 
 <header class="topbar">
-	<h1 id="page-title">Command Deck</h1>
-	<p id="page-subtitle">Live prices and supply/demand across all six star systems.</p>
+	<div>
+		<h1 id="page-title">Command Deck</h1>
+		<p id="page-subtitle">Live prices and supply/demand across all six star systems.</p>
+	</div>
+	<!-- E03-S04: on s01 and s02 during Bidding. Static markup, toggled on render, so focus survives the poll. -->
+	<div class="topbar__done" id="done-bar" hidden>
+		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
+		<!-- A live region that stays in the tree: its text appears when the player is done, so it's announced. -->
+		<p id="done-text" role="status" tabindex="-1"></p>
+		<p class="message" id="done-message" role="status" tabindex="-1"></p>
+	</div>
 </header>
 
 <main>
@@ -403,7 +421,6 @@
 		lobbyState,
 		parseRoute,
 		systemLink,
-		turnText,
 		validateTurns,
 	} from './js/game.js';
 	import {
@@ -434,6 +451,7 @@
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
+	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -462,6 +480,7 @@
 	function setTitle(title, subtitle) {
 		$('page-title').textContent = title;
 		$('page-subtitle').textContent = subtitle;
+		$('done-bar').hidden = true; // only a running game's top bar shows it (updateDoneBar)
 	}
 
 	function showPanels(...ids) {
@@ -793,7 +812,8 @@
 
 	function renderRunning(game) {
 		const { view, systemId } = parseRoute(location.hash);
-		setTitle(turnText(game), `Money: ${game.you?.money ?? 0} HT`); // the top bar (S01-1, R29)
+		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT`); // the top bar (S01-1, R29, S04-3)
+		updateDoneBar(game);
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
 		const changed = key !== renderedKey;
@@ -1001,6 +1021,71 @@
 			form.price.removeAttribute('aria-invalid');
 		}
 	}
+
+	// ── E03-S04: "I'm done bidding" in the top bar ──
+
+	// The game, turn and phase the done message belongs to: 'pending' until the next render records it, so the
+	// message stays through the phase it's about and clears when the game moves on or the player opens another game.
+	let doneMessageKey = null;
+
+	function setDoneMessage(text, error) {
+		$('done-message').textContent = text;
+		$('done-message').className = error ? 'message message--error' : 'message';
+		doneMessageKey = text ? 'pending' : null;
+	}
+
+	/** S04-1: the button until pressed, then the done text; the bar stays while a done message is about this phase. */
+	function updateDoneBar(game) {
+		const key = `${game.id}/${game.turn.number}/${game.turn.phase}/${game.status}`;
+		if (doneMessageKey === 'pending') {
+			doneMessageKey = key;
+		} else if (doneMessageKey !== null && doneMessageKey !== key) {
+			setDoneMessage('', false);
+		}
+		const bidding = isBidding(game);
+		const done = isDone(game, session.email);
+		$('done-button').hidden = !bidding || done;
+		const text = done ? DONE_TEXT : '';
+		if ($('done-text').textContent !== text) {
+			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
+		}
+		$('done-bar').hidden = !bidding && !$('done-message').textContent;
+	}
+
+	async function signalDone() {
+		const button = $('done-button');
+		const gameId = currentGameId;
+		setDoneMessage('', false);
+		button.disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/bidding/done`, { method: 'POST' });
+		} catch {
+			button.disabled = false;
+			setDoneMessage(UNREACHABLE, true);
+			return;
+		}
+		button.disabled = false; // the button is shared by every game, so it's re-enabled even if the player has left
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			const game = await response.json();
+			setDoneMessage(doneAcceptedText(game), false);
+			render(game);
+			$(isBidding(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
+			return;
+		}
+		const message = await errorText(response, '');
+		setDoneMessage(doneRefusedText(response.status, message, "Couldn't signal done. Try again."), !isClosedRefusal(response.status, message));
+		if (isClosedRefusal(response.status, message)) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the top bar catches up with the close
+		}
+	}
+
+	$('done-button').addEventListener('click', signalDone);
 
 	function setOfferMessage(form, text, error) {
 		form.message.textContent = text;
