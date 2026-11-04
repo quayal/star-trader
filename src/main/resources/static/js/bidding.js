@@ -10,7 +10,6 @@ import { turnText } from './game.js';
 export const DONE_BUTTON = "I'm done bidding";
 /** S04-1: shown in place of the button once the player has signalled done. */
 export const DONE_TEXT = 'You signalled done — you can still add offers';
-export const MARKED_DONE = 'Marked done for Bidding. You can still add offers until Bidding closes.';
 export const CLOSED_BY_YOU = 'Everyone is done. Bidding has closed.';
 export const ALREADY_CLOSED = 'Bidding has already closed.';
 
@@ -38,9 +37,12 @@ export function phaseText(game, email) {
 	return waiting.length ? `${turnText(game)} — waiting for ${waiting.join(', ')}` : turnText(game);
 }
 
-/** What the status region says once "done" was accepted: still waiting, or this player's signal closed Bidding. */
+/**
+ * What to say once "done" was accepted: nothing while others still bid (the done text says it), or that this
+ * player's signal closed Bidding (S04-4).
+ */
 export function doneAcceptedText(game) {
-	return isBidding(game) ? MARKED_DONE : CLOSED_BY_YOU;
+	return isBidding(game) ? '' : CLOSED_BY_YOU;
 }
 
 /** What to say when "done" was refused: a close that raced the click isn't the player's error (A04). */

@@ -4,7 +4,6 @@ import { describe, it } from 'node:test';
 import {
 	ALREADY_CLOSED,
 	CLOSED_BY_YOU,
-	MARKED_DONE,
 	doneAcceptedText,
 	doneRefusedText,
 	isDone,
@@ -70,8 +69,8 @@ describe('phaseText', () => {
 });
 
 describe('doneAcceptedText', () => {
-	it('says you can still add offers while others bid', () => {
-		assert.equal(doneAcceptedText(game({ doneBidding: [ME] })), MARKED_DONE);
+	it('says nothing more while others still bid', () => {
+		assert.equal(doneAcceptedText(game({ doneBidding: [ME] })), '');
 	});
 
 	it('says Bidding closed when your signal was the last', () => {

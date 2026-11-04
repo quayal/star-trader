@@ -13,6 +13,10 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-11-04: **The `hidden`-vs-`display` gotcha (2026-10-30) came back with `.btn`.** The top bar's "I'm done bidding" button had `hidden` set but stayed on screen, because `.btn { display: inline-flex }` wins. Again only a screenshot caught it, since the JS state was right. The rule is now in `docs/design-system.md` ("If… then use…"): any element that gets `hidden` and has a class that sets `display` needs its own `[hidden] { display: none; }`.
+
+- 2026-11-04: **Running a second checkout locally: `bootRun` fails if another checkout's DynamoDB Local already holds port 8000.** Start a throwaway container on another port (`docker run -d --rm -p 8100:8000 amazon/dynamodb-local:3.3.2`) and run `DYNAMODB_ENDPOINT_OVERRIDE=http://localhost:8100 ./gradlew bootRun --args='--server.port=3100 --spring.docker.compose.enabled=false'`. That also keeps test games out of the main checkout's data. In a browser walk, a new session token only takes effect after a full reload: a hash-only `open` keeps the old cached session.
+
 - 2026-11-02: **Without `Cache-Control`, browsers keep a stale stylesheet after a change.** Spring served `static/` with only `Last-Modified`, so Safari and Firefox guessed a cache lifetime and kept the old `components.css`. The new `.market-level` colours were missing while the older `.good--*` colours showed, and Chrome (fresh) looked fine. Fixed with `spring.web.resources.cache.cachecontrol.no-cache=true` (revalidate every load, 304 when unchanged; `StaticResourcesTest`). When one browser shows a CSS change and another doesn't, suspect the cache before the CSS.
 
 - 2026-11-01: **`baseBranch: "auto"` in `.ai/agentic.config.json` means "the repo's default branch", not a branch named `auto`.** The om-* skills resolve it through the tracker's **default-branch** operation (`references/agentic-setup.md` in each skill). During E03-S01 I read the raw value, saw no `origin/auto`, and told the creator the config was broken; it wasn't. Before calling a config value wrong, check how the skills consuming it interpret it.
