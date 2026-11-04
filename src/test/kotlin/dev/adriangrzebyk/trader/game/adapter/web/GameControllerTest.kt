@@ -254,7 +254,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList()))
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
@@ -365,7 +365,7 @@ class GameControllerTest {
 		val afterFirst = signalDone(joinerToken, gameId)
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList()))
+		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
@@ -680,6 +680,120 @@ class GameControllerTest {
 		pickPlace(signIn("pick-outsider-stranger@example.com"), gameId, """{"place": 1}""").expectStatus().isForbidden
 		pickPlace(signIn("pick-outsider-host@example.com"), "missing-game", """{"place": 1}""").expectStatus().isNotFound
 		pickPlace(null, gameId, """{"place": 1}""").expectStatus().isUnauthorized
+	}
+
+	@Test
+	fun shouldLetPlayersJumpTheirShipsInTurnOrderThenMoveToTrading() {
+		val (first, second, gameId) = orderedGame("jump")
+		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+			.players.first { it.email == first }.ships.first()
+		val destination = StarSystem.entries.first { it.name != ship.system }
+
+		// E04-S02: the first place jumps one ship; it arrives at once, in space, and the jump is public.
+		val jumped = jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val seenByOther = pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByOther.players.first { it.email == first }.ships.first())
+			.isEqualTo(ShipResponseDto(ship.name, destination.name, destination.displayName, "SPACE"))
+		assertThat(seenByOther.turn!!.jumpedShips).containsExactly(ship.name)
+		assertThat(jumped.log.last().text).endsWith("— ${ship.name} → ${destination.displayName}")
+
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		val trading = finishJumping("token-$second", gameId)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(trading.turn!!.phase).isEqualTo("TRADING")
+		assertThat(trading.turn!!.doneJumping).containsExactly(first, second)
+	}
+
+	@Test
+	fun shouldNeverShowAnotherPlayersCargoAfterAJump() {
+		val (first, second, gameId) = orderedGame("jump-cargo")
+		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+			.players.first { it.email == first }.ships.first()
+		val destination = StarSystem.entries.first { it.name != ship.system }
+		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
+
+		// S02-10, R29: where the ship is, yes; what it carries, no.
+		pollGame("token-$second", gameId).expectBody()
+			.jsonPath("$.players[*].ships[*].cargo").doesNotExist()
+			.jsonPath("$.players[*].money").doesNotExist()
+	}
+
+	@Test
+	fun shouldRefuseAJumpOutOfTurnOrThatBreaksAJumpRule() {
+		val (creatorToken, joinerToken, gameId) = startedGame("bad-jump")
+		jumpShip(joinerToken, gameId, """{"ship": "Lantern", "destination": "TAU_CETI"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		finishJumping("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("The turn order isn't set yet.")
+		val ordered = pickPlace("token-$first", gameId, """{"place": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val firstName = if (first == "bad-jump-guest@example.com") "Grace Freight" else "Adrian Star Traders"
+		val ship = ordered.players.first { it.email == first }.ships.first()
+		val otherShip = ordered.players.first { it.email == second }.ships.first()
+
+		finishJumping("token-$second", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("It's $firstName's turn to jump.")
+		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${ship.system}"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("${ship.name} is already at ${ship.systemName}. Pick another destination.")
+		listOf("""{"ship": "${otherShip.name}", "destination": "TAU_CETI"}""", """{"destination": "TAU_CETI"}""").forEach { body ->
+			jumpShip("token-$first", gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Choose one of your ships that hasn't jumped this turn.")
+		}
+		listOf("""{"ship": "${ship.name}", "destination": "ALPHA_CENTAURI"}""", """{"ship": "${ship.name}"}""").forEach { body ->
+			jumpShip("token-$first", gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Choose a destination system.")
+		}
+	}
+
+	@Test
+	fun shouldRefuseAJumpFromSomeoneWhoIsNotAPlayerOrForAGameThatDoesNotExist() {
+		val (_, _, gameId) = orderedGame("jump-outsider")
+		val body = """{"ship": "Wayfarer", "destination": "TAU_CETI"}"""
+
+		jumpShip(signIn("jump-outsider-stranger@example.com"), gameId, body).expectStatus().isForbidden
+		jumpShip(signIn("jump-outsider-lost@example.com"), "missing-game", body).expectStatus().isNotFound
+		jumpShip(null, gameId, body).expectStatus().isUnauthorized
+		finishJumping(signIn("jump-outsider-stranger2@example.com"), gameId).expectStatus().isForbidden
+		finishJumping(signIn("jump-outsider-lost2@example.com"), "missing-game").expectStatus().isNotFound
+		finishJumping(null, gameId).expectStatus().isUnauthorized
+	}
+
+	/**
+	 * A two-player game for this test's own emails with Bidding closed and the turn order set, the first in
+	 * initiative order taking 1st: the email in 1st place, the one in 2nd, the game id. Tokens are "token-{email}".
+	 */
+	private fun orderedGame(prefix: String): Triple<String, String, String> {
+		val (creatorToken, joinerToken, gameId) = startedGame(prefix)
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		return Triple(first, second, gameId)
+	}
+
+	private fun jumpShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/jumps", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun finishJumping(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/finish", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	/** A started two-player game for this test's own emails: the creator's token, the joiner's token, the game id. */

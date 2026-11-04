@@ -12,6 +12,7 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
+import dev.adriangrzebyk.trader.game.InvalidJumpException
 import dev.adriangrzebyk.trader.game.InvalidPlaceException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
@@ -224,6 +225,55 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidPlaceException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	@PostMapping("/games/{id}/ship-jumps/jumps")
+	fun jumpShip(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: JumpShipRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			shipJumpsService.jump(id, session.email, request?.ship, request?.destination())
+		} catch (ex: InvalidJumpException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	@PostMapping("/games/{id}/ship-jumps/finish")
+	fun finishJumping(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			shipJumpsService.finishJumping(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: NotYourTurnException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: PhaseClosedException) {
