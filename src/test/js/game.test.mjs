@@ -7,6 +7,7 @@ import {
 	gameLink,
 	lengthText,
 	lobbyState,
+	logLink,
 	parseRoute,
 	shipLine,
 	systemLink,
@@ -47,6 +48,11 @@ describe('parseRoute', () => {
 		assert.deepEqual(parseRoute('#game/a%2Fb/system/MU_HERCULIS'), { view: 'system', id: 'a/b', systemId: 'MU_HERCULIS' });
 	});
 
+	it('reads the Game log of a game (s04)', () => {
+		assert.deepEqual(parseRoute('#game/g-1/log'), { view: 'log', id: 'g-1' });
+		assert.deepEqual(parseRoute('#game/a%2Fb/log'), { view: 'log', id: 'a/b' });
+	});
+
 	it('shows the home view only for an empty fragment', () => {
 		assert.deepEqual(parseRoute(''), { view: 'home' });
 		assert.deepEqual(parseRoute('#'), { view: 'home' });
@@ -56,17 +62,19 @@ describe('parseRoute', () => {
 	it('treats any other fragment as an unknown screen (s08), keeping the game it was in', () => {
 		assert.deepEqual(parseRoute('#dashboard'), { view: 'unknown' });
 		assert.deepEqual(parseRoute('#game/'), { view: 'unknown' });
-		assert.deepEqual(parseRoute('#game/g-1/log'), { view: 'unknown', id: 'g-1' });
+		assert.deepEqual(parseRoute('#game/g-1/log/2'), { view: 'unknown', id: 'g-1' });
 		assert.deepEqual(parseRoute('#game/g-1/system/'), { view: 'unknown', id: 'g-1' });
 		assert.deepEqual(parseRoute('#game/g-1/system/tau-ceti'), { view: 'unknown', id: 'g-1' });
 	});
 });
 
-describe('deckLink and systemLink', () => {
+describe('deckLink, systemLink and logLink', () => {
 	it('encode the game id the way parseRoute decodes it', () => {
 		assert.equal(deckLink('a/b'), '#game/a%2Fb');
 		assert.equal(systemLink('a/b', 'TAU_CETI'), '#game/a%2Fb/system/TAU_CETI');
 		assert.deepEqual(parseRoute(systemLink('a/b', 'TAU_CETI')), { view: 'system', id: 'a/b', systemId: 'TAU_CETI' });
+		assert.equal(logLink('a/b'), '#game/a%2Fb/log');
+		assert.deepEqual(parseRoute(logLink('a/b')), { view: 'log', id: 'a/b' });
 	});
 });
 

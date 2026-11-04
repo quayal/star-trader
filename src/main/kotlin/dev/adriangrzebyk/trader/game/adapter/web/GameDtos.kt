@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
@@ -31,7 +32,7 @@ data class GameResponseDto(
 	val creatorEmail: String,
 	val players: List<PlayerResponseDto>,
 	val turn: TurnResponseDto?,
-	val log: List<String>,
+	val log: List<LogEntryResponseDto>,
 	val board: List<SystemResponseDto>,
 	val you: YouResponseDto?
 ) {
@@ -44,7 +45,7 @@ data class GameResponseDto(
 		game.creatorEmail,
 		game.players.map { PlayerResponseDto(it) },
 		game.turn?.let { TurnResponseDto(it) },
-		game.log,
+		game.log.map { LogEntryResponseDto(it) },
 		StarSystem.entries.map { SystemResponseDto(it) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {
 			YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty(), game.turn?.bidOf(it.email))
@@ -116,6 +117,12 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
 data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>, val initiative: List<String>) {
 
 	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding, turn.initiative)
+}
+
+/** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
+data class LogEntryResponseDto(val turn: Int, val text: String) {
+
+	constructor(entry: LogEntry) : this(entry.turn, entry.text)
 }
 
 /**

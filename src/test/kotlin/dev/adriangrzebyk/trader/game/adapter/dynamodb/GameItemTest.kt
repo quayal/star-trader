@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
@@ -53,7 +54,11 @@ class GameItemTest {
 			bids = emptyList(),
 			initiative = emptyList()
 		),
-		log = listOf("Game started: 2 players, 20 turns", "Starting positions: Host Corp — Wayfarer at Tau Ceti")
+		log = listOf(
+			LogEntry(1, "Game started: 2 players, 20 turns"),
+			LogEntry(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
+			LogEntry(2, "Initiative order (bid + d2): Guest Freight → Host Corp")
+		)
 	)
 
 	@Test
@@ -78,7 +83,7 @@ class GameItemTest {
 		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "log", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
-		assertThat(item.getValue("log").l().map { it.s() }).isEqualTo(startedGame.log)
+		assertThat(item.getValue("log").l()).isEqualTo(startedGame.log.map { LogEntryItem(it).attribute })
 		assertThat(item.getValue("players").l().map { it.m() }).isEqualTo(startedGame.players.map { PlayerItem(it).attributes })
 	}
 
