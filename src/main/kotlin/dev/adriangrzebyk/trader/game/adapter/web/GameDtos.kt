@@ -2,10 +2,12 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.MarketPosition
+import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
 import java.math.BigDecimal
 
@@ -17,9 +19,9 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
 }
 
 /**
- * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, and
- * their ships' cargo, S02-7). [board] is the six systems; it's fixed today and sent per game so that trading can
- * move its prices (E05) without changing the shape.
+ * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, their
+ * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems; it's fixed today and sent per game
+ * so that trading can move its prices (E05) without changing the shape.
  */
 data class GameResponseDto(
 	val id: String,
@@ -43,7 +45,7 @@ data class GameResponseDto(
 		game.turn?.let { TurnResponseDto(it) },
 		game.log,
 		StarSystem.entries.map { SystemResponseDto(it) },
-		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it) }
+		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty()) }
 	)
 }
 
@@ -104,16 +106,48 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
 	constructor(system: StarSystem, goods: Goods) : this(goods.name, system.getPrice(goods), system.getIndicator(goods))
 }
 
-/** Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09). */
+/** Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09). Offers never go here (R17). */
 data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>) {
 
 	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding)
 }
 
-/** Only for the viewer: their money (R29) and what their own ships carry (S02-5). */
-data class YouResponseDto(val money: Int, val ships: List<YourShipResponseDto>) {
+/** Only for the viewer: their money (R29), what their own ships carry (S02-5) and their own offers this turn (R17). */
+data class YouResponseDto(val money: Int, val ships: List<YourShipResponseDto>, val offers: List<YourOfferResponseDto>) {
 
-	constructor(player: Player) : this(player.money, player.ships.map { YourShipResponseDto(it) })
+	/** [offers] must be [player]'s own: the caller passes `turn.offersOf(player.email)`, never the whole turn's. */
+	constructor(player: Player, offers: List<Offer>) : this(
+		player.money,
+		player.ships.map { YourShipResponseDto(it) },
+		offers.map { YourOfferResponseDto(it) }
+	)
+}
+
+/** One of the viewer's own offers; there is no player field, since it can only be theirs. */
+data class YourOfferResponseDto(val system: String, val systemName: String, val goods: String, val type: String, val price: Int) {
+
+	constructor(offer: Offer) : this(offer.system.name, offer.system.displayName, offer.goods.name, offer.type.name, offer.price)
+}
+
+/**
+ * An offer to place. Names are checked here, so an unknown one is a `400` with a message rather than Jackson's; [price]
+ * is a [BigDecimal] so 2.5 reaches the domain's "whole number" message instead of being rounded to 2.
+ */
+data class PlaceOfferRequestDto(
+	val system: String? = null,
+	val goods: String? = null,
+	val type: String? = null,
+	val price: BigDecimal? = null
+) {
+
+	fun system(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+
+	fun goods(): Goods? = Goods.entries.firstOrNull { it.name == goods }
+
+	fun type(): OfferType? = OfferType.entries.firstOrNull { it.name == type }
+
+	/** The price as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
+	fun wholePrice(): Int? = price?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
 /** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */

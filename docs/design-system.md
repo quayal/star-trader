@@ -87,7 +87,7 @@ A heading that takes focus when a screen opens (`tabindex="-1"`) shows no focus 
 - **S/D color** → compute buy chance = P(2d6 + indicator ≥ 0) and step it: ≥ 95% easy, ≥ 70% fair, ≥ 40% hard, else bad (boundaries sit between the discrete 2d6 outcomes). Never hard-code indicator endpoints (conflict 48). Always stepped, never a smooth blend (creator decision 2026-10-28, Gap 1).
 - **Market level** (D08: five levels; ▲/▼ for direction, none in balance; green up, red down, bright/muted for how likely, plus the word) → `marketLevel(indicator)` in `js/board.js` gives the label, symbol, hint and the `data-level` key for `.market-level`; the moderate/high demand split is `MODERATE_DEMAND_MIN_CHANCE` there (20%). Don't recompute the bands on a page.
 - **A button is disabled** → say why next to it.
-- **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17).
+- **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17). They come from `you.offers`; the offer form's helpers are in `js/offers.js`. Buy/Sell in an offer row uses `.trade`, the goods `.good`.
 - **A feature isn't implemented** (fuel, hull, repair, ETA, upgrades) → show nothing for it (R01.4, R02.1).
 - **Need a value that has no token** → add a semantic token to `tokens.css` with a source comment, don't inline it.
 
@@ -112,8 +112,8 @@ A heading that takes focus when a screen opens (`tabindex="-1"`) shows no focus 
 
 ## Known gaps
 
-- The home "Market Overview" and `trade-offers.html` still have A01's structure. The game screens (s01, s02) follow the accepted prototype; below 700 px the rail stacks above the screen instead of overflowing (E03-S02).
-- `trade-offers.html` still lists every player's submitted offers, which A03 forbids once Bidding is real. Product change, tracked separately.
+- The home "Market Overview" still has A01's structure (`trade-offers.html` was removed in E03-S03). The game screens (s01, s02) follow the accepted prototype; below 700 px the rail stacks above the screen instead of overflowing (E03-S02).
+- ~~`trade-offers.html` lists every player's offers~~ — removed in E03-S03 with the unscoped `/api/trade-offers`; offers are placed on s01 and s02 and only the player's own are listed (A03).
 - No icons yet; no icon set chosen.
 - The prototype accepted 2026-10-28 (`.ai/prototypes/discovery/dashboard-map-system/revision-013/`) needs these design-system changes before the redesign:
   - ~~Five market colours~~ — done in E03-S02: `--market-demand-high/-moderate`, `--market-balance`, `--market-supply-moderate/-high` (green ▲, red ▼, bright at the extremes, muted in between, grey in balance).

@@ -1,5 +1,9 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.trading.StarSystem
+
 /** [turn] is null until the game starts; [log] holds the public events, oldest first. */
 data class Game(
 	val id: String,
@@ -68,7 +72,7 @@ data class Game(
 	fun advancePhase(): Game {
 		val current = runningTurn()
 		return when (current.phase) {
-			TurnPhase.BIDDING -> copy(turn = Turn(current.number, TurnPhase.SHIP_JUMPS, emptyList()))
+			TurnPhase.BIDDING -> copy(turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList()))
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.copy(phase = TurnPhase.TRADING))
 			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = Turn.bidding(current.number + 1))
 		}
@@ -92,6 +96,32 @@ data class Game(
 		val doneBidding = current.doneBidding + email
 		val signalled = copy(turn = current.copy(doneBidding = doneBidding))
 		return if (players.all { it.email in doneBidding }) signalled.advancePhase() else signalled
+	}
+
+	/**
+	 * Places [email]'s secret offer (R17) for this turn. Only while Bidding is open (A04), for a good traded at
+	 * [system], at a whole price from 1 to 20 (R03), at most one per good per system per turn (R33), and never for
+	 * a good the player is Dictator of there, who places that offer when it resolves in Trading (R38).
+	 */
+	fun placeOffer(email: String, system: StarSystem, goods: Goods, type: OfferType, price: Int?): Game {
+		val player = players.firstOrNull { it.email == email } ?: throw NotAGameMemberException()
+		val current = runningTurn()
+		if (current.phase != TurnPhase.BIDDING) {
+			throw PhaseClosedException(TurnPhase.BIDDING)
+		}
+		if (goods !in system.goods) {
+			throw InvalidOfferException("${goods.name} isn't traded at ${system.displayName}.")
+		}
+		if (price == null || price !in Offer.MIN_PRICE..Offer.MAX_PRICE) {
+			throw InvalidOfferException("Price must be a whole number from ${Offer.MIN_PRICE} to ${Offer.MAX_PRICE}.")
+		}
+		if (current.offersOf(email).any { it.system == system && it.goods == goods }) {
+			throw InvalidOfferException("You already have an offer on ${goods.name} at ${system.displayName} this turn.")
+		}
+		if (player.marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }) {
+			throw InvalidOfferException("You're Dictator of ${goods.name} here — you place that offer when it resolves in Trading.")
+		}
+		return copy(turn = current.copy(offers = current.offers + Offer(email, system, goods, type, price)))
 	}
 
 	private fun runningTurn(): Turn = when (status) {
