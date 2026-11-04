@@ -47,13 +47,16 @@ class GameStartTest {
 	}
 
 	@Test
-	fun shouldLogTheStartAndEveryShipsStartingSystem() {
+	fun shouldLogTheStartAndEveryShipsStartingSystemInTurnOne() {
 		val started = lobby.start("creator@example.com", picker)
 
 		assertThat(started.log).containsExactly(
-			"Game started: 2 players, 20 turns",
-			"Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; " +
-				"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti"
+			LogEntry(1, "Game started: 2 players, 20 turns"),
+			LogEntry(
+				1,
+				"Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; " +
+					"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti"
+			)
 		)
 	}
 

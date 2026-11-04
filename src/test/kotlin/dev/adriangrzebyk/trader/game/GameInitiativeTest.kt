@@ -150,7 +150,17 @@ class GameInitiativeTest {
 		val game = started.placeInitiativeBid("joiner@example.com", 40).advancePhase(FakeDice(1, 1))
 
 		// R29, S06-3: the log is public, so it carries the order and never a bid or money.
-		assertThat(game.log.last()).isEqualTo("Initiative order (bid + d2): Vega Lines → Orion Freight")
+		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Initiative order (bid + d2): Vega Lines → Orion Freight"))
+	}
+
+	@Test
+	fun shouldLogALaterTurnsInitiativeOrderUnderThatTurn() {
+		val turnTwo = started.advancePhase(FakeDice(1, 2)).advancePhase(FakeDice()).advancePhase(FakeDice())
+
+		val closed = turnTwo.advancePhase(FakeDice(2, 1))
+
+		// S06-1: the log is grouped by turn, so each line carries the turn it happened in.
+		assertThat(closed.log.last()).isEqualTo(LogEntry(2, "Initiative order (bid + d2): Orion Freight → Vega Lines"))
 	}
 
 	@Test
