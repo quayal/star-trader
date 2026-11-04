@@ -138,6 +138,9 @@
 		.offer-form .message { margin: var(--space-hairline) 0 0; }
 		.offer-form .message:empty { display: none; }
 		.offer-type { border: 0; padding: 0; margin: 0; }
+		.pick-form[hidden] { display: none; }
+		#turn-order-panel > #pick-message:empty { margin: 0; } /* stays in the tree, so its text is announced */
+		#turn-order-panel > p { margin: 0 0 var(--space-related); }
 		.offer-type .choices { display: flex; gap: var(--space-group); }
 		.offer-type .choice { flex: 1; }
 		.offer-warning { margin: 0; padding: var(--space-related); border: var(--border-width) solid var(--status-warn); border-radius: var(--radius-control); }
@@ -321,6 +324,20 @@
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
 				</section>
+				<!-- E04-S01: from Ship-jumps on. Static markup, updated on render, so the chosen place and focus survive the poll. -->
+				<section class="panel" id="turn-order-panel" aria-labelledby="turn-order-title" hidden>
+					<h2 id="turn-order-title">Turn order</h2>
+					<p class="muted" id="turn-order-note"></p>
+					<ol class="player-list" id="turn-order-list"></ol>
+					<form class="offer-form pick-form" id="pick-form" novalidate hidden>
+						<fieldset class="offer-type">
+							<legend class="field-label" id="pick-legend"></legend>
+							<div class="choices" id="pick-choices"></div>
+						</fieldset>
+						<div><button class="btn" id="pick-button" type="submit"></button></div>
+					</form>
+					<p class="message" id="pick-message" role="status" tabindex="-1"></p>
+				</section>
 			</div>
 			<section class="panel deck__map" aria-labelledby="map-title">
 				<h2 id="map-title">Map</h2>
@@ -449,6 +466,7 @@
 		validateTurns,
 	} from './js/game.js';
 	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
+	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
 		MAP_VIEW_BOX,
 		MARKET_LEVELS,
@@ -896,6 +914,7 @@
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		updateBidForm(game);
+		updateTurnOrder(game);
 		showPanels('deck-panel');
 	}
 
@@ -1161,6 +1180,91 @@
 		}
 	}
 
+	// ── E04-S01: picking a place in the turn order ──
+
+	// What the turn-order list and the pick's radios were last drawn from, so an unchanged poll leaves them alone.
+	let turnOrderKey = null;
+	let pickChoicesKey = null;
+	// The game and turn the pick message belongs to (lesson 2026-11-04: keyed by game, not just turn).
+	let pickMessageKey = null;
+
+	function setPickMessage(text, error) {
+		if ($('pick-message').textContent !== text) {
+			$('pick-message').textContent = text; // only on a change, so the live region isn't re-announced every poll
+		}
+		$('pick-message').className = error ? 'message message--error' : 'message';
+	}
+
+	/** S01-3/4: who holds each place, the pick form on your pick (free places only, the first pre-selected). */
+	function updateTurnOrder(game) {
+		const rows = game.status === 'RUNNING' ? turnOrderRows(game) : [];
+		$('turn-order-panel').hidden = rows.length === 0;
+		const messageKey = `${game.id}/${game.turn?.number}`;
+		if (messageKey !== pickMessageKey) {
+			pickMessageKey = messageKey;
+			setPickMessage('', false); // another game's or turn's message doesn't belong here
+		}
+		const key = JSON.stringify([game.id, game.turn?.number, rows]);
+		if (key !== turnOrderKey) {
+			turnOrderKey = key;
+			$('turn-order-note').textContent = TURN_ORDER_NOTE;
+			$('turn-order-list').replaceChildren(...rows.map(row => element('li', {}, element('strong', {}, row.place), ` ${row.holder}`)));
+		}
+		const free = freePlaces(game, session.email);
+		$('pick-form').hidden = free.length === 0;
+		const choicesKey = JSON.stringify([game.id, game.turn?.number, free]);
+		if (free.length && choicesKey !== pickChoicesKey) {
+			pickChoicesKey = choicesKey;
+			$('pick-legend').textContent = PICK_LEGEND;
+			$('pick-button').textContent = PICK_BUTTON;
+			$('pick-choices').replaceChildren(...free.map((place, index) => {
+				const radio = element('input', { type: 'radio', name: 'pick-place', value: String(place) });
+				radio.checked = index === 0;
+				return element('label', { class: 'choice' }, radio, ordinal(place));
+			}));
+		}
+		const youAct = youActText(game, session.email);
+		if (youAct && !$('pick-message').classList.contains('message--error')) {
+			setPickMessage(youAct, false);
+		}
+	}
+
+	async function submitPick(event) {
+		event.preventDefault();
+		const chosen = $('pick-choices').querySelector('input:checked');
+		if (!chosen) {
+			return;
+		}
+		const gameId = currentGameId;
+		setPickMessage('', false);
+		$('pick-button').disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/ship-jumps/turn-order`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ place: Number(chosen.value) }),
+			});
+		} catch {
+			$('pick-button').disabled = false;
+			setPickMessage(UNREACHABLE, true);
+			return;
+		}
+		$('pick-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			render(await response.json());
+			$('pick-message').focus(); // the form is gone; "You act 2nd this turn." takes focus so it isn't lost
+			return;
+		}
+		setPickMessage(await errorText(response, UNREACHABLE), true);
+		clearTimeout(pollTimer);
+		pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+		poll(); // another player's pick may have raced this one; the list and the form catch up
+	}
+
 	async function submitBid(event) {
 		event.preventDefault();
 		setBidError('');
@@ -1217,6 +1321,7 @@
 	}
 
 	$('bid-form').addEventListener('submit', submitBid);
+	$('pick-form').addEventListener('submit', submitPick);
 
 	// ── E03-S04: "I'm done bidding" in the top bar ──
 
