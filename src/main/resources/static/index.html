@@ -1313,6 +1313,8 @@
 	// What the ship and destination lists were last drawn from, so an unchanged poll keeps the player's choice.
 	let jumpShipsKey = null;
 	let jumpDestinationsKey = null;
+	// The game and turn the ship and destination were last chosen in.
+	let jumpFormKey = null;
 	// The game and turn the jump message belongs to (lesson 2026-11-04: keyed by game, not just turn).
 	let jumpMessageKey = null;
 
@@ -1344,19 +1346,23 @@
 		$('jump-title').textContent = JUMP_TITLE;
 		$('jump-button').textContent = JUMP_BUTTON;
 		$('finish-button').textContent = FINISH_BUTTON;
-		const shipsKey = JSON.stringify([game.id, ships]);
+		// A choice is kept across polls of the same game and turn only: ship names and the board repeat between games.
+		const formKey = `${game.id}/${game.turn.number}`;
+		const sameTurn = jumpFormKey === formKey;
+		jumpFormKey = formKey;
+		const shipsKey = JSON.stringify([formKey, ships]);
 		if (shipsKey !== jumpShipsKey) {
 			jumpShipsKey = shipsKey;
-			const chosen = $('jump-ship').value;
+			const chosen = sameTurn ? $('jump-ship').value : null;
 			$('jump-ship').replaceChildren(...ships.map(ship => element('option', { value: ship.name }, shipOptionText(ship))));
 			if (ships.some(ship => ship.name === chosen)) {
 				$('jump-ship').value = chosen;
 			}
 		}
-		const destinationsKey = JSON.stringify(game.board.map(system => [system.id, system.name]));
+		const destinationsKey = JSON.stringify([formKey, game.board.map(system => [system.id, system.name])]);
 		if (destinationsKey !== jumpDestinationsKey) {
 			jumpDestinationsKey = destinationsKey;
-			const chosen = $('jump-destination').value;
+			const chosen = sameTurn ? $('jump-destination').value : null;
 			$('jump-destination').replaceChildren(...game.board.map(system => element('option', { value: system.id }, system.name)));
 			if (game.board.some(system => system.id === chosen)) {
 				$('jump-destination').value = chosen;
