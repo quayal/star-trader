@@ -150,6 +150,46 @@ data class Game(
 	}
 
 	/**
+	 * [email] picks [place] (1 = first) in this turn's turn order (R26). Players pick one at a time in initiative order
+	 * (R27), the first one free to take any place, last included; out of turn, or a place that isn't free, is refused.
+	 * The last player gets the remaining place without being asked (S01-6, proposed). Each pick is logged, then the
+	 * full order (S01-5).
+	 */
+	fun pickTurnOrderPlace(email: String, place: Int?): Game {
+		if (!hasPlayer(email)) {
+			throw NotAGameMemberException()
+		}
+		val current = runningTurn()
+		when (current.phase) {
+			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
+			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
+			TurnPhase.SHIP_JUMPS -> Unit
+		}
+		val picker = current.picker() ?: throw InvalidGameOperationException("The turn order is already set.")
+		if (picker != email) {
+			throw NotYourTurnException("It's ${corporationOf(picker)}'s turn to choose a place.")
+		}
+		val order = current.turnOrder()
+		if (place == null || place !in 1..order.size || order[place - 1] != null) {
+			throw InvalidPlaceException()
+		}
+		val withPick = current.copy(turnOrderPicks = current.turnOrderPicks + TurnOrderPick(email, place))
+		val events = mutableListOf("${corporationOf(email)} chose ${ordinal(place)}")
+		val lastPicker = withPick.picker()
+		val settled = if (lastPicker != null && withPick.turnOrder().count { it == null } == 1) {
+			val remaining = withPick.turnOrder().indexOf(null) + 1
+			events += "${corporationOf(lastPicker)} gets ${ordinal(remaining)}, the only place left"
+			withPick.copy(turnOrderPicks = withPick.turnOrderPicks + TurnOrderPick(lastPicker, remaining))
+		} else {
+			withPick
+		}
+		if (settled.picker() == null) {
+			events += "Turn order (for this turn): " + settled.turnOrder().joinToString(" → ") { corporationOf(checkNotNull(it)) }
+		}
+		return copy(turn = settled, log = log + events.map { LogEntry(current.number, it) })
+	}
+
+	/**
 	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as
 	 * bidding 0 and still rolls (Q07, proposed). The order is public and logged without amounts (R29); the bids stay
 	 * secret on the turn.
@@ -157,7 +197,7 @@ data class Game(
 	private fun closeBidding(current: Turn, dice: Dice): Game {
 		val bids = players.associate { it.email to (current.bidOf(it.email)?.amount ?: 0) }
 		val order = initiativeOrder(players.map { it.email }, bids, dice)
-		val names = order.joinToString(" → ") { email -> players.first { it.email == email }.corporationName }
+		val names = order.joinToString(" → ") { corporationOf(it) }
 		return copy(
 			players = players.map { it.pay(bids.getValue(it.email)) },
 			turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order),
@@ -176,6 +216,8 @@ data class Game(
 		}
 	}
 
+	private fun corporationOf(email: String): String = players.first { it.email == email }.corporationName
+
 	private fun runningTurn(): Turn = when (status) {
 		GameStatus.LOBBY -> throw InvalidGameOperationException("This game hasn't started")
 		GameStatus.FINISHED -> throw InvalidGameOperationException("This game is over")
@@ -192,4 +234,12 @@ data class Game(
 		/** A new game waiting in the lobby with its creator as the only player. */
 		fun lobby(id: String, turns: Int, creator: Player) = Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
 	}
+}
+
+/** 1st, 2nd, 3rd, 4th … for a place in the turn order (players are at most six, so no 11th–13th). */
+private fun ordinal(place: Int): String = place.toString() + when (place) {
+	1 -> "st"
+	2 -> "nd"
+	3 -> "rd"
+	else -> "th"
 }

@@ -6,6 +6,7 @@
 
 import { isBidding, isClosedRefusal } from './offers.js';
 import { turnText } from './game.js';
+import { pickingText } from './turn-order.js';
 
 export const DONE_BUTTON = "I'm done bidding";
 /** S04-1: shown in place of the button once the player has signalled done. */
@@ -31,10 +32,17 @@ export function waitingFor(game, email) {
 	return [...you, ...pending.filter(p => p.email !== email).map(p => p.corporationName)];
 }
 
-/** The top bar heading: "Turn 4 of 20 · Bidding — waiting for you, Vega Lines" during Bidding, else turnText. */
+/**
+ * The top bar heading: "Turn 4 of 20 · Bidding — waiting for you, Vega Lines" during Bidding, "… · Ship-jumps — Vega
+ * Lines is choosing their place in the turn order" while players pick (E04-S01), else turnText.
+ */
 export function phaseText(game, email) {
 	const waiting = waitingFor(game, email);
-	return waiting.length ? `${turnText(game)} — waiting for ${waiting.join(', ')}` : turnText(game);
+	if (waiting.length) {
+		return `${turnText(game)} — waiting for ${waiting.join(', ')}`;
+	}
+	const picking = pickingText(game, email);
+	return picking ? `${turnText(game)} — ${picking}` : turnText(game);
 }
 
 /**

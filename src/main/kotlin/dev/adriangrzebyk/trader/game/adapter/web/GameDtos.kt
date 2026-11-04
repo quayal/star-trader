@@ -112,11 +112,18 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
 
 /**
  * Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09), and so is the initiative
- * order once Bidding closes (R27). Offers and bids never go here (R17, R29).
+ * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each an email or null while
+ * free (R26); empty during Bidding. Offers and bids never go here (R17, R29).
  */
-data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>, val initiative: List<String>) {
+data class TurnResponseDto(
+	val number: Int,
+	val phase: String,
+	val doneBidding: List<String>,
+	val initiative: List<String>,
+	val turnOrder: List<String?>
+) {
 
-	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding, turn.initiative)
+	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding, turn.initiative, turn.turnOrder())
 }
 
 /** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
@@ -175,6 +182,13 @@ data class PlaceBidRequestDto(val amount: BigDecimal? = null) {
 
 	/** The amount as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
 	fun wholeAmount(): Int? = amount?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+// BigDecimal, not Int, for the same reason as the bid: 2.5 reaches the domain's message instead of being rounded.
+data class PickPlaceRequestDto(val place: BigDecimal? = null) {
+
+	/** The place as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
+	fun wholePlace(): Int? = place?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
 /** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */

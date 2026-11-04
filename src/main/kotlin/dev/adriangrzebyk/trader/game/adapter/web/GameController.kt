@@ -12,10 +12,13 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
+import dev.adriangrzebyk.trader.game.InvalidPlaceException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
+import dev.adriangrzebyk.trader.game.NotYourTurnException
 import dev.adriangrzebyk.trader.game.PhaseClosedException
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.ShipJumpsService
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
@@ -47,6 +50,7 @@ class GameController(
 	private val gamePollingService = GamePollingService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 	private val biddingService = BiddingService(gameStore, dice)
+	private val shipJumpsService = ShipJumpsService(gameStore)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -192,6 +196,36 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidBidException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The caller picks their place in this turn's turn order (R26), in initiative order (R27). `409` out of turn, once
+	 * the order is set, or outside Ship-jumps; `400` for a place that isn't free.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/turn-order")
+	fun pickTurnOrderPlace(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: PickPlaceRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			shipJumpsService.pickPlace(id, session.email, request?.wholePlace())
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidPlaceException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: PhaseClosedException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: InvalidGameOperationException) {

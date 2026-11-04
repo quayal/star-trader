@@ -8,7 +8,8 @@ package dev.adriangrzebyk.trader.game
  * nothing outside a player's own view may carry them; they stay through Trading and the next turn starts with none.
  * [bids] are this turn's initiative bids, at most one per player and each secret to its player (R29); like offers
  * they stay for the whole turn. [initiative] is every player's email in initiative order (R27), public, set when
- * Bidding closes and empty before.
+ * Bidding closes and empty before. [turnOrderPicks] are the places players picked in this turn's turn order (R26), in
+ * pick order; public, and empty until the first pick.
  */
 data class Turn(
 	val number: Int,
@@ -16,7 +17,8 @@ data class Turn(
 	val doneBidding: List<String>,
 	val offers: List<Offer>,
 	val bids: List<InitiativeBid>,
-	val initiative: List<String>
+	val initiative: List<String>,
+	val turnOrderPicks: List<TurnOrderPick>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -25,8 +27,22 @@ data class Turn(
 	/** [email]'s own initiative bid this turn, or null if they haven't placed one: the only bid they may see (R29). */
 	fun bidOf(email: String): InitiativeBid? = bids.firstOrNull { it.playerEmail == email }
 
+	/**
+	 * The turn order's places, first to last, each holding the email of the player who picked it or null while it's
+	 * free. It has a place per player once Bidding has closed (one per initiative entry) and none before.
+	 */
+	fun turnOrder(): List<String?> = List(initiative.size) { index -> turnOrderPicks.firstOrNull { it.place == index + 1 }?.playerEmail }
+
+	/** Whose pick it is (R26): the first player in initiative order without a place, or null when nobody is picking. */
+	fun picker(): String? {
+		if (phase != TurnPhase.SHIP_JUMPS) {
+			return null
+		}
+		return initiative.firstOrNull { email -> turnOrderPicks.none { it.playerEmail == email } }
+	}
+
 	companion object {
-		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, and no initiative order yet. */
-		fun bidding(number: Int) = Turn(number, TurnPhase.BIDDING, emptyList(), emptyList(), emptyList(), emptyList())
+		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative or turn order yet. */
+		fun bidding(number: Int) = Turn(number, TurnPhase.BIDDING, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
 	}
 }

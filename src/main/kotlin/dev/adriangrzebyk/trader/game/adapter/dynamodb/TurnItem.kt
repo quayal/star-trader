@@ -14,7 +14,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			DONE_BIDDING to AttributeValue.fromL(turn.doneBidding.map { AttributeValue.fromS(it) }),
 			OFFERS to AttributeValue.fromL(turn.offers.map { AttributeValue.fromM(OfferItem(it).attributes) }),
 			BIDS to AttributeValue.fromL(turn.bids.map { AttributeValue.fromM(InitiativeBidItem(it).attributes) }),
-			INITIATIVE to AttributeValue.fromL(turn.initiative.map { AttributeValue.fromS(it) })
+			INITIATIVE to AttributeValue.fromL(turn.initiative.map { AttributeValue.fromS(it) }),
+			TURN_ORDER_PICKS to AttributeValue.fromL(turn.turnOrderPicks.map { AttributeValue.fromM(TurnOrderPickItem(it).attributes) })
 		)
 	)
 
@@ -27,7 +28,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		offers = attributes[OFFERS]?.l()?.map { OfferItem(it.m()).toOffer() } ?: emptyList(),
 		// Items saved before E03-S05 have no bids or initiative order; nobody could bid then (BACKWARD_COMPATIBILITY.md §7).
 		bids = attributes[BIDS]?.l()?.map { InitiativeBidItem(it.m()).toBid() } ?: emptyList(),
-		initiative = attributes[INITIATIVE]?.l()?.map { it.s() } ?: emptyList()
+		initiative = attributes[INITIATIVE]?.l()?.map { it.s() } ?: emptyList(),
+		// Items saved before E04-S01 have no picks; nobody could pick a place then (BACKWARD_COMPATIBILITY.md §7).
+		turnOrderPicks = attributes[TURN_ORDER_PICKS]?.l()?.map { TurnOrderPickItem(it.m()).toPick() } ?: emptyList()
 	)
 
 	private companion object {
@@ -37,5 +40,6 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val OFFERS = "offers"
 		const val BIDS = "bids"
 		const val INITIATIVE = "initiative"
+		const val TURN_ORDER_PICKS = "turnOrderPicks"
 	}
 }
