@@ -928,7 +928,7 @@
 		const id = name => `${prefix}-${name}`;
 		const form = {
 			prefix,
-			closedInTurn: null,
+			closedKey: null, // `${gameId}/${turn}` of a refused offer (S03-7); see updateOfferForm
 			system: withSystem ? element('select', { class: 'control', id: id('system') }) : null,
 			systemId: null,
 			goods: element('select', { class: 'control', id: id('goods'), 'aria-describedby': id('notes') }),
@@ -993,14 +993,19 @@
 	 */
 	function updateOfferForm(form, game, systemId) {
 		const panel = $(`${form.prefix}-panel`);
-		const turnNumber = game.turn?.number ?? null;
-		// The refused offer's values stay only on the screen it was typed on: another system's form starts fresh.
-		if (form.closedInTurn !== null && form.closedInTurn === turnNumber && form.systemId === systemId && game.status === 'RUNNING') {
+		// The refused offer's values stay only on the screen it was typed on: another system's form, or another game's
+		// Deck at the same turn, starts fresh.
+		if (form.closedKey !== null && form.closedKey === `${game.id}/${game.turn?.number}` && form.systemId === systemId
+			&& game.status === 'RUNNING') {
 			panel.hidden = false;
 			setControlsDisabled(form, true);
 			return;
 		}
-		form.closedInTurn = null;
+		if (form.closedKey !== null) {
+			form.closedKey = null; // the refusal belonged to another game or turn: drop its message and typed price
+			form.message.textContent = '';
+			form.price.value = '';
+		}
 		panel.hidden = !isBidding(game);
 		if (panel.hidden) {
 			return;
@@ -1261,7 +1266,7 @@
 		}
 		const message = await errorText(response, '');
 		if (isClosedRefusal(response.status, message)) {
-			form.closedInTurn = lastGame?.turn?.number ?? null;
+			form.closedKey = `${gameId}/${lastGame?.turn?.number}`;
 			setControlsDisabled(form, true);
 			setOfferMessage(form, refusalText(response.status, message, ''), true);
 			clearTimeout(pollTimer);
