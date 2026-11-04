@@ -46,6 +46,10 @@ the last player signals done, Bidding closes for everyone and the game moves to 
   the click is not the player's error: the bar says "Bidding has already closed." and the game reloads. Network and
   other errors show as `.message--error`.
 - Static markup, never rebuilt on poll, so focus on the button survives the 2 s poll.
+- **Review** (om-auto-review-pr on #74, 6609a34): three minors fixed. The done message is now keyed by game too, the
+  shared button is re-enabled when the player left mid-request, and focus moves to the message when this done closes
+  Bidding. Open nit: the top bar gets about 16 px shorter when the button goes. Self-approval isn't possible on the
+  author's own PR, so the review is a comment and approval is the maintainer's.
 
 ## Risks
 
