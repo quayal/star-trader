@@ -35,11 +35,16 @@ the last player signals done, Bidding closes for everyone and the game moves to 
   …", and the viewer is the one most able to act on their own name.
 - **Shown in the shared top bar** on s01 and s02, as the prototype does for every top bar. S04 names s01, and showing
   it on System details too keeps the player from having to go back to the Deck to signal done.
+- **Found in the browser walk**: `.btn { display: inline-flex }` beat the button's `hidden`, so it stayed on screen
+  (the lessons 2026-10-30 gotcha again). Fixed with an explicit `[hidden]` rule; the rule is now in
+  `docs/design-system.md`, with a new lessons entry.
 - **Heading**: `Turn 4 of 20 · Bidding — waiting for you, Vega Lines`. The money stays in the subtitle.
-- **Announcements**: after a successful "done" that doesn't close Bidding, the status region says "Marked done for
-  Bidding. You can still add offers until Bidding closes." (the prototype's wording). When this player's "done"
-  closes Bidding, it says "Everyone is done. Bidding has closed." A `409` from a close that raced the click is not an
-  error for the player: the game reloads and the status says "Bidding has already closed."
+- **Announcements** (changed while building): the done text "You signalled done — you can still add offers" is
+  itself the live region (`role="status"`, always in the tree), so it's announced when it appears. The prototype's
+  extra "Marked done for Bidding…" would only have repeated it, so it was dropped. When this player's "done" closes
+  Bidding, the bar says "Everyone is done. Bidding has closed." through Ship-jumps. A `409` from a close that raced
+  the click is not the player's error: the bar says "Bidding has already closed." and the game reloads. Network and
+  other errors show as `.message--error`.
 - Static markup, never rebuilt on poll, so focus on the button survives the 2 s poll.
 
 ## Risks
@@ -66,20 +71,22 @@ the last player signals done, Bidding closes for everyone and the game moves to 
 
 ## Progress
 
+PR: #74
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Domain
 
-- [ ] 1.1 Test: a player who signalled done can still place an offer (S04-2)
+- [x] 1.1 Test: a player who signalled done can still place an offer (S04-2) — 01e77d4
 
 ### Phase 2: Client logic
 
-- [ ] 2.1 `bidding.js`: waiting list, phase text, done state, wording, with tests
+- [x] 2.1 `bidding.js`: waiting list, phase text, done state, wording, with tests — 12e3fc1, 5fcc1c6
 
 ### Phase 3: Screen
 
-- [ ] 3.1 Top bar: "I'm done bidding", the done text and the waiting list on s01/s02
+- [x] 3.1 Top bar: "I'm done bidding", the done text and the waiting list on s01/s02 — 5fcc1c6
 
 ### Phase 4: Verification
 
-- [ ] 4.1 Full gate (`./gradlew build`) and a browser walk with screenshots
+- [x] 4.1 Full gate (`./gradlew build`) and a browser walk with screenshots — 5fcc1c6
