@@ -24,7 +24,9 @@ class TurnItemTest {
 		offers = listOf(offer, Offer("ada@example.com", StarSystem.BETA_HYDRI, Goods.CHIPS, OfferType.BUY, 3)),
 		bids = listOf(InitiativeBid("grace@example.com", 40), InitiativeBid("ada@example.com", 0)),
 		initiative = listOf("ada@example.com", "grace@example.com"),
-		turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2), TurnOrderPick("grace@example.com", 1))
+		turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2), TurnOrderPick("grace@example.com", 1)),
+		jumpedShips = listOf("Wayfarer", "Meridian"),
+		doneJumping = listOf("ada@example.com")
 	)
 
 	@Test
@@ -43,7 +45,9 @@ class TurnItemTest {
 					offers = emptyList(),
 					bids = emptyList(),
 					initiative = emptyList(),
-					turnOrderPicks = emptyList()
+					turnOrderPicks = emptyList(),
+					jumpedShips = emptyList(),
+					doneJumping = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -54,7 +58,8 @@ class TurnItemTest {
 		val withOneOfEach = turn.copy(
 			offers = listOf(offer),
 			bids = listOf(InitiativeBid("grace@example.com", 40)),
-			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2))
+			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2)),
+			jumpedShips = listOf("Wayfarer")
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -85,13 +90,15 @@ class TurnItemTest {
 				"initiative" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"), AttributeValue.fromS("grace@example.com"))),
 				"turnOrderPicks" to AttributeValue.fromL(
 					listOf(AttributeValue.fromM(mapOf("playerEmail" to AttributeValue.fromS("ada@example.com"), "place" to AttributeValue.fromN("2"))))
-				)
+				),
+				"jumpedShips" to AttributeValue.fromL(listOf(AttributeValue.fromS("Wayfarer"))),
+				"doneJumping" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com")))
 			)
 		)
 	}
 
 	@Test
-	fun shouldReadATurnSavedBeforeDoneBiddingOffersBidsAndPicksExistedAsNobodyDoneAndNothingPlaced() {
+	fun shouldReadATurnSavedBeforeDoneBiddingOffersBidsPicksAndJumpsExistedAsNobodyDoneAndNothingPlaced() {
 		val older = mapOf("number" to AttributeValue.fromN("1"), "phase" to AttributeValue.fromS("BIDDING"))
 
 		val expected =
@@ -102,7 +109,9 @@ class TurnItemTest {
 				offers = emptyList(),
 				bids = emptyList(),
 				initiative = emptyList(),
-				turnOrderPicks = emptyList()
+				turnOrderPicks = emptyList(),
+				jumpedShips = emptyList(),
+				doneJumping = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

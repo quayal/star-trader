@@ -26,8 +26,8 @@ class GameTurnEngineTest {
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
-			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList()),
-			Turn(1, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList()),
+			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList()),
+			Turn(1, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList()),
 			Turn.bidding(2)
 		)
 	}
@@ -38,7 +38,7 @@ class GameTurnEngineTest {
 		assertThat(
 			lastTrading.turn
 		).isEqualTo(
-			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList())
 		)
 
 		val finished = lastTrading.advancePhase(FakeDice(2, 1))
@@ -47,7 +47,7 @@ class GameTurnEngineTest {
 		assertThat(
 			finished.turn
 		).isEqualTo(
-			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+			Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList())
 		)
 	}
 
@@ -73,7 +73,7 @@ class GameTurnEngineTest {
 
 		assertThat(
 			game.turn
-		).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
+		).isEqualTo(Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
 	}
 
 	@Test
@@ -83,7 +83,7 @@ class GameTurnEngineTest {
 		assertThat(
 			game.turn
 		).isEqualTo(
-			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList())
+			Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList())
 		)
 	}
 
