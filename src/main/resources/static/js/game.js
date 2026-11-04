@@ -1,7 +1,7 @@
 /*
  * Pure helpers for the game screens on index.html: Create a game (s11, `#new`), the lobby
- * (s12, `#game/{id}` before the start), the routes of the Deck and System details (s01, s02; their board
- * helpers are in board.js) and the unknown screen (s08).
+ * (s12, `#game/{id}` before the start), the routes of the Deck, System details and the Game log (s01, s02, s04;
+ * their helpers are in board.js and log.js) and the unknown screen (s08).
  */
 
 export const TURNS_ERROR = 'Enter a whole number of turns from 1 to 50.';
@@ -15,7 +15,7 @@ const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
 
 /**
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
- * `#game/{id}/system/{SYSTEM}` → System details (s02). Any other fragment is an unknown screen (s08), carrying
+ * `#game/{id}/system/{SYSTEM}` → System details (s02); `#game/{id}/log` → the Game log (s04). Any other fragment is an unknown screen (s08), carrying
  * the game id when there is one so its "back to the Deck" link stays in that game.
  */
 export function parseRoute(hash) {
@@ -29,6 +29,10 @@ export function parseRoute(hash) {
 	const system = /^#game\/([^/]+)\/system\/([A-Z_]+)$/.exec(text);
 	if (system) {
 		return { view: 'system', id: decodeURIComponent(system[1]), systemId: system[2] };
+	}
+	const log = /^#game\/([^/]+)\/log$/.exec(text);
+	if (log) {
+		return { view: 'log', id: decodeURIComponent(log[1]) };
 	}
 	const game = /^#game\/([^/]+)$/.exec(text);
 	if (game) {
@@ -46,6 +50,11 @@ export function deckLink(id) {
 /** System details (s02) of [systemId] in game [id]. */
 export function systemLink(id, systemId) {
 	return `#game/${encodeURIComponent(id)}/system/${systemId}`;
+}
+
+/** The Game log (s04) of game [id]. */
+export function logLink(id) {
+	return `#game/${encodeURIComponent(id)}/log`;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */

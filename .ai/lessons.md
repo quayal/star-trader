@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- 2026-11-04: **A body grid that gains a row in a media query must redeclare `grid-template-rows`.** Below 700 px `index.html` stacks sidebar, top bar and main as three areas but kept `grid-template-rows: auto 1fr`, so the *top bar* got the `1fr` row and stretched to fill the viewport on any short screen (the new Game log, s04, showed a 283 px top bar on a phone). Fixed with `auto auto 1fr`. The same walk hit the `hidden`-vs-`display` gotcha a third time (`.game-log`); both were caught only by screenshots, so check a new screen at phone width and with its siblings hidden.
+
 - 2026-11-04: **Screen state that outlives a poll must be keyed by game, not just turn or phase.** `index.html` is one page for every game, and its forms and top-bar messages are static markup shared across them. Three times a "Bidding has closed" state was keyed by turn number (or turn and phase) only, so it showed up in the player's next game at the same turn: the done message (fixed in #74 review), the bid form (#76) and the offer form (#77). Key such state as `${game.id}/${turn}`, and clear the typed values and message when the key is dropped.
 
 - 2026-11-04: **The `hidden`-vs-`display` gotcha (2026-10-30) came back with `.btn`.** The top bar's "I'm done bidding" button had `hidden` set but stayed on screen, because `.btn { display: inline-flex }` wins. Again only a screenshot caught it, since the JS state was right. The rule is now in `docs/design-system.md` ("If… then use…"): any element that gets `hidden` and has a class that sets `display` needs its own `[hidden] { display: none; }`.

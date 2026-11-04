@@ -67,7 +67,6 @@
 		.player-list, .fleet-list, .log-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
 		.player-list li, .fleet-list li { padding: var(--space-group) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
 		.player-list li:last-child, .fleet-list li:last-child { border-bottom: none; }
-		.log-list li { color: var(--text-muted); }
 		.games-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
 		.games-list li { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; padding: var(--space-group) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
 		.games-list li:last-child { border-bottom: none; }
@@ -115,8 +114,8 @@
 			border-radius: var(--radius-panel);
 			background: var(--surface-panel);
 		}
-		.stale-notice[hidden], .deck[hidden], .system[hidden] { display: none; }
-		/* s01: fleet and log left of the map, offers right of it (D07); one column on a narrow screen, map first. */
+		.stale-notice[hidden], .deck[hidden], .system[hidden], .game-log[hidden], .nav-item[hidden] { display: none; }
+		/* s01: the fleet left of the map, offers right of it (D07); one column on a narrow screen, map first. */
 		.deck {
 			display: grid;
 			grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr) minmax(240px, 1fr);
@@ -168,7 +167,7 @@
 		.fleet-list .muted { font-size: var(--text-body); }
 		/* Narrow screens: the rail becomes a row above the screen, so the map keeps the full width. */
 		@media (max-width: 700px) {
-			body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "topbar" "main"; }
+			body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; grid-template-areas: "sidebar" "topbar" "main"; }
 			.sidebar {
 				flex-direction: row;
 				flex-wrap: wrap;
@@ -186,6 +185,10 @@
 		.system { display: grid; gap: var(--space-panel); }
 		.system > p { margin: 0; }
 		.system__title { font-size: var(--text-heading); }
+		/* s04: one column, a foldable panel per turn (prototype revision 014). */
+		.game-log { display: grid; gap: var(--space-panel); max-width: 960px; }
+		.game-log > p, .game-log__turns > p { margin: 0; }
+		.game-log__turns { display: grid; gap: var(--space-panel); }
 		.section > summary { font-family: var(--font-display); font-size: var(--text-title); cursor: pointer; }
 		.section[open] > summary { margin-bottom: var(--space-panel); }
 		.places { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-panel); }
@@ -199,6 +202,8 @@
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
 	<a class="nav-item" id="nav-home" href="/">Deck</a>
+	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
+	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<a class="nav-item" id="nav-new" href="/#new">New game</a>
 </aside>
 
@@ -316,10 +321,6 @@
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
 				</section>
-				<section class="panel" aria-labelledby="log-title">
-					<h2 id="log-title">Game log</h2>
-					<ol class="log-list" id="log-list"></ol>
-				</section>
 			</div>
 			<section class="panel deck__map" aria-labelledby="map-title">
 				<h2 id="map-title">Map</h2>
@@ -353,6 +354,14 @@
 					<p class="muted">Only you can see these until Trading resolves them.</p>
 				</section>
 			</div>
+		</div>
+
+		<!-- s04: Game log, public events by turn (E03-S06) -->
+		<div class="game-log" id="log-panel" hidden>
+			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
+			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
+			<div class="game-log__turns" id="log-turns"></div>
+			<p class="muted">Public events only: offers, bids and money are never logged.</p>
 		</div>
 
 		<!-- s02: System details -->
@@ -434,10 +443,12 @@
 		gameLink,
 		lengthText,
 		lobbyState,
+		logLink,
 		parseRoute,
 		systemLink,
 		validateTurns,
 	} from './js/game.js';
+	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
 	import {
 		MAP_VIEW_BOX,
 		MARKET_LEVELS,
@@ -474,7 +485,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
@@ -488,6 +499,10 @@
 	let renderedKey = null;
 	// Set when the player opens System details, so its heading takes focus once (S02-6).
 	let focusSystemTitle = false;
+	// Set when the player opens the Game log, so its heading takes focus once, as on System details.
+	let focusLogTitle = false;
+	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
+	const foldedTurns = new Set();
 
 	function api(path, init = {}) {
 		return fetch(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${getToken()}` } });
@@ -530,9 +545,11 @@
 	function route() {
 		stopPolling();
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' ? 'game' : view);
+		showView(view === 'system' || view === 'log' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
+		$('nav-log').toggleAttribute('aria-current', view === 'log');
+		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		if (view === 'home' && latestGame()) {
 			views.home.hidden = true; // no market flash while the remembered games are checked
 			openLatestGame();
@@ -548,8 +565,9 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$('nav-home').setAttribute('aria-current', 'page');
+			$(view === 'log' ? 'nav-log' : 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
+			focusLogTitle = view === 'log';
 			openGame(id);
 		}
 	}
@@ -559,6 +577,7 @@
 		stopPolling();
 		currentGameId = null; // a poll that called this must not schedule the next one (it would refocus every 2 s)
 		showView('unknown');
+		$('nav-log').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
 		$('unknown-title').focus();
@@ -810,6 +829,8 @@
 
 	function renderLobby(game) {
 		focusSystemTitle = false; // a System details link to a game that hasn't started shows the lobby
+		focusLogTitle = false;
+		$('nav-log').hidden = true;
 		const state = lobbyState(game, session.email);
 		setTitle('Lobby', 'Waiting for players to join.');
 		$('lobby-length').textContent = lengthText(game.turns);
@@ -831,7 +852,11 @@
 		// The top bar (S01-1, R29, S04-3, S05-5): the initiative order joins the money once Bidding has closed.
 		const order = initiativeText(game);
 		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
-		updateDoneBar(game);
+		$('nav-log').href = logLink(game.id);
+		$('nav-log').hidden = false;
+		if (view !== 'log') {
+			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1)
+		}
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
 		const changed = key !== renderedKey;
@@ -854,6 +879,18 @@
 			return;
 		}
 		focusSystemTitle = false;
+		if (view === 'log') {
+			if (changed) {
+				renderLog(game);
+			}
+			showPanels('log-panel');
+			if (focusLogTitle) {
+				focusLogTitle = false;
+				$('log-title').focus();
+			}
+			return;
+		}
+		focusLogTitle = false;
 		if (changed) {
 			renderDeck(game);
 		}
@@ -899,8 +936,34 @@
 			element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.systemName),
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
-		fillList($('log-list'), game.log);
 		renderYourOffers(game);
+	}
+
+	// ── s04 Game log (E03-S06) ──
+
+	/** One foldable panel per turn, newest first (S06-1); a turn the player folded stays folded across polls. */
+	function renderLog(game) {
+		$('log-back').href = deckLink(game.id);
+		const turns = logTurns(game.log);
+		if (turns.length === 0) {
+			$('log-turns').replaceChildren(element('p', { class: 'empty' }, EMPTY_LOG_TEXT)); // S06-4
+			return;
+		}
+		$('log-turns').replaceChildren(...turns.map(({ turn, title, events }) => {
+			const key = foldKey(game.id, turn);
+			const details = element('details', { class: 'panel section' },
+				element('summary', {}, title),
+				element('ul', { class: 'log-list' }, ...events.map(text => element('li', {}, text))));
+			details.open = !foldedTurns.has(key);
+			details.addEventListener('toggle', () => {
+				if (details.open) {
+					foldedTurns.delete(key);
+				} else {
+					foldedTurns.add(key);
+				}
+			});
+			return details;
+		}));
 	}
 
 	// ── E03-S03: secret trade offers ──
