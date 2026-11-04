@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
@@ -19,7 +20,9 @@ class TurnItemTest {
 		number = 4,
 		phase = TurnPhase.BIDDING,
 		doneBidding = listOf("grace@example.com", "ada@example.com"),
-		offers = listOf(offer, Offer("ada@example.com", StarSystem.BETA_HYDRI, Goods.CHIPS, OfferType.BUY, 3))
+		offers = listOf(offer, Offer("ada@example.com", StarSystem.BETA_HYDRI, Goods.CHIPS, OfferType.BUY, 3)),
+		bids = listOf(InitiativeBid("grace@example.com", 40), InitiativeBid("ada@example.com", 0)),
+		initiative = listOf("ada@example.com", "grace@example.com")
 	)
 
 	@Test
@@ -30,16 +33,17 @@ class TurnItemTest {
 	@Test
 	fun shouldReadBackEveryPhase() {
 		TurnPhase.entries.forEach { phase ->
-			val inPhase = Turn(number = 4, phase = phase, doneBidding = emptyList(), offers = emptyList())
+			val inPhase =
+				Turn(number = 4, phase = phase, doneBidding = emptyList(), offers = emptyList(), bids = emptyList(), initiative = emptyList())
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
 	}
 
 	@Test
 	fun shouldStoreATurnUnderTheseAttributeNames() {
-		val withOneOffer = turn.copy(offers = listOf(offer))
+		val withOneOfEach = turn.copy(offers = listOf(offer), bids = listOf(InitiativeBid("grace@example.com", 40)))
 
-		assertThat(TurnItem(withOneOffer).attributes).isEqualTo(
+		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
 			mapOf(
 				"number" to AttributeValue.fromN("4"),
 				"phase" to AttributeValue.fromS("BIDDING"),
@@ -56,16 +60,32 @@ class TurnItemTest {
 							)
 						)
 					)
-				)
+				),
+				"bids" to AttributeValue.fromL(
+					listOf(
+						AttributeValue.fromM(
+							mapOf("playerEmail" to AttributeValue.fromS("grace@example.com"), "amount" to AttributeValue.fromN("40"))
+						)
+					)
+				),
+				"initiative" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"), AttributeValue.fromS("grace@example.com")))
 			)
 		)
 	}
 
 	@Test
-	fun shouldReadATurnSavedBeforeDoneBiddingAndOffersExistedAsNobodyDoneAndNoOffers() {
+	fun shouldReadATurnSavedBeforeDoneBiddingOffersAndBidsExistedAsNobodyDoneAndNothingPlaced() {
 		val older = mapOf("number" to AttributeValue.fromN("1"), "phase" to AttributeValue.fromS("BIDDING"))
 
-		val expected = Turn(number = 1, phase = TurnPhase.BIDDING, doneBidding = emptyList(), offers = emptyList())
+		val expected =
+			Turn(
+				number = 1,
+				phase = TurnPhase.BIDDING,
+				doneBidding = emptyList(),
+				offers = emptyList(),
+				bids = emptyList(),
+				initiative = emptyList()
+			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)
 	}
@@ -85,5 +105,16 @@ class TurnItemTest {
 		assertThatThrownBy { TurnItem(attributes + ("offers" to AttributeValue.fromL(listOf(AttributeValue.fromM(brokenOffer))))).toTurn() }
 			.isInstanceOf(IllegalStateException::class.java)
 			.hasMessageContaining("price")
+	}
+
+	@Test
+	fun shouldNameTheMissingAttributeWhenAStoredBidIsIncomplete() {
+		val brokenBid = InitiativeBidItem(InitiativeBid("grace@example.com", 40)).attributes - "amount"
+
+		assertThatThrownBy {
+			TurnItem(TurnItem(turn).attributes + ("bids" to AttributeValue.fromL(listOf(AttributeValue.fromM(brokenBid))))).toTurn()
+		}
+			.isInstanceOf(IllegalStateException::class.java)
+			.hasMessageContaining("amount")
 	}
 }
