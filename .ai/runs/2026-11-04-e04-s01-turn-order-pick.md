@@ -50,6 +50,13 @@ and then the full order are logged, and the Deck shows who holds each place and 
 - **After the order is set the phase stays Ship-jumps.** Jumps (S02) take it from there; until S02 ships, a game
   waits there, as it already does today.
 
+- **The pick message stays in the tree** (no `display: none` when empty), so "You act 2nd this turn." is announced
+  when it appears, and it takes focus after Confirm, since the form it replaces is gone. It's keyed by game and turn
+  (lesson 2026-11-04).
+- **Browser walk** (three players, real initiative roll): waiting for Kessler Cargo; Kim's API pick reaching Ada's
+  Deck within a poll; Ada picking 2nd in the UI; Vega given 1st; the four log lines; Vega's Deck at 390 px. Seen in
+  passing, not from this PR: on the map, a system with three ships clips its marker line (Tau Ceti), a follow-up.
+
 ## Risks
 
 - `risk-medium`: a new stored attribute and a new endpoint with an ordering rule. Covered by domain tests on whose
@@ -100,12 +107,12 @@ PR: #82
 
 ### Phase 3: Client logic
 
-- [ ] 3.1 `turn-order.js` and the picking top-bar text, with tests
+- [x] 3.1 `turn-order.js` and the picking top-bar text, with tests — 30c3382
 
 ### Phase 4: Screen
 
-- [ ] 4.1 Deck: Turn order panel, the pick form, and the top bar
+- [x] 4.1 Deck: Turn order panel, the pick form, and the top bar — dd0a8f6
 
 ### Phase 5: Verification
 
-- [ ] 5.1 Full gate (`./gradlew build`) and a browser walk with screenshots
+- [x] 5.1 Full gate (`./gradlew build`) and a browser walk with screenshots — dd0a8f6
