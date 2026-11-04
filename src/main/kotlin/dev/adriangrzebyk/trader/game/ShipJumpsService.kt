@@ -28,4 +28,10 @@ class ShipJumpsService(private val gameStore: GameStore) {
 		gameStore.find(gameId) ?: throw GameNotFoundException()
 		return gameStore.update(gameId) { it.finishJumping(callerEmail) }
 	}
+
+	/** [callerEmail] chooses where the ship that just jumped ends up, inside [GameStore.update], so it lands once (A04, R30). */
+	fun land(gameId: String, callerEmail: String, location: ShipLocation?): Game {
+		gameStore.find(gameId) ?: throw GameNotFoundException()
+		return gameStore.update(gameId) { it.landShip(callerEmail, location) }
+	}
 }

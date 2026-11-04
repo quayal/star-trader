@@ -82,6 +82,28 @@ class ShipJumpsServiceTest {
 	}
 
 	@Test
+	fun shouldStoreTheLanding() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS))
+
+		val game = service.land("game-1", "creator@example.com", ShipLocation.PLANET)
+
+		assertThat(game.players.first().ships.first().location).isEqualTo(ShipLocation.PLANET)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldLandOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+
+		val game = replaying.land("game-1", "creator@example.com", ShipLocation.PORT)
+
+		// A04: one landing line, however often the change is run.
+		assertThat(game.log.count { it.text.startsWith("Landing:") }).isEqualTo(1)
+		assertThat(game.turn!!.landingShip).isNull()
+	}
+
+	@Test
 	fun shouldStoreTheEndOfASlot() {
 		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
 
@@ -107,6 +129,7 @@ class ShipJumpsServiceTest {
 			service.jump("missing", "creator@example.com", "Wayfarer", MU_HERCULIS)
 		}.isInstanceOf(GameNotFoundException::class.java)
 		assertThatThrownBy { service.finishJumping("missing", "creator@example.com") }.isInstanceOf(GameNotFoundException::class.java)
+		assertThatThrownBy { service.land("missing", "creator@example.com", ShipLocation.PORT) }.isInstanceOf(GameNotFoundException::class.java)
 	}
 
 	@Test
