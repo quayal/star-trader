@@ -31,10 +31,10 @@ class GameOfferTest {
 	@Test
 	fun shouldStillPlaceAnOfferAfterSignallingDoneWhileOthersBid() {
 		// S04-2, R17: done is a readiness flag, not a commit.
-		val game = started.signalDoneBidding("joiner@example.com").placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
+		val game = started.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
 		assertThat(game.turn).isEqualTo(
-			Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)))
+			Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)), emptyList(), emptyList())
 		)
 	}
 
@@ -141,7 +141,7 @@ class GameOfferTest {
 
 	@Test
 	fun shouldRefuseAnOfferOnceBiddingHasClosed() {
-		val closed = started.advancePhase()
+		val closed = started.advancePhase(FakeDice(2, 1))
 
 		assertThatThrownBy { closed.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8) }
 			.isInstanceOf(PhaseClosedException::class.java)
@@ -166,18 +166,18 @@ class GameOfferTest {
 		val offer = Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 		val bidding = started.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
-		val trading = bidding.signalDoneBidding("joiner@example.com").signalDoneBidding("creator@example.com").advancePhase()
+		val trading = bidding.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).signalDoneBidding("creator@example.com", FakeDice(2, 1)).advancePhase(FakeDice(2, 1))
 
-		assertThat(trading.turn).isEqualTo(Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer)))
+		assertThat(trading.turn).isEqualTo(Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test
 	fun shouldStartTheNextTurnWithNoOffers() {
 		val bidding = started.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
-		val nextTurn = (1..3).fold(bidding) { game, _ -> game.advancePhase() }
+		val nextTurn = (1..3).fold(bidding) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
-		assertThat(nextTurn.turn).isEqualTo(Turn(2, TurnPhase.BIDDING, emptyList(), emptyList()))
+		assertThat(nextTurn.turn).isEqualTo(Turn.bidding(2))
 	}
 
 	private fun withPosition(email: String, position: MarketPosition): Game =

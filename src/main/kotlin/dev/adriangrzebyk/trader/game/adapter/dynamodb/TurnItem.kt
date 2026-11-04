@@ -12,7 +12,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			NUMBER to number(turn.number),
 			PHASE to AttributeValue.fromS(turn.phase.name),
 			DONE_BIDDING to AttributeValue.fromL(turn.doneBidding.map { AttributeValue.fromS(it) }),
-			OFFERS to AttributeValue.fromL(turn.offers.map { AttributeValue.fromM(OfferItem(it).attributes) })
+			OFFERS to AttributeValue.fromL(turn.offers.map { AttributeValue.fromM(OfferItem(it).attributes) }),
+			BIDS to AttributeValue.fromL(turn.bids.map { AttributeValue.fromM(InitiativeBidItem(it).attributes) }),
+			INITIATIVE to AttributeValue.fromL(turn.initiative.map { AttributeValue.fromS(it) })
 		)
 	)
 
@@ -22,7 +24,10 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		// Items saved before E03-S01 have no done list; nobody had signalled done then (BACKWARD_COMPATIBILITY.md §7).
 		doneBidding = attributes[DONE_BIDDING]?.l()?.map { it.s() } ?: emptyList(),
 		// Items saved before E03-S03 have no offers; nobody could place one then (BACKWARD_COMPATIBILITY.md §7).
-		offers = attributes[OFFERS]?.l()?.map { OfferItem(it.m()).toOffer() } ?: emptyList()
+		offers = attributes[OFFERS]?.l()?.map { OfferItem(it.m()).toOffer() } ?: emptyList(),
+		// Items saved before E03-S05 have no bids or initiative order; nobody could bid then (BACKWARD_COMPATIBILITY.md §7).
+		bids = attributes[BIDS]?.l()?.map { InitiativeBidItem(it.m()).toBid() } ?: emptyList(),
+		initiative = attributes[INITIATIVE]?.l()?.map { it.s() } ?: emptyList()
 	)
 
 	private companion object {
@@ -30,5 +35,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val PHASE = "phase"
 		const val DONE_BIDDING = "doneBidding"
 		const val OFFERS = "offers"
+		const val BIDS = "bids"
+		const val INITIATIVE = "initiative"
 	}
 }

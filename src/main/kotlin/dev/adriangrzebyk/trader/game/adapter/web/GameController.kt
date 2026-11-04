@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.BiddingService
+import dev.adriangrzebyk.trader.game.Dice
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
 import dev.adriangrzebyk.trader.game.GameJoiningService
@@ -35,6 +36,7 @@ class GameController(
 	idGenerator: GameIdGenerator,
 	gameStore: GameStore,
 	startingSystemPicker: StartingSystemPicker,
+	dice: Dice,
 	private val sessionStore: SessionStore
 ) {
 
@@ -42,7 +44,7 @@ class GameController(
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
-	private val biddingService = BiddingService(gameStore)
+	private val biddingService = BiddingService(gameStore, dice)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)

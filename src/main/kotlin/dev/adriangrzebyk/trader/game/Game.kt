@@ -65,14 +65,15 @@ data class Game(
 	}
 
 	/**
-	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. After the
-	 * last turn's Trading (R41) the game is over and keeps its last turn. No clock calls this (D09): a phase ends
-	 * only when its players are through, and the caller runs it inside [GameStore.update] so it happens once.
+	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. Closing Bidding
+	 * charges the bids and rolls the initiative order with [dice] (R27). After the last turn's Trading (R41) the game
+	 * is over and keeps its last turn. No clock calls this (D09): a phase ends only when its players are through, and
+	 * the caller runs it inside [GameStore.update] so it happens once.
 	 */
-	fun advancePhase(): Game {
+	fun advancePhase(dice: Dice): Game {
 		val current = runningTurn()
 		return when (current.phase) {
-			TurnPhase.BIDDING -> copy(turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList()))
+			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.copy(phase = TurnPhase.TRADING))
 			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = Turn.bidding(current.number + 1))
 		}
@@ -80,9 +81,10 @@ data class Game(
 
 	/**
 	 * Records that [email] is done bidding (R17: a readiness flag, not a commit, so a repeat changes nothing).
-	 * Bidding closes the moment the last player signals done (D09); a signal after that is refused (A04).
+	 * Bidding closes the moment the last player signals done (D09), rolling the initiative order with [dice]; a
+	 * signal after that is refused (A04).
 	 */
-	fun signalDoneBidding(email: String): Game {
+	fun signalDoneBidding(email: String, dice: Dice): Game {
 		if (!hasPlayer(email)) {
 			throw NotAGameMemberException()
 		}
@@ -95,7 +97,30 @@ data class Game(
 		}
 		val doneBidding = current.doneBidding + email
 		val signalled = copy(turn = current.copy(doneBidding = doneBidding))
-		return if (players.all { it.email in doneBidding }) signalled.advancePhase() else signalled
+		return if (players.all { it.email in doneBidding }) signalled.advancePhase(dice) else signalled
+	}
+
+	/**
+	 * Places or changes [email]'s secret initiative bid (R27, S05-1, S05-2): a whole number of HT from 0 up to their
+	 * money, only while Bidding is open (A04). It's paid when Bidding closes, so changing it never charges twice.
+	 */
+	fun placeInitiativeBid(email: String, amount: Int?): Game {
+		val player = players.firstOrNull { it.email == email } ?: throw NotAGameMemberException()
+		val current = runningTurn()
+		if (current.phase != TurnPhase.BIDDING) {
+			throw PhaseClosedException(TurnPhase.BIDDING)
+		}
+		if (amount == null) {
+			throw InvalidBidException("Enter a whole number of HT, 0 or more.")
+		}
+		if (amount < 0) {
+			throw InvalidBidException("A bid can't be negative. Enter 0 to bid nothing.")
+		}
+		if (amount > player.money) {
+			throw InvalidBidException("You have ${player.money} HT. Enter ${player.money} or less.")
+		}
+		val bids = current.bids.filter { it.playerEmail != email } + InitiativeBid(email, amount)
+		return copy(turn = current.copy(bids = bids))
 	}
 
 	/**
@@ -122,6 +147,33 @@ data class Game(
 			throw InvalidOfferException("You're Dictator of ${goods.name} here — you place that offer when it resolves in Trading.")
 		}
 		return copy(turn = current.copy(offers = current.offers + Offer(email, system, goods, type, price)))
+	}
+
+	/**
+	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as
+	 * bidding 0 and still rolls (Q07, proposed). The order is public and logged without amounts (R29); the bids stay
+	 * secret on the turn.
+	 */
+	private fun closeBidding(current: Turn, dice: Dice): Game {
+		val bids = players.associate { it.email to (current.bidOf(it.email)?.amount ?: 0) }
+		val order = initiativeOrder(players.map { it.email }, bids, dice)
+		val names = order.joinToString(" → ") { email -> players.first { it.email == email }.corporationName }
+		return copy(
+			players = players.map { it.pay(bids.getValue(it.email)) },
+			turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order),
+			log = log + "Initiative order (bid + d2): $names"
+		)
+	}
+
+	/**
+	 * [emails] ordered by [base] + d2, highest first (R27). Players who tie roll d2 again among themselves, and only
+	 * those rolls order them, until no tie is left. Rolls are taken in [emails]' order.
+	 */
+	private fun initiativeOrder(emails: List<String>, base: Map<String, Int>, dice: Dice): List<String> {
+		val scores = emails.associateWith { base.getValue(it) + dice.d2() }
+		return emails.groupBy { scores.getValue(it) }.toSortedMap(reverseOrder()).values.flatMap { tied ->
+			if (tied.size == 1) tied else initiativeOrder(tied, tied.associateWith { 0 }, dice)
+		}
 	}
 
 	private fun runningTurn(): Turn = when (status) {
