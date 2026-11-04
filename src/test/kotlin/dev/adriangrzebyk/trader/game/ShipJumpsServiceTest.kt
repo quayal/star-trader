@@ -39,7 +39,28 @@ class ShipJumpsServiceTest {
 	}
 
 	@Test
+	fun shouldPickOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(shipJumps)
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+
+		val game = replaying.pickPlace("game-1", "creator@example.com", 1)
+
+		// A04: one pick, one auto-assigned place, one set of log lines, however often the change is run.
+		assertThat(game.turn!!.turnOrderPicks).hasSize(2)
+		assertThat(game.log.count { it.text.startsWith("Turn order (for this turn)") }).isEqualTo(1)
+	}
+
+	@Test
 	fun shouldRejectAnUnknownGame() {
 		assertThatThrownBy { service.pickPlace("missing", "creator@example.com", 1) }.isInstanceOf(GameNotFoundException::class.java)
+	}
+
+	/** Runs every change twice against the same stored state, the way an optimistic retry re-runs it. */
+	private class ReplayingGameStore(private val delegate: FakeGameStore) : GameStore by delegate {
+
+		override fun update(id: String, mutate: (Game) -> Game): Game {
+			mutate(delegate.games.getValue(id))
+			return delegate.update(id, mutate)
+		}
 	}
 }
