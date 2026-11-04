@@ -36,7 +36,9 @@ class BiddingServiceTest {
 
 		service.signalDone("game-1", "creator@example.com")
 
-		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			gameStore.find("game-1")?.turn
+		).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test
@@ -48,7 +50,9 @@ class BiddingServiceTest {
 		// The replay closes Bidding twice over the same stored game, so the dice roll twice; only one close is saved.
 		BiddingService(replayingStore, FakeDice(2, 1, 2, 1)).signalDone("game-1", "creator@example.com")
 
-		assertThat(gameStore.find("game-1")?.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			gameStore.find("game-1")?.turn
+		).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test
@@ -100,7 +104,10 @@ class BiddingServiceTest {
 	fun shouldPlaceAnOfferOnceEvenWhenTheStoreReplaysTheChange() {
 		gameStore.create(started)
 
-		BiddingService(ReplayingGameStore(gameStore), FakeDice()).placeOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8)
+		BiddingService(
+			ReplayingGameStore(gameStore),
+			FakeDice()
+		).placeOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8)
 
 		assertThat(gameStore.find("game-1")?.turn?.offers).hasSize(1)
 	}

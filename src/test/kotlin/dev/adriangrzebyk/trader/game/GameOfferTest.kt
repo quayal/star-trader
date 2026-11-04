@@ -34,7 +34,14 @@ class GameOfferTest {
 		val game = started.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
 		assertThat(game.turn).isEqualTo(
-			Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)), emptyList(), emptyList())
+			Turn(
+				1,
+				TurnPhase.BIDDING,
+				listOf("joiner@example.com"),
+				listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)),
+				emptyList(),
+				emptyList()
+			)
 		)
 	}
 
@@ -166,9 +173,14 @@ class GameOfferTest {
 		val offer = Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 		val bidding = started.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
-		val trading = bidding.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).signalDoneBidding("creator@example.com", FakeDice(2, 1)).advancePhase(FakeDice(2, 1))
+		val trading = bidding.signalDoneBidding(
+			"joiner@example.com",
+			FakeDice(2, 1)
+		).signalDoneBidding("creator@example.com", FakeDice(2, 1)).advancePhase(FakeDice(2, 1))
 
-		assertThat(trading.turn).isEqualTo(Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			trading.turn
+		).isEqualTo(Turn(1, TurnPhase.TRADING, emptyList(), listOf(offer), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test

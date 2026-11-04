@@ -33,7 +33,8 @@ class TurnItemTest {
 	@Test
 	fun shouldReadBackEveryPhase() {
 		TurnPhase.entries.forEach { phase ->
-			val inPhase = Turn(number = 4, phase = phase, doneBidding = emptyList(), offers = emptyList(), bids = emptyList(), initiative = emptyList())
+			val inPhase =
+				Turn(number = 4, phase = phase, doneBidding = emptyList(), offers = emptyList(), bids = emptyList(), initiative = emptyList())
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
 	}
@@ -76,7 +77,15 @@ class TurnItemTest {
 	fun shouldReadATurnSavedBeforeDoneBiddingOffersAndBidsExistedAsNobodyDoneAndNothingPlaced() {
 		val older = mapOf("number" to AttributeValue.fromN("1"), "phase" to AttributeValue.fromS("BIDDING"))
 
-		val expected = Turn(number = 1, phase = TurnPhase.BIDDING, doneBidding = emptyList(), offers = emptyList(), bids = emptyList(), initiative = emptyList())
+		val expected =
+			Turn(
+				number = 1,
+				phase = TurnPhase.BIDDING,
+				doneBidding = emptyList(),
+				offers = emptyList(),
+				bids = emptyList(),
+				initiative = emptyList()
+			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)
 	}
@@ -102,7 +111,9 @@ class TurnItemTest {
 	fun shouldNameTheMissingAttributeWhenAStoredBidIsIncomplete() {
 		val brokenBid = InitiativeBidItem(InitiativeBid("grace@example.com", 40)).attributes - "amount"
 
-		assertThatThrownBy { TurnItem(TurnItem(turn).attributes + ("bids" to AttributeValue.fromL(listOf(AttributeValue.fromM(brokenBid))))).toTurn() }
+		assertThatThrownBy {
+			TurnItem(TurnItem(turn).attributes + ("bids" to AttributeValue.fromL(listOf(AttributeValue.fromM(brokenBid))))).toTurn()
+		}
 			.isInstanceOf(IllegalStateException::class.java)
 			.hasMessageContaining("amount")
 	}

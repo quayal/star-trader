@@ -35,12 +35,16 @@ class GameTurnEngineTest {
 	@Test
 	fun shouldFinishTheGameAfterTheLastTurnsTrading() {
 		val lastTrading = (1..5).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
-		assertThat(lastTrading.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			lastTrading.turn
+		).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 
 		val finished = lastTrading.advancePhase(FakeDice(2, 1))
 
 		assertThat(finished.status).isEqualTo(GameStatus.FINISHED)
-		assertThat(finished.turn).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			finished.turn
+		).isEqualTo(Turn(2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test
@@ -70,7 +74,9 @@ class GameTurnEngineTest {
 	fun shouldCloseBiddingTheMomentTheLastPlayerSignalsDone() {
 		val game = started.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).signalDoneBidding("creator@example.com", FakeDice(2, 1))
 
-		assertThat(game.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
+		assertThat(
+			game.turn
+		).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(), listOf("creator@example.com", "joiner@example.com")))
 	}
 
 	@Test
