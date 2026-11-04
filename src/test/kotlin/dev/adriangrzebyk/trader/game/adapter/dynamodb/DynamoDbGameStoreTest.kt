@@ -5,8 +5,8 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.Player
-import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.game.adapter.random.RandomDice
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -162,12 +162,18 @@ class DynamoDbGameStoreTest {
 		store.create(full.start("creator@example.com", FakeStartingSystemPicker(*pairs)))
 		val executor = Executors.newFixedThreadPool(6)
 
-		val signals = full.players.map { player -> executor.submit { store.update("game-1") { it.signalDoneBidding(player.email) } } }
+		val dice = RandomDice() // Random.Default: the signals roll from several threads
+		val signals = full.players.map { player -> executor.submit { store.update("game-1") { it.signalDoneBidding(player.email, dice) } } }
 		signals.forEach { it.get(30, TimeUnit.SECONDS) }
 		executor.shutdown()
 
 		// Every signal applied once, the last one closed Bidding, and nothing skipped past Ship-jumps (A04).
-		assertThat(store.find("game-1")!!.turn).isEqualTo(Turn(1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList()))
+		val closed = store.find("game-1")!!
+		assertThat(closed.turn?.phase).isEqualTo(TurnPhase.SHIP_JUMPS)
+		assertThat(closed.turn?.doneBidding).isEmpty()
+		assertThat(closed.turn?.initiative).containsExactlyInAnyOrderElementsOf(full.players.map { it.email })
+		assertThat(closed.players.map { it.money }).allMatch { it == Game.STARTING_MONEY }
+		assertThat(closed.log.filter { it.startsWith("Initiative order") }).hasSize(1)
 		assertThat(storedVersion("game-1")).isEqualTo(6)
 	}
 

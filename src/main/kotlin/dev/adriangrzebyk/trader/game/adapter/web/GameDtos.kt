@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
@@ -45,7 +46,9 @@ data class GameResponseDto(
 		game.turn?.let { TurnResponseDto(it) },
 		game.log,
 		StarSystem.entries.map { SystemResponseDto(it) },
-		game.players.firstOrNull { it.email == viewerEmail }?.let { YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty()) }
+		game.players.firstOrNull { it.email == viewerEmail }?.let {
+			YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty(), game.turn?.bidOf(it.email))
+		}
 	)
 }
 
@@ -106,20 +109,30 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
 	constructor(system: StarSystem, goods: Goods) : this(goods.name, system.getPrice(goods), system.getIndicator(goods))
 }
 
-/** Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09). Offers never go here (R17). */
-data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>) {
+/**
+ * Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09), and so is the initiative
+ * order once Bidding closes (R27). Offers and bids never go here (R17, R29).
+ */
+data class TurnResponseDto(val number: Int, val phase: String, val doneBidding: List<String>, val initiative: List<String>) {
 
-	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding)
+	constructor(turn: Turn) : this(turn.number, turn.phase.name, turn.doneBidding, turn.initiative)
 }
 
-/** Only for the viewer: their money (R29), what their own ships carry (S02-5) and their own offers this turn (R17). */
-data class YouResponseDto(val money: Int, val ships: List<YourShipResponseDto>, val offers: List<YourOfferResponseDto>) {
+/**
+ * Only for the viewer: their money (R29), what their own ships carry (S02-5), their own offers this turn (R17) and
+ * their own initiative bid this turn, or null if they haven't placed one (R29).
+ */
+data class YouResponseDto(val money: Int, val ships: List<YourShipResponseDto>, val offers: List<YourOfferResponseDto>, val bid: Int?) {
 
-	/** [offers] must be [player]'s own: the caller passes `turn.offersOf(player.email)`, never the whole turn's. */
-	constructor(player: Player, offers: List<Offer>) : this(
+	/**
+	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
+	 * `turn.bidOf(player.email)`, never the whole turn's.
+	 */
+	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?) : this(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
-		offers.map { YourOfferResponseDto(it) }
+		offers.map { YourOfferResponseDto(it) },
+		bid?.amount
 	)
 }
 
@@ -148,6 +161,13 @@ data class PlaceOfferRequestDto(
 
 	/** The price as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
 	fun wholePrice(): Int? = price?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+// BigDecimal, not Int, for the same reason as the turns and the price: 2.5 must reach the domain's message, not become 2.
+data class PlaceBidRequestDto(val amount: BigDecimal? = null) {
+
+	/** The amount as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
+	fun wholeAmount(): Int? = amount?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
 /** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */

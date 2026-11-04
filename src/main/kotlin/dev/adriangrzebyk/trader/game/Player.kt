@@ -13,6 +13,9 @@ data class Player(
 	val marketPositions: List<MarketPosition>
 ) {
 
+	/** This player after paying [amount] HT. */
+	fun pay(amount: Int): Player = copy(money = money - amount)
+
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */
 		fun newcomer(email: String, name: String, corporationName: String) = Player(email, name, corporationName, 0, emptyList(), emptyList())
