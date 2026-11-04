@@ -103,7 +103,9 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldRejectAnUnknownGame() {
-		assertThatThrownBy { service.jump("missing", "creator@example.com", "Wayfarer", MU_HERCULIS) }.isInstanceOf(GameNotFoundException::class.java)
+		assertThatThrownBy {
+			service.jump("missing", "creator@example.com", "Wayfarer", MU_HERCULIS)
+		}.isInstanceOf(GameNotFoundException::class.java)
 		assertThatThrownBy { service.finishJumping("missing", "creator@example.com") }.isInstanceOf(GameNotFoundException::class.java)
 	}
 

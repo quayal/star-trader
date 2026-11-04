@@ -11,8 +11,8 @@ import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
-import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
+import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.InvalidPlaceException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException

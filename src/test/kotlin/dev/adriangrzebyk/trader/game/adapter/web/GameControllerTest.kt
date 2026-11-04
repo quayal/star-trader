@@ -365,7 +365,9 @@ class GameControllerTest {
 		val afterFirst = signalDone(joinerToken, gameId)
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(afterFirst.turn).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
+		assertThat(
+			afterFirst.turn
+		).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
