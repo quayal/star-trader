@@ -115,7 +115,7 @@
 			background: var(--surface-panel);
 		}
 		.stale-notice[hidden], .deck[hidden], .system[hidden], .game-log[hidden], .nav-item[hidden] { display: none; }
-		/* s01: fleet and log left of the map, offers right of it (D07); one column on a narrow screen, map first. */
+		/* s01: the fleet left of the map, offers right of it (D07); one column on a narrow screen, map first. */
 		.deck {
 			display: grid;
 			grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr) minmax(240px, 1fr);
@@ -187,7 +187,8 @@
 		.system__title { font-size: var(--text-heading); }
 		/* s04: one column, a foldable panel per turn (prototype revision 014). */
 		.game-log { display: grid; gap: var(--space-panel); max-width: 960px; }
-		.game-log > p { margin: 0; }
+		.game-log > p, .game-log__turns > p { margin: 0; }
+		.game-log__turns { display: grid; gap: var(--space-panel); }
 		.section > summary { font-family: var(--font-display); font-size: var(--text-title); cursor: pointer; }
 		.section[open] > summary { margin-bottom: var(--space-panel); }
 		.places { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-panel); }
@@ -359,7 +360,7 @@
 		<div class="game-log" id="log-panel" hidden>
 			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
 			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
-			<div class="game-log" id="log-turns"></div>
+			<div class="game-log__turns" id="log-turns"></div>
 			<p class="muted">Public events only: offers, bids and money are never logged.</p>
 		</div>
 
