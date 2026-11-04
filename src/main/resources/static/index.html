@@ -240,6 +240,8 @@
 		<p id="done-text" role="status" tabindex="-1"></p>
 		<p class="message" id="done-message" role="status" tabindex="-1"></p>
 	</div>
+	<!-- E04-S04: other players' progress as polls bring it in, for screen readers (the screen shows it already). -->
+	<p class="visually-hidden" id="progress-announce" role="status"></p>
 </header>
 
 <main>
@@ -539,6 +541,7 @@
 		landingHeading,
 		landingOptions,
 	} from './js/landing.js';
+	import { progressSnapshot, progressText } from './js/progress.js';
 	import {
 		MAP_VIEW_BOX,
 		MARKET_LEVELS,
@@ -853,7 +856,7 @@
 		}
 		rememberGame(id);
 		hideStale();
-		render(game);
+		render(game, true, true);
 		schedulePoll(id);
 	}
 
@@ -905,7 +908,9 @@
 	}
 
 	/** [fresh] is false when redrawing the last state, which mustn't make it look newer than it is. */
-	function render(game, fresh = true) {
+	/** [fromPoll]: the game came from a poll, so what's new in it is someone else's doing and is announced (S04-1). */
+	function render(game, fresh = true, fromPoll = false) {
+		noteProgress(game, fromPoll);
 		lastGame = game;
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -1255,10 +1260,25 @@
 		}
 	}
 
+	// ── E04-S04: other players' progress, announced as polls bring it in ──
+
+	// What the page has shown of the current game: raised by the player's own steps too, so they're never news.
+	let progressSeen = null;
+
+	function noteProgress(game, announce) {
+		const text = announce ? progressText(progressSeen, game, session.email) : '';
+		progressSeen = progressSnapshot(game, progressSeen);
+		if (text) {
+			$('progress-announce').textContent = text; // a polite live region: read once the reader is idle
+		}
+	}
+
 	// ── E04-S01: picking a place in the turn order ──
 
 	// What the turn-order list and the pick's radios were last drawn from, so an unchanged poll leaves them alone.
 	let turnOrderKey = null;
+	// The rows' text as last drawn for a game and turn, so a row a poll changed flashes once (design system: .flash).
+	let turnOrderShown = null;
 	let pickChoicesKey = null;
 	// The game and turn the pick message belongs to (lesson 2026-11-04: keyed by game, not just turn).
 	let pickMessageKey = null;
@@ -1284,8 +1304,17 @@
 		if (key !== turnOrderKey) {
 			turnOrderKey = key;
 			$('turn-order-note').textContent = TURN_ORDER_NOTE;
-			$('turn-order-list').replaceChildren(...rows.map((row, index) => element('li', {},
-				element('strong', {}, row.place), ` ${row.holder}`, ...slotStatus(statuses[index]))));
+			const items = rows.map((row, index) => element('li', {},
+				element('strong', {}, row.place), ` ${row.holder}`, ...slotStatus(statuses[index])));
+			const gameTurn = `${game.id}/${game.turn?.number}`;
+			const before = turnOrderShown?.gameTurn === gameTurn ? turnOrderShown.texts : null;
+			items.forEach((item, index) => {
+				if (before && before[index] !== undefined && before[index] !== item.textContent) {
+					item.classList.add('flash');
+				}
+			});
+			turnOrderShown = { gameTurn, texts: items.map(item => item.textContent) };
+			$('turn-order-list').replaceChildren(...items);
 		}
 		const free = freePlaces(game, session.email);
 		$('pick-form').hidden = free.length === 0;
