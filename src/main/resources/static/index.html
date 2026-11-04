@@ -151,9 +151,10 @@
 			border-radius: var(--radius-panel);
 		}
 		.landing::backdrop { background: var(--surface-backdrop); }
-		.landing form { display: grid; gap: var(--space-related); }
+		.landing form { display: grid; gap: var(--space-related); max-width: none; }
 		.landing h2 { margin: 0; }
 		.landing fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
+		#landing-choices { display: grid; gap: var(--space-group); }
 		.landing .choice { justify-content: flex-start; text-align: left; }
 		.landing .message:empty { display: none; }
 		.landing .message { margin: 0; }
