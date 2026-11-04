@@ -34,17 +34,7 @@ class GameOfferTest {
 		val game = started.signalDoneBidding("joiner@example.com", FakeDice(2, 1)).placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
 		assertThat(game.turn).isEqualTo(
-			Turn(
-				1,
-				TurnPhase.BIDDING,
-				listOf("joiner@example.com"),
-				listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)),
-				emptyList(),
-				emptyList(),
-				emptyList(),
-				emptyList(),
-				emptyList()
-			)
+			Turn.bidding(1).copy(doneBidding = listOf("joiner@example.com"), offers = listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)))
 		)
 	}
 
@@ -184,13 +174,7 @@ class GameOfferTest {
 		assertThat(
 			trading.turn
 		).isEqualTo(
-			Turn(
-				1, TurnPhase.TRADING, emptyList(),
-				listOf(
-					offer
-				),
-				emptyList(), listOf("creator@example.com", "joiner@example.com"), emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(1).copy(phase = TurnPhase.TRADING, offers = listOf(offer), initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 	}
 

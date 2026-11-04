@@ -26,22 +26,8 @@ class GameTurnEngineTest {
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
-			Turn(
-				1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			),
-			Turn(
-				1, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			),
+			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com")),
+			Turn.bidding(1).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com")),
 			Turn.bidding(2)
 		)
 	}
@@ -52,14 +38,7 @@ class GameTurnEngineTest {
 		assertThat(
 			lastTrading.turn
 		).isEqualTo(
-			Turn(
-				2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(2).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 
 		val finished = lastTrading.advancePhase(FakeDice(2, 1))
@@ -68,14 +47,7 @@ class GameTurnEngineTest {
 		assertThat(
 			finished.turn
 		).isEqualTo(
-			Turn(
-				2, TurnPhase.TRADING, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(2).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 	}
 
@@ -102,7 +74,7 @@ class GameTurnEngineTest {
 		assertThat(
 			game.turn
 		).isEqualTo(
-			Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+			Turn.bidding(1).copy(doneBidding = listOf("joiner@example.com"))
 		)
 	}
 
@@ -113,14 +85,7 @@ class GameTurnEngineTest {
 		assertThat(
 			game.turn
 		).isEqualTo(
-			Turn(
-				1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 	}
 

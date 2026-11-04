@@ -39,14 +39,7 @@ class BiddingServiceTest {
 		assertThat(
 			gameStore.find("game-1")?.turn
 		).isEqualTo(
-			Turn(
-				1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 	}
 
@@ -62,14 +55,7 @@ class BiddingServiceTest {
 		assertThat(
 			gameStore.find("game-1")?.turn
 		).isEqualTo(
-			Turn(
-				1, TurnPhase.SHIP_JUMPS, emptyList(), emptyList(), emptyList(),
-				listOf(
-					"creator@example.com",
-					"joiner@example.com"
-				),
-				emptyList(), emptyList(), emptyList()
-			)
+			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com"))
 		)
 	}
 
