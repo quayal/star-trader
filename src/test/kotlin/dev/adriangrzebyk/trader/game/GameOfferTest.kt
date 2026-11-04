@@ -29,6 +29,16 @@ class GameOfferTest {
 	}
 
 	@Test
+	fun shouldStillPlaceAnOfferAfterSignallingDoneWhileOthersBid() {
+		// S04-2, R17: done is a readiness flag, not a commit.
+		val game = started.signalDoneBidding("joiner@example.com").placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
+
+		assertThat(game.turn).isEqualTo(
+			Turn(1, TurnPhase.BIDDING, listOf("joiner@example.com"), listOf(Offer("joiner@example.com", TAU_CETI, POLY, BUY, 8)))
+		)
+	}
+
+	@Test
 	fun shouldKeepOffersInTheOrderTheyWerePlaced() {
 		val game = started
 			.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
