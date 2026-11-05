@@ -72,5 +72,5 @@ next jump" (S04-2).
 
 - [x] 1.1 progress.js — 5c89d16
 - [x] 1.2 Live region and Turn order flash — 1bfd307
-- [ ] 1.3 S04-2 controller test
+- [x] 1.3 S04-2 controller test — fc2da4d
 - [ ] 1.4 Browser walk
