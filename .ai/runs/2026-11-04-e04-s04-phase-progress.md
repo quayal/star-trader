@@ -55,6 +55,10 @@ next jump" (S04-2).
   Turn order rows flashed); Grace's jump and landing → both lines; Grace finishing → "It's your turn to jump.". Ada's
   own jump and landing in the UI were not announced back on the next poll. The live region is visually hidden, so
   the PR evidence is this transcript plus one Deck screenshot.
+- **Review** (om-auto-review-pr on #85): approve, no blockers or majors. Three minors fixed in 87f252c: two stacked doc
+  comments on `render` merged; the live region cleared when the page switches games (lesson 2026-11-04); the
+  region cleared before new text, so identical words in a row are read again. Rechecked in the browser. Self-approval
+  isn't possible on the author's own PR, so the review is a comment.
 
 ## Risks
 
