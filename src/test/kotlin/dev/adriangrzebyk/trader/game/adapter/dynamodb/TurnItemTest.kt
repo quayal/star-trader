@@ -26,7 +26,8 @@ class TurnItemTest {
 		initiative = listOf("ada@example.com", "grace@example.com"),
 		turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2), TurnOrderPick("grace@example.com", 1)),
 		jumpedShips = listOf("Wayfarer", "Meridian"),
-		doneJumping = listOf("ada@example.com")
+		doneJumping = listOf("ada@example.com"),
+		landingShip = "Meridian"
 	)
 
 	@Test
@@ -47,7 +48,8 @@ class TurnItemTest {
 					initiative = emptyList(),
 					turnOrderPicks = emptyList(),
 					jumpedShips = emptyList(),
-					doneJumping = emptyList()
+					doneJumping = emptyList(),
+					landingShip = null
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -92,9 +94,18 @@ class TurnItemTest {
 					listOf(AttributeValue.fromM(mapOf("playerEmail" to AttributeValue.fromS("ada@example.com"), "place" to AttributeValue.fromN("2"))))
 				),
 				"jumpedShips" to AttributeValue.fromL(listOf(AttributeValue.fromS("Wayfarer"))),
-				"doneJumping" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com")))
+				"doneJumping" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
+				"landingShip" to AttributeValue.fromS("Meridian")
 			)
 		)
+	}
+
+	@Test
+	fun shouldStoreNoLandingShipWhenNoShipWaitsToLand() {
+		val attributes = TurnItem(turn.copy(landingShip = null)).attributes
+
+		assertThat(attributes).doesNotContainKey("landingShip")
+		assertThat(TurnItem(attributes).toTurn().landingShip).isNull()
 	}
 
 	@Test
@@ -111,7 +122,8 @@ class TurnItemTest {
 				initiative = emptyList(),
 				turnOrderPicks = emptyList(),
 				jumpedShips = emptyList(),
-				doneJumping = emptyList()
+				doneJumping = emptyList(),
+				landingShip = null
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

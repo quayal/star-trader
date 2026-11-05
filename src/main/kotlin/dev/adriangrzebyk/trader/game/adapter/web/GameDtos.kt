@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
+import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -114,7 +115,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09), and so is the initiative
  * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each an email or null while
  * free (R26); empty during Bidding. [jumpedShips] names the ships that jumped this turn and [doneJumping] the players
- * whose jump slot has ended (R26, S02). Offers and bids never go here (R17, R29).
+ * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
+ * or null (R30, S03). Offers and bids never go here (R17, R29).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -123,7 +125,8 @@ data class TurnResponseDto(
 	val initiative: List<String>,
 	val turnOrder: List<String?>,
 	val jumpedShips: List<String>,
-	val doneJumping: List<String>
+	val doneJumping: List<String>,
+	val landingShip: String?
 ) {
 
 	constructor(turn: Turn) : this(
@@ -133,7 +136,8 @@ data class TurnResponseDto(
 		turn.initiative,
 		turn.turnOrder(),
 		turn.jumpedShips,
-		turn.doneJumping
+		turn.doneJumping,
+		turn.landingShip
 	)
 }
 
@@ -206,6 +210,12 @@ data class PickPlaceRequestDto(val place: BigDecimal? = null) {
 data class JumpShipRequestDto(val ship: String? = null, val destination: String? = null) {
 
 	fun destination(): StarSystem? = StarSystem.entries.firstOrNull { it.name == destination }
+}
+
+/** Where the ship that just jumped ends up; an unknown location reaches the domain's message as a missing one. */
+data class LandShipRequestDto(val location: String? = null) {
+
+	fun location(): ShipLocation? = ShipLocation.entries.firstOrNull { it.name == location }
 }
 
 /** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */
