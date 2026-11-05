@@ -907,8 +907,10 @@
 		}, POLL_INTERVAL_MS);
 	}
 
-	/** [fresh] is false when redrawing the last state, which mustn't make it look newer than it is. */
-	/** [fromPoll]: the game came from a poll, so what's new in it is someone else's doing and is announced (S04-1). */
+	/**
+	 * [fresh] is false when redrawing the last state, which mustn't make it look newer than it is. [fromPoll]: the game
+	 * came from a poll, so what's new in it is someone else's doing and is announced (S04-1).
+	 */
 	function render(game, fresh = true, fromPoll = false) {
 		noteProgress(game, fromPoll);
 		lastGame = game;
@@ -1264,13 +1266,25 @@
 
 	// What the page has shown of the current game: raised by the player's own steps too, so they're never news.
 	let progressSeen = null;
+	// Long enough for screen readers to notice the cleared region before the new text arrives.
+	const PROGRESS_ANNOUNCE_DELAY_MS = 50;
 
 	function noteProgress(game, announce) {
+		if (progressSeen?.gameId !== game.id) {
+			$('progress-announce').textContent = ''; // another game's news doesn't belong here (lesson 2026-11-04)
+		}
 		const text = announce ? progressText(progressSeen, game, session.email) : '';
 		progressSeen = progressSnapshot(game, progressSeen);
-		if (text) {
-			$('progress-announce').textContent = text; // a polite live region: read once the reader is idle
+		if (!text) {
+			return;
 		}
+		// Cleared first, so the same words twice in a row ("It's your turn to jump." in a later turn) are read again.
+		$('progress-announce').textContent = '';
+		setTimeout(() => {
+			if (progressSeen?.gameId === game.id) {
+				$('progress-announce').textContent = text; // a polite live region: read once the reader is idle
+			}
+		}, PROGRESS_ANNOUNCE_DELAY_MS);
 	}
 
 	// ── E04-S01: picking a place in the turn order ──
