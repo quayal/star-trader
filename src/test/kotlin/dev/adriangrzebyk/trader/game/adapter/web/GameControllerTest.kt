@@ -738,6 +738,26 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldKeepShowingAPlayerTheirOwnOffersThroughShipJumps() {
+		val (creatorToken, joinerToken, gameId) = startedGame("offers-jumps")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""").expectStatus().isCreated
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val first = closed.turn!!.initiative.first()
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		val ship = closed.players.first { it.email == first }.ships.first()
+		val destination = StarSystem.entries.first { it.name != ship.system }
+		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
+		landShip("token-$first", gameId, """{"location": "PORT"}""").expectStatus().isOk
+
+		// E04-S04-2: the offer stays its owner's, under "Your next jump", and still nobody else's (R17).
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.offers)
+			.containsExactly(YourOfferResponseDto("TAU_CETI", "Tau Ceti", "POLY", "BUY", 8))
+		assertThat(pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.offers)
+			.isEmpty()
+	}
+
+	@Test
 	fun shouldRefuseAJumpOutOfTurnOrThatBreaksAJumpRule() {
 		val (creatorToken, joinerToken, gameId) = startedGame("bad-jump")
 		jumpShip(joinerToken, gameId, """{"ship": "Lantern", "destination": "TAU_CETI"}""")
