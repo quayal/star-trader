@@ -49,6 +49,12 @@ next jump" (S04-2).
   player's own action responses too, so their own steps and a stale in-flight poll are never announced as news.
 - **At most the last three new lines**, so coming back to a busy game isn't a flood; the first load of a game
   announces nothing.
+- **Browser walk** (two players; app on 3100, fresh DynamoDB Local on 8100), reading Ada's live region after each
+  poll while Grace acted through the API: the first load said nothing; Bidding closing → "Initiative order (bid +
+  d2): Vega Lines → Orion Freight."; Grace's pick → her pick, Ada's automatic 2nd and the full order (the two changed
+  Turn order rows flashed); Grace's jump and landing → both lines; Grace finishing → "It's your turn to jump.". Ada's
+  own jump and landing in the UI were not announced back on the next poll. The live region is visually hidden, so
+  the PR evidence is this transcript plus one Deck screenshot.
 
 ## Risks
 
@@ -66,6 +72,8 @@ next jump" (S04-2).
 
 ## Progress
 
+PR: #85
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Web
@@ -73,4 +81,4 @@ next jump" (S04-2).
 - [x] 1.1 progress.js — 5c89d16
 - [x] 1.2 Live region and Turn order flash — 1bfd307
 - [x] 1.3 S04-2 controller test — fc2da4d
-- [ ] 1.4 Browser walk
+- [x] 1.4 Browser walk — (walk only, no code)
