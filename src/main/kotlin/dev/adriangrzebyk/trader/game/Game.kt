@@ -190,6 +190,67 @@ data class Game(
 	}
 
 	/**
+	 * [email] jumps their ship [shipName] to [destination] during their slot (R26, S02): instantly, with no fuel, damage
+	 * or transit time (R19), arriving in Space until the player chooses where it ends up (S03). Each ship jumps at most
+	 * once per turn, and never to the system it's already at (S02-4). The jump is logged (S02-7); jumping the player's
+	 * last ship ends their slot (S02-6).
+	 */
+	fun jumpShip(email: String, shipName: String?, destination: StarSystem?): Game {
+		val current = jumpSlotOf(email)
+		val player = players.first { it.email == email }
+		val ship = player.ships.firstOrNull { it.name == shipName && it.name !in current.jumpedShips }
+			?: throw InvalidJumpException("Choose one of your ships that hasn't jumped this turn.")
+		if (destination == null) {
+			throw InvalidJumpException("Choose a destination system.")
+		}
+		if (destination == ship.system) {
+			throw InvalidJumpException("${ship.name} is already at ${destination.displayName}. Pick another destination.")
+		}
+		val moved = player.copy(ships = player.ships.map { if (it == ship) it.copy(system = destination, location = ShipLocation.SPACE) else it })
+		val jumped = copy(
+			players = players.map { if (it.email == email) moved else it },
+			turn = current.copy(jumpedShips = current.jumpedShips + ship.name),
+			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${ship.name} → ${destination.displayName}")
+		)
+		return if (moved.ships.all { it.name in jumped.runningTurn().jumpedShips }) jumped.endJumpSlot(email) else jumped
+	}
+
+	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
+	fun finishJumping(email: String): Game {
+		jumpSlotOf(email)
+		return endJumpSlot(email)
+	}
+
+	/** The running turn, once checked that it's [email]'s jump slot (R04: an ordered step out of turn is refused). */
+	private fun jumpSlotOf(email: String): Turn {
+		if (!hasPlayer(email)) {
+			throw NotAGameMemberException()
+		}
+		val current = runningTurn()
+		when (current.phase) {
+			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
+			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
+			TurnPhase.SHIP_JUMPS -> Unit
+		}
+		if (current.picker() != null) {
+			throw InvalidGameOperationException("The turn order isn't set yet.")
+		}
+		// Only a game saved before initiative existed (E03-S05) can be in Ship-jumps with nobody to jump.
+		val jumper = current.jumper() ?: throw InvalidGameOperationException("Nobody is jumping now.")
+		if (jumper != email) {
+			throw NotYourTurnException("It's ${corporationOf(jumper)}'s turn to jump.")
+		}
+		return current
+	}
+
+	/** Ends [email]'s slot; after the last one the phase moves to Trading (S02-8). */
+	private fun endJumpSlot(email: String): Game {
+		val current = runningTurn()
+		val ended = copy(turn = current.copy(doneJumping = current.doneJumping + email))
+		return if (ended.runningTurn().jumper() == null) ended.copy(turn = ended.runningTurn().copy(phase = TurnPhase.TRADING)) else ended
+	}
+
+	/**
 	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as
 	 * bidding 0 and still rolls (Q07, proposed). The order is public and logged without amounts (R29); the bids stay
 	 * secret on the turn.

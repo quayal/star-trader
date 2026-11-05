@@ -9,7 +9,9 @@ package dev.adriangrzebyk.trader.game
  * [bids] are this turn's initiative bids, at most one per player and each secret to its player (R29); like offers
  * they stay for the whole turn. [initiative] is every player's email in initiative order (R27), public, set when
  * Bidding closes and empty before. [turnOrderPicks] are the places players picked in this turn's turn order (R26), in
- * pick order; public, and empty until the first pick.
+ * pick order; public, and empty until the first pick. [jumpedShips] names the ships that jumped this turn (each may
+ * jump once, R26; names are unique in a game) and [doneJumping] the players whose jump slot has ended, in order; both
+ * public and empty until the first jump.
  */
 data class Turn(
 	val number: Int,
@@ -18,7 +20,9 @@ data class Turn(
 	val offers: List<Offer>,
 	val bids: List<InitiativeBid>,
 	val initiative: List<String>,
-	val turnOrderPicks: List<TurnOrderPick>
+	val turnOrderPicks: List<TurnOrderPick>,
+	val jumpedShips: List<String>,
+	val doneJumping: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -41,8 +45,29 @@ data class Turn(
 		return initiative.firstOrNull { email -> turnOrderPicks.none { it.playerEmail == email } }
 	}
 
+	/**
+	 * Whose jump slot it is (R26, S02): once the turn order is set, the first player in it whose slot hasn't ended, or
+	 * null while players still pick, after the last slot, and outside Ship-jumps.
+	 */
+	fun jumper(): String? {
+		if (phase != TurnPhase.SHIP_JUMPS || initiative.isEmpty() || picker() != null) {
+			return null
+		}
+		return turnOrder().filterNotNull().firstOrNull { it !in doneJumping }
+	}
+
 	companion object {
-		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative or turn order yet. */
-		fun bidding(number: Int) = Turn(number, TurnPhase.BIDDING, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative, turn order or jumps yet. */
+		fun bidding(number: Int) = Turn(
+			number,
+			TurnPhase.BIDDING,
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList()
+		)
 	}
 }

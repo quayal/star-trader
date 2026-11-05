@@ -51,7 +51,66 @@ class ShipJumpsServiceTest {
 	}
 
 	@Test
+	fun shouldStoreTheJump() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+
+		val game = service.jump("game-1", "creator@example.com", "Wayfarer", MU_HERCULIS)
+
+		assertThat(game.players.first().ships.first().system).isEqualTo(MU_HERCULIS)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldRefuseAJumpOutOfTurnAndLeaveTheGameAsItWas() {
+		val ordered = shipJumps.pickTurnOrderPlace("creator@example.com", 1)
+		gameStore.create(ordered)
+
+		assertThatThrownBy { service.jump("game-1", "joiner@example.com", "Meridian", TAU_CETI) }.isInstanceOf(NotYourTurnException::class.java)
+		assertThat(gameStore.find("game-1")).isEqualTo(ordered)
+	}
+
+	@Test
+	fun shouldJumpOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+
+		val game = replaying.jump("game-1", "creator@example.com", "Wayfarer", MU_HERCULIS)
+
+		// A04: one jump and one log line, however often the change is run.
+		assertThat(game.turn!!.jumpedShips).containsExactly("Wayfarer")
+		assertThat(game.log.count { it.text.startsWith("Jump:") }).isEqualTo(1)
+	}
+
+	@Test
+	fun shouldStoreTheEndOfASlot() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+
+		val game = service.finishJumping("game-1", "creator@example.com")
+
+		assertThat(game.turn!!.jumper()).isEqualTo("joiner@example.com")
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldFinishOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+
+		val game = replaying.finishJumping("game-1", "creator@example.com")
+
+		assertThat(game.turn!!.doneJumping).containsExactly("creator@example.com")
+	}
+
+	@Test
 	fun shouldRejectAnUnknownGame() {
+		assertThatThrownBy {
+			service.jump("missing", "creator@example.com", "Wayfarer", MU_HERCULIS)
+		}.isInstanceOf(GameNotFoundException::class.java)
+		assertThatThrownBy { service.finishJumping("missing", "creator@example.com") }.isInstanceOf(GameNotFoundException::class.java)
+	}
+
+	@Test
+	fun shouldRejectAnUnknownGameForAPick() {
 		assertThatThrownBy { service.pickPlace("missing", "creator@example.com", 1) }.isInstanceOf(GameNotFoundException::class.java)
 	}
 
