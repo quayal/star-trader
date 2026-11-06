@@ -7,7 +7,10 @@ import com.pinterest.ktlint.rule.engine.core.api.RuleSetId
 /** This project's own ktlint rules; the root build runs them with the standard ones. */
 class TraderRuleSetProvider : RuleSetProviderV3(RuleSetId(RULE_SET_ID)) {
 
-	override fun getRuleProviders(): Set<RuleProvider> = setOf(RuleProvider { FunctionsInClassesRule() })
+	override fun getRuleProviders(): Set<RuleProvider> = setOf(
+		RuleProvider { FunctionsInClassesRule() },
+		RuleProvider { CopyOnlyInOwnClassRule() }
+	)
 
 	companion object {
 		const val RULE_SET_ID = "trader"
