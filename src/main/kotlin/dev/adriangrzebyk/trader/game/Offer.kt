@@ -14,5 +14,16 @@ data class Offer(val playerEmail: String, val system: StarSystem, val goods: Goo
 		/** R03: an offer's price is a whole number of HT from 1 to 20. */
 		const val MIN_PRICE = 1
 		const val MAX_PRICE = 20
+
+		/** A new offer, once checked that [goods] is traded at [system] and [price] is a whole number of HT from 1 to 20 (R03). */
+		fun place(playerEmail: String, system: StarSystem, goods: Goods, type: OfferType, price: Int?): Offer {
+			if (goods !in system.goods) {
+				throw InvalidOfferException("${goods.name} isn't traded at ${system.displayName}.")
+			}
+			if (price == null || price !in MIN_PRICE..MAX_PRICE) {
+				throw InvalidOfferException("Price must be a whole number from $MIN_PRICE to $MAX_PRICE.")
+			}
+			return Offer(playerEmail, system, goods, type, price)
+		}
 	}
 }
