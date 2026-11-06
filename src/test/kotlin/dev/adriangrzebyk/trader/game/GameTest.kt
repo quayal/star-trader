@@ -3,10 +3,31 @@ package dev.adriangrzebyk.trader.game
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class GameTest {
 
 	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
+
+	@ParameterizedTest
+	@ValueSource(ints = [1, 50])
+	fun shouldOpenALobbyForTheBoundaryLengths(turns: Int) {
+		assertThat(Game.lobby("game-1", turns, creator).turns).isEqualTo(turns)
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = [0, 51, -3])
+	fun shouldRejectALengthOutsideOneToFifty(turns: Int) {
+		assertThatThrownBy { Game.lobby("game-1", turns, creator) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Enter a whole number of turns from 1 to 50.")
+	}
+
+	@Test
+	fun shouldRejectAMissingLength() {
+		assertThatThrownBy { Game.lobby("game-1", null, creator) }.isInstanceOf(InvalidGameOperationException::class.java)
+	}
 
 	@Test
 	fun shouldAddAPlayerToTheGame() {

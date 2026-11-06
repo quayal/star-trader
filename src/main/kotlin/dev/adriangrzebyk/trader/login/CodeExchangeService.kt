@@ -1,7 +1,5 @@
 package dev.adriangrzebyk.trader.login
 
-import java.security.MessageDigest
-
 class CodeExchangeService(
 	private val codeStore: OneTimeCodeStore,
 	private val sessionStore: SessionStore,
@@ -14,8 +12,8 @@ class CodeExchangeService(
 		val normalizedEmail = email.trim().lowercase()
 		val attempt = reserveAttempt(normalizedEmail)
 
-		if (!matches(attempt.code, code.trim())) {
-			if (attempt.attempts >= OneTimeCode.MAX_ATTEMPTS) {
+		if (!attempt.matches(code.trim())) {
+			if (attempt.attemptsUsedUp()) {
 				codeStore.consume(normalizedEmail, attempt)
 			}
 			throw InvalidCodeExchangeException()
@@ -36,17 +34,13 @@ class CodeExchangeService(
 	private fun reserveAttempt(email: String): StoredCode {
 		while (true) {
 			val stored = codeStore.codeFor(email) ?: throw InvalidCodeExchangeException()
-			if (isExpired(stored) || stored.attempts >= OneTimeCode.MAX_ATTEMPTS) {
+			if (!stored.canBeTried(clock.now())) {
 				throw InvalidCodeExchangeException()
 			}
-			val reserved = stored.copy(attempts = stored.attempts + 1)
+			val reserved = stored.withAttempt()
 			if (codeStore.replace(email, stored, reserved)) {
 				return reserved
 			}
 		}
 	}
-
-	private fun isExpired(stored: StoredCode): Boolean = !clock.now().isBefore(stored.issuedAt.plus(OneTimeCode.TTL))
-
-	private fun matches(expected: String, actual: String): Boolean = MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())
 }

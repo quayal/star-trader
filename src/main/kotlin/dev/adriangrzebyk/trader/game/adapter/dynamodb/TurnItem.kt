@@ -18,7 +18,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			TURN_ORDER_PICKS to AttributeValue.fromL(turn.turnOrderPicks.map { AttributeValue.fromM(TurnOrderPickItem(it).attributes) }),
 			JUMPED_SHIPS to AttributeValue.fromL(turn.jumpedShips.map { AttributeValue.fromS(it) }),
 			DONE_JUMPING to AttributeValue.fromL(turn.doneJumping.map { AttributeValue.fromS(it) })
-		)
+		) + listOfNotNull(turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) })
 	)
 
 	fun toTurn(): Turn = Turn(
@@ -35,7 +35,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		turnOrderPicks = attributes[TURN_ORDER_PICKS]?.l()?.map { TurnOrderPickItem(it.m()).toPick() } ?: emptyList(),
 		// Items saved before E04-S02 have no jumps; nobody could jump a ship then (BACKWARD_COMPATIBILITY.md §7).
 		jumpedShips = attributes[JUMPED_SHIPS]?.l()?.map { it.s() } ?: emptyList(),
-		doneJumping = attributes[DONE_JUMPING]?.l()?.map { it.s() } ?: emptyList()
+		doneJumping = attributes[DONE_JUMPING]?.l()?.map { it.s() } ?: emptyList(),
+		// Absent when no ship waits to land, which is also how items saved before E04-S03 read.
+		landingShip = attributes[LANDING_SHIP]?.s()
 	)
 
 	private companion object {
@@ -48,5 +50,6 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val TURN_ORDER_PICKS = "turnOrderPicks"
 		const val JUMPED_SHIPS = "jumpedShips"
 		const val DONE_JUMPING = "doneJumping"
+		const val LANDING_SHIP = "landingShip"
 	}
 }

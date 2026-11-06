@@ -51,16 +51,14 @@ data class Game(
 				Ship.emptyAt(Ship.NAMES[index * 2], first, ShipLocation.PORT),
 				Ship.emptyAt(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
 			)
-			player.copy(money = STARTING_MONEY, ships = ships)
-		}
-		val positions = setUp.joinToString("; ") { player ->
-			"${player.corporationName} — " + player.ships.joinToString(", ") { "${it.name} at ${it.system.displayName}" }
+			player.startWith(STARTING_MONEY, ships)
 		}
 		return copy(
 			status = GameStatus.RUNNING,
 			players = setUp,
 			turn = Turn.bidding(1),
-			log = log + LogEntry(1, "Game started: ${setUp.size} players, $turns turns") + LogEntry(1, "Starting positions: $positions")
+			log = log + LogEntry(1, "Game started: ${setUp.size} players, $turns turns") +
+				LogEntry(1, "Starting positions: " + setUp.joinToString("; ") { it.startingPositions() })
 		)
 	}
 
@@ -74,115 +72,63 @@ data class Game(
 		val current = runningTurn()
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
-			TurnPhase.SHIP_JUMPS -> copy(turn = current.copy(phase = TurnPhase.TRADING))
-			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = Turn.bidding(current.number + 1))
+			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
+			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = current.next())
 		}
 	}
 
 	/**
-	 * Records that [email] is done bidding (R17: a readiness flag, not a commit, so a repeat changes nothing).
-	 * Bidding closes the moment the last player signals done (D09), rolling the initiative order with [dice]; a
-	 * signal after that is refused (A04).
+	 * Records that [email] is done bidding (R17). Bidding closes the moment the last player signals done (D09), rolling
+	 * the initiative order with [dice]; a signal after that is refused (A04).
 	 */
 	fun signalDoneBidding(email: String, dice: Dice): Game {
-		if (!hasPlayer(email)) {
-			throw NotAGameMemberException()
-		}
-		val current = runningTurn()
-		if (current.phase != TurnPhase.BIDDING) {
-			throw PhaseClosedException(TurnPhase.BIDDING)
-		}
-		if (email in current.doneBidding) {
-			return this
-		}
-		val doneBidding = current.doneBidding + email
-		val signalled = copy(turn = current.copy(doneBidding = doneBidding))
-		return if (players.all { it.email in doneBidding }) signalled.advancePhase(dice) else signalled
+		playerOf(email)
+		val signalled = copy(turn = runningTurn().signalDoneBidding(email))
+		return if (signalled.runningTurn().everyoneDoneBidding(players.map { it.email })) signalled.advancePhase(dice) else signalled
 	}
 
 	/**
-	 * Places or changes [email]'s secret initiative bid (R27, S05-1, S05-2): a whole number of HT from 0 up to their
-	 * money, only while Bidding is open (A04). It's paid when Bidding closes, so changing it never charges twice.
+	 * Places or changes [email]'s secret initiative bid (R27, S05-1, S05-2): the player checks the amount ([Player.bid]),
+	 * the turn records it ([Turn.placeBid]). A bid after Bidding closed is refused as such, whatever its amount (A04).
 	 */
 	fun placeInitiativeBid(email: String, amount: Int?): Game {
-		val player = players.firstOrNull { it.email == email } ?: throw NotAGameMemberException()
+		val player = playerOf(email)
 		val current = runningTurn()
-		if (current.phase != TurnPhase.BIDDING) {
-			throw PhaseClosedException(TurnPhase.BIDDING)
-		}
-		if (amount == null) {
-			throw InvalidBidException("Enter a whole number of HT, 0 or more.")
-		}
-		if (amount < 0) {
-			throw InvalidBidException("A bid can't be negative. Enter 0 to bid nothing.")
-		}
-		if (amount > player.money) {
-			throw InvalidBidException("You have ${player.money} HT. Enter ${player.money} or less.")
-		}
-		val bids = current.bids.filter { it.playerEmail != email } + InitiativeBid(email, amount)
-		return copy(turn = current.copy(bids = bids))
+		current.requireBidding()
+		return copy(turn = current.placeBid(player.bid(amount)))
 	}
 
 	/**
-	 * Places [email]'s secret offer (R17) for this turn. Only while Bidding is open (A04), for a good traded at
-	 * [system], at a whole price from 1 to 20 (R03), at most one per good per system per turn (R33), and never for
-	 * a good the player is Dictator of there, who places that offer when it resolves in Trading (R38).
+	 * Places [email]'s secret offer (R17) for this turn: the player makes it ([Player.offer]), the turn records it
+	 * ([Turn.placeOffer]). An offer after Bidding closed is refused as such, whatever it says (A04).
 	 */
 	fun placeOffer(email: String, system: StarSystem, goods: Goods, type: OfferType, price: Int?): Game {
-		val player = players.firstOrNull { it.email == email } ?: throw NotAGameMemberException()
+		val player = playerOf(email)
 		val current = runningTurn()
-		if (current.phase != TurnPhase.BIDDING) {
-			throw PhaseClosedException(TurnPhase.BIDDING)
-		}
-		if (goods !in system.goods) {
-			throw InvalidOfferException("${goods.name} isn't traded at ${system.displayName}.")
-		}
-		if (price == null || price !in Offer.MIN_PRICE..Offer.MAX_PRICE) {
-			throw InvalidOfferException("Price must be a whole number from ${Offer.MIN_PRICE} to ${Offer.MAX_PRICE}.")
-		}
-		if (current.offersOf(email).any { it.system == system && it.goods == goods }) {
-			throw InvalidOfferException("You already have an offer on ${goods.name} at ${system.displayName} this turn.")
-		}
-		if (player.marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }) {
-			throw InvalidOfferException("You're Dictator of ${goods.name} here — you place that offer when it resolves in Trading.")
-		}
-		return copy(turn = current.copy(offers = current.offers + Offer(email, system, goods, type, price)))
+		current.requireBidding()
+		return copy(turn = current.placeOffer(player.offer(system, goods, type, price)))
 	}
 
 	/**
 	 * [email] picks [place] (1 = first) in this turn's turn order (R26). Players pick one at a time in initiative order
-	 * (R27), the first one free to take any place, last included; out of turn, or a place that isn't free, is refused.
-	 * The last player gets the remaining place without being asked (S01-6, proposed). Each pick is logged, then the
-	 * full order (S01-5).
+	 * (R27); out of turn is refused, and [Turn.pickPlace] checks the place and fills the last one. Each pick is logged,
+	 * then the full order (S01-5).
 	 */
 	fun pickTurnOrderPlace(email: String, place: Int?): Game {
-		if (!hasPlayer(email)) {
-			throw NotAGameMemberException()
-		}
+		playerOf(email)
 		val current = runningTurn()
-		when (current.phase) {
-			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
-			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
-			TurnPhase.SHIP_JUMPS -> Unit
-		}
+		current.requireShipJumps()
 		val picker = current.picker() ?: throw InvalidGameOperationException("The turn order is already set.")
 		if (picker != email) {
 			throw NotYourTurnException("It's ${corporationOf(picker)}'s turn to choose a place.")
 		}
-		val order = current.turnOrder()
-		if (place == null || place !in 1..order.size || order[place - 1] != null) {
-			throw InvalidPlaceException()
-		}
-		val withPick = current.copy(turnOrderPicks = current.turnOrderPicks + TurnOrderPick(email, place))
-		val events = mutableListOf("${corporationOf(email)} chose ${ordinal(place)}")
-		val lastPicker = withPick.picker()
-		val settled = if (lastPicker != null && withPick.turnOrder().count { it == null } == 1) {
-			val remaining = withPick.turnOrder().indexOf(null) + 1
-			events += "${corporationOf(lastPicker)} gets ${ordinal(remaining)}, the only place left"
-			withPick.copy(turnOrderPicks = withPick.turnOrderPicks + TurnOrderPick(lastPicker, remaining))
-		} else {
-			withPick
-		}
+		val settled = current.pickPlace(email, place)
+		val picks = settled.turnOrderPicks.drop(current.turnOrderPicks.size)
+		// The first pick is [email]'s own; a second is the last place, filled without asking.
+		val events = picks.mapIndexed { index, pick ->
+			val corporation = corporationOf(pick.playerEmail)
+			if (index == 0) "$corporation chose ${ordinal(pick.place)}" else "$corporation gets ${ordinal(pick.place)}, the only place left"
+		}.toMutableList()
 		if (settled.picker() == null) {
 			events += "Turn order (for this turn): " + settled.turnOrder().joinToString(" → ") { corporationOf(checkNotNull(it)) }
 		}
@@ -190,65 +136,63 @@ data class Game(
 	}
 
 	/**
-	 * [email] jumps their ship [shipName] to [destination] during their slot (R26, S02): instantly, with no fuel, damage
-	 * or transit time (R19), arriving in Space until the player chooses where it ends up (S03). Each ship jumps at most
-	 * once per turn, and never to the system it's already at (S02-4). The jump is logged (S02-7); jumping the player's
-	 * last ship ends their slot (S02-6).
+	 * [email] jumps their ship [shipName] to [destination] during their slot (R26, S02); see [Ship.jumpTo]. Each ship
+	 * jumps at most once per turn, and nothing else happens while a ship waits to land (S03). The jump is logged (S02-7).
 	 */
 	fun jumpShip(email: String, shipName: String?, destination: StarSystem?): Game {
 		val current = jumpSlotOf(email)
-		val player = players.first { it.email == email }
-		val ship = player.ships.firstOrNull { it.name == shipName && it.name !in current.jumpedShips }
+		current.refuseWhileAShipWaitsToLand()
+		val player = playerOf(email)
+		val ship = player.ship(shipName)?.takeUnless { current.hasJumped(it) }
 			?: throw InvalidJumpException("Choose one of your ships that hasn't jumped this turn.")
 		if (destination == null) {
 			throw InvalidJumpException("Choose a destination system.")
 		}
-		if (destination == ship.system) {
-			throw InvalidJumpException("${ship.name} is already at ${destination.displayName}. Pick another destination.")
-		}
-		val moved = player.copy(ships = player.ships.map { if (it == ship) it.copy(system = destination, location = ShipLocation.SPACE) else it })
-		val jumped = copy(
-			players = players.map { if (it.email == email) moved else it },
-			turn = current.copy(jumpedShips = current.jumpedShips + ship.name),
-			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${ship.name} → ${destination.displayName}")
+		val moved = player.jumpShip(ship, destination)
+		return copy(
+			players = replace(moved),
+			turn = current.recordJump(ship),
+			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()}")
 		)
-		return if (moved.ships.all { it.name in jumped.runningTurn().jumpedShips }) jumped.endJumpSlot(email) else jumped
+	}
+
+	/**
+	 * [email] chooses where the ship that just jumped ends up (R30, S03). That finishes the jump; the landing is logged
+	 * (S03-3), and landing the player's last ship ends their slot (S02-6, S03-4).
+	 */
+	fun landShip(email: String, location: ShipLocation?): Game {
+		val current = jumpSlotOf(email)
+		val shipName = current.shipWaitingToLand()
+		if (location == null) {
+			throw InvalidLandingException()
+		}
+		val landed = playerOf(email).landShip(shipName, location)
+		val game = copy(
+			players = replace(landed),
+			turn = current.landed(),
+			log = log + LogEntry(current.number, "Landing: ${landed.corporationName} — ${checkNotNull(landed.ship(shipName)).landingLog()}")
+		)
+		return if (current.haveAllJumped(landed.ships)) game.endJumpSlot(email) else game
 	}
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
 	fun finishJumping(email: String): Game {
-		jumpSlotOf(email)
+		jumpSlotOf(email).refuseWhileAShipWaitsToLand()
 		return endJumpSlot(email)
 	}
 
 	/** The running turn, once checked that it's [email]'s jump slot (R04: an ordered step out of turn is refused). */
 	private fun jumpSlotOf(email: String): Turn {
-		if (!hasPlayer(email)) {
-			throw NotAGameMemberException()
-		}
+		playerOf(email)
 		val current = runningTurn()
-		when (current.phase) {
-			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
-			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
-			TurnPhase.SHIP_JUMPS -> Unit
-		}
-		if (current.picker() != null) {
-			throw InvalidGameOperationException("The turn order isn't set yet.")
-		}
-		// Only a game saved before initiative existed (E03-S05) can be in Ship-jumps with nobody to jump.
-		val jumper = current.jumper() ?: throw InvalidGameOperationException("Nobody is jumping now.")
+		val jumper = current.currentJumper()
 		if (jumper != email) {
 			throw NotYourTurnException("It's ${corporationOf(jumper)}'s turn to jump.")
 		}
 		return current
 	}
 
-	/** Ends [email]'s slot; after the last one the phase moves to Trading (S02-8). */
-	private fun endJumpSlot(email: String): Game {
-		val current = runningTurn()
-		val ended = copy(turn = current.copy(doneJumping = current.doneJumping + email))
-		return if (ended.runningTurn().jumper() == null) ended.copy(turn = ended.runningTurn().copy(phase = TurnPhase.TRADING)) else ended
-	}
+	private fun endJumpSlot(email: String): Game = copy(turn = runningTurn().endJumpSlot(email))
 
 	/**
 	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as
@@ -256,26 +200,18 @@ data class Game(
 	 * secret on the turn.
 	 */
 	private fun closeBidding(current: Turn, dice: Dice): Game {
-		val bids = players.associate { it.email to (current.bidOf(it.email)?.amount ?: 0) }
-		val order = initiativeOrder(players.map { it.email }, bids, dice)
-		val names = order.joinToString(" → ") { corporationOf(it) }
+		val closed = current.closeBidding(players.map { it.email }, dice)
 		return copy(
-			players = players.map { it.pay(bids.getValue(it.email)) },
-			turn = current.copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order),
-			log = log + LogEntry(current.number, "Initiative order (bid + d2): $names")
+			players = players.map { it.pay(current.bidAmountOf(it.email)) },
+			turn = closed,
+			log = log + LogEntry(current.number, "Initiative order (bid + d2): " + closed.initiative.joinToString(" → ") { corporationOf(it) })
 		)
 	}
 
-	/**
-	 * [emails] ordered by [base] + d2, highest first (R27). Players who tie roll d2 again among themselves, and only
-	 * those rolls order them, until no tie is left. Rolls are taken in [emails]' order.
-	 */
-	private fun initiativeOrder(emails: List<String>, base: Map<String, Int>, dice: Dice): List<String> {
-		val scores = emails.associateWith { base.getValue(it) + dice.d2() }
-		return emails.groupBy { scores.getValue(it) }.toSortedMap(reverseOrder()).values.flatMap { tied ->
-			if (tied.size == 1) tied else initiativeOrder(tied, tied.associateWith { 0 }, dice)
-		}
-	}
+	/** The player whose membership key is [email]; refused when they aren't in this game. */
+	private fun playerOf(email: String): Player = players.firstOrNull { it.email == email } ?: throw NotAGameMemberException()
+
+	private fun replace(player: Player): List<Player> = players.map { if (it.email == player.email) player else it }
 
 	private fun corporationOf(email: String): String = players.first { it.email == email }.corporationName
 
@@ -292,8 +228,17 @@ data class Game(
 		/** R40: every player starts with 300 HT. */
 		const val STARTING_MONEY = 300
 
-		/** A new game waiting in the lobby with its creator as the only player. */
-		fun lobby(id: String, turns: Int, creator: Player) = Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
+		/** A game lasts a whole number of turns from 1 to 50. */
+		const val MIN_TURNS = 1
+		const val MAX_TURNS = 50
+
+		/** A new game of [turns] turns waiting in the lobby, with its creator as the only player. */
+		fun lobby(id: String, turns: Int?, creator: Player): Game {
+			if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {
+				throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
+			}
+			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
+		}
 	}
 }
 

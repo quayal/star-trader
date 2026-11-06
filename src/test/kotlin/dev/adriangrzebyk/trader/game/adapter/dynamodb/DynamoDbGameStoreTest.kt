@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.Player
@@ -137,7 +138,7 @@ class DynamoDbGameStoreTest {
 
 	@Test
 	fun shouldFailToUpdateAnUnknownGame() {
-		assertThatThrownBy { store.update("missing") { it } }.isInstanceOf(NoSuchElementException::class.java)
+		assertThatThrownBy { store.update("missing") { it } }.isInstanceOf(GameNotFoundException::class.java)
 	}
 
 	@Test

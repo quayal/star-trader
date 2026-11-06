@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GameStore
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
@@ -30,7 +31,7 @@ class DynamoDbGameStore(private val client: DynamoDbClient, private val tableNam
 
 	override fun update(id: String, mutate: (Game) -> Game): Game {
 		repeat(MAX_ATTEMPTS) {
-			val item = read(id) ?: throw NoSuchElementException("No game with id $id")
+			val item = read(id) ?: throw GameNotFoundException()
 			val version = item.version
 			val updated = mutate(item.toGame())
 			try {

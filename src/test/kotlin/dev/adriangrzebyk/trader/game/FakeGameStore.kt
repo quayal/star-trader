@@ -12,7 +12,7 @@ class FakeGameStore : GameStore {
 	override fun find(id: String): Game? = games[id]
 
 	override fun update(id: String, mutate: (Game) -> Game): Game {
-		val updated = mutate(games[id] ?: throw NoSuchElementException("No game $id"))
+		val updated = mutate(games[id] ?: throw GameNotFoundException())
 		games[id] = updated
 		return updated
 	}

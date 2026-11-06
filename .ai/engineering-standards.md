@@ -100,6 +100,13 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 - Value objects for meaningful primitives (`PlayerId`, `Credits`) instead of raw `String`/`Int`, and
   aggregates where there's a real consistency boundary (e.g. `Game` enforcing its own invariants), are
   encouraged.
+- **An aggregate root coordinates; its parts own their rules** (creator, 2026-11-06). `Game` is the one entry point and
+  the unit saved atomically, but a rule about one part's data is a method of that part: `Ship.jumpTo`, `Player.bid`,
+  `Offer.place`, `Turn.placeOffer`. `Game` calls them and doesn't `copy` or reach inside a `Ship`, `Player` or `Turn`.
+  It keeps only what spans its parts: membership, which player acts, the log, and messages that name other players.
+  The same goes for services (`CodeExchangeService` asks `StoredCode.canBeTried(now)`). ktlint's
+  `trader:copy-only-in-own-class` enforces part of this: a data class's `copy` is called only on `this`, so changing
+  another object goes through its method. Production code only; tests build fixtures with `copy`.
 - No mandate for repositories-per-aggregate, domain events, or CQRS unless a real need shows up — rule #0
   governs here specifically.
 

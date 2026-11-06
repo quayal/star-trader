@@ -11,7 +11,8 @@ package dev.adriangrzebyk.trader.game
  * Bidding closes and empty before. [turnOrderPicks] are the places players picked in this turn's turn order (R26), in
  * pick order; public, and empty until the first pick. [jumpedShips] names the ships that jumped this turn (each may
  * jump once, R26; names are unique in a game) and [doneJumping] the players whose jump slot has ended, in order; both
- * public and empty until the first jump.
+ * public and empty until the first jump. [landingShip] is the ship that jumped and whose player hasn't chosen where it
+ * ends up yet (R30, S03); public, and null when no ship waits to land.
  */
 data class Turn(
 	val number: Int,
@@ -22,7 +23,8 @@ data class Turn(
 	val initiative: List<String>,
 	val turnOrderPicks: List<TurnOrderPick>,
 	val jumpedShips: List<String>,
-	val doneJumping: List<String>
+	val doneJumping: List<String>,
+	val landingShip: String?
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -56,6 +58,139 @@ data class Turn(
 		return turnOrder().filterNotNull().firstOrNull { it !in doneJumping }
 	}
 
+	/** Refuses anything but Bidding (A04): a bid, offer or done signal after Bidding closed isn't applied. */
+	fun requireBidding() {
+		if (phase != TurnPhase.BIDDING) {
+			throw PhaseClosedException(TurnPhase.BIDDING)
+		}
+	}
+
+	/** Refuses anything but Ship-jumps: before it, it hasn't started; after it, it has closed (A04). */
+	fun requireShipJumps() {
+		when (phase) {
+			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
+			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
+			TurnPhase.SHIP_JUMPS -> Unit
+		}
+	}
+
+	/** This turn after [email] signalled done bidding (R17: a readiness flag, so a repeat changes nothing). */
+	fun signalDoneBidding(email: String): Turn {
+		requireBidding()
+		return if (email in doneBidding) this else copy(doneBidding = doneBidding + email)
+	}
+
+	/** Whether every one of [emails] has signalled done bidding (D09). */
+	fun everyoneDoneBidding(emails: List<String>): Boolean = emails.all { it in doneBidding }
+
+	/** This turn with [bid], replacing its player's earlier bid if any, so changing it never charges twice (S05-2). */
+	fun placeBid(bid: InitiativeBid): Turn {
+		requireBidding()
+		return copy(bids = bids.filter { it.playerEmail != bid.playerEmail } + bid)
+	}
+
+	/** This turn with [offer]: at most one offer per player per good per system per turn (R33). */
+	fun placeOffer(offer: Offer): Turn {
+		requireBidding()
+		if (offersOf(offer.playerEmail).any { it.system == offer.system && it.goods == offer.goods }) {
+			throw InvalidOfferException("You already have an offer on ${offer.goods.name} at ${offer.system.displayName} this turn.")
+		}
+		return copy(offers = offers + offer)
+	}
+
+	/** What [email] pays when Bidding closes (R27): their bid, or 0 if they never placed one (Q07, proposed). */
+	fun bidAmountOf(email: String): Int = bidOf(email)?.amount ?: 0
+
+	/**
+	 * Bidding → Ship-jumps (R27): [emails] are put in initiative order by bid + d2 from [dice], ties rolled again. The
+	 * bids stay on the turn, secret.
+	 */
+	fun closeBidding(emails: List<String>, dice: Dice): Turn {
+		val order = initiativeOrder(emails, emails.associateWith { bidAmountOf(it) }, dice)
+		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order)
+	}
+
+	/**
+	 * This turn after [email] picked [place] (1 = first) in the turn order (R26). A place that isn't free is refused.
+	 * When only one place is left, its player gets it without being asked (S01-6, proposed). Checking that it's
+	 * [email]'s pick is the caller's, which knows the players' names.
+	 */
+	fun pickPlace(email: String, place: Int?): Turn {
+		requireShipJumps()
+		val order = turnOrder()
+		if (place == null || place !in 1..order.size || order[place - 1] != null) {
+			throw InvalidPlaceException()
+		}
+		return withPick(TurnOrderPick(email, place)).withLastPlaceFilled()
+	}
+
+	private fun withPick(pick: TurnOrderPick): Turn = copy(turnOrderPicks = turnOrderPicks + pick)
+
+	/** S01-6, proposed: when only one place is left, its player gets it without being asked. */
+	private fun withLastPlaceFilled(): Turn {
+		val lastPicker = picker()
+		if (lastPicker == null || turnOrder().count { it == null } != 1) {
+			return this
+		}
+		return withPick(TurnOrderPick(lastPicker, turnOrder().indexOf(null) + 1))
+	}
+
+	/**
+	 * Whose jump slot it is, once checked that this is Ship-jumps and the turn order is set (R26). Checking that it's the
+	 * caller's slot is the caller's, which knows the players' names.
+	 */
+	fun currentJumper(): String {
+		requireShipJumps()
+		if (picker() != null) {
+			throw InvalidGameOperationException("The turn order isn't set yet.")
+		}
+		// Only a game saved before initiative existed (E03-S05) can be in Ship-jumps with nobody to jump.
+		return jumper() ?: throw InvalidGameOperationException("Nobody is jumping now.")
+	}
+
+	/** S02-3, S03-6: a jump isn't finished until its ship has landed, so nothing else happens in the slot until then. */
+	fun refuseWhileAShipWaitsToLand() {
+		landingShip?.let { throw InvalidGameOperationException("Choose where $it ends up first.") }
+	}
+
+	/** Whether [ship] has already jumped this turn (each ship jumps at most once, R26). */
+	fun hasJumped(ship: Ship): Boolean = ship.name in jumpedShips
+
+	/** Whether every one of [ships] has jumped this turn. */
+	fun haveAllJumped(ships: List<Ship>): Boolean = ships.all { hasJumped(it) }
+
+	/** This turn after [ship] jumped: it can't jump again, and it waits to land (S03). */
+	fun recordJump(ship: Ship): Turn = copy(jumpedShips = jumpedShips + ship.name, landingShip = ship.name)
+
+	/** The name of the ship waiting to land (S03), refused when there is none. */
+	fun shipWaitingToLand(): String = landingShip ?: throw InvalidGameOperationException("No ship is waiting to land.")
+
+	/** This turn after the ship waiting to land has landed. */
+	fun landed(): Turn = copy(landingShip = null)
+
+	/** This turn after [email]'s jump slot ended; after the last one the phase moves to Trading (S02-8). */
+	fun endJumpSlot(email: String): Turn {
+		val ended = copy(doneJumping = doneJumping + email)
+		return if (ended.jumper() == null) ended.toTrading() else ended
+	}
+
+	/** Ship-jumps → Trading (N06). */
+	fun toTrading(): Turn = copy(phase = TurnPhase.TRADING)
+
+	/** The start of the turn after this one. */
+	fun next(): Turn = bidding(number + 1)
+
+	/**
+	 * [emails] ordered by [base] + d2, highest first (R27). Players who tie roll d2 again among themselves, and only
+	 * those rolls order them, until no tie is left. Rolls are taken in [emails]' order.
+	 */
+	private fun initiativeOrder(emails: List<String>, base: Map<String, Int>, dice: Dice): List<String> {
+		val scores = emails.associateWith { base.getValue(it) + dice.d2() }
+		return emails.groupBy { scores.getValue(it) }.toSortedMap(reverseOrder()).values.flatMap { tied ->
+			if (tied.size == 1) tied else initiativeOrder(tied, tied.associateWith { 0 }, dice)
+		}
+	}
+
 	companion object {
 		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative, turn order or jumps yet. */
 		fun bidding(number: Int) = Turn(
@@ -67,7 +202,8 @@ data class Turn(
 			emptyList(),
 			emptyList(),
 			emptyList(),
-			emptyList()
+			emptyList(),
+			null
 		)
 	}
 }

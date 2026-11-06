@@ -31,6 +31,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `--surface-page` | App background; inputs; a card nested inside a panel | — |
 | `--surface-panel` | Panels, tables | Page background |
 | `--surface-raised` | Hover, selected row, empty track of a meter | Default state |
+| `--surface-backdrop` | Behind a modal `<dialog>` (`::backdrop`), e.g. the landing dialog s05 | Panels, page background |
 | `--border-subtle` | Panel edges, row dividers (decorative: 1.3–1.7:1) | Inputs, buttons, focus |
 | `--border-control` | Inputs, buttons, unselected graph nodes (≥ 3:1) | Decoration |
 | `--text-primary` | Values, headings | — |

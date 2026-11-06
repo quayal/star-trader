@@ -254,7 +254,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null))
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
@@ -367,7 +367,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(
 			afterFirst.turn
-		).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList()))
+		).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList(), null))
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
@@ -702,6 +702,18 @@ class GameControllerTest {
 		assertThat(seenByOther.turn!!.jumpedShips).containsExactly(ship.name)
 		assertThat(jumped.log.last().text).endsWith("— ${ship.name} → ${destination.displayName}")
 
+		// E04-S03: the jump finishes once the player chooses where the ship ends up.
+		assertThat(seenByOther.turn!!.landingShip).isEqualTo(ship.name)
+		finishJumping("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Choose where ${ship.name} ends up first.")
+		val landed = landShip("token-$first", gameId, """{"location": "PLANET"}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(landed.players.first { it.email == first }.ships.first().location).isEqualTo("PLANET")
+		assertThat(landed.turn!!.landingShip).isNull()
+		assertThat(landed.log.last().text).endsWith("— ${ship.name} lands on the planet (${destination.displayName})")
+
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		val trading = finishJumping("token-$second", gameId)
 			.expectStatus().isOk
@@ -773,6 +785,28 @@ class GameControllerTest {
 		finishJumping(null, gameId).expectStatus().isUnauthorized
 	}
 
+	@Test
+	fun shouldRefuseALandingWithNoShipWaitingOrWithoutALocation() {
+		val (first, second, gameId) = orderedGame("bad-landing")
+		landShip("token-$first", gameId, """{"location": "PORT"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("No ship is waiting to land.")
+		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+			.players.first { it.email == first }.ships.first()
+		val destination = StarSystem.entries.first { it.name != ship.system }
+		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
+
+		listOf("""{"location": "ORBIT"}""", """{}""").forEach { body ->
+			landShip("token-$first", gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Choose where the ship ends up.")
+		}
+		landShip("token-$second", gameId, """{"location": "PORT"}""").expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		landShip(signIn("bad-landing-stranger@example.com"), gameId, """{"location": "PORT"}""").expectStatus().isForbidden
+		landShip(signIn("bad-landing-lost@example.com"), "missing-game", """{"location": "PORT"}""").expectStatus().isNotFound
+		landShip(null, gameId, """{"location": "PORT"}""").expectStatus().isUnauthorized
+	}
+
 	/**
 	 * A two-player game for this test's own emails with Bidding closed and the turn order set, the first in
 	 * initiative order taking 1st: the email in 1st place, the one in 2nd, the game id. Tokens are "token-{email}".
@@ -788,6 +822,12 @@ class GameControllerTest {
 
 	private fun jumpShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/jumps", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun landShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/landing", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

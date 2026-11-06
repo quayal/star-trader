@@ -12,6 +12,29 @@ data class Ship(val name: String, val system: StarSystem, val location: ShipLoca
 	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
+	/**
+	 * This ship after jumping to [destination] (R19, S02): instantly, arriving in Space until its player chooses where it
+	 * ends up (S03). Never to the system it's already at (S02-4).
+	 */
+	fun jumpTo(destination: StarSystem): Ship {
+		if (destination == system) {
+			throw InvalidJumpException("$name is already at ${destination.displayName}. Pick another destination.")
+		}
+		return copy(system = destination, location = ShipLocation.SPACE)
+	}
+
+	/** This ship after its player chose where in its system it ends up (R30, S03). */
+	fun landAt(location: ShipLocation): Ship = copy(location = location)
+
+	/** Where this ship is, for the public log: "Wayfarer at Tau Ceti". */
+	fun position(): String = "$name at ${system.displayName}"
+
+	/** The public log's account of the jump that brought this ship here (S02-7): "Wayfarer → Tau Ceti". */
+	fun jumpLog(): String = "$name → ${system.displayName}"
+
+	/** The public log's account of where this ship ended up (S03-3): "Wayfarer lands at the port (Tau Ceti)". */
+	fun landingLog(): String = "$name ${location.landingLog} (${system.displayName})"
+
 	companion object {
 		/** R42: every ship has 10 cargo spaces. */
 		const val CARGO_SPACES = 10
