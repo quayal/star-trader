@@ -251,3 +251,16 @@ tspan.market-level__triangle { font-size: 0.45em; }
 .market-level[data-level="in-balance"] { color: var(--market-balance); fill: var(--market-balance); }
 .market-level[data-level="moderate-supply"] { color: var(--market-supply-moderate); fill: var(--market-supply-moderate); }
 .market-level[data-level="high-supply"] { color: var(--market-supply-high); fill: var(--market-supply-high); }
+
+/* ── Visually hidden: read by screen readers, not drawn (a live region with no visible counterpart, E04-S04) ── */
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
