@@ -27,7 +27,13 @@ class GameTurnEngineTest {
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
 			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com")),
-			Turn.bidding(1).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com")),
+			Turn.bidding(
+				1
+			).copy(
+				phase = TurnPhase.TRADING,
+				tradingQueue = MarketGood.everyOnBoard(),
+				initiative = listOf("creator@example.com", "joiner@example.com")
+			),
 			Turn.bidding(2)
 		)
 	}
@@ -38,7 +44,13 @@ class GameTurnEngineTest {
 		assertThat(
 			lastTrading.turn
 		).isEqualTo(
-			Turn.bidding(2).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com"))
+			Turn.bidding(
+				2
+			).copy(
+				phase = TurnPhase.TRADING,
+				tradingQueue = MarketGood.everyOnBoard(),
+				initiative = listOf("creator@example.com", "joiner@example.com")
+			)
 		)
 
 		val finished = lastTrading.advancePhase(FakeDice(2, 1))
@@ -47,7 +59,13 @@ class GameTurnEngineTest {
 		assertThat(
 			finished.turn
 		).isEqualTo(
-			Turn.bidding(2).copy(phase = TurnPhase.TRADING, initiative = listOf("creator@example.com", "joiner@example.com"))
+			Turn.bidding(
+				2
+			).copy(
+				phase = TurnPhase.TRADING,
+				tradingQueue = MarketGood.everyOnBoard(),
+				initiative = listOf("creator@example.com", "joiner@example.com")
+			)
 		)
 	}
 
