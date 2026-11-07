@@ -112,13 +112,13 @@ market" (S03-6). With nothing to trade, the resolution goes straight on (S03-7).
 
 ### Phase 1: Domain
 
-- [ ] 1.1 Dice.twoD6, saturated targets and Offer.maxUnits
-- [ ] 1.2 Resolution counter loop
-- [ ] 1.3 Turn, Game and TradingService start the counter and log it
+- [x] 1.1 Dice.twoD6, saturated targets and Offer.maxUnits — 851b3fa
+- [x] 1.2 Resolution counter loop — abacee3
+- [x] 1.3 Turn, Game and TradingService start the counter and log it — abacee3
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 Persistence of the counter and trades
+- [x] 2.1 Persistence of the counter and trades — abacee3 (landed with Phase 1: the new Resolution fields don't compile without it)
 - [ ] 2.2 Web: counter and trades in the game shape
 
 ### Phase 3: Frontend
