@@ -96,7 +96,26 @@ sees the order read-only, and the game names who it waits for (D09).
 - Elements toggled with `hidden` whose class sets `display` need `[hidden] { display: none; }` (lessons 2026-10-30,
   2026-11-04).
 
+## Notes from the run
+
+- **Docker wasn't running at first**, so `GameControllerTest` and the DynamoDB tests were *skipped*, not passed (49
+  skipped, 0 failed). Docker Desktop was started and they were run again: 0 skipped. See the 2026-11-07 lesson.
+- **Browser walk** (agent-browser 0.35.2, two players, own DynamoDB on 8100 and app on 3100): s03 before Trading
+  (S01-7); both clients opened s03 by themselves when the last jump slot ended, one from the Game log and one from the
+  Deck (S01-1); "Trading — 0 of 18 resolved" in the top bar (S01-6); the editor for Vega Lines and the read-only list
+  with "Order decided by Vega Lines…" for Orion Freight (S01-3); ↑ by keyboard three times, focus kept on the moved
+  good's ↑ and the move announced, the new order on the other screen within a poll; Resolve next, the "Resolving: Tau
+  Ceti POLY (chosen by Vega Lines)" log line and live-region text on the other screen (S01-5); the alert on the Deck for
+  the resolver only, and its link to Trading (S01-9); all 18 goods resolved by keyboard, then "All 18 goods resolved."
+  with focus on it; 390 px wide with no horizontal scroll.
+- **Two fixes from the walk** (bc2fd38): Resolve next sat under 18 goods, below the fold, so it moved next to the status
+  line; and the button lost focus when disabled for its request.
+- **Drag and drop** was checked by dispatching `DragEvent`s on the list (moved the third good to the top). agent-browser's
+  `drag` uses mouse events and doesn't start an HTML5 drag, so a real mouse drag wasn't exercised.
+
 ## Progress
+
+PR: #88
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
@@ -113,10 +132,10 @@ sees the order read-only, and the game names who it waits for (D09).
 
 ### Phase 3: Frontend
 
-- [ ] 3.1 trading.js helpers
-- [ ] 3.2 s03 Trading screen
-- [ ] 3.3 Top bar, auto-open, decision alert, progress cue
+- [x] 3.1 trading.js helpers — f9ceee1
+- [x] 3.2 s03 Trading screen — 120954b, bc2fd38
+- [x] 3.3 Top bar, auto-open, decision alert, progress cue — f9ceee1 (top bar, cue), 120954b (auto-open, alert)
 
 ### Phase 4: Verify
 
-- [ ] 4.1 Full gate and browser walk
+- [x] 4.1 Full gate and browser walk — bc2fd38
