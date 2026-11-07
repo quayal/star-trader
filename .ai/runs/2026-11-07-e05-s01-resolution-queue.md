@@ -113,6 +113,13 @@ sees the order read-only, and the game names who it waits for (D09).
 - **Drag and drop** was checked by dispatching `DragEvent`s on the list (moved the third good to the top). agent-browser's
   `drag` uses mouse events and doesn't start an HTML5 drag, so a real mouse drag wasn't exercised.
 
+## Review
+
+`om-auto-review-pr` found one major issue: two quick reorders sent two `PUT`s at once, and a late one could save the
+older order. It also found one minor issue (the decision alert's text changed while it was hidden, so it wasn't announced)
+and a nit (`trading.js` missing from the §6 consumer list). All three were fixed in 153e520, and the race fix was checked in
+the browser (five moves in one task, server order matched the screen). The re-review approved.
+
 ## Progress
 
 PR: #88
