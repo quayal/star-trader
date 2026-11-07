@@ -134,7 +134,18 @@ market" (S03-6). With nothing to trade, the resolution goes straight on (S03-7).
   - The first app start picked up a real `RESEND_API_KEY` from the shell and tried to email the test players. Resend
     refused the example.com addresses, so nothing was sent. The app was restarted with the key blanked (see the lesson).
 
+## Review
+
+`om-auto-review-pr` (autofix) found no blockers or majors. It found one minor, left open by design: until E05-S04 lands,
+a logged trade moves no money or cargo and isn't capped by them, so S04 should ship before the next playtest. It also
+found two nits. The broken comment wrap in `Resolution.nextTrade` was fixed in 3057ecb. The other nit,
+`Resolution.nextTrade` being public before production code calls it, was left: S04 needs it, and S03-3's tie test uses
+it. The gate passed again at 3057ecb. An approving review of my own PR is blocked as self-approval, so the verdict is a
+PR comment, and the PR stays in `review` for the creator.
+
 ## Progress
+
+PR: #90
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
