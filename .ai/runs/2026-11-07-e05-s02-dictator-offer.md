@@ -97,6 +97,35 @@ S02-2). Their offer is shown like the others (S02-3). With no Dictator the resol
   (keep it unless the resolution changes).
 - `hidden` vs `display` on the new panel and form (lessons 2026-10-30, 2026-11-04).
 
+## Notes from the run
+
+- **Changed from the plan while building:**
+  - The disclosure log line reads "Offers for Gamma Leporis POLY: Vega Lines — buy at 11 HT; Orion Freight — sell at
+    9 HT", not "Vega Lines buys at 11 HT". One `Offer.terms()` ("buy at 11 HT") then serves both the disclosure and the
+    Dictator's line ("Orion Freight (Dictator) offers to sell at 9 HT").
+  - **Resolve next stays visible but disabled** for the first in initiative while the Dictator decides, with the status
+    line above it naming whom it waits for. It's no longer hidden: the design system says a disabled button says why
+    next to it.
+  - The s03 "Last resolved: …" line is gone: the resolution panel's heading ("Now resolving: …" / "Resolved: …")
+    replaces it, so `lastResolvedText` was removed.
+  - The top bar's "n of N resolved" counts a good still resolving in N (otherwise N dropped by one while a Dictator
+    decided).
+- **Docker was running from the start**, so `GameControllerTest` and the DynamoDB tests ran: 412 Kotlin tests, 0 skipped.
+- **Browser walk** (agent-browser 0.35.2, two players, own DynamoDB Local on 8100 and app on 3100; players and the
+  game set up through the API). Nothing in the game grants a position before S06, so Orion Freight was made Dictator
+  of POLY at Gamma Leporis by writing `players[0].marketPositions` straight into DynamoDB Local (see the lesson).
+  Orion was also first in initiative.
+  - Resolve next showed Vega's offer to both players (S02-1). Orion got the form, and Resolve next was disabled for
+    them. Vega read "Waiting for Orion Freight (Dictator) to decide." (S02-2, S01-4, S01-8).
+  - Price 25 gave the inline error, with focus on the field and `aria-invalid` set. The typed value survived a poll.
+  - On the Deck, the alert "Your decision is needed: you're Dictator of POLY at Gamma Leporis. Place an offer or
+    pass." linked to Trading. Vega saw no alert (S01-9).
+  - Sell at 9 HT showed under the offers with "(Dictator)" marked (S02-3). The good counted as resolved, Resolve next
+    came back, and the log read "Orion Freight (Dictator) offers to sell at 9 HT".
+  - A good with no offers showed "No offers for this good." A good with an offer and no Dictator went straight on
+    (S02-4). Pass on a second seeded Dictator good logged "passed".
+  - At 390 px there was no horizontal scroll, and the form had reset for the new good.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
@@ -113,9 +142,9 @@ S02-2). Their offer is shown like the others (S02-3). With no Dictator the resol
 
 ### Phase 3: Frontend
 
-- [ ] 3.1 trading.js helpers for the resolution
-- [ ] 3.2 s03 resolution panel and Dictator form
+- [x] 3.1 trading.js helpers for the resolution — 068fa4c
+- [x] 3.2 s03 resolution panel and Dictator form — 5c9fb4b
 
 ### Phase 4: Verify
 
-- [ ] 4.1 Full gate and browser walk
+- [x] 4.1 Full gate and browser walk — 5c9fb4b
