@@ -21,7 +21,10 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			DONE_JUMPING to AttributeValue.fromL(turn.doneJumping.map { AttributeValue.fromS(it) }),
 			TRADING_QUEUE to AttributeValue.fromL(turn.tradingQueue.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
 			RESOLVED_GOODS to AttributeValue.fromL(turn.resolvedGoods.map { AttributeValue.fromM(MarketGoodItem(it).attributes) })
-		) + listOfNotNull(turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) })
+		) + listOfNotNull(
+			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
+			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) }
+		)
 	)
 
 	fun toTurn(): Turn {
@@ -47,7 +50,10 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// then, so every good is still to resolve (BACKWARD_COMPATIBILITY.md §7).
 			tradingQueue = attributes[TRADING_QUEUE]?.l()?.map { MarketGoodItem(it.m()).toMarketGood() }
 				?: if (phase == TurnPhase.TRADING) MarketGood.everyOnBoard() else emptyList(),
-			resolvedGoods = attributes[RESOLVED_GOODS]?.l()?.map { MarketGoodItem(it.m()).toMarketGood() } ?: emptyList()
+			resolvedGoods = attributes[RESOLVED_GOODS]?.l()?.map { MarketGoodItem(it.m()).toMarketGood() } ?: emptyList(),
+			// Absent before the first Resolve next, which is also how items saved before E05-S02 read: every resolution
+			// finished as it started then, so none is waiting for anyone (BACKWARD_COMPATIBILITY.md §7).
+			resolution = attributes[RESOLUTION]?.m()?.let { ResolutionItem(it).toResolution() }
 		)
 	}
 
@@ -64,5 +70,6 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val LANDING_SHIP = "landingShip"
 		const val TRADING_QUEUE = "tradingQueue"
 		const val RESOLVED_GOODS = "resolvedGoods"
+		const val RESOLUTION = "resolution"
 	}
 }

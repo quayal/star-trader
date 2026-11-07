@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.Offer
+import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnOrderPick
 import dev.adriangrzebyk.trader.game.TurnPhase
@@ -30,12 +31,27 @@ class TurnItemTest {
 		doneJumping = listOf("ada@example.com"),
 		landingShip = "Meridian",
 		tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), MarketGood(StarSystem.TAU_CETI, Goods.POLY)),
-		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
+		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY)),
+		resolution = Resolution(
+			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
+			listOf(offer, Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9)),
+			"kim@example.com",
+			true
+		)
 	)
 
 	@Test
 	fun shouldReadBackEveryFieldOfATurn() {
 		assertThat(TurnItem(TurnItem(turn).attributes).toTurn()).isEqualTo(turn)
+	}
+
+	@Test
+	fun shouldReadBackAResolutionWithNoDictatorAndOneStillWaitingForTheirs() {
+		val good = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
+		listOf(Resolution(good, emptyList(), null, false), Resolution(good, listOf(offer), "kim@example.com", false)).forEach { resolution ->
+			val withResolution = turn.copy(resolution = resolution)
+			assertThat(TurnItem(TurnItem(withResolution).attributes).toTurn()).isEqualTo(withResolution)
+		}
 	}
 
 	@Test
@@ -54,7 +70,8 @@ class TurnItemTest {
 					doneJumping = emptyList(),
 					landingShip = null,
 					tradingQueue = emptyList(),
-					resolvedGoods = emptyList()
+					resolvedGoods = emptyList(),
+					resolution = null
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -68,7 +85,8 @@ class TurnItemTest {
 			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2)),
 			jumpedShips = listOf("Wayfarer"),
 			tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)),
-			resolvedGoods = emptyList()
+			resolvedGoods = emptyList(),
+			resolution = Resolution(MarketGood(StarSystem.TAU_CETI, Goods.POLY), listOf(offer), "kim@example.com", false)
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -106,9 +124,38 @@ class TurnItemTest {
 				"tradingQueue" to AttributeValue.fromL(
 					listOf(AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("MU_HERCULIS"), "goods" to AttributeValue.fromS("ISO"))))
 				),
-				"resolvedGoods" to AttributeValue.fromL(emptyList())
+				"resolvedGoods" to AttributeValue.fromL(emptyList()),
+				"resolution" to AttributeValue.fromM(
+					mapOf(
+						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
+						"offers" to AttributeValue.fromL(
+							listOf(
+								AttributeValue.fromM(
+									mapOf(
+										"playerEmail" to AttributeValue.fromS("grace@example.com"),
+										"system" to AttributeValue.fromS("TAU_CETI"),
+										"goods" to AttributeValue.fromS("POLY"),
+										"type" to AttributeValue.fromS("SELL"),
+										"price" to AttributeValue.fromN("12")
+									)
+								)
+							)
+						),
+						"dictator" to AttributeValue.fromS("kim@example.com"),
+						"dictatorDecided" to AttributeValue.fromBool(false)
+					)
+				)
 			)
 		)
+	}
+
+	@Test
+	fun shouldStoreNoResolutionBeforeTheFirstAndNoDictatorWhenTheGoodHasNone() {
+		// An item saved before E05-S02 reads the same way: no resolution waits for anyone (BACKWARD_COMPATIBILITY.md §7).
+		assertThat(TurnItem(turn.copy(resolution = null)).attributes).doesNotContainKey("resolution")
+		assertThat(TurnItem(TurnItem(turn).attributes - "resolution").toTurn().resolution).isNull()
+		val noDictator = Resolution(MarketGood(StarSystem.TAU_CETI, Goods.POLY), emptyList(), null, false)
+		assertThat(TurnItem(turn.copy(resolution = noDictator)).attributes.getValue("resolution").m()).doesNotContainKey("dictator")
 	}
 
 	@Test
@@ -136,7 +183,8 @@ class TurnItemTest {
 				doneJumping = emptyList(),
 				landingShip = null,
 				tradingQueue = emptyList(),
-				resolvedGoods = emptyList()
+				resolvedGoods = emptyList(),
+				resolution = null
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

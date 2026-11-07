@@ -58,7 +58,8 @@ class GameItemTest {
 			doneJumping = emptyList(),
 			landingShip = null,
 			tradingQueue = emptyList(),
-			resolvedGoods = emptyList()
+			resolvedGoods = emptyList(),
+			resolution = null
 		),
 		log = listOf(
 			LogEntry(1, "Game started: 2 players, 20 turns"),

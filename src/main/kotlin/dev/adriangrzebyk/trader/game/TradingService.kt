@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.OfferType
+
 class TradingService(private val gameStore: GameStore) {
 
 	/**
@@ -11,4 +13,11 @@ class TradingService(private val gameStore: GameStore) {
 
 	/** [callerEmail] resolves the next good inside [GameStore.update], so a double press resolves one good, not two (A04, R25). */
 	fun resolveNext(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.resolveNextGood(callerEmail) }
+
+	/** The Dictator places their offer inside [GameStore.update], so it's checked against the saved resolution (A04, R38). */
+	fun placeDictatorOffer(gameId: String, callerEmail: String, type: OfferType, price: Int?): Game =
+		gameStore.update(gameId) { it.placeDictatorOffer(callerEmail, type, price) }
+
+	/** The Dictator passes inside [GameStore.update], so a pass and an offer sent together can't both apply (A04, R38). */
+	fun passAsDictator(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.passAsDictator(callerEmail) }
 }

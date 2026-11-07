@@ -10,6 +10,12 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  */
 data class Offer(val playerEmail: String, val system: StarSystem, val goods: Goods, val type: OfferType, val price: Int) {
 
+	/** Whether this offer is for [good]: the same good at the same system. */
+	fun isFor(good: MarketGood): Boolean = system == good.system && goods == good.goods
+
+	/** For the public log once it's disclosed (E05-S02): "buy at 11 HT". */
+	fun terms(): String = "${type.name.lowercase()} at $price HT"
+
 	companion object {
 		/** R03: an offer's price is a whole number of HT from 1 to 20. */
 		const val MIN_PRICE = 1

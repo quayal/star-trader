@@ -188,16 +188,64 @@ data class Game(
 	fun reorderTradingQueue(email: String, order: List<MarketGood>): Game = copy(turn = resolverTurnOf(email).reorderQueue(order))
 
 	/**
-	 * [email] resolves the next good in the queue (R25, S01-4), which only the first player in initiative may. Each
-	 * resolution is logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)" (S01-5).
+	 * [email] resolves the next good in the queue (R25, S01-4), which only the first player in initiative may, and only
+	 * once the last good has finished resolving. Its offers are disclosed (E05-S02-1), and its Dictator at that system,
+	 * if any, is asked before the roll (S02-2). Both are logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)"
+	 * (S01-5), then the offers.
 	 */
 	fun resolveNextGood(email: String): Game {
 		val current = resolverTurnOf(email)
+		current.resolution?.awaitingDictator()?.let { throw InvalidGameOperationException(waitingForDictator(it)) }
 		val good = current.nextGood()
+		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
+		val started = current.resolveNext(dictator?.email)
 		return copy(
-			turn = current.resolveNext(),
-			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})")
+			turn = started,
+			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})") +
+				LogEntry(current.number, disclosure(checkNotNull(started.resolution)))
 		)
+	}
+
+	/**
+	 * [email], the Dictator asked, places their one offer for the good resolving (R38, S02-2): checked like any offer
+	 * (R03), then disclosed like the others (S02-3) and logged: "Altair Trade Co. (Dictator) offers to sell at 10 HT".
+	 */
+	fun placeDictatorOffer(email: String, type: OfferType, price: Int?): Game {
+		val current = dictatorTurnOf(email)
+		val offer = playerOf(email).dictatorOffer(checkNotNull(current.resolution).good, type, price)
+		return copy(
+			turn = current.placeDictatorOffer(offer),
+			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) offers to ${offer.terms()}")
+		)
+	}
+
+	/** [email], the Dictator asked, passes (S02-2); logged: "Altair Trade Co. (Dictator) passed". */
+	fun passAsDictator(email: String): Game {
+		val current = dictatorTurnOf(email)
+		return copy(turn = current.dictatorPassed(), log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) passed"))
+	}
+
+	/** The running turn, once checked that its resolution waits for [email], as Dictator, to decide (R38, R04). */
+	private fun dictatorTurnOf(email: String): Turn {
+		playerOf(email)
+		val current = runningTurn()
+		val dictator = current.dictatorToDecide()
+		if (dictator != email) {
+			throw NotYourTurnException(waitingForDictator(dictator))
+		}
+		return current
+	}
+
+	/** S01-8 (D09): "Waiting for Altair Trade Co. (Dictator) to decide." */
+	private fun waitingForDictator(email: String): String = "Waiting for ${corporationOf(email)} (Dictator) to decide."
+
+	/** The public log line disclosing [resolution]'s offers (S02-1): "Offers for Mu Herculis ISO: Vega Lines — buy at 11 HT". */
+	private fun disclosure(resolution: Resolution): String {
+		val label = resolution.good.label()
+		if (resolution.offers.isEmpty()) {
+			return "No offers for $label"
+		}
+		return "Offers for $label: " + resolution.offers.joinToString("; ") { "${corporationOf(it.playerEmail)} — ${it.terms()}" }
 	}
 
 	/** The running turn, once checked that it's Trading and [email] is first in initiative (R25, R04). */

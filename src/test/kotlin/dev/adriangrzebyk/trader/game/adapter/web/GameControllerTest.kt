@@ -257,7 +257,7 @@ class GameControllerTest {
 		assertThat(
 			started.turn
 		).isEqualTo(
-			TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList())
+			TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
@@ -377,7 +377,7 @@ class GameControllerTest {
 				listOf(
 					"done-guest@example.com"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList()
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null
 			)
 		)
 
@@ -875,7 +875,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
 		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
-		assertThat(resolved.log.last().text).isEqualTo("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)")
+		assertThat(resolved.log.takeLast(2).map { it.text })
+			.containsExactly("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)", "No offers for Sigma Draconis POLY")
 
 		// A04: the old order still names the good that just resolved, so it's stale.
 		reorderQueue("token-$first", gameId, body)
@@ -903,6 +904,105 @@ class GameControllerTest {
 		reorderQueue(signIn("trade-refused-stranger2@example.com"), gameId, body).expectStatus().isForbidden
 		reorderQueue(signIn("trade-refused-lost2@example.com"), "missing-game", body).expectStatus().isNotFound
 		reorderQueue(null, gameId, body).expectStatus().isUnauthorized
+	}
+
+	@Test
+	fun shouldDiscloseTheOffersAndLetTheDictatorPlaceOneBeforeTheNextGood() {
+		// E05-S02: the guest is Dictator of POLY at Gamma Leporis, the first good to resolve; the host offered on it.
+		val (creatorToken, joinerToken, gameId) = startedGame("dictator-trade")
+		val host = "dictator-trade-host@example.com"
+		val guest = "dictator-trade-guest@example.com"
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != guest) {
+						player
+					} else {
+						player.copy(marketPositions = listOf(MarketPosition(StarSystem.GAMMA_LEPORIS, Goods.POLY, MarketTier.DICTATOR)))
+					}
+				}
+			)
+		}
+		placeOffer(creatorToken, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "type": "BUY", "price": 11}""").expectStatus().isCreated
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+
+		// S02-1, S02-2: the host's offer is public now, and the guest is asked.
+		val asking = resolveNext("token-$first", gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
+		assertThat(asking.turn!!.resolution).isEqualTo(
+			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false)
+		)
+		assertThat(asking.turn!!.resolvedGoods).isEmpty()
+		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.resolution)
+			.isEqualTo(asking.turn!!.resolution)
+
+		// S01-4: the next good waits; R38: only the Dictator decides, with a valid offer.
+		resolveNext("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Waiting for Grace Freight (Dictator) to decide.")
+		passAsDictator(creatorToken, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Waiting for Grace Freight (Dictator) to decide.")
+		listOf("""{"type": "SELL", "price": 21}""", """{"type": "SELL", "price": 2.5}""", """{"type": "SELL"}""").forEach { body ->
+			dictatorOffer(joinerToken, gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Price must be a whole number from 1 to 20.")
+		}
+		dictatorOffer(joinerToken, gameId, """{"type": "SWAP", "price": 9}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose Buy or Sell.")
+
+		// S02-3: the Dictator's offer is disclosed like the others, and the good has resolved.
+		val offered = dictatorOffer(joinerToken, gameId, """{"type": "SELL", "price": 9}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(offered.turn!!.resolution).isEqualTo(
+			ResolutionResponseDto(
+				good,
+				listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9)),
+				guest,
+				null,
+				true
+			)
+		)
+		assertThat(offered.turn!!.resolvedGoods).containsExactly(good)
+		assertThat(offered.log.last().text).isEqualTo("Grace Freight (Dictator) offers to sell at 9 HT")
+		passAsDictator(joinerToken, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("No Dictator decision is pending.")
+		resolveNext("token-$first", gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldRefuseADictatorDecisionWhenNobodyIsAskedOrFromOutsiders() {
+		val (first, _, gameId) = orderedGame("dictator-refused")
+
+		passAsDictator("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		dictatorOffer("token-$first", gameId, """{"type": "BUY", "price": 5}""").expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		passAsDictator(signIn("dictator-refused-stranger@example.com"), gameId).expectStatus().isForbidden
+		passAsDictator(signIn("dictator-refused-lost@example.com"), "missing-game").expectStatus().isNotFound
+		passAsDictator(null, gameId).expectStatus().isUnauthorized
+		dictatorOffer(signIn("dictator-refused-stranger2@example.com"), gameId, """{"type": "BUY", "price": 5}""").expectStatus().isForbidden
+		dictatorOffer(null, gameId, """{"type": "BUY", "price": 5}""").expectStatus().isUnauthorized
+	}
+
+	private fun dictatorOffer(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/dictator-offer", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun passAsDictator(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/dictator-pass", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun resolveNext(token: String?, gameId: String): RestTestClient.ResponseSpec {
