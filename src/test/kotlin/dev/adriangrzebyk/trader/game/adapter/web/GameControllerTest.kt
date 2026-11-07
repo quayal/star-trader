@@ -875,7 +875,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
 		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
-		assertThat(resolved.log.last().text).isEqualTo("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)")
+		assertThat(resolved.log.takeLast(2).map { it.text })
+			.containsExactly("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)", "No offers for Sigma Draconis POLY")
 
 		// A04: the old order still names the good that just resolved, so it's stale.
 		reorderQueue("token-$first", gameId, body)

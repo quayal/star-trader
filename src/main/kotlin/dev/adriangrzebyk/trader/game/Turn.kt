@@ -26,7 +26,8 @@ data class Turn(
 	val doneJumping: List<String>,
 	val landingShip: String?,
 	val tradingQueue: List<MarketGood>,
-	val resolvedGoods: List<MarketGood>
+	val resolvedGoods: List<MarketGood>,
+	val resolution: Resolution?
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -177,7 +178,8 @@ data class Turn(
 	}
 
 	/** Ship-jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
-	fun toTrading(): Turn = copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList())
+	fun toTrading(): Turn =
+		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
 
 	/** Refuses anything but Trading: before it, it hasn't started (A04). */
 	fun requireTrading() {
@@ -212,13 +214,42 @@ data class Turn(
 	}
 
 	/**
-	 * This turn after the next good resolved (R25, S01-4). A resolution has no steps yet, so it finishes as it starts;
-	 * offers, the counter, the price change and Wholesalers join it in E05-S02 to S05.
+	 * This turn after the next good started resolving (R25, S01-4): its offers are disclosed (E05-S02-1) and [dictator],
+	 * that good's Dictator at that system if it has one, is asked before the roll (S02-2). With no Dictator it finishes
+	 * at once (S02-4) until the counter joins it (E05-S03). Refused while the last good is still resolving.
 	 */
-	fun resolveNext(): Turn {
+	fun resolveNext(dictator: String?): Turn {
+		requireTrading()
+		if (resolution?.isFinished() == false) {
+			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
+		}
 		val good = nextGood()
-		return copy(tradingQueue = tradingQueue.drop(1), resolvedGoods = resolvedGoods + good)
+		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator))
 	}
+
+	/**
+	 * Whom the resolution waits for to place an offer or pass (R38), refused when nobody is asked. Checking that it's the
+	 * caller is the caller's, which knows the players' names.
+	 */
+	fun dictatorToDecide(): String {
+		requireTrading()
+		return resolution?.awaitingDictator() ?: throw InvalidGameOperationException("No Dictator decision is pending.")
+	}
+
+	/** This turn after the Dictator placed [offer] for the good resolving (R38, S02-2, S02-3). */
+	fun placeDictatorOffer(offer: Offer): Turn = withResolution(resolutionNow().withDictatorOffer(offer))
+
+	/** This turn after the Dictator passed (S02-2). */
+	fun dictatorPassed(): Turn = withResolution(resolutionNow().withDictatorPassed())
+
+	private fun resolutionNow(): Resolution {
+		requireTrading()
+		return resolution ?: throw InvalidGameOperationException("No Dictator decision is pending.")
+	}
+
+	/** This turn with [current] as its resolution; once it has finished, its good counts as resolved. */
+	private fun withResolution(current: Resolution): Turn =
+		copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
 
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
@@ -251,7 +282,8 @@ data class Turn(
 			emptyList(),
 			null,
 			emptyList(),
-			emptyList()
+			emptyList(),
+			null
 		)
 	}
 }

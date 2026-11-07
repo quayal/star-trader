@@ -63,6 +63,12 @@ data class Player(
 		return offer
 	}
 
+	/**
+	 * This player's offer as Dictator of [good], placed when it resolves in Trading (R38, E05-S02-2): checked like any
+	 * offer (R03). Being the Dictator asked is checked by the resolution, which asked them.
+	 */
+	fun dictatorOffer(good: MarketGood, type: OfferType, price: Int?): Offer = Offer.place(email, good.system, good.goods, type, price)
+
 	/** Whether this player is Dictator of [goods] at [system] (R28, R38). */
 	fun isDictatorOf(system: StarSystem, goods: Goods): Boolean =
 		marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }

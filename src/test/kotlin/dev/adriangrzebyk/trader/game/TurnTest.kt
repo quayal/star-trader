@@ -89,7 +89,7 @@ class TurnTest {
 		// R25
 		val trading = shipJumps.toTrading()
 
-		val turn = trading.resolveNext().resolveNext()
+		val turn = trading.resolveNext(null).resolveNext(null)
 
 		assertThat(turn.resolvedGoods).containsExactlyElementsOf(trading.tradingQueue.take(2))
 		assertThat(turn.tradingQueue).containsExactlyElementsOf(trading.tradingQueue.drop(2))
@@ -99,9 +99,9 @@ class TurnTest {
 	@Test
 	fun shouldRefuseToResolveOnceEveryGoodHasResolved() {
 		val trading = shipJumps.toTrading()
-		val done = trading.tradingQueue.fold(trading) { turn, _ -> turn.resolveNext() }
+		val done = trading.tradingQueue.fold(trading) { turn, _ -> turn.resolveNext(null) }
 
-		assertThatThrownBy { done.resolveNext() }.isInstanceOf(InvalidGameOperationException::class.java)
+		assertThatThrownBy { done.resolveNext(null) }.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Every good has been resolved.")
 	}
 
@@ -111,7 +111,7 @@ class TurnTest {
 		val trading = shipJumps.toTrading()
 		val reversed = trading.tradingQueue.reversed()
 
-		val turn = trading.reorderQueue(reversed).resolveNext()
+		val turn = trading.reorderQueue(reversed).resolveNext(null)
 
 		assertThat(turn.resolvedGoods).containsExactly(reversed.first())
 		assertThat(turn.tradingQueue).containsExactlyElementsOf(reversed.drop(1))
@@ -121,7 +121,7 @@ class TurnTest {
 	fun shouldRefuseAnOrderThatDoesNotHoldExactlyTheRemainingGoods() {
 		// A04: an order sent before a good resolved is stale
 		val trading = shipJumps.toTrading()
-		val resolved = trading.resolveNext()
+		val resolved = trading.resolveNext(null)
 		val duplicated = resolved.tradingQueue.drop(1) + resolved.tradingQueue[1]
 
 		listOf(trading.tradingQueue, resolved.tradingQueue.drop(1), duplicated).forEach { order ->
@@ -132,7 +132,7 @@ class TurnTest {
 
 	@Test
 	fun shouldRefuseTradingActionsBeforeTrading() {
-		assertThatThrownBy { shipJumps.resolveNext() }.hasMessage("Trading hasn't started.")
+		assertThatThrownBy { shipJumps.resolveNext(null) }.hasMessage("Trading hasn't started.")
 		assertThatThrownBy { shipJumps.reorderQueue(emptyList()) }.hasMessage("Trading hasn't started.")
 	}
 
@@ -140,5 +140,72 @@ class TurnTest {
 	fun shouldLetTheFirstInInitiativeResolve() {
 		assertThat(shipJumps.toTrading().firstInInitiative()).isEqualTo("a")
 		assertThatThrownBy { Turn.bidding(1).toTrading().firstInInitiative() }.hasMessage("Nobody is first in initiative this turn.")
+	}
+
+	@Test
+	fun shouldDiscloseTheOffersForTheGoodResolvingOnly() {
+		// E05-S02-1: offers for that good at that system, in the order they were placed
+		val vega = Offer("vega@example.com", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
+		val orion = Offer("orion@example.com", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 10)
+		val elsewhere = Offer("vega@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.SELL, 9)
+		val trading = shipJumps.copy(offers = listOf(vega, elsewhere, orion)).toTrading()
+
+		val turn = trading.resolveNext(null)
+
+		assertThat(turn.resolution).isEqualTo(Resolution(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY), listOf(vega, orion), null, false))
+		assertThat(turn.resolution!!.isFinished()).isTrue()
+	}
+
+	@Test
+	fun shouldWaitForTheDictatorBeforeTheGoodCountsAsResolved() {
+		// S02-2, S01-4: the next good can't start while the Dictator decides; the queue can still be reordered
+		val trading = shipJumps.toTrading()
+
+		val turn = trading.resolveNext("c")
+
+		assertThat(turn.dictatorToDecide()).isEqualTo("c")
+		assertThat(turn.resolvedGoods).isEmpty()
+		assertThat(turn.tradingQueue).containsExactlyElementsOf(trading.tradingQueue.drop(1))
+		assertThatThrownBy { turn.resolveNext(null) }.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Gamma Leporis POLY hasn't finished resolving.")
+		assertThat(turn.reorderQueue(turn.tradingQueue.reversed()).tradingQueue).containsExactlyElementsOf(turn.tradingQueue.reversed())
+	}
+
+	@Test
+	fun shouldFinishTheResolutionOnceTheDictatorPlacesAnOfferOrPasses() {
+		// S02-2, S02-3
+		val waiting = shipJumps.toTrading().resolveNext("c")
+		val offer = Offer("c", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 10)
+
+		val offered = waiting.placeDictatorOffer(offer)
+		val passed = waiting.dictatorPassed()
+
+		assertThat(offered.resolution!!.offers).containsExactly(offer)
+		assertThat(offered.resolution!!.dictatorOffer()).isEqualTo(offer)
+		assertThat(offered.resolvedGoods).containsExactly(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
+		assertThat(passed.resolution!!.offers).isEmpty()
+		assertThat(passed.resolution!!.dictatorOffer()).isNull()
+		assertThat(passed.resolvedGoods).containsExactly(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
+		assertThat(passed.resolveNext(null).resolvedGoods).hasSize(2)
+	}
+
+	@Test
+	fun shouldRefuseADictatorDecisionWhenNobodyIsAsked() {
+		// S02-4: no Dictator, no step; and a Dictator decides once
+		val noDictator = shipJumps.toTrading().resolveNext(null)
+		val decided = shipJumps.toTrading().resolveNext("c").dictatorPassed()
+
+		listOf(shipJumps.toTrading(), noDictator, decided).forEach { turn ->
+			assertThatThrownBy { turn.dictatorToDecide() }.hasMessage("No Dictator decision is pending.")
+			assertThatThrownBy { turn.dictatorPassed() }.hasMessage("No Dictator decision is pending.")
+		}
+		assertThatThrownBy { shipJumps.dictatorToDecide() }.hasMessage("Trading hasn't started.")
+	}
+
+	@Test
+	fun shouldStartTradingWithNoResolution() {
+		val resolved = shipJumps.toTrading().resolveNext(null)
+
+		assertThat(resolved.copy(phase = TurnPhase.SHIP_JUMPS).toTrading().resolution).isNull()
 	}
 }

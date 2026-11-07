@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.trading.StarSystem.MU_HERCULIS
@@ -61,5 +63,36 @@ class TradingServiceTest {
 
 		assertThatThrownBy { service.resolveNext("game-1", "joiner@example.com") }.isInstanceOf(NotYourTurnException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(trading)
+	}
+
+	// E05-S02: Grace is Dictator of the first good to resolve, POLY at Gamma Leporis.
+	private fun askingDictator(): Game {
+		val positions = listOf(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.DICTATOR))
+		val game = trading.copy(players = trading.players.map { if (it.email == joiner.email) it.copy(marketPositions = positions) else it })
+		gameStore.create(game)
+		return service.resolveNext("game-1", "creator@example.com")
+	}
+
+	@Test
+	fun shouldStoreTheDictatorsOffer() {
+		askingDictator()
+
+		val game = service.placeDictatorOffer("game-1", "joiner@example.com", OfferType.BUY, 7)
+
+		assertThat(game.turn!!.resolution!!.dictatorOffer()!!.price).isEqualTo(7)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldStoreTheDictatorsPassAndRefuseASecondDecision() {
+		// A04: an offer sent after a pass is checked against the saved resolution
+		askingDictator()
+
+		val passed = service.passAsDictator("game-1", "joiner@example.com")
+
+		assertThat(passed.turn!!.resolution!!.isFinished()).isTrue()
+		assertThatThrownBy { service.placeDictatorOffer("game-1", "joiner@example.com", OfferType.BUY, 7) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+		assertThat(gameStore.find("game-1")).isEqualTo(passed)
 	}
 }
