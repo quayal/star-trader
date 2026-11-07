@@ -77,10 +77,9 @@ data class Resolution(
 
 	/**
 	 * Who trades next and how much at most (R34), once the counter has started, or null when no offer that hasn't traded
-	 * allows a unit (S03-3). The
-	 * first trade is the winning offer, the highest buy if the counter is 0 or more, else the lowest sell (S03-2); when
-	 * that side has no offer able to trade, it goes as every later one does: the most units at the current counter, a
-	 * buyer–seller tie by the counter's sign (0 or more: the buyer), then [initiative] order.
+	 * allows a unit (S03-3). The first trade is the winning offer, the highest buy if the counter is 0 or more, else the
+	 * lowest sell (S03-2); when that side has no offer able to trade, it goes as every later one does: the most units at
+	 * the current counter, a buyer–seller tie by the counter's sign (0 or more: the buyer), then [initiative] order.
 	 */
 	fun nextTrade(initiative: List<String>): Trade? {
 		val counter = checkNotNull(counter())
