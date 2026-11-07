@@ -126,6 +126,15 @@ S02-2). Their offer is shown like the others (S02-3). With no Dictator the resol
     (S02-4). Pass on a second seeded Dictator good logged "passed".
   - At 390 px there was no horizontal scroll, and the form had reset for the new good.
 
+## Review
+
+`om-auto-review-pr` (autofix) found no blockers or majors. It found one minor, fixed in c1598b8: on s03, where the
+decision alert is off, a screen-reader Dictator wasn't told the game waited on them, so `progress.js` now cues it.
+It also found two nits, left open: `Resolution.dictatorOffer()` is used only by tests, and `Game.placeDictatorOffer`
+reads `turn.resolution.good`. The gate passed again at c1598b8. The run would approve, but the approving review (and a
+comment review with `merge-queue`) were blocked as self-approval, so the verdict is on the PR as a summary comment and
+the PR stays in `review` for the creator.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
