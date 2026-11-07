@@ -875,8 +875,11 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
 		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
-		assertThat(resolved.log.takeLast(2).map { it.text })
-			.containsExactly("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)", "No offers for Sigma Draconis POLY")
+		// S03-7: with no offers, whatever the roll, nobody can trade.
+		assertThat(resolved.log.takeLast(4).map { it.text }).startsWith(
+			"Resolving: Sigma Draconis POLY (chosen by $firstCorporation)",
+			"No offers for Sigma Draconis POLY"
+		).endsWith("No one can trade at Sigma Draconis POLY")
 
 		// A04: the old order still names the good that just resolved, so it's stale.
 		reorderQueue("token-$first", gameId, body)
@@ -971,7 +974,7 @@ class GameControllerTest {
 			)
 		)
 		assertThat(offered.turn!!.resolvedGoods).containsExactly(good)
-		assertThat(offered.log.last().text).isEqualTo("Grace Freight (Dictator) offers to sell at 9 HT")
+		assertThat(offered.log.map { it.text }).contains("Grace Freight (Dictator) offers to sell at 9 HT")
 		passAsDictator(joinerToken, gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No Dictator decision is pending.")

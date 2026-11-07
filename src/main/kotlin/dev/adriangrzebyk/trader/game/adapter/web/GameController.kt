@@ -54,7 +54,7 @@ class GameController(
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val shipJumpsService = ShipJumpsService(gameStore)
-	private val tradingService = TradingService(gameStore)
+	private val tradingService = TradingService(gameStore, dice)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)

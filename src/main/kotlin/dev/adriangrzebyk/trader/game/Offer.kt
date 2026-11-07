@@ -24,6 +24,12 @@ data class Offer(val playerEmail: String, val system: StarSystem, val goods: Goo
 		OfferType.SELL -> SupplyDemand.sellTargetFor(price - startPrice).indicator - counter
 	}
 
+	/** Sorts the better price first on its side (R34): the highest buy, the lowest sell. */
+	fun bestPriceFirst(): Int = when (type) {
+		OfferType.BUY -> -price
+		OfferType.SELL -> price
+	}
+
 	/** For the public log once it's disclosed (E05-S02): "buy at 11 HT". */
 	fun terms(): String = "${type.name.lowercase()} at $price HT"
 

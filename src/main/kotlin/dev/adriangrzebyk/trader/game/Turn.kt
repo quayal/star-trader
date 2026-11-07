@@ -215,16 +215,16 @@ data class Turn(
 
 	/**
 	 * This turn after the next good started resolving (R25, S01-4): its offers are disclosed (E05-S02-1) and [dictator],
-	 * that good's Dictator at that system if it has one, is asked before the roll (S02-2). With no Dictator it finishes
-	 * at once (S02-4) until the counter joins it (E05-S03). Refused while the last good is still resolving.
+	 * that good's Dictator at that system if it has one, is asked before the roll (S02-2). With no Dictator the counter
+	 * starts at once with a roll from [dice] (S02-4, E05-S03-1). Refused while the last good is still resolving.
 	 */
-	fun resolveNext(dictator: String?): Turn {
+	fun resolveNext(dictator: String?, dice: Dice): Turn {
 		requireTrading()
 		if (resolution?.isFinished() == false) {
 			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
 		}
 		val good = nextGood()
-		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator))
+		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator), dice)
 	}
 
 	/**
@@ -236,20 +236,28 @@ data class Turn(
 		return resolution?.awaitingDictator() ?: throw InvalidGameOperationException("No Dictator decision is pending.")
 	}
 
-	/** This turn after the Dictator placed [offer] for the good resolving (R38, S02-2, S02-3). */
-	fun placeDictatorOffer(offer: Offer): Turn = withResolution(resolutionNow().withDictatorOffer(offer))
+	/**
+	 * This turn after the Dictator placed [offer] for the good resolving (R38, S02-2, S02-3); then the counter starts
+	 * with a roll from [dice] (S03-1).
+	 */
+	fun placeDictatorOffer(offer: Offer, dice: Dice): Turn = withResolution(resolutionNow().withDictatorOffer(offer), dice)
 
-	/** This turn after the Dictator passed (S02-2). */
-	fun dictatorPassed(): Turn = withResolution(resolutionNow().withDictatorPassed())
+	/** This turn after the Dictator passed (S02-2); then the counter starts with a roll from [dice] (S03-1). */
+	fun dictatorPassed(dice: Dice): Turn = withResolution(resolutionNow().withDictatorPassed(), dice)
 
 	private fun resolutionNow(): Resolution {
 		requireTrading()
 		return resolution ?: throw InvalidGameOperationException("No Dictator decision is pending.")
 	}
 
-	/** This turn with [current] as its resolution; once it has finished, its good counts as resolved. */
-	private fun withResolution(current: Resolution): Turn =
-		copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
+	/**
+	 * This turn with [changed] as its resolution, its counter started with [dice] once nobody is asked any more (R34,
+	 * initiative breaking ties); once it has finished, its good counts as resolved.
+	 */
+	private fun withResolution(changed: Resolution, dice: Dice): Turn {
+		val current = changed.startCounterOnceDecided(dice, initiative)
+		return copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
+	}
 
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
