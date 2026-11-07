@@ -103,13 +103,13 @@ S02-2). Their offer is shown like the others (S02-3). With no Dictator the resol
 
 ### Phase 1: Domain
 
-- [ ] 1.1 Resolution and Turn.resolution
-- [ ] 1.2 Game and TradingService: disclosure and the Dictator's decision
+- [x] 1.1 Resolution and Turn.resolution — 351554b
+- [x] 1.2 Game and TradingService: disclosure and the Dictator's decision — 351554b
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 Persistence of the resolution
-- [ ] 2.2 Web: game shape and Dictator endpoints
+- [x] 2.1 Persistence of the resolution — 351554b (landed with Phase 1: the new Turn field doesn't compile without it)
+- [x] 2.2 Web: game shape and Dictator endpoints — 39a53ff
 
 ### Phase 3: Frontend
 
