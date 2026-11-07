@@ -1,13 +1,14 @@
 /*
  * Pure helpers for announcing other players' progress as polls bring it in (E04-S04, D01): new public log lines (picks,
  * jumps, landings, resolutions) and the moment it becomes the viewer's pick, jumps or turn to resolve the next good
- * (E05-S01). They read `log`, `turn.initiative`, `turn.turnOrder`, `turn.doneJumping` and `turn.tradingQueue` from
+ * (E05-S01), or theirs to decide as Dictator (E05-S02). They read `log`, `turn.initiative`, `turn.turnOrder`,
+ * `turn.doneJumping`, `turn.tradingQueue` and `turn.resolution` from
  * GET /api/games/{id}; the log is public by definition (S06-3).
  */
 
 import { picker } from './turn-order.js';
 import { jumper } from './ship-jumps.js';
-import { YOUR_RESOLVE, resolver } from './trading.js';
+import { YOUR_DICTATOR_DECISION, YOUR_RESOLVE, awaitingDictator, resolver } from './trading.js';
 
 export const YOUR_PICK = "It's your turn to choose your place in the turn order.";
 export const YOUR_JUMPS = "It's your turn to jump.";
@@ -26,6 +27,7 @@ export function progressSnapshot(game, previous) {
 		picker: picker(game),
 		jumper: jumper(game),
 		resolver: resolver(game),
+		dictator: awaitingDictator(game),
 	};
 }
 
@@ -48,6 +50,9 @@ export function progressText(previous, game, email) {
 	}
 	if (resolver(game) === email && previous.resolver !== email) {
 		cues.push(YOUR_RESOLVE); // E05-S01: Trading has started and you're first in initiative
+	}
+	if (awaitingDictator(game) === email && previous.dictator !== email) {
+		cues.push(YOUR_DICTATOR_DECISION); // E05-S02: a good you're Dictator of has started resolving
 	}
 	return [...events, ...cues].join(' ');
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { YOUR_JUMPS, YOUR_PICK, progressSnapshot, progressText } from '../../main/resources/static/js/progress.js';
-import { YOUR_RESOLVE } from '../../main/resources/static/js/trading.js';
+import { YOUR_DICTATOR_DECISION, YOUR_RESOLVE } from '../../main/resources/static/js/trading.js';
 
 const ME = 'me@example.com';
 const VEGA = 'vega@example.com';
@@ -82,5 +82,27 @@ describe('progressText in Trading (E05-S01)', () => {
 		assert.equal(progressText(before, trading([ME, VEGA]), ME), YOUR_RESOLVE);
 		assert.equal(progressText(before, trading([VEGA, ME]), ME), '');
 		assert.equal(progressText(progressSnapshot(trading([ME, VEGA]), null), trading([ME, VEGA]), ME), '');
+	});
+});
+
+describe('progressText for the Dictator (E05-S02)', () => {
+	function asking(dictator) {
+		const shipJumps = game({ turnOrder: [VEGA, ME], doneJumping: [VEGA, ME] });
+		const good = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO' };
+		return {
+			...shipJumps,
+			turn: {
+				...shipJumps.turn, phase: 'TRADING', initiative: [VEGA, ME], tradingQueue: [{}], resolvedGoods: [],
+				resolution: { good, offers: [], dictator, awaitingDictator: dictator, finished: false },
+			},
+		};
+	}
+
+	it('says when a good you are Dictator of starts resolving, and only then', () => {
+		const before = progressSnapshot(asking(null), null);
+
+		assert.equal(progressText(before, asking(ME), ME), YOUR_DICTATOR_DECISION);
+		assert.equal(progressText(before, asking(VEGA), ME), '');
+		assert.equal(progressText(progressSnapshot(asking(ME), null), asking(ME), ME), '');
 	});
 });

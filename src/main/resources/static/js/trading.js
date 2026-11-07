@@ -10,6 +10,7 @@ export const QUEUE_TITLE = 'Remaining goods';
 export const RESOLVE_BUTTON = 'Resolve next';
 export const YOUR_QUEUE_NOTE = 'You are first in initiative. Every good resolves, with or without offers. Drag to reorder, or use the arrows, at any time.';
 export const YOUR_RESOLVE = "It's your turn to resolve the next good.";
+export const YOUR_DICTATOR_DECISION = "You're Dictator of the good resolving: place an offer before the roll, or pass.";
 export const GO_TO_TRADING = 'Go to Trading';
 export const NO_OFFERS_TEXT = 'No offers for this good.';
 export const DICTATOR_HELP = "You see everyone's offers above. Your offer has no other advantage: it trades only if the market and your price allow it.";
