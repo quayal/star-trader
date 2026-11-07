@@ -102,13 +102,13 @@ sees the order read-only, and the game names who it waits for (D09).
 
 ### Phase 1: Domain
 
-- [ ] 1.1 MarketGood and the trading queue on Turn
-- [ ] 1.2 Game reorders and resolves the next good
-- [ ] 1.3 TradingService
+- [x] 1.1 MarketGood and the trading queue on Turn — 9a72897
+- [x] 1.2 Game reorders and resolves the next good — 922441f
+- [x] 1.3 TradingService — 31f6b80
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 Persistence of the trading queue
+- [x] 2.1 Persistence of the trading queue — 9a72897 (landed with 1.1: the new Turn fields don't compile without it)
 - [ ] 2.2 Web: game shape and trading endpoints
 
 ### Phase 3: Frontend
