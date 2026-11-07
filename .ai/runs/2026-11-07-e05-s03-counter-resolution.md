@@ -119,7 +119,7 @@ market" (S03-6). With nothing to trade, the resolution goes straight on (S03-7).
 ### Phase 2: Adapters
 
 - [x] 2.1 Persistence of the counter and trades — abacee3 (landed with Phase 1: the new Resolution fields don't compile without it)
-- [ ] 2.2 Web: counter and trades in the game shape
+- [x] 2.2 Web: counter and trades in the game shape — 3af7015
 
 ### Phase 3: Frontend
 
