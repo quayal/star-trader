@@ -3,14 +3,20 @@ import { describe, it } from 'node:test';
 
 import {
 	YOUR_QUEUE_NOTE,
+	awaitingDictator,
 	decisionText,
+	dictatorFormKey,
+	dictatorLine,
+	dictatorQuestion,
+	disclosedOffers,
 	goodLabel,
-	lastResolvedText,
 	moveGood,
 	movedText,
 	orderedBy,
 	queueBody,
 	queueNote,
+	resolution,
+	resolutionTitle,
 	resolvedText,
 	resolver,
 	sameOrder,
@@ -24,17 +30,30 @@ const VEGA = 'vega@example.com';
 const ISO = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO' };
 const POLY = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'POLY' };
 const CHIPS = { system: 'BETA_HYDRI', systemName: 'Beta Hydri', goods: 'CHIPS' };
+const ALTAIR = 'altair@example.com';
 
-function game({ id = 'g1', phase = 'TRADING', status = 'RUNNING', number = 1, initiative = [VEGA, ME], queue = [ISO, POLY], done = [] } = {}) {
+function game({
+	id = 'g1', phase = 'TRADING', status = 'RUNNING', number = 1, initiative = [VEGA, ME], queue = [ISO, POLY], done = [], resolution = null,
+} = {}) {
 	return {
 		id,
 		status,
-		turn: { number, phase, initiative, tradingQueue: queue, resolvedGoods: done },
+		turn: { number, phase, initiative, tradingQueue: queue, resolvedGoods: done, resolution },
 		players: [
 			{ email: VEGA, corporationName: 'Vega Lines' },
 			{ email: ME, corporationName: 'Orion Freight' },
+			{ email: ALTAIR, corporationName: 'Altair Trade Co.' },
 		],
 	};
+}
+
+// E05-S02's worked example: Mu Herculis ISO, Vega buys at 11, Orion sells at 10, Altair is Dictator.
+const VEGA_BUYS = { playerEmail: VEGA, type: 'BUY', price: 11 };
+const ORION_SELLS = { playerEmail: ME, type: 'SELL', price: 10 };
+const ALTAIR_SELLS = { playerEmail: ALTAIR, type: 'SELL', price: 9 };
+
+function resolving({ offers = [VEGA_BUYS, ORION_SELLS], dictator = ALTAIR, awaiting = ALTAIR } = {}) {
+	return { good: ISO, offers, dictator, awaitingDictator: awaiting, finished: awaiting === null };
 }
 
 describe('who orders and resolves (R25)', () => {
@@ -69,10 +88,61 @@ describe('the Trading texts', () => {
 		assert.equal(queueNote(game(), VEGA), YOUR_QUEUE_NOTE);
 	});
 
-	it('labels a good and the last one resolved', () => {
+	it('labels a good', () => {
 		assert.equal(goodLabel(ISO), 'Mu Herculis · ISO');
-		assert.equal(lastResolvedText(game({ queue: [CHIPS], done: [ISO, POLY] })), 'Last resolved: Tau Ceti · POLY');
-		assert.equal(lastResolvedText(game()), '');
+	});
+});
+
+describe('a good resolving (E05-S02)', () => {
+	const asking = game({ queue: [POLY], resolution: resolving() });
+
+	it('discloses every offer to everyone, the Dictator marked (S02-1, S02-3)', () => {
+		const offered = game({ queue: [POLY], done: [ISO], resolution: resolving({ offers: [VEGA_BUYS, ORION_SELLS, ALTAIR_SELLS], awaiting: null }) });
+
+		assert.deepEqual(disclosedOffers(asking), [
+			{ corporation: 'Vega Lines', dictator: false, type: 'BUY', typeName: 'Buy', price: 11 },
+			{ corporation: 'Orion Freight', dictator: false, type: 'SELL', typeName: 'Sell', price: 10 },
+		]);
+		assert.deepEqual(disclosedOffers(offered).at(-1), { corporation: 'Altair Trade Co.', dictator: true, type: 'SELL', typeName: 'Sell', price: 9 });
+		assert.deepEqual(disclosedOffers(game()), []);
+	});
+
+	it('heads the panel with the good, resolving or resolved', () => {
+		assert.equal(resolutionTitle(asking), 'Now resolving: Mu Herculis · ISO');
+		assert.equal(resolutionTitle(game({ queue: [POLY], done: [ISO], resolution: resolving({ awaiting: null }) })), 'Resolved: Mu Herculis · ISO');
+		assert.equal(resolutionTitle(game()), '');
+		assert.equal(resolution(game({ phase: 'BIDDING', resolution: resolving() })), null);
+	});
+
+	it("says what the Dictator is doing or did (S02-2)", () => {
+		assert.equal(dictatorLine(asking), 'Dictator: Altair Trade Co. \u2014 deciding before the roll');
+		assert.equal(dictatorLine(game({ resolution: resolving({ offers: [ALTAIR_SELLS], awaiting: null }) })), 'Dictator: Altair Trade Co. \u2014 offered Sell at 9 HT');
+		assert.equal(dictatorLine(game({ resolution: resolving({ awaiting: null }) })), 'Dictator: Altair Trade Co. \u2014 passed');
+		assert.equal(dictatorLine(game({ resolution: resolving({ dictator: null, awaiting: null }) })), '');
+	});
+
+	it('waits for the Dictator before the next good, and names them (S01-4, S01-8)', () => {
+		assert.equal(awaitingDictator(asking), ALTAIR);
+		assert.equal(resolver(asking), null);
+		assert.equal(waitingText(asking, VEGA), 'Waiting for Altair Trade Co. (Dictator) to decide.');
+		assert.equal(waitingText(asking, ALTAIR), "You're Dictator of ISO here: place an offer before the roll, or pass.");
+		assert.equal(waitingText(game({ queue: [], resolution: resolving() }), ME), 'Waiting for Altair Trade Co. (Dictator) to decide.');
+		assert.equal(resolver(game({ queue: [POLY], done: [ISO], resolution: resolving({ awaiting: null }) })), VEGA);
+	});
+
+	it('counts the good resolving in the total, not as resolved (S01-6)', () => {
+		assert.equal(resolvedText(asking), '0 of 2 resolved');
+		assert.equal(resolvedText(game({ queue: [POLY], done: [ISO], resolution: resolving({ awaiting: null }) })), '1 of 2 resolved');
+	});
+
+	it('asks only the Dictator the form question', () => {
+		assert.equal(dictatorQuestion(asking, ALTAIR), "You're Dictator of ISO here. Place an offer before the roll?");
+		assert.equal(dictatorQuestion(asking, VEGA), '');
+	});
+
+	it('keys the form by game, turn and good', () => {
+		assert.equal(dictatorFormKey(asking), 'g1/1/MU_HERCULIS/ISO');
+		assert.equal(dictatorFormKey(game()), null);
 	});
 });
 
@@ -104,6 +174,13 @@ describe('the decision alert (S01-9)', () => {
 		assert.equal(decisionText(game(), VEGA), 'Your decision is needed: resolve the next good.');
 		assert.equal(decisionText(game(), ME), '');
 		assert.equal(decisionText(game({ queue: [] }), VEGA), '');
+	});
+
+	it('asks the Dictator for their offer instead, while they decide (E05-S02)', () => {
+		const asking = game({ queue: [POLY], resolution: resolving() });
+
+		assert.equal(decisionText(asking, ALTAIR), "Your decision is needed: you're Dictator of ISO at Mu Herculis. Place an offer or pass.");
+		assert.equal(decisionText(asking, VEGA), '');
 	});
 });
 
