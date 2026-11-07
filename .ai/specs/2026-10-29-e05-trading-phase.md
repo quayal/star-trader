@@ -2,7 +2,7 @@
 
 **Prototype:** `.ai/prototypes/discovery/dashboard-map-system/revision-015/` (revision 013 accepted as the first version, D07; 014 removes the timer, D09; 015 shows the counter resolution, Dictator and Wholesaler steps, R34–R38). Use the "Test state" bar → phase **Trading**; tick "You are first in initiative" to see the order editor. 
 **Brief:** `.ai/specs/product-brief.md` — R10, R12, R15, R16, R23, R25, R28, R29, R33, R34–R43, D07, D09, D10.
-**Siblings:** E03 Bidding (`2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`2026-10-29-e04-ship-jumps-phase.md`).
+**Siblings:** E03 Bidding (`implemented/2026-10-29-e03-bidding-phase.md` — screen IDs are defined there), E04 Ship-jumps (`implemented/2026-10-29-e04-ship-jumps-phase.md`).
 
 ## 📝 TLDR
 
