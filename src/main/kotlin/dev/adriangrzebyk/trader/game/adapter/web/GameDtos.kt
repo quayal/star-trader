@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -156,14 +157,17 @@ data class TurnResponseDto(
  * The good resolving now, or the last one resolved (E05-S02). Public: [offers] are disclosed to everyone once the good
  * starts resolving (S02-1), the Dictator's last if they placed one. [dictator] is the email of the good's Dictator at
  * that system, or null; [awaitingDictator] is that email while they still decide (R38, D09), else null; [finished] says
- * whether anything is left to decide.
+ * whether anything is left to decide. [startingCounter] is the good's S/D plus the roll, null until the counter starts
+ * once nobody is asked (E05-S03-1); [trades] are the offers that traded, in order (S03-2 to S03-5).
  */
 data class ResolutionResponseDto(
 	val good: MarketGoodResponseDto,
 	val offers: List<DisclosedOfferResponseDto>,
 	val dictator: String?,
 	val awaitingDictator: String?,
-	val finished: Boolean
+	val finished: Boolean,
+	val startingCounter: Int?,
+	val trades: List<TradeResponseDto>
 ) {
 
 	constructor(resolution: Resolution) : this(
@@ -171,8 +175,16 @@ data class ResolutionResponseDto(
 		resolution.offers.map { DisclosedOfferResponseDto(it) },
 		resolution.dictator,
 		resolution.awaitingDictator(),
-		resolution.isFinished()
+		resolution.isFinished(),
+		resolution.startingCounter,
+		resolution.trades.map { TradeResponseDto(it) }
 	)
+}
+
+/** A trade in a resolution, public like the resolution (E05-S03): whose offer, Buy or Sell, its price, and the units traded. */
+data class TradeResponseDto(val playerEmail: String, val type: String, val price: Int, val units: Int) {
+
+	constructor(trade: Trade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.units)
 }
 
 /** An offer once its good resolves, which every player may see (S02-1): whose, Buy or Sell, and its price. */

@@ -939,7 +939,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
 		assertThat(asking.turn!!.resolution).isEqualTo(
-			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false)
+			// R38: no roll while the Dictator decides
+			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false, null, emptyList())
 		)
 		assertThat(asking.turn!!.resolvedGoods).isEmpty()
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.resolution)
@@ -964,13 +965,20 @@ class GameControllerTest {
 		// S02-3: the Dictator's offer is disclosed like the others, and the good has resolved.
 		val offered = dictatorOffer(joinerToken, gameId, """{"type": "SELL", "price": 9}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(offered.turn!!.resolution).isEqualTo(
+		// E05-S03: then the counter starts, at S/D +1 plus 2d6. Both offers saturate (R15, targets -18), so the buy takes
+		// everything the counter allows and the sell can't trade.
+		val resolution = offered.turn!!.resolution!!
+		val counter = resolution.startingCounter!!
+		assertThat(counter).isBetween(3, 13)
+		assertThat(resolution).isEqualTo(
 			ResolutionResponseDto(
 				good,
 				listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9)),
 				guest,
 				null,
-				true
+				true,
+				counter,
+				listOf(TradeResponseDto(host, "BUY", 11, counter + 18))
 			)
 		)
 		assertThat(offered.turn!!.resolvedGoods).containsExactly(good)
