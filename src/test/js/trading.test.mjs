@@ -17,6 +17,7 @@ import {
 	queueNote,
 	resolution,
 	resolutionTitle,
+	counterLines,
 	resolvedText,
 	resolver,
 	sameOrder,
@@ -52,8 +53,8 @@ const VEGA_BUYS = { playerEmail: VEGA, type: 'BUY', price: 11 };
 const ORION_SELLS = { playerEmail: ME, type: 'SELL', price: 10 };
 const ALTAIR_SELLS = { playerEmail: ALTAIR, type: 'SELL', price: 9 };
 
-function resolving({ offers = [VEGA_BUYS, ORION_SELLS], dictator = ALTAIR, awaiting = ALTAIR } = {}) {
-	return { good: ISO, offers, dictator, awaitingDictator: awaiting, finished: awaiting === null };
+function resolving({ offers = [VEGA_BUYS, ORION_SELLS], dictator = ALTAIR, awaiting = ALTAIR, startingCounter = null, trades = [] } = {}) {
+	return { good: ISO, offers, dictator, awaitingDictator: awaiting, finished: awaiting === null, startingCounter, trades };
 }
 
 describe('who orders and resolves (R25)', () => {
@@ -192,5 +193,40 @@ describe('opening Trading when it starts (S01-1)', () => {
 		assert.equal(tradingJustStarted(null, game()), false);
 		assert.equal(tradingJustStarted(game({ id: 'other', phase: 'SHIP_JUMPS' }), game()), false);
 		assert.equal(tradingJustStarted(game({ phase: 'SHIP_JUMPS' }), game({ phase: 'SHIP_JUMPS' })), false);
+	});
+});
+
+describe('the counter (E05-S03)', () => {
+	// The spec's worked example: counter 3; Vega buys 4, then Orion sells 5.
+	const traded = game({
+		resolution: resolving({
+			dictator: null,
+			awaiting: null,
+			startingCounter: 3,
+			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, units: 4 }, { playerEmail: ME, type: 'SELL', price: 10, units: 5 }],
+		}),
+	});
+
+	it('shows the market, each trade and the end in plain terms (S03-6)', () => {
+		assert.deepEqual(counterLines(traded), [
+			'Market +3 \u2192 buyers first',
+			'Vega Lines bought 4 u at 11 HT each',
+			'Orion Freight sold 5 u at 10 HT each',
+			'No one else can trade at this market.',
+		]);
+	});
+
+	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
+		assert.deepEqual(counterLines(game({ resolution: resolving({ awaiting: null, startingCounter: -2 }) })), [
+			'Market \u22122 \u2192 sellers first',
+			'No one can trade at this market.',
+		]);
+		assert.equal(counterLines(game({ resolution: resolving({ awaiting: null, startingCounter: 0 }) }))[0], 'Market 0 \u2192 buyers first');
+	});
+
+	it('shows nothing before the counter starts, so not while the Dictator decides (R38)', () => {
+		assert.deepEqual(counterLines(game({ resolution: resolving() })), []);
+		assert.deepEqual(counterLines(game()), []);
+		assert.deepEqual(counterLines(game({ resolution: { good: ISO, offers: [], dictator: null, awaitingDictator: null, finished: true } })), []);
 	});
 });

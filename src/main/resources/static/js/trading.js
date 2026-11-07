@@ -1,5 +1,5 @@
 /*
- * Pure helpers for the Trading screen (s03, E05-S01, S02) and the Trading parts of the top bar and the decision alert.
+ * Pure helpers for the Trading screen (s03, E05-S01 to S03) and the Trading parts of the top bar and the decision alert.
  * They read `turn.initiative`, `turn.tradingQueue`, `turn.resolvedGoods` and `turn.resolution` from GET /api/games/{id}
  * (BACKWARD_COMPATIBILITY.md §6). Everything here is public (R25, R36): the only offers are those a resolution has
  * disclosed (E05-S02-1), and no bid or money is needed.
@@ -138,6 +138,29 @@ export function dictatorLine(game) {
 	}
 	const offer = current.offers.find(o => o.playerEmail === current.dictator);
 	return offer ? `${who} \u2014 offered ${TYPE_NAMES[offer.type] ?? offer.type} at ${offer.price} HT` : `${who} \u2014 passed`;
+}
+
+/**
+ * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
+ * each trade ("Vega Lines bought 4 u at 11 HT each"), then "No one else can trade at this market." once it's over, or
+ * "No one can trade at this market." when nothing traded (S03-7). Empty until the counter starts (after the Dictator).
+ */
+export function counterLines(game) {
+	const current = resolution(game);
+	const counter = current?.startingCounter;
+	if (counter === null || counter === undefined) {
+		return [];
+	}
+	const signed = counter > 0 ? `+${counter}` : String(counter).replace('-', '\u2212');
+	const trades = current.trades ?? [];
+	const lines = [
+		`Market ${signed} \u2192 ${counter >= 0 ? 'buyers' : 'sellers'} first`,
+		...trades.map(trade => `${corporation(game, trade.playerEmail)} ${trade.type === 'BUY' ? 'bought' : 'sold'} ${trade.units} u at ${trade.price} HT each`),
+	];
+	if (current.finished) {
+		lines.push(trades.length > 0 ? 'No one else can trade at this market.' : 'No one can trade at this market.');
+	}
+	return lines;
 }
 
 /** S02-2: the Dictator form's question, for the Dictator asked; "" for everyone else. */
