@@ -22,6 +22,7 @@ import dev.adriangrzebyk.trader.game.PhaseClosedException
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
+import dev.adriangrzebyk.trader.game.TradingService
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import org.springframework.http.HttpHeaders
@@ -53,6 +54,7 @@ class GameController(
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val shipJumpsService = ShipJumpsService(gameStore)
+	private val tradingService = TradingService(gameStore)
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
@@ -304,6 +306,56 @@ class GameController(
 		} catch (ex: NotYourTurnException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: PhaseClosedException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The first player in initiative puts the goods still to resolve in a new order (R25, S01-3). `409` for anyone else
+	 * ("Order decided by …"), for an order that no longer matches what's left, or outside Trading; `400` for a body that
+	 * doesn't list goods at systems.
+	 */
+	@PutMapping("/games/{id}/trading/queue")
+	fun reorderTradingQueue(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: ReorderQueueRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val order = request?.order() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Send the remaining goods in their new order.")
+		val game = try {
+			tradingService.reorderQueue(id, session.email, order)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** The first player in initiative resolves the next good in the queue (R25, S01-4); `409` as for the queue. */
+	@PostMapping("/games/{id}/trading/resolve-next")
+	fun resolveNextGood(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			tradingService.resolveNext(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)

@@ -217,12 +217,73 @@
 		.place p { margin: 0 0 var(--space-group); }
 		.place ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
 		.table-wrap { overflow-x: auto; }
+		/* s03 (E05-S01): the current resolution left, the queue right; one column on a narrow screen, queue last. */
+		.trading { display: grid; gap: var(--space-panel); }
+		.trading > p { margin: 0; }
+		.trading[hidden], .decision-alert[hidden], .queue-panel[hidden], .resolve-row[hidden] { display: none; }
+		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
+		@media (max-width: 900px) {
+			.trading__body { grid-template-columns: minmax(0, 1fr); }
+		}
+		.trading-status p { margin: 0; }
+		.trading-status p + p { margin-top: var(--space-group); }
+		.trading-status p:empty { display: none; }
+		.trading-status .resolve-row { margin-top: var(--space-related); }
+		.trading-status #trading-message:empty { display: block; min-height: 0; margin: 0; } /* stays in the tree, so its text is announced */
+		#trading-status:focus { outline: none; } /* takes focus after the last good, like a heading: not a control */
+		.queue-panel > p { margin: 0 0 var(--space-related); }
+		.queue { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-group); counter-reset: queue; }
+		.queue li {
+			display: flex;
+			align-items: center;
+			gap: var(--space-group);
+			min-height: 36px;
+			padding: var(--space-hairline) var(--space-related);
+			border: var(--border-width) solid var(--border-subtle);
+			border-radius: var(--radius-control);
+			background: var(--surface-page);
+			counter-increment: queue;
+		}
+		.queue li::before { content: counter(queue) "."; min-width: 2.2em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+		.queue li[draggable="true"] { cursor: grab; }
+		.queue li.is-dragging { background: var(--surface-raised); }
+		.queue li.is-over { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
+		.queue__grip { color: var(--text-muted); }
+		.queue__label { flex: 1; }
+		.queue__move {
+			min-width: 32px;
+			min-height: 32px;
+			border: var(--border-width) solid var(--border-control);
+			border-radius: var(--radius-control);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			font-size: var(--text-value);
+			cursor: pointer;
+		}
+		.queue__move:hover:not(:disabled) { border-color: var(--accent-selected); }
+		.queue__move:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
+		.resolve-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
+		/* S01-9: a decision of yours, on any screen but s03. */
+		.decision-alert {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--space-group) var(--space-related);
+			align-items: center;
+			margin-bottom: var(--space-panel);
+			padding: var(--space-related) var(--space-panel);
+			border: var(--border-width) solid var(--status-live);
+			border-radius: var(--radius-panel);
+			background: var(--surface-panel);
+			font-weight: 600;
+		}
 	</style>
 </head>
 <body>
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
 	<a class="nav-item" id="nav-home" href="/">Deck</a>
+	<!-- s03 (E05-S01): only while a started game is open; its href is that game's Trading screen. -->
+	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<a class="nav-item" id="nav-new" href="/#new">New game</a>
@@ -289,6 +350,11 @@
 		</div>
 
 		<!-- s06 -->
+		<div class="decision-alert" id="decision-alert" hidden>
+			<span id="decision-text" role="alert"></span>
+			<a class="link" id="decision-link" href="/">Go to Trading</a>
+		</div>
+
 		<p class="empty" id="game-loading">Loading game&hellip;</p>
 
 		<section class="panel" id="missing-panel" hidden>
@@ -435,6 +501,26 @@
 		</div>
 
 		<!-- s02: System details -->
+		<div class="trading" id="trading-panel" hidden>
+			<h2 class="system__title" id="trading-title" tabindex="-1">Trading</h2>
+			<div class="trading__body">
+				<section class="panel trading-status" aria-labelledby="trading-title">
+					<p id="trading-status" tabindex="-1"></p>
+					<div class="resolve-row" id="resolve-row" hidden>
+						<button class="btn" id="resolve-button" type="button">Resolve next</button>
+					</div>
+					<p class="message" id="trading-message" role="status" tabindex="-1"></p>
+					<p class="muted" id="trading-last"></p>
+				</section>
+				<section class="panel queue-panel" id="queue-panel" aria-labelledby="queue-title" hidden>
+					<h2 id="queue-title">Remaining goods</h2>
+					<p class="muted" id="queue-note"></p>
+					<ol class="queue" id="queue-list"></ol>
+					<p class="visually-hidden" id="queue-announce" role="status"></p>
+				</section>
+			</div>
+		</div>
+
 		<div class="system" id="system-panel" hidden>
 			<p><a class="link" id="system-back" href="/">&larr; Back to the Deck</a></p>
 			<h2 class="system__title" id="system-title" tabindex="-1"></h2>
@@ -516,8 +602,25 @@
 		logLink,
 		parseRoute,
 		systemLink,
+		tradingLink,
 		validateTurns,
 	} from './js/game.js';
+	import {
+		BEFORE_TRADING_TEXT,
+		decisionText,
+		goodLabel,
+		isTrading,
+		lastResolvedText,
+		moveGood,
+		movedText,
+		orderedBy,
+		queueBody,
+		queueNote,
+		resolver,
+		sameOrder,
+		tradingJustStarted,
+		waitingText,
+	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
@@ -578,7 +681,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
@@ -594,6 +697,8 @@
 	let focusSystemTitle = false;
 	// Set when the player opens the Game log, so its heading takes focus once, as on System details.
 	let focusLogTitle = false;
+	// Set when the player opens Trading (s03), so its heading takes focus once, as on the Game log.
+	let focusTradingTitle = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
 	const foldedTurns = new Set();
 
@@ -639,11 +744,14 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
+		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
+		$('nav-trading').hidden = true;
+		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
 			views.home.hidden = true; // no market flash while the remembered games are checked
 			openLatestGame();
@@ -659,9 +767,10 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$(view === 'log' ? 'nav-log' : 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
+			focusTradingTitle = view === 'trading';
 			openGame(id);
 		}
 	}
@@ -672,6 +781,7 @@
 		currentGameId = null; // a poll that called this must not schedule the next one (it would refocus every 2 s)
 		showView('unknown');
 		$('nav-log').hidden = true;
+		$('nav-trading').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
 		$('unknown-title').focus();
@@ -913,7 +1023,12 @@
 	 */
 	function render(game, fresh = true, fromPoll = false) {
 		noteProgress(game, fromPoll);
+		// S01-1: every player is taken to Trading when it starts, whether a poll or their own last landing brought it.
+		const openTrading = tradingJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'trading';
 		lastGame = game;
+		if (openTrading) {
+			location.hash = tradingLink(game.id); // route() redraws on hashchange
+		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
 		}
@@ -928,7 +1043,10 @@
 	function renderLobby(game) {
 		focusSystemTitle = false; // a System details link to a game that hasn't started shows the lobby
 		focusLogTitle = false;
+		focusTradingTitle = false;
 		$('nav-log').hidden = true;
+		$('nav-trading').hidden = true;
+		$('decision-alert').hidden = true;
 		const state = lobbyState(game, session.email);
 		setTitle('Lobby', 'Waiting for players to join.');
 		$('lobby-length').textContent = lengthText(game.turns);
@@ -952,9 +1070,12 @@
 		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
 		$('nav-log').href = logLink(game.id);
 		$('nav-log').hidden = false;
-		if (view !== 'log') {
+		$('nav-trading').href = tradingLink(game.id);
+		$('nav-trading').hidden = false;
+		if (view !== 'log' && view !== 'trading') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1)
 		}
+		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
@@ -978,6 +1099,16 @@
 			return;
 		}
 		focusSystemTitle = false;
+		if (view === 'trading') {
+			renderTrading(game);
+			showPanels('trading-panel');
+			if (focusTradingTitle) {
+				focusTradingTitle = false;
+				$('trading-title').focus();
+			}
+			return;
+		}
+		focusTradingTitle = false;
 		if (view === 'log') {
 			if (changed) {
 				renderLog(game);
@@ -1038,6 +1169,217 @@
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		renderYourOffers(game);
+	}
+
+	// ── s03 Trading (E05-S01) ──
+
+	// The order the first in initiative has moved the queue to and not yet heard back about, keyed by game and turn
+	// (lesson 2026-11-04), so a poll that arrives meanwhile doesn't redraw the old order under their hands.
+	let queueDraft = null;
+	// Whether a PUT of the queue is in flight. At most one is: moves made meanwhile only change the draft, which is sent
+	// when the answer comes back, so two quick moves can't reach the server out of order (A04).
+	let savingQueue = false;
+	// What the queue list was last drawn from, so an unchanged poll leaves it (and the focus in it) alone.
+	let queueListKey = null;
+	// The game and turn the Trading message belongs to (lesson 2026-11-04).
+	let tradingMessageKey = null;
+	let resolving = false;
+
+	function tradingKey(game) {
+		return `${game.id}/${game.turn.number}`;
+	}
+
+	function setTradingMessage(text, error, game) {
+		$('trading-message').textContent = text;
+		$('trading-message').className = error ? 'message message--error' : 'message';
+		tradingMessageKey = text ? tradingKey(game) : null;
+	}
+
+	/** The queue as the screen shows it: the player's own unconfirmed order while a reorder is in flight, else the game's. */
+	function shownQueue(game) {
+		return queueDraft?.key === tradingKey(game) ? queueDraft.goods : game.turn.tradingQueue ?? [];
+	}
+
+	/** S01-1 to S01-8: before Trading, the status; in Trading, whom the game waits for, the last good resolved and the queue. */
+	function renderTrading(game) {
+		if (tradingMessageKey !== null && tradingMessageKey !== tradingKey(game)) {
+			setTradingMessage('', false, game);
+		}
+		if (queueDraft !== null && queueDraft.key !== tradingKey(game)) {
+			queueDraft = null;
+		}
+		const trading = isTrading(game);
+		const status = trading ? waitingText(game, session.email) : BEFORE_TRADING_TEXT; // S01-7, S01-8
+		if ($('trading-status').textContent !== status) {
+			$('trading-status').textContent = status;
+		}
+		$('trading-last').textContent = lastResolvedText(game);
+		const goods = trading ? shownQueue(game) : [];
+		const editable = orderedBy(game) === session.email;
+		$('queue-panel').hidden = goods.length === 0;
+		$('queue-note').textContent = queueNote(game, session.email);
+		const listKey = JSON.stringify([game.id, editable, goods]);
+		if (listKey !== queueListKey) {
+			queueListKey = listKey;
+			drawQueue(game, goods, editable);
+		}
+		$('resolve-row').hidden = !(editable && resolver(game) === session.email);
+		$('resolve-button').disabled = resolving;
+	}
+
+	/** S01-3: the first in initiative drags or uses ↑/↓ (the keyboard alternative, WCAG 2.5.7); everyone else reads. */
+	function drawQueue(game, goods, editable) {
+		let dragFrom = null;
+		$('queue-list').setAttribute('aria-label', editable ? 'Remaining goods, in order. Drag to reorder, or use the arrows.' : 'Remaining goods, in order');
+		$('queue-list').replaceChildren(...goods.map((good, index) => {
+			const label = goodLabel(good);
+			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
+				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods));
+			if (!editable) {
+				return element('li', {}, name);
+			}
+			const up = element('button', { class: 'queue__move', type: 'button', 'data-move': 'up', 'aria-label': `Move ${label} up` }, '\u2191');
+			const down = element('button', { class: 'queue__move', type: 'button', 'data-move': 'down', 'aria-label': `Move ${label} down` }, '\u2193');
+			up.disabled = index === 0;
+			down.disabled = index === goods.length - 1;
+			up.addEventListener('click', () => moveQueued(game, index, index - 1));
+			down.addEventListener('click', () => moveQueued(game, index, index + 1));
+			const item = element('li', { draggable: 'true' }, element('span', { class: 'queue__grip', 'aria-hidden': 'true' }, '\u22ee\u22ee'), name, up, down);
+			item.addEventListener('dragstart', (event) => {
+				dragFrom = index;
+				item.classList.add('is-dragging');
+				event.dataTransfer.effectAllowed = 'move';
+				event.dataTransfer.setData('text/plain', String(index));
+			});
+			item.addEventListener('dragend', () => item.classList.remove('is-dragging'));
+			item.addEventListener('dragover', (event) => {
+				event.preventDefault();
+				item.classList.add('is-over');
+			});
+			item.addEventListener('dragleave', () => item.classList.remove('is-over'));
+			item.addEventListener('drop', (event) => {
+				event.preventDefault();
+				item.classList.remove('is-over');
+				if (dragFrom !== null) {
+					moveQueued(game, dragFrom, index);
+				}
+				dragFrom = null;
+			});
+			return item;
+		}));
+	}
+
+	/** Moves a good, shows it at once, keeps focus on the moved good's arrow, announces it, then saves the order. */
+	function moveQueued(game, from, to) {
+		const current = shownQueue(lastGame ?? game);
+		const goods = moveGood(current, from, to);
+		if (sameOrder(goods, current)) {
+			return;
+		}
+		queueDraft = { key: tradingKey(game), goods };
+		setTradingMessage('', false, game);
+		renderTrading(lastGame ?? game);
+		const moved = $('queue-list').children[to];
+		const arrow = moved?.querySelector(`[data-move="${to < from ? 'up' : 'down'}"]`);
+		(arrow && !arrow.disabled ? arrow : moved?.querySelector('button:not(:disabled)'))?.focus();
+		$('queue-announce').textContent = movedText(goods, to);
+		saveQueue(game);
+	}
+
+	/** Sends the draft order, then any newer draft made while it was in flight, until the saved order is the draft. */
+	async function saveQueue(game) {
+		if (savingQueue) {
+			return; // the request in flight sends the newest draft when it comes back
+		}
+		savingQueue = true;
+		const gameId = game.id;
+		const key = tradingKey(game);
+		try {
+			while (queueDraft?.key === key && gameId === currentGameId) {
+				const sent = queueDraft.goods;
+				let response;
+				try {
+					response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/queue`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(queueBody(sent)),
+					});
+				} catch {
+					response = null;
+				}
+				if (gameId !== currentGameId) {
+					return; // the player left this game; the draft is dropped with it (renderTrading)
+				}
+				if (!response?.ok) {
+					queueDraft = null;
+					setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
+					$('trading-message').focus();
+					repollNow();
+					return;
+				}
+				const saved = await response.json();
+				if (queueDraft?.key === key && sameOrder(queueDraft.goods, sent)) {
+					queueDraft = null; // nothing moved meanwhile: the screen now shows what the server holds
+				}
+				render(saved);
+			}
+		} finally {
+			savingQueue = false;
+		}
+	}
+
+	/** S01-4: resolves the next good; the answer redraws Trading, and the log line reaches everyone with the next poll. */
+	async function resolveNext() {
+		const gameId = currentGameId;
+		const game = lastGame;
+		resolving = true;
+		$('resolve-button').disabled = true;
+		setTradingMessage('', false, game);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/resolve-next`, { method: 'POST' });
+		} catch {
+			response = null;
+		}
+		resolving = false;
+		$('resolve-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			const resolved = await response.json();
+			render(resolved);
+			// Disabling the button for the request dropped focus; put it back, or on what replaced it after the last good.
+			$($('resolve-row').hidden ? 'trading-status' : 'resolve-button').focus();
+			return;
+		}
+		setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
+		$('trading-message').focus();
+		if (response) {
+			repollNow();
+		}
+	}
+
+	$('resolve-button').addEventListener('click', resolveNext);
+
+	/** As Retry now does: the poll in flight mustn't start a second loop. */
+	function repollNow() {
+		clearTimeout(pollTimer);
+		pollGeneration += 1;
+		poll();
+	}
+
+	/** S01-9: on any screen but Trading, a decision the game waits on you for says so, with a link to Trading. */
+	function updateDecisionAlert(game, view) {
+		const text = view === 'trading' ? '' : decisionText(game, session.email);
+		$('decision-link').href = tradingLink(game.id);
+		if (text) {
+			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
+		}
+		if ($('decision-text').textContent !== text) {
+			$('decision-text').textContent = text; // only on a change, so the alert isn't read again every poll
+		}
+		$('decision-alert').hidden = !text;
 	}
 
 	// ── s04 Game log (E03-S06) ──

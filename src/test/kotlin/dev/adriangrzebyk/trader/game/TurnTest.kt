@@ -66,4 +66,79 @@ class TurnTest {
 		assertThatThrownBy { turn.refuseWhileAShipWaitsToLand() }.hasMessage("Choose where Wayfarer ends up first.")
 		assertThatThrownBy { turn.landed().shipWaitingToLand() }.hasMessage("No ship is waiting to land.")
 	}
+
+	@Test
+	fun shouldQueueEveryGoodAtEverySystemWhenTradingStarts() {
+		// R36, S01-2: by system in map order, then good
+		val turn = shipJumps.toTrading()
+
+		assertThat(turn.tradingQueue).hasSize(18)
+		assertThat(turn.tradingQueue.take(4)).containsExactly(
+			MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY),
+			MarketGood(StarSystem.TAU_CETI, Goods.ISO),
+			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
+			MarketGood(StarSystem.EPSILON_ERIDANI, Goods.CHIPS)
+		)
+		assertThat(turn.tradingQueue.last()).isEqualTo(MarketGood(StarSystem.SIGMA_DRACONIS, Goods.POLY))
+		assertThat(turn.resolvedGoods).isEmpty()
+		assertThat(Turn.bidding(1).tradingQueue).isEmpty()
+	}
+
+	@Test
+	fun shouldResolveTheGoodsInQueueOrder() {
+		// R25
+		val trading = shipJumps.toTrading()
+
+		val turn = trading.resolveNext().resolveNext()
+
+		assertThat(turn.resolvedGoods).containsExactlyElementsOf(trading.tradingQueue.take(2))
+		assertThat(turn.tradingQueue).containsExactlyElementsOf(trading.tradingQueue.drop(2))
+		assertThat(turn.nextGood()).isEqualTo(trading.tradingQueue[2])
+	}
+
+	@Test
+	fun shouldRefuseToResolveOnceEveryGoodHasResolved() {
+		val trading = shipJumps.toTrading()
+		val done = trading.tradingQueue.fold(trading) { turn, _ -> turn.resolveNext() }
+
+		assertThatThrownBy { done.resolveNext() }.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Every good has been resolved.")
+	}
+
+	@Test
+	fun shouldResolveTheGoodsInTheNewOrderAfterAReorder() {
+		// R25, S01-3
+		val trading = shipJumps.toTrading()
+		val reversed = trading.tradingQueue.reversed()
+
+		val turn = trading.reorderQueue(reversed).resolveNext()
+
+		assertThat(turn.resolvedGoods).containsExactly(reversed.first())
+		assertThat(turn.tradingQueue).containsExactlyElementsOf(reversed.drop(1))
+	}
+
+	@Test
+	fun shouldRefuseAnOrderThatDoesNotHoldExactlyTheRemainingGoods() {
+		// A04: an order sent before a good resolved is stale
+		val trading = shipJumps.toTrading()
+		val resolved = trading.resolveNext()
+		val duplicated = resolved.tradingQueue.drop(1) + resolved.tradingQueue[1]
+
+		listOf(trading.tradingQueue, resolved.tradingQueue.drop(1), duplicated).forEach { order ->
+			assertThatThrownBy { resolved.reorderQueue(order) }.isInstanceOf(InvalidGameOperationException::class.java)
+				.hasMessage("The remaining goods have changed. Try again.")
+		}
+	}
+
+	@Test
+	fun shouldRefuseTradingActionsBeforeTrading() {
+		assertThatThrownBy { shipJumps.resolveNext() }.hasMessage("Trading hasn't started.")
+		assertThatThrownBy { shipJumps.reorderQueue(emptyList()) }.hasMessage("Trading hasn't started.")
+	}
+
+	@Test
+	fun shouldLetTheFirstInInitiativeResolve() {
+		assertThat(shipJumps.toTrading().firstInInitiative()).isEqualTo("a")
+		assertThatThrownBy { Turn.bidding(1).toTrading().firstInInitiative() }.hasMessage("Nobody is first in initiative this turn.")
+	}
 }

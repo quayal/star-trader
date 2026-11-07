@@ -174,7 +174,14 @@ class GameOfferTest {
 		assertThat(
 			trading.turn
 		).isEqualTo(
-			Turn.bidding(1).copy(phase = TurnPhase.TRADING, offers = listOf(offer), initiative = listOf("creator@example.com", "joiner@example.com"))
+			Turn.bidding(
+				1
+			).copy(
+				phase = TurnPhase.TRADING,
+				tradingQueue = MarketGood.everyOnBoard(),
+				offers = listOf(offer),
+				initiative = listOf("creator@example.com", "joiner@example.com")
+			)
 		)
 	}
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { YOUR_JUMPS, YOUR_PICK, progressSnapshot, progressText } from '../../main/resources/static/js/progress.js';
+import { YOUR_RESOLVE } from '../../main/resources/static/js/trading.js';
 
 const ME = 'me@example.com';
 const VEGA = 'vega@example.com';
@@ -66,5 +67,20 @@ describe('progressSnapshot', () => {
 		const other = progressSnapshot(game({ id: 'g2', log: ['x'] }), progressSnapshot(game({ log: ['a', 'b', 'c'] }), null));
 
 		assert.equal(other.logLength, 1);
+	});
+});
+
+describe('progressText in Trading (E05-S01)', () => {
+	function trading(initiative) {
+		const shipJumps = game({ turnOrder: [VEGA, ME], doneJumping: [VEGA, ME] });
+		return { ...shipJumps, turn: { ...shipJumps.turn, phase: 'TRADING', initiative, tradingQueue: [{}], resolvedGoods: [] } };
+	}
+
+	it('says when Trading starts with you first in initiative, and only then', () => {
+		const before = progressSnapshot(game({ doneJumping: [VEGA] }), null);
+
+		assert.equal(progressText(before, trading([ME, VEGA]), ME), YOUR_RESOLVE);
+		assert.equal(progressText(before, trading([VEGA, ME]), ME), '');
+		assert.equal(progressText(progressSnapshot(trading([ME, VEGA]), null), trading([ME, VEGA]), ME), '');
 	});
 });

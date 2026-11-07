@@ -1,11 +1,13 @@
 /*
  * Pure helpers for announcing other players' progress as polls bring it in (E04-S04, D01): new public log lines (picks,
- * jumps, landings) and the moment it becomes the viewer's pick or jumps. They read `log`, `turn.initiative`,
- * `turn.turnOrder` and `turn.doneJumping` from GET /api/games/{id}; the log is public by definition (S06-3).
+ * jumps, landings, resolutions) and the moment it becomes the viewer's pick, jumps or turn to resolve the next good
+ * (E05-S01). They read `log`, `turn.initiative`, `turn.turnOrder`, `turn.doneJumping` and `turn.tradingQueue` from
+ * GET /api/games/{id}; the log is public by definition (S06-3).
  */
 
 import { picker } from './turn-order.js';
 import { jumper } from './ship-jumps.js';
+import { YOUR_RESOLVE, resolver } from './trading.js';
 
 export const YOUR_PICK = "It's your turn to choose your place in the turn order.";
 export const YOUR_JUMPS = "It's your turn to jump.";
@@ -23,6 +25,7 @@ export function progressSnapshot(game, previous) {
 		logLength: Math.max(known?.logLength ?? 0, game.log.length),
 		picker: picker(game),
 		jumper: jumper(game),
+		resolver: resolver(game),
 	};
 }
 
@@ -42,6 +45,9 @@ export function progressText(previous, game, email) {
 	}
 	if (jumper(game) === email && previous.jumper !== email) {
 		cues.push(YOUR_JUMPS);
+	}
+	if (resolver(game) === email && previous.resolver !== email) {
+		cues.push(YOUR_RESOLVE); // E05-S01: Trading has started and you're first in initiative
 	}
 	return [...events, ...cues].join(' ');
 }

@@ -254,7 +254,11 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(started.status).isEqualTo("RUNNING")
-		assertThat(started.turn).isEqualTo(TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null))
+		assertThat(
+			started.turn
+		).isEqualTo(
+			TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList())
+		)
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
@@ -367,7 +371,15 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(
 			afterFirst.turn
-		).isEqualTo(TurnResponseDto(1, "BIDDING", listOf("done-guest@example.com"), emptyList(), emptyList(), emptyList(), emptyList(), null))
+		).isEqualTo(
+			TurnResponseDto(
+				1, "BIDDING",
+				listOf(
+					"done-guest@example.com"
+				),
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList()
+			)
+		)
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
@@ -825,6 +837,84 @@ class GameControllerTest {
 		landShip(signIn("bad-landing-stranger@example.com"), gameId, """{"location": "PORT"}""").expectStatus().isForbidden
 		landShip(signIn("bad-landing-lost@example.com"), "missing-game", """{"location": "PORT"}""").expectStatus().isNotFound
 		landShip(null, gameId, """{"location": "PORT"}""").expectStatus().isUnauthorized
+	}
+
+	@Test
+	fun shouldLetTheFirstInInitiativeOrderAndResolveTheGoods() {
+		val (creatorToken, joinerToken, gameId) = startedGame("trade")
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		val trading = finishJumping("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val firstCorporation = trading.players.first { it.email == first }.corporationName
+
+		// S01-2: every good at every system, by system in map order, then good; public, so the second player sees it too.
+		val queue = trading.turn!!.tradingQueue
+		assertThat(queue).hasSize(18)
+		assertThat(queue.first()).isEqualTo(MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY"))
+		assertThat(pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.tradingQueue)
+			.isEqualTo(queue)
+
+		// R25: only the first in initiative orders and resolves.
+		resolveNext("token-$second", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Order decided by $firstCorporation (first in initiative).")
+		val reversed = queue.reversed()
+		val body = """{"queue": [${reversed.joinToString(", ") { """{"system": "${it.system}", "goods": "${it.goods}"}""" }}]}"""
+		reorderQueue("token-$second", gameId, body).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		val reordered = reorderQueue("token-$first", gameId, body)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(reordered.turn!!.tradingQueue).isEqualTo(reversed)
+
+		// S01-5: each resolution is public and logged.
+		val resolved = resolveNext("token-$first", gameId)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
+		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
+		assertThat(resolved.log.last().text).isEqualTo("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)")
+
+		// A04: the old order still names the good that just resolved, so it's stale.
+		reorderQueue("token-$first", gameId, body)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("The remaining goods have changed. Try again.")
+	}
+
+	@Test
+	fun shouldRefuseTradingActionsOutsideTradingWithABadOrderOrFromOutsiders() {
+		val (first, _, gameId) = orderedGame("trade-refused")
+		val body = """{"queue": [{"system": "MU_HERCULIS", "goods": "ISO"}]}"""
+
+		resolveNext("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		reorderQueue("token-$first", gameId, body).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		listOf("""{}""", """{"queue": [{"system": "NOWHERE", "goods": "ISO"}]}""", """{"queue": [{"system": "MU_HERCULIS"}]}""").forEach {
+			reorderQueue("token-$first", gameId, it)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Send the remaining goods in their new order.")
+		}
+		resolveNext(signIn("trade-refused-stranger@example.com"), gameId).expectStatus().isForbidden
+		resolveNext(signIn("trade-refused-lost@example.com"), "missing-game").expectStatus().isNotFound
+		resolveNext(null, gameId).expectStatus().isUnauthorized
+		reorderQueue(signIn("trade-refused-stranger2@example.com"), gameId, body).expectStatus().isForbidden
+		reorderQueue(signIn("trade-refused-lost2@example.com"), "missing-game", body).expectStatus().isNotFound
+		reorderQueue(null, gameId, body).expectStatus().isUnauthorized
+	}
+
+	private fun resolveNext(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/resolve-next", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
+	}
+
+	private fun reorderQueue(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.put().uri("/api/games/{id}/trading/queue", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	/**

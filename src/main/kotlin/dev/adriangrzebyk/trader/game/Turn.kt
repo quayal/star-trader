@@ -24,7 +24,9 @@ data class Turn(
 	val turnOrderPicks: List<TurnOrderPick>,
 	val jumpedShips: List<String>,
 	val doneJumping: List<String>,
-	val landingShip: String?
+	val landingShip: String?,
+	val tradingQueue: List<MarketGood>,
+	val resolvedGoods: List<MarketGood>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -174,8 +176,49 @@ data class Turn(
 		return if (ended.jumper() == null) ended.toTrading() else ended
 	}
 
-	/** Ship-jumps → Trading (N06). */
-	fun toTrading(): Turn = copy(phase = TurnPhase.TRADING)
+	/** Ship-jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
+	fun toTrading(): Turn = copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList())
+
+	/** Refuses anything but Trading: before it, it hasn't started (A04). */
+	fun requireTrading() {
+		if (phase != TurnPhase.TRADING) {
+			throw InvalidGameOperationException("Trading hasn't started.")
+		}
+	}
+
+	/**
+	 * Who orders the queue and resolves each good (R25): the first player in initiative order. Checking that it's the
+	 * caller is the caller's, which knows the players' names.
+	 */
+	fun firstInInitiative(): String =
+		initiative.firstOrNull() ?: throw InvalidGameOperationException("Nobody is first in initiative this turn.")
+
+	/**
+	 * This turn with the goods still to resolve in [order] (R25, S01-3). [order] must hold exactly the goods still queued:
+	 * one resolved in between makes it stale, and it's refused rather than half-applied (A04).
+	 */
+	fun reorderQueue(order: List<MarketGood>): Turn {
+		requireTrading()
+		if (order.size != tradingQueue.size || order.toSet() != tradingQueue.toSet()) {
+			throw InvalidGameOperationException("The remaining goods have changed. Try again.")
+		}
+		return copy(tradingQueue = order)
+	}
+
+	/** The good that resolves next (R25), refused once every good has resolved. */
+	fun nextGood(): MarketGood {
+		requireTrading()
+		return tradingQueue.firstOrNull() ?: throw InvalidGameOperationException("Every good has been resolved.")
+	}
+
+	/**
+	 * This turn after the next good resolved (R25, S01-4). A resolution has no steps yet, so it finishes as it starts;
+	 * offers, the counter, the price change and Wholesalers join it in E05-S02 to S05.
+	 */
+	fun resolveNext(): Turn {
+		val good = nextGood()
+		return copy(tradingQueue = tradingQueue.drop(1), resolvedGoods = resolvedGoods + good)
+	}
 
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
@@ -192,7 +235,10 @@ data class Turn(
 	}
 
 	companion object {
-		/** The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative, turn order or jumps yet. */
+		/**
+		 * The start of turn [number]: Bidding, with nobody done, no offers or bids, no initiative, turn order, jumps or
+		 * Trading queue yet.
+		 */
 		fun bidding(number: Int) = Turn(
 			number,
 			TurnPhase.BIDDING,
@@ -203,7 +249,9 @@ data class Turn(
 			emptyList(),
 			emptyList(),
 			emptyList(),
-			null
+			null,
+			emptyList(),
+			emptyList()
 		)
 	}
 }

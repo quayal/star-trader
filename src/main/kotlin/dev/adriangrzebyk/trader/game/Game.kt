@@ -181,6 +181,37 @@ data class Game(
 		return endJumpSlot(email)
 	}
 
+	/**
+	 * [email] puts the goods still to resolve in [order] (R25, S01-3); only the first player in initiative may, at any
+	 * time during Trading, and [Turn.reorderQueue] refuses an order that's gone stale. Not logged: only the resolutions are.
+	 */
+	fun reorderTradingQueue(email: String, order: List<MarketGood>): Game = copy(turn = resolverTurnOf(email).reorderQueue(order))
+
+	/**
+	 * [email] resolves the next good in the queue (R25, S01-4), which only the first player in initiative may. Each
+	 * resolution is logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)" (S01-5).
+	 */
+	fun resolveNextGood(email: String): Game {
+		val current = resolverTurnOf(email)
+		val good = current.nextGood()
+		return copy(
+			turn = current.resolveNext(),
+			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})")
+		)
+	}
+
+	/** The running turn, once checked that it's Trading and [email] is first in initiative (R25, R04). */
+	private fun resolverTurnOf(email: String): Turn {
+		playerOf(email)
+		val current = runningTurn()
+		current.requireTrading()
+		val resolver = current.firstInInitiative()
+		if (resolver != email) {
+			throw NotYourTurnException("Order decided by ${corporationOf(resolver)} (first in initiative).")
+		}
+		return current
+	}
+
 	/** The running turn, once checked that it's [email]'s jump slot (R04: an ordered step out of turn is refused). */
 	private fun jumpSlotOf(email: String): Turn {
 		playerOf(email)

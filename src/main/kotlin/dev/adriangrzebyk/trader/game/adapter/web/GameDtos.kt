@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.LogEntry
+import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
@@ -116,7 +117,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each an email or null while
  * free (R26); empty during Bidding. [jumpedShips] names the ships that jumped this turn and [doneJumping] the players
  * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
- * or null (R30, S03). Offers and bids never go here (R17, R29).
+ * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
+ * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. Offers and bids never go here (R17, R29).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -126,7 +128,9 @@ data class TurnResponseDto(
 	val turnOrder: List<String?>,
 	val jumpedShips: List<String>,
 	val doneJumping: List<String>,
-	val landingShip: String?
+	val landingShip: String?,
+	val tradingQueue: List<MarketGoodResponseDto>,
+	val resolvedGoods: List<MarketGoodResponseDto>
 ) {
 
 	constructor(turn: Turn) : this(
@@ -137,8 +141,16 @@ data class TurnResponseDto(
 		turn.turnOrder(),
 		turn.jumpedShips,
 		turn.doneJumping,
-		turn.landingShip
+		turn.landingShip,
+		turn.tradingQueue.map { MarketGoodResponseDto(it) },
+		turn.resolvedGoods.map { MarketGoodResponseDto(it) }
 	)
+}
+
+/** One good at one system, as Trading resolves it: [system] and [goods] are the constants, [systemName] for display. */
+data class MarketGoodResponseDto(val system: String, val systemName: String, val goods: String) {
+
+	constructor(good: MarketGood) : this(good.system.name, good.system.displayName, good.goods.name)
 }
 
 /** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
@@ -227,4 +239,23 @@ data class YourShipResponseDto(val name: String, val cargo: Map<String, Int>, va
 		ship.cargoSpacesUsed(),
 		Ship.CARGO_SPACES
 	)
+}
+
+/**
+ * The goods still to resolve, in their new order (R25, S01-3). Names are checked here, so an unknown one is a `400` with
+ * a message rather than Jackson's.
+ */
+data class ReorderQueueRequestDto(val queue: List<MarketGoodRequestDto>? = null) {
+
+	/** The order as goods, or null when it's missing or names something that isn't a good at a system. */
+	fun order(): List<MarketGood>? = queue?.map { it.marketGood() ?: return null }
+}
+
+data class MarketGoodRequestDto(val system: String? = null, val goods: String? = null) {
+
+	fun marketGood(): MarketGood? {
+		val system = StarSystem.entries.firstOrNull { it.name == system } ?: return null
+		val goods = Goods.entries.firstOrNull { it.name == goods } ?: return null
+		return MarketGood(system, goods)
+	}
 }
