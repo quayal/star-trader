@@ -228,6 +228,8 @@
 		.trading-status p { margin: 0; }
 		.trading-status p + p { margin-top: var(--space-group); }
 		.trading-status p:empty { display: none; }
+		.trading-status .resolve-row { margin-top: var(--space-related); }
+		.trading-status #trading-message:empty { display: block; min-height: 0; margin: 0; } /* stays in the tree, so its text is announced */
 		#trading-status:focus { outline: none; } /* takes focus after the last good, like a heading: not a control */
 		.queue-panel > p { margin: 0 0 var(--space-related); }
 		.queue { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-group); counter-reset: queue; }
@@ -261,7 +263,6 @@
 		.queue__move:hover:not(:disabled) { border-color: var(--accent-selected); }
 		.queue__move:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
 		.resolve-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
-		.queue-panel .message { margin: var(--space-group) 0 0; }
 		/* S01-9: a decision of yours, on any screen but s03. */
 		.decision-alert {
 			display: flex;
@@ -505,16 +506,16 @@
 			<div class="trading__body">
 				<section class="panel trading-status" aria-labelledby="trading-title">
 					<p id="trading-status" tabindex="-1"></p>
+					<div class="resolve-row" id="resolve-row" hidden>
+						<button class="btn" id="resolve-button" type="button">Resolve next</button>
+					</div>
+					<p class="message" id="trading-message" role="status" tabindex="-1"></p>
 					<p class="muted" id="trading-last"></p>
 				</section>
 				<section class="panel queue-panel" id="queue-panel" aria-labelledby="queue-title" hidden>
 					<h2 id="queue-title">Remaining goods</h2>
 					<p class="muted" id="queue-note"></p>
 					<ol class="queue" id="queue-list"></ol>
-					<div class="resolve-row" id="resolve-row" hidden>
-						<button class="btn" id="resolve-button" type="button">Resolve next</button>
-					</div>
-					<p class="message" id="trading-message" role="status" tabindex="-1"></p>
 					<p class="visually-hidden" id="queue-announce" role="status"></p>
 				</section>
 			</div>
@@ -1329,9 +1330,8 @@
 		if (response?.ok) {
 			const resolved = await response.json();
 			render(resolved);
-			if ($('resolve-row').hidden) {
-				$('trading-status').focus(); // the last good: the button is gone, so focus goes to what replaced it
-			}
+			// Disabling the button for the request dropped focus; put it back, or on what replaced it after the last good.
+			$($('resolve-row').hidden ? 'trading-status' : 'resolve-button').focus();
 			return;
 		}
 		setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
