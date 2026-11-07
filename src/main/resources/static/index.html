@@ -221,6 +221,16 @@
 		.trading { display: grid; gap: var(--space-panel); }
 		.trading > p { margin: 0; }
 		.trading[hidden], .decision-alert[hidden], .queue-panel[hidden], .resolve-row[hidden] { display: none; }
+		/* E05-S02: the resolution under the status, in the main column. */
+		.trading__main { display: grid; gap: var(--space-panel); align-content: start; min-width: 0; }
+		.resolution-panel h2, .resolution-panel h3 { margin: 0; }
+		.resolution-panel { display: grid; gap: var(--space-related); }
+		.resolution-panel p { margin: 0; }
+		.resolution-panel p:empty { display: none; }
+		.resolution-panel[hidden], .resolution-panel [hidden], .dictator-form[hidden] { display: none; }
+		.resolution-panel h2:focus { outline: none; }
+		.dictator-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
+		.dictator-actions { display: flex; gap: var(--space-related); align-items: center; flex-wrap: wrap; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
 		@media (max-width: 900px) {
 			.trading__body { grid-template-columns: minmax(0, 1fr); }
@@ -504,14 +514,48 @@
 		<div class="trading" id="trading-panel" hidden>
 			<h2 class="system__title" id="trading-title" tabindex="-1">Trading</h2>
 			<div class="trading__body">
+				<div class="trading__main">
 				<section class="panel trading-status" aria-labelledby="trading-title">
 					<p id="trading-status" tabindex="-1"></p>
 					<div class="resolve-row" id="resolve-row" hidden>
 						<button class="btn" id="resolve-button" type="button">Resolve next</button>
 					</div>
 					<p class="message" id="trading-message" role="status" tabindex="-1"></p>
-					<p class="muted" id="trading-last"></p>
 				</section>
+				<!-- E05-S02: the good resolving now, or the last one; static markup, so a typed Dictator price survives the poll. -->
+				<section class="panel resolution-panel" id="resolution-panel" aria-labelledby="resolution-title" hidden>
+					<h2 id="resolution-title" tabindex="-1"></h2>
+					<h3 class="field-label">Offers</h3>
+					<table class="data-table" id="resolution-offers" hidden>
+						<thead><tr><th scope="col">Player</th><th scope="col">Offer</th></tr></thead>
+						<tbody id="resolution-offer-rows"></tbody>
+					</table>
+					<p class="muted" id="resolution-none" hidden>No offers for this good.</p>
+					<p id="resolution-dictator"></p>
+					<form class="offer-form dictator-form" id="dictator-form" novalidate hidden>
+						<h3 id="dictator-question"></h3>
+						<p class="muted" id="dictator-help"></p>
+						<fieldset class="offer-type">
+							<legend class="field-label">Buy or sell</legend>
+							<div class="choices">
+								<label class="choice"><input type="radio" name="dictator-type" value="BUY" checked>Buy</label>
+								<label class="choice"><input type="radio" name="dictator-type" value="SELL">Sell</label>
+							</div>
+						</fieldset>
+						<div>
+							<label class="field-label" for="dictator-price">Price (HT)</label>
+							<input class="control price-input" id="dictator-price" inputmode="numeric" placeholder="1–20"
+								aria-describedby="dictator-price-hint dictator-price-error">
+							<p class="message muted" id="dictator-price-hint">A whole number from 1 to 20.</p>
+							<p class="message message--error field-error" id="dictator-price-error"></p>
+						</div>
+						<div class="dictator-actions">
+							<button class="btn" id="dictator-offer-button" type="submit">Place offer</button>
+							<button class="text-action" id="dictator-pass-button" type="button">Pass</button>
+						</div>
+					</form>
+				</section>
+				</div>
 				<section class="panel queue-panel" id="queue-panel" aria-labelledby="queue-title" hidden>
 					<h2 id="queue-title">Remaining goods</h2>
 					<p class="muted" id="queue-note"></p>
@@ -607,15 +651,21 @@
 	} from './js/game.js';
 	import {
 		BEFORE_TRADING_TEXT,
+		DICTATOR_HELP,
+		awaitingDictator,
 		decisionText,
+		dictatorFormKey,
+		dictatorLine,
+		dictatorQuestion,
+		disclosedOffers,
 		goodLabel,
 		isTrading,
-		lastResolvedText,
 		moveGood,
 		movedText,
 		orderedBy,
 		queueBody,
 		queueNote,
+		resolutionTitle,
 		resolver,
 		sameOrder,
 		tradingJustStarted,
@@ -1213,7 +1263,7 @@
 		if ($('trading-status').textContent !== status) {
 			$('trading-status').textContent = status;
 		}
-		$('trading-last').textContent = lastResolvedText(game);
+		renderResolution(game);
 		const goods = trading ? shownQueue(game) : [];
 		const editable = orderedBy(game) === session.email;
 		$('queue-panel').hidden = goods.length === 0;
@@ -1223,9 +1273,115 @@
 			queueListKey = listKey;
 			drawQueue(game, goods, editable);
 		}
-		$('resolve-row').hidden = !(editable && resolver(game) === session.email);
-		$('resolve-button').disabled = resolving;
+		// S01-4: the first in initiative keeps the button while goods remain; it waits, disabled, for the Dictator, and
+		// the status line above it says whom for.
+		$('resolve-row').hidden = !(editable && (game.turn.tradingQueue ?? []).length > 0);
+		$('resolve-button').disabled = resolving || resolver(game) !== session.email;
 	}
+
+	// The good the Dictator form was last set up for (dictatorFormKey), so a poll keeps what was typed and a new good,
+	// game or turn starts it afresh (lesson 2026-11-04).
+	let dictatorKey = null;
+	let deciding = false;
+
+	/** E05-S02: the good resolving or last resolved, its disclosed offers, the Dictator's line and, for them, the form. */
+	function renderResolution(game) {
+		const title = resolutionTitle(game);
+		$('resolution-panel').hidden = title === '';
+		if (title === '') {
+			return;
+		}
+		if ($('resolution-title').textContent !== title) {
+			$('resolution-title').textContent = title;
+		}
+		const offers = disclosedOffers(game);
+		$('resolution-offers').hidden = offers.length === 0;
+		$('resolution-none').hidden = offers.length > 0;
+		const rowsKey = JSON.stringify(offers);
+		if ($('resolution-offer-rows').dataset.key !== rowsKey) {
+			$('resolution-offer-rows').dataset.key = rowsKey;
+			$('resolution-offer-rows').replaceChildren(...offers.map(offer => element('tr', {},
+				element('td', {}, offer.corporation, ...(offer.dictator ? [element('span', { class: 'muted' }, ' (Dictator)')] : [])),
+				element('td', {}, element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`))));
+		}
+		$('resolution-dictator').textContent = dictatorLine(game);
+		const question = dictatorQuestion(game, session.email);
+		const key = dictatorFormKey(game);
+		if (key !== dictatorKey) {
+			dictatorKey = key;
+			$('dictator-price').value = '';
+			setDictatorPriceError('');
+			document.querySelector('input[name="dictator-type"][value="BUY"]').checked = true;
+		}
+		$('dictator-form').hidden = question === '';
+		$('dictator-question').textContent = question;
+		$('dictator-help').textContent = DICTATOR_HELP;
+		$('dictator-offer-button').disabled = deciding;
+		$('dictator-pass-button').disabled = deciding;
+	}
+
+	function setDictatorPriceError(text) {
+		$('dictator-price-error').textContent = text;
+		if (text) {
+			$('dictator-price').setAttribute('aria-invalid', 'true');
+		} else {
+			$('dictator-price').removeAttribute('aria-invalid');
+		}
+	}
+
+	/** S02-2: the Dictator places their offer or passes; the answer redraws Trading, and the log reaches everyone. */
+	async function decideAsDictator(path, body) {
+		const gameId = currentGameId;
+		const game = lastGame;
+		deciding = true;
+		$('dictator-offer-button').disabled = true;
+		$('dictator-pass-button').disabled = true;
+		setTradingMessage('', false, game);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/${path}`, body
+				? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+				: { method: 'POST' });
+		} catch {
+			response = null;
+		}
+		deciding = false;
+		$('dictator-offer-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		$('dictator-pass-button').disabled = false;
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			render(await response.json());
+			$('resolution-title').focus(); // the form is gone; the heading leads to what was decided
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400 && message.startsWith('Price')) {
+			setDictatorPriceError(message);
+			$('dictator-price').focus();
+			return;
+		}
+		setTradingMessage(message, true, game);
+		$('trading-message').focus();
+		if (response) {
+			repollNow();
+		}
+	}
+
+	$('dictator-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		setDictatorPriceError('');
+		const checked = validatePrice($('dictator-price').value);
+		if (checked.error) {
+			setDictatorPriceError(checked.error);
+			$('dictator-price').focus();
+			return;
+		}
+		const type = document.querySelector('input[name="dictator-type"]:checked').value;
+		decideAsDictator('dictator-offer', { type, price: checked.price });
+	});
+	$('dictator-pass-button').addEventListener('click', () => decideAsDictator('dictator-pass', null));
 
 	/** S01-3: the first in initiative drags or uses ↑/↓ (the keyboard alternative, WCAG 2.5.7); everyone else reads. */
 	function drawQueue(game, goods, editable) {
@@ -1349,8 +1505,13 @@
 		if (response?.ok) {
 			const resolved = await response.json();
 			render(resolved);
-			// Disabling the button for the request dropped focus; put it back, or on what replaced it after the last good.
-			$($('resolve-row').hidden ? 'trading-status' : 'resolve-button').focus();
+			// Disabling the button for the request dropped focus; put it back while it can be pressed again, else on the good
+			// now resolving (a Dictator to wait for, E05-S02), or on the status after the last good.
+			if (!$('resolve-row').hidden && !$('resolve-button').disabled) {
+				$('resolve-button').focus();
+			} else {
+				$($('resolution-panel').hidden ? 'trading-status' : 'resolution-title').focus();
+			}
 			return;
 		}
 		setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
