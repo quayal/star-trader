@@ -106,6 +106,34 @@ market" (S03-6). With nothing to trade, the resolution goes straight on (S03-7).
 - Turning the roll into a counter must stay hidden while a Dictator is asked (R38). Tested.
 - The resolution panel is redrawn on every poll. The new lines are static text, so there's no form state to keep.
 
+## Notes from the run
+
+- **Changed from the plan while building:**
+  - `Resolution.nextTrade(initiative)` is public, not private. S04 needs "who trades next, and their max" to ask the
+    trader. It also lets `ResolutionTest` check S03-3's buyer–seller tie directly: while every offer trades its max, that
+    tie can't happen. After a buy, only sellers can still trade, and after a sell, only buyers. It needs a partial
+    trade, so S04.
+  - The stored attribute is `startingCounter`, not `counter`, so it isn't confused with the counter now
+    (`Resolution.counter()`, derived from the trades).
+  - `GameControllerTest` runs with real dice, so its log assertions check only what doesn't depend on the roll. The
+    Dictator case still checks its trades exactly: both offers saturate, so the buy takes `startingCounter + 18`.
+- **Docker was running**, so `GameControllerTest` and the DynamoDB tests ran: 441 Kotlin tests, 0 skipped, plus 171 JS
+  tests.
+- **Browser walk** (agent-browser 0.35.2, two players, own DynamoDB Local on 8100 and app on 3100, game set up through
+  the API, Orion seeded as Dictator of POLY at Gamma Leporis):
+  - Gamma Leporis POLY: while Orion (Dictator) decided, neither player saw a Market section (R38). After Orion passed,
+    both saw "Market +13 → buyers first", "Vega Lines bought 16 u at 3 HT each" (13 − (−3)), and "No one else can
+    trade at this market." (S03-1, S03-4, S03-6).
+  - Tau Ceti ISO: "Market −1 → sellers first". Orion's sell at 4 traded first, 2 u, though Vega's buy allowed more,
+    then Vega bought 6 (S03-2, S03-3, S03-5).
+  - Tau Ceti POLY, no offers: "No offers for this good.", "Market −3 → sellers first", "No one can trade at this
+    market." (S03-7).
+  - Mu Herculis ISO (the worked example's offers, roll 3): "Market +4", Vega bought 5 (to −1), then Orion sold 5. The
+    game log carried the same lines with the good named.
+  - At 390 px: no horizontal scroll, and the lines wrap.
+  - The first app start picked up a real `RESEND_API_KEY` from the shell and tried to email the test players. Resend
+    refused the example.com addresses, so nothing was sent. The app was restarted with the key blanked (see the lesson).
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
@@ -123,9 +151,9 @@ market" (S03-6). With nothing to trade, the resolution goes straight on (S03-7).
 
 ### Phase 3: Frontend
 
-- [ ] 3.1 trading.js helpers for the counter
-- [ ] 3.2 s03 shows the counter and trades
+- [x] 3.1 trading.js helpers for the counter — 4db7785
+- [x] 3.2 s03 shows the counter and trades — b69f93c
 
 ### Phase 4: Verify
 
-- [ ] 4.1 Full gate and browser walk
+- [x] 4.1 Full gate and browser walk — b69f93c
