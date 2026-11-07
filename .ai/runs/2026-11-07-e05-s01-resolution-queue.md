@@ -109,7 +109,7 @@ sees the order read-only, and the game names who it waits for (D09).
 ### Phase 2: Adapters
 
 - [x] 2.1 Persistence of the trading queue — 9a72897 (landed with 1.1: the new Turn fields don't compile without it)
-- [ ] 2.2 Web: game shape and trading endpoints
+- [x] 2.2 Web: game shape and trading endpoints — 1fd693e
 
 ### Phase 3: Frontend
 
