@@ -229,6 +229,7 @@
 		.resolution-panel p:empty { display: none; }
 		.resolution-panel[hidden], .resolution-panel [hidden], .dictator-form[hidden] { display: none; }
 		.resolution-panel h2:focus { outline: none; }
+		.counter-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-related); }
 		.dictator-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
 		.dictator-actions { display: flex; gap: var(--space-related); align-items: center; flex-wrap: wrap; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
@@ -532,6 +533,9 @@
 					</table>
 					<p class="muted" id="resolution-none" hidden>No offers for this good.</p>
 					<p id="resolution-dictator"></p>
+					<!-- E05-S03: how the market traded, in plain terms (D07); hidden until the counter starts. -->
+					<h3 class="field-label" id="resolution-counter-title" hidden>Market</h3>
+					<ul class="counter-lines" id="resolution-counter" aria-labelledby="resolution-counter-title" hidden></ul>
 					<form class="offer-form dictator-form" id="dictator-form" novalidate hidden>
 						<h3 id="dictator-question"></h3>
 						<p class="muted" id="dictator-help"></p>
@@ -653,6 +657,7 @@
 		BEFORE_TRADING_TEXT,
 		DICTATOR_HELP,
 		awaitingDictator,
+		counterLines,
 		decisionText,
 		dictatorFormKey,
 		dictatorLine,
@@ -1284,7 +1289,10 @@
 	let dictatorKey = null;
 	let deciding = false;
 
-	/** E05-S02: the good resolving or last resolved, its disclosed offers, the Dictator's line and, for them, the form. */
+	/**
+	 * E05-S02: the good resolving or last resolved, its disclosed offers, the Dictator's line and, for them, the form.
+	 * E05-S03: then how the market traded.
+	 */
 	function renderResolution(game) {
 		const title = resolutionTitle(game);
 		$('resolution-panel').hidden = title === '';
@@ -1305,6 +1313,14 @@
 				element('td', {}, element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`))));
 		}
 		$('resolution-dictator').textContent = dictatorLine(game);
+		const lines = counterLines(game);
+		$('resolution-counter-title').hidden = lines.length === 0;
+		$('resolution-counter').hidden = lines.length === 0;
+		const linesKey = JSON.stringify(lines);
+		if ($('resolution-counter').dataset.key !== linesKey) {
+			$('resolution-counter').dataset.key = linesKey;
+			$('resolution-counter').replaceChildren(...lines.map(line => element('li', {}, line)));
+		}
 		const question = dictatorQuestion(game, session.email);
 		const key = dictatorFormKey(game);
 		if (key !== dictatorKey) {

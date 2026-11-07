@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 class TradingServiceTest {
 
 	private val gameStore = FakeGameStore()
-	private val service = TradingService(gameStore)
+	private val service = TradingService(gameStore, FakeDice.twoD6(*IntArray(MarketGood.everyOnBoard().size) { 7 }))
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 

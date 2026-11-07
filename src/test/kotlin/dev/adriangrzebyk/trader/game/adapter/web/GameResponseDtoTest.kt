@@ -3,9 +3,13 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
+import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Resolution
+import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -109,5 +113,22 @@ class GameResponseDtoTest {
 		val lobby = Game.lobby("game-2", 20, Player.newcomer("host@example.com", "Ada", "Orion Freight"))
 
 		assertThat(GameResponseDto(lobby, "host@example.com").you!!.offers).isEmpty()
+	}
+
+	@Test
+	fun shouldSendTheCounterAndEachTradeOfTheResolutionToEveryone() {
+		// E05-S03: public, like the disclosed offers
+		val vega = Offer("vega@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
+		val orion = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 10)
+		val resolution =
+			Resolution(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), listOf(vega, orion), null, false, 3, listOf(Trade(vega, 4), Trade(orion, 5)))
+
+		val dto = ResolutionResponseDto(resolution)
+
+		assertThat(dto.startingCounter).isEqualTo(3)
+		assertThat(dto.trades).containsExactly(
+			TradeResponseDto("vega@example.com", "BUY", 11, 4),
+			TradeResponseDto("orion@example.com", "SELL", 10, 5)
+		)
 	}
 }

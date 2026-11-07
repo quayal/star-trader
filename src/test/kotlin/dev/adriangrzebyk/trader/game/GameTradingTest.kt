@@ -13,6 +13,9 @@ import org.junit.jupiter.api.Test
 // E05-S01: the first initiative player orders and triggers the resolutions (R25, R36).
 class GameTradingTest {
 
+	/** Enough 2d6 rolls for every good on the board to resolve (R36), all 7. */
+	private fun dice() = FakeDice.twoD6(*IntArray(MarketGood.everyOnBoard().size) { 7 })
+
 	private val ada = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
 	private val grace = Player.newcomer("grace@example.com", "Grace", "Vega Lines")
 
@@ -34,12 +37,15 @@ class GameTradingTest {
 	@Test
 	fun shouldResolveTheNextGoodAndLogWhoChoseIt() {
 		// S01-4, S01-5
-		val game = trading.resolveNextGood("grace@example.com")
+		val game = trading.resolveNextGood("grace@example.com", dice())
 
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
-		assertThat(game.log.takeLast(2)).containsExactly(
+		// S03-7: with no offers the counter still starts (S/D +1, roll 7), and nobody can trade
+		assertThat(game.log.drop(trading.log.size)).containsExactly(
 			LogEntry(1, "Resolving: Gamma Leporis POLY (chosen by Vega Lines)"),
-			LogEntry(1, "No offers for Gamma Leporis POLY")
+			LogEntry(1, "No offers for Gamma Leporis POLY"),
+			LogEntry(1, "Gamma Leporis POLY: market +8 → buyers first"),
+			LogEntry(1, "No one can trade at Gamma Leporis POLY")
 		)
 	}
 
@@ -49,16 +55,16 @@ class GameTradingTest {
 		val order = listOf(MarketGood(MU_HERCULIS, Goods.ISO)) + trading.turn!!.tradingQueue.minus(MarketGood(MU_HERCULIS, Goods.ISO))
 
 		val reordered = trading.reorderTradingQueue("grace@example.com", order)
-		val game = reordered.resolveNextGood("grace@example.com")
+		val game = reordered.resolveNextGood("grace@example.com", dice())
 
 		assertThat(reordered.log).isEqualTo(trading.log)
-		assertThat(game.log[game.log.size - 2].text).isEqualTo("Resolving: Mu Herculis ISO (chosen by Vega Lines)")
+		assertThat(game.log.drop(trading.log.size).first().text).isEqualTo("Resolving: Mu Herculis ISO (chosen by Vega Lines)")
 	}
 
 	@Test
 	fun shouldRefuseAnyoneButTheFirstInInitiative() {
 		// R25, R04
-		assertThatThrownBy { trading.resolveNextGood("ada@example.com") }
+		assertThatThrownBy { trading.resolveNextGood("ada@example.com", dice()) }
 			.isInstanceOf(NotYourTurnException::class.java)
 			.hasMessage("Order decided by Vega Lines (first in initiative).")
 		assertThatThrownBy { trading.reorderTradingQueue("ada@example.com", trading.turn!!.tradingQueue.reversed()) }
@@ -67,12 +73,12 @@ class GameTradingTest {
 
 	@Test
 	fun shouldRefuseSomeoneOutsideTheGame() {
-		assertThatThrownBy { trading.resolveNextGood("kim@example.com") }.isInstanceOf(NotAGameMemberException::class.java)
+		assertThatThrownBy { trading.resolveNextGood("kim@example.com", dice()) }.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
 	@Test
 	fun shouldRefuseToResolveBeforeTrading() {
-		assertThatThrownBy { shipJumps.resolveNextGood("grace@example.com") }
+		assertThatThrownBy { shipJumps.resolveNextGood("grace@example.com", dice()) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Trading hasn't started.")
 	}
@@ -95,7 +101,7 @@ class GameTradingTest {
 		.finishJumping("kim@example.com")
 		.finishJumping("ada@example.com")
 
-	private val askingDictator = withDictator.resolveNextGood("grace@example.com")
+	private val askingDictator = withDictator.resolveNextGood("grace@example.com", dice())
 
 	@Test
 	fun shouldDiscloseEveryOfferForTheGoodAndAskItsDictator() {
@@ -114,7 +120,7 @@ class GameTradingTest {
 	@Test
 	fun shouldRefuseTheNextGoodWhileTheDictatorDecides() {
 		// S01-4, S01-8
-		assertThatThrownBy { askingDictator.resolveNextGood("grace@example.com") }
+		assertThatThrownBy { askingDictator.resolveNextGood("grace@example.com", dice()) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Waiting for Orion Freight (Dictator) to decide.")
 	}
@@ -122,34 +128,53 @@ class GameTradingTest {
 	@Test
 	fun shouldDiscloseTheDictatorsOfferLikeTheOthersAndLogIt() {
 		// S02-2, S02-3
-		val game = askingDictator.placeDictatorOffer("ada@example.com", OfferType.SELL, 9)
+		val game = askingDictator.placeDictatorOffer("ada@example.com", OfferType.SELL, 9, dice())
 
 		val resolution = game.turn!!.resolution!!
 		assertThat(resolution.offers.last()).isEqualTo(Offer("ada@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 9))
 		assertThat(resolution.isFinished()).isTrue()
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Orion Freight (Dictator) offers to sell at 9 HT"))
+		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) offers to sell at 9 HT"))
 		assertThat(game.turn!!.offersOf("ada@example.com")).isEmpty()
 	}
 
 	@Test
 	fun shouldLetTheDictatorPass() {
 		// S02-2
-		val game = askingDictator.passAsDictator("ada@example.com")
+		val game = askingDictator.passAsDictator("ada@example.com", dice())
 
 		assertThat(game.turn!!.resolution!!.offers).hasSize(2)
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Orion Freight (Dictator) passed"))
-		assertThat(game.resolveNextGood("grace@example.com").turn!!.resolvedGoods).hasSize(2)
+		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) passed"))
+		assertThat(game.resolveNextGood("grace@example.com", dice()).turn!!.resolvedGoods).hasSize(2)
+	}
+
+	@Test
+	fun shouldStartTheCounterAfterTheDictatorDecidesAndLogEachTrade() {
+		// S03-1, S03-2, S03-6. Gamma Leporis POLY: S/D +1, 2 HT. Vega's buy at 11 and Altair's sell at 10 saturate (R15):
+		// targets -18 for both. Roll 2: counter 3, so Vega buys 3 - (-18) = 21, and then Altair's sell allows nothing.
+		assertThat(askingDictator.turn!!.resolution!!.startingCounter).isNull()
+
+		val game = askingDictator.passAsDictator("ada@example.com", FakeDice.twoD6(2))
+
+		assertThat(game.turn!!.resolution!!.trades).containsExactly(
+			Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21)
+		)
+		assertThat(game.log.drop(askingDictator.log.size)).containsExactly(
+			LogEntry(1, "Orion Freight (Dictator) passed"),
+			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first"),
+			LogEntry(1, "Vega Lines bought 21 u at 11 HT each"),
+			LogEntry(1, "No one else can trade at Gamma Leporis POLY")
+		)
 	}
 
 	@Test
 	fun shouldCheckTheDictatorsOfferLikeAnyOther() {
 		// R03
-		assertThatThrownBy { askingDictator.placeDictatorOffer("ada@example.com", OfferType.BUY, 21) }
+		assertThatThrownBy { askingDictator.placeDictatorOffer("ada@example.com", OfferType.BUY, 21, dice()) }
 			.isInstanceOf(InvalidOfferException::class.java)
 			.hasMessage("Price must be a whole number from 1 to 20.")
-		assertThatThrownBy { askingDictator.placeDictatorOffer("ada@example.com", OfferType.BUY, null) }
+		assertThatThrownBy { askingDictator.placeDictatorOffer("ada@example.com", OfferType.BUY, null, dice()) }
 			.isInstanceOf(InvalidOfferException::class.java)
 	}
 
@@ -157,21 +182,21 @@ class GameTradingTest {
 	fun shouldRefuseADecisionFromAnyoneButTheDictatorAsked() {
 		// R38, R04
 		listOf("grace@example.com", "kim@example.com").forEach { email ->
-			assertThatThrownBy { askingDictator.passAsDictator(email) }
+			assertThatThrownBy { askingDictator.passAsDictator(email, dice()) }
 				.isInstanceOf(NotYourTurnException::class.java)
 				.hasMessage("Waiting for Orion Freight (Dictator) to decide.")
-			assertThatThrownBy { askingDictator.placeDictatorOffer(email, OfferType.BUY, 5) }.isInstanceOf(NotYourTurnException::class.java)
+			assertThatThrownBy { askingDictator.placeDictatorOffer(email, OfferType.BUY, 5, dice()) }.isInstanceOf(NotYourTurnException::class.java)
 		}
-		assertThatThrownBy { askingDictator.passAsDictator("someone@example.com") }.isInstanceOf(NotAGameMemberException::class.java)
+		assertThatThrownBy { askingDictator.passAsDictator("someone@example.com", dice()) }.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
 	@Test
 	fun shouldRefuseADecisionWhenNoDictatorIsAsked() {
 		// S02-4: a good with no Dictator goes straight on; a decided Dictator isn't asked again
-		val decided = askingDictator.passAsDictator("ada@example.com")
+		val decided = askingDictator.passAsDictator("ada@example.com", dice())
 
-		listOf(trading.resolveNextGood("grace@example.com"), decided).forEach { game ->
-			assertThatThrownBy { game.passAsDictator("ada@example.com") }
+		listOf(trading.resolveNextGood("grace@example.com", dice()), decided).forEach { game ->
+			assertThatThrownBy { game.passAsDictator("ada@example.com", dice()) }
 				.isInstanceOf(InvalidGameOperationException::class.java)
 				.hasMessage("No Dictator decision is pending.")
 		}
@@ -182,10 +207,10 @@ class GameTradingTest {
 		// S02-4: Kim's Tau Ceti POLY offer is disclosed when that good resolves, and nobody is asked
 		val order = listOf(MarketGood(TAU_CETI, Goods.POLY)) + withDictator.turn!!.tradingQueue.minus(MarketGood(TAU_CETI, Goods.POLY))
 
-		val game = withDictator.reorderTradingQueue("grace@example.com", order).resolveNextGood("grace@example.com")
+		val game = withDictator.reorderTradingQueue("grace@example.com", order).resolveNextGood("grace@example.com", dice())
 
 		assertThat(game.turn!!.resolution!!.awaitingDictator()).isNull()
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(TAU_CETI, Goods.POLY))
-		assertThat(game.log.last().text).isEqualTo("Offers for Tau Ceti POLY: Altair Trade Co. — sell at 9 HT")
+		assertThat(game.log.map { it.text }).contains("Offers for Tau Ceti POLY: Altair Trade Co. — sell at 9 HT")
 	}
 }

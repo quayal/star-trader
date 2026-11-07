@@ -26,4 +26,28 @@ class SupplyDemandTest {
 		assertThat(SupplyDemand.lowestFor(-4)).isEqualTo(SupplyDemand(11))
 		assertThat(SupplyDemand.highestFor(-4)).isEqualTo(SupplyDemand(13))
 	}
+
+	@ParameterizedTest
+	@CsvSource(
+		"0, -1",
+		"7, -18",
+		"12, -18",
+		"-6, 18",
+		"-10, 18"
+	)
+	fun `a buy is measured against the lowest indicator of its modifier, saturating at -6 and +7 (R15)`(priceModifier: Int, target: Int) {
+		assertThat(SupplyDemand.buyTargetFor(priceModifier)).isEqualTo(SupplyDemand(target))
+	}
+
+	@ParameterizedTest
+	@CsvSource(
+		"-1, 4",
+		"-6, 18",
+		"-10, 18",
+		"7, -18",
+		"12, -18"
+	)
+	fun `a sell is measured against the highest indicator of its modifier, saturating at -6 and +7 (R15)`(priceModifier: Int, target: Int) {
+		assertThat(SupplyDemand.sellTargetFor(priceModifier)).isEqualTo(SupplyDemand(target))
+	}
 }

@@ -875,8 +875,11 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
 		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
-		assertThat(resolved.log.takeLast(2).map { it.text })
-			.containsExactly("Resolving: Sigma Draconis POLY (chosen by $firstCorporation)", "No offers for Sigma Draconis POLY")
+		// S03-7: with no offers, whatever the roll, nobody can trade.
+		assertThat(resolved.log.takeLast(4).map { it.text }).startsWith(
+			"Resolving: Sigma Draconis POLY (chosen by $firstCorporation)",
+			"No offers for Sigma Draconis POLY"
+		).endsWith("No one can trade at Sigma Draconis POLY")
 
 		// A04: the old order still names the good that just resolved, so it's stale.
 		reorderQueue("token-$first", gameId, body)
@@ -936,7 +939,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
 		assertThat(asking.turn!!.resolution).isEqualTo(
-			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false)
+			// R38: no roll while the Dictator decides
+			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false, null, emptyList())
 		)
 		assertThat(asking.turn!!.resolvedGoods).isEmpty()
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.resolution)
@@ -961,17 +965,24 @@ class GameControllerTest {
 		// S02-3: the Dictator's offer is disclosed like the others, and the good has resolved.
 		val offered = dictatorOffer(joinerToken, gameId, """{"type": "SELL", "price": 9}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(offered.turn!!.resolution).isEqualTo(
+		// E05-S03: then the counter starts, at S/D +1 plus 2d6. Both offers saturate (R15, targets -18), so the buy takes
+		// everything the counter allows and the sell can't trade.
+		val resolution = offered.turn!!.resolution!!
+		val counter = resolution.startingCounter!!
+		assertThat(counter).isBetween(3, 13)
+		assertThat(resolution).isEqualTo(
 			ResolutionResponseDto(
 				good,
 				listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9)),
 				guest,
 				null,
-				true
+				true,
+				counter,
+				listOf(TradeResponseDto(host, "BUY", 11, counter + 18))
 			)
 		)
 		assertThat(offered.turn!!.resolvedGoods).containsExactly(good)
-		assertThat(offered.log.last().text).isEqualTo("Grace Freight (Dictator) offers to sell at 9 HT")
+		assertThat(offered.log.map { it.text }).contains("Grace Freight (Dictator) offers to sell at 9 HT")
 		passAsDictator(joinerToken, gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No Dictator decision is pending.")

@@ -190,39 +190,63 @@ data class Game(
 	/**
 	 * [email] resolves the next good in the queue (R25, S01-4), which only the first player in initiative may, and only
 	 * once the last good has finished resolving. Its offers are disclosed (E05-S02-1), and its Dictator at that system,
-	 * if any, is asked before the roll (S02-2). Both are logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)"
-	 * (S01-5), then the offers.
+	 * if any, is asked before the roll (S02-2); with none, the counter starts with a roll from [dice] (E05-S03). All of
+	 * it is logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)" (S01-5), the offers, then the counter.
 	 */
-	fun resolveNextGood(email: String): Game {
+	fun resolveNextGood(email: String, dice: Dice): Game {
 		val current = resolverTurnOf(email)
 		current.resolution?.awaitingDictator()?.let { throw InvalidGameOperationException(waitingForDictator(it)) }
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
-		val started = current.resolveNext(dictator?.email)
+		val started = current.resolveNext(dictator?.email, dice)
+		val resolution = checkNotNull(started.resolution)
 		return copy(
 			turn = started,
 			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})") +
-				LogEntry(current.number, disclosure(checkNotNull(started.resolution)))
+				LogEntry(current.number, disclosure(resolution)) + counterLog(current.number, resolution)
 		)
 	}
 
 	/**
 	 * [email], the Dictator asked, places their one offer for the good resolving (R38, S02-2): checked like any offer
 	 * (R03), then disclosed like the others (S02-3) and logged: "Altair Trade Co. (Dictator) offers to sell at 10 HT".
+	 * Then the counter starts with a roll from [dice] (E05-S03).
 	 */
-	fun placeDictatorOffer(email: String, type: OfferType, price: Int?): Game {
+	fun placeDictatorOffer(email: String, type: OfferType, price: Int?, dice: Dice): Game {
 		val current = dictatorTurnOf(email)
 		val offer = playerOf(email).dictatorOffer(checkNotNull(current.resolution).good, type, price)
+		val decided = current.placeDictatorOffer(offer, dice)
 		return copy(
-			turn = current.placeDictatorOffer(offer),
-			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) offers to ${offer.terms()}")
+			turn = decided,
+			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) offers to ${offer.terms()}") +
+				counterLog(current.number, checkNotNull(decided.resolution))
 		)
 	}
 
-	/** [email], the Dictator asked, passes (S02-2); logged: "Altair Trade Co. (Dictator) passed". */
-	fun passAsDictator(email: String): Game {
+	/**
+	 * [email], the Dictator asked, passes (S02-2); logged: "Altair Trade Co. (Dictator) passed". Then the counter starts
+	 * with a roll from [dice] (E05-S03).
+	 */
+	fun passAsDictator(email: String, dice: Dice): Game {
 		val current = dictatorTurnOf(email)
-		return copy(turn = current.dictatorPassed(), log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) passed"))
+		val decided = current.dictatorPassed(dice)
+		return copy(
+			turn = decided,
+			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) passed") +
+				counterLog(current.number, checkNotNull(decided.resolution))
+		)
+	}
+
+	/**
+	 * The public log lines of [resolution]'s counter in turn [turn], once it has started (S03-6, D07: no dice arithmetic):
+	 * "Mu Herculis ISO: market +3 → buyers first", each trade ("Vega Lines bought 4 u at 11 HT each"), then "No one else
+	 * can trade at Mu Herculis ISO". None while the Dictator is still asked.
+	 */
+	private fun counterLog(turn: Int, resolution: Resolution): List<LogEntry> {
+		val market = resolution.marketText() ?: return emptyList()
+		return listOf(LogEntry(turn, "${resolution.good.label()}: $market")) +
+			resolution.trades.map { LogEntry(turn, "${corporationOf(it.offer.playerEmail)} ${it.terms()}") } +
+			LogEntry(turn, "${resolution.endText()} at ${resolution.good.label()}")
 	}
 
 	/** The running turn, once checked that its resolution waits for [email], as Dictator, to decide (R38, R04). */
