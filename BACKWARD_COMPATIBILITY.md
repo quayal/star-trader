@@ -76,7 +76,7 @@ The game-scoped surface R01 asks for (E02). Each game has its own id; nothing in
 - `status` is `LOBBY`, `RUNNING` or `FINISHED`; a new game is `LOBBY` with `turn: null`, empty `log`, no ships and 0 money. The start (E02-S05) sets 300 HT, two ships at Ports and `turn: { number: 1, phase: BIDDING }`, and adds two log lines under turn 1. Phases then run Bidding → Ship-jumps → Trading → the next turn's Bidding; after the last turn's Trading `status` is `FINISHED` and `turn` keeps the last turn (E03-S01).
 - Games are stored in DynamoDB and survive a server restart (E02-S03); see §7 for the stored shape.
 - **Breaking change**: renaming or removing a field above; changing a status code; changing the `status` or `phase` values; rewording "Bidding has closed", which the game screens show as is; rewording a join or poll `403`/`404`/`409` message, which E02-S05's lobby screen shows as is; letting the poll return anything to a non-player (A05); putting any player's money, cargo, offers or bid outside `you` (R29, S02-7, R17); rewording an offer or bid `400` message, which the forms show as is.
-- **In-repo consumers**: `static/index.html` (s11 create, s12 lobby, the game view) through `static/js/game.js` and `static/js/board.js`, which read every field above and shows the `403`/`404`/`409` messages as is.
+- **In-repo consumers**: `static/index.html` (s11 create, s12 lobby, the game view) through `static/js/game.js`, `static/js/board.js` and `static/js/trading.js` (s03, E05-S01), which read every field above and shows the `403`/`404`/`409` messages as is.
 
 ### 7. Persistence schema — the DynamoDB games table (`game/adapter/dynamodb`)
 

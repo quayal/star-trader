@@ -1176,8 +1176,9 @@
 	// The order the first in initiative has moved the queue to and not yet heard back about, keyed by game and turn
 	// (lesson 2026-11-04), so a poll that arrives meanwhile doesn't redraw the old order under their hands.
 	let queueDraft = null;
-	// Bumped on every reorder; only the answer to the latest one is drawn.
-	let queueRequest = 0;
+	// Whether a PUT of the queue is in flight. At most one is: moves made meanwhile only change the draft, which is sent
+	// when the answer comes back, so two quick moves can't reach the server out of order (A04).
+	let savingQueue = false;
 	// What the queue list was last drawn from, so an unchanged poll leaves it (and the focus in it) alone.
 	let queueListKey = null;
 	// The game and turn the Trading message belongs to (lesson 2026-11-04).
@@ -1269,44 +1270,62 @@
 	}
 
 	/** Moves a good, shows it at once, keeps focus on the moved good's arrow, announces it, then saves the order. */
-	async function moveQueued(game, from, to) {
+	function moveQueued(game, from, to) {
 		const current = shownQueue(lastGame ?? game);
 		const goods = moveGood(current, from, to);
 		if (sameOrder(goods, current)) {
 			return;
 		}
-		const key = tradingKey(game);
-		queueDraft = { key, goods };
+		queueDraft = { key: tradingKey(game), goods };
 		setTradingMessage('', false, game);
 		renderTrading(lastGame ?? game);
 		const moved = $('queue-list').children[to];
 		const arrow = moved?.querySelector(`[data-move="${to < from ? 'up' : 'down'}"]`);
 		(arrow && !arrow.disabled ? arrow : moved?.querySelector('button:not(:disabled)'))?.focus();
 		$('queue-announce').textContent = movedText(goods, to);
+		saveQueue(game);
+	}
 
-		const request = ++queueRequest;
+	/** Sends the draft order, then any newer draft made while it was in flight, until the saved order is the draft. */
+	async function saveQueue(game) {
+		if (savingQueue) {
+			return; // the request in flight sends the newest draft when it comes back
+		}
+		savingQueue = true;
 		const gameId = game.id;
-		let response;
+		const key = tradingKey(game);
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/queue`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(queueBody(goods)),
-			});
-		} catch {
-			response = null;
+			while (queueDraft?.key === key && gameId === currentGameId) {
+				const sent = queueDraft.goods;
+				let response;
+				try {
+					response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/queue`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(queueBody(sent)),
+					});
+				} catch {
+					response = null;
+				}
+				if (gameId !== currentGameId) {
+					return; // the player left this game; the draft is dropped with it (renderTrading)
+				}
+				if (!response?.ok) {
+					queueDraft = null;
+					setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
+					$('trading-message').focus();
+					repollNow();
+					return;
+				}
+				const saved = await response.json();
+				if (queueDraft?.key === key && sameOrder(queueDraft.goods, sent)) {
+					queueDraft = null; // nothing moved meanwhile: the screen now shows what the server holds
+				}
+				render(saved);
+			}
+		} finally {
+			savingQueue = false;
 		}
-		if (request !== queueRequest || gameId !== currentGameId) {
-			return; // a later move owns the screen now, or the player left this game
-		}
-		queueDraft = null;
-		if (response?.ok) {
-			render(await response.json());
-			return;
-		}
-		setTradingMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, game);
-		$('trading-message').focus();
-		repollNow();
 	}
 
 	/** S01-4: resolves the next good; the answer redraws Trading, and the log line reaches everyone with the next poll. */
@@ -1354,6 +1373,9 @@
 	function updateDecisionAlert(game, view) {
 		const text = view === 'trading' ? '' : decisionText(game, session.email);
 		$('decision-link').href = tradingLink(game.id);
+		if (text) {
+			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
+		}
 		if ($('decision-text').textContent !== text) {
 			$('decision-text').textContent = text; // only on a change, so the alert isn't read again every poll
 		}
