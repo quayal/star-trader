@@ -14,4 +14,11 @@ class RandomDiceTest {
 
 		assertThat(rolls).containsExactlyInAnyOrder(1, 2)
 	}
+
+	@Test
+	fun shouldRollTwoD6FromTwoToTwelveAndEveryValueBetween() {
+		val rolls = List(10_000) { dice.twoD6() }.toSet()
+
+		assertThat(rolls).containsExactlyInAnyOrderElementsOf(2..12)
+	}
 }

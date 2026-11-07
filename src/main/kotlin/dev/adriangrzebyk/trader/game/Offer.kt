@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.trading.SupplyDemand
 
 /**
  * A trade offer [playerEmail] placed during Bidding: to buy or sell [goods] at [system] for [price] HT each.
@@ -12,6 +13,16 @@ data class Offer(val playerEmail: String, val system: StarSystem, val goods: Goo
 
 	/** Whether this offer is for [good]: the same good at the same system. */
 	fun isFor(good: MarketGood): Boolean = system == good.system && goods == good.goods
+
+	/**
+	 * The most units this offer allows at [counter] (R34): for a buy, the counter less the buy target of its price's
+	 * distance from [startPrice]; for a sell, the sell target less the counter (R13, R15 saturation). The start price is
+	 * used for the whole resolution. Zero or less means it can't trade.
+	 */
+	fun maxUnits(counter: Int, startPrice: Int): Int = when (type) {
+		OfferType.BUY -> counter - SupplyDemand.buyTargetFor(price - startPrice).indicator
+		OfferType.SELL -> SupplyDemand.sellTargetFor(price - startPrice).indicator - counter
+	}
 
 	/** For the public log once it's disclosed (E05-S02): "buy at 11 HT". */
 	fun terms(): String = "${type.name.lowercase()} at $price HT"
