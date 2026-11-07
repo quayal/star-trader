@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnOrderPick
@@ -27,7 +28,9 @@ class TurnItemTest {
 		turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2), TurnOrderPick("grace@example.com", 1)),
 		jumpedShips = listOf("Wayfarer", "Meridian"),
 		doneJumping = listOf("ada@example.com"),
-		landingShip = "Meridian"
+		landingShip = "Meridian",
+		tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), MarketGood(StarSystem.TAU_CETI, Goods.POLY)),
+		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
 	)
 
 	@Test
@@ -49,7 +52,9 @@ class TurnItemTest {
 					turnOrderPicks = emptyList(),
 					jumpedShips = emptyList(),
 					doneJumping = emptyList(),
-					landingShip = null
+					landingShip = null,
+					tradingQueue = emptyList(),
+					resolvedGoods = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -61,7 +66,9 @@ class TurnItemTest {
 			offers = listOf(offer),
 			bids = listOf(InitiativeBid("grace@example.com", 40)),
 			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2)),
-			jumpedShips = listOf("Wayfarer")
+			jumpedShips = listOf("Wayfarer"),
+			tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)),
+			resolvedGoods = emptyList()
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -95,7 +102,11 @@ class TurnItemTest {
 				),
 				"jumpedShips" to AttributeValue.fromL(listOf(AttributeValue.fromS("Wayfarer"))),
 				"doneJumping" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
-				"landingShip" to AttributeValue.fromS("Meridian")
+				"landingShip" to AttributeValue.fromS("Meridian"),
+				"tradingQueue" to AttributeValue.fromL(
+					listOf(AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("MU_HERCULIS"), "goods" to AttributeValue.fromS("ISO"))))
+				),
+				"resolvedGoods" to AttributeValue.fromL(emptyList())
 			)
 		)
 	}
@@ -123,10 +134,23 @@ class TurnItemTest {
 				turnOrderPicks = emptyList(),
 				jumpedShips = emptyList(),
 				doneJumping = emptyList(),
-				landingShip = null
+				landingShip = null,
+				tradingQueue = emptyList(),
+				resolvedGoods = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)
+	}
+
+	@Test
+	fun shouldReadATurnSavedInTradingBeforeTheQueueExistedWithEveryGoodStillToResolve() {
+		// Nothing could resolve before E05-S01, so every good is still queued (BACKWARD_COMPATIBILITY.md §7).
+		val older = mapOf("number" to AttributeValue.fromN("3"), "phase" to AttributeValue.fromS("TRADING"))
+
+		val read = TurnItem(older).toTurn()
+
+		assertThat(read.tradingQueue).isEqualTo(MarketGood.everyOnBoard())
+		assertThat(read.resolvedGoods).isEmpty()
 	}
 
 	@Test
