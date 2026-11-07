@@ -11,6 +11,7 @@ import {
 	parseRoute,
 	shipLine,
 	systemLink,
+	tradingLink,
 	turnText,
 	validateTurns,
 } from '../../main/resources/static/js/game.js';
@@ -51,6 +52,13 @@ describe('parseRoute', () => {
 	it('reads the Game log of a game (s04)', () => {
 		assert.deepEqual(parseRoute('#game/g-1/log'), { view: 'log', id: 'g-1' });
 		assert.deepEqual(parseRoute('#game/a%2Fb/log'), { view: 'log', id: 'a/b' });
+	});
+
+	it('reads Trading of a game (s03)', () => {
+		assert.deepEqual(parseRoute('#game/g-1/trading'), { view: 'trading', id: 'g-1' });
+		assert.deepEqual(parseRoute(tradingLink('a/b')), { view: 'trading', id: 'a/b' });
+		assert.equal(tradingLink('a/b'), '#game/a%2Fb/trading');
+		assert.deepEqual(parseRoute('#game/g-1/trading/2'), { view: 'unknown', id: 'g-1' });
 	});
 
 	it('shows the home view only for an empty fragment', () => {

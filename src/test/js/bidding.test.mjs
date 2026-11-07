@@ -77,6 +77,13 @@ describe('phaseText', () => {
 		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', ME], doneJumping: [] };
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is jumping'); // E04-S02 takes over
 	});
+
+	it('counts the resolved goods during Trading (E05-S01, S01-6)', () => {
+		const trading = { ...game({ phase: 'TRADING' }) };
+		trading.turn = { ...trading.turn, initiative: [ME], tradingQueue: [{}, {}], resolvedGoods: [{}] };
+
+		assert.equal(phaseText(trading, ME), 'Turn 4 of 20 · Trading — 1 of 3 resolved');
+	});
 });
 
 describe('doneAcceptedText', () => {
