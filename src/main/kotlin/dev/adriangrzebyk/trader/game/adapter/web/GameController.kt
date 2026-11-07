@@ -364,6 +364,58 @@ class GameController(
 		return GameResponseDto(game, session.email)
 	}
 
+	/**
+	 * The Dictator asked places their one offer for the good resolving (R38, E05-S02-2). `400` for a type or price the
+	 * rules refuse (R03); `409` "Waiting for … (Dictator) to decide." for anyone else, "No Dictator decision is pending."
+	 * when nobody is asked, or outside Trading.
+	 */
+	@PostMapping("/games/{id}/trading/dictator-offer")
+	fun placeDictatorOffer(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: DictatorOfferRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val type = request?.type() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Buy or Sell.")
+		val game = try {
+			tradingService.placeDictatorOffer(id, session.email, type, request.wholePrice())
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidOfferException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** The Dictator asked passes (R38, E05-S02-2); `409` as for the Dictator's offer. */
+	@PostMapping("/games/{id}/trading/dictator-pass")
+	fun passAsDictator(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			tradingService.passAsDictator(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
 	private fun sessionFor(authorization: String?): Session {
 		val token = authorization?.takeIf { it.startsWith(BEARER_PREFIX, ignoreCase = true) }
 			?.substring(BEARER_PREFIX.length)?.trim()

@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
@@ -118,7 +119,9 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * free (R26); empty during Bidding. [jumpedShips] names the ships that jumped this turn and [doneJumping] the players
  * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
  * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
- * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. Offers and bids never go here (R17, R29).
+ * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
+ * now, or the last one resolved, and null before the first. Offers never go here except the disclosed ones of
+ * [resolution] (R17, E05-S02-1), and bids never do (R29).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -130,7 +133,8 @@ data class TurnResponseDto(
 	val doneJumping: List<String>,
 	val landingShip: String?,
 	val tradingQueue: List<MarketGoodResponseDto>,
-	val resolvedGoods: List<MarketGoodResponseDto>
+	val resolvedGoods: List<MarketGoodResponseDto>,
+	val resolution: ResolutionResponseDto?
 ) {
 
 	constructor(turn: Turn) : this(
@@ -143,8 +147,38 @@ data class TurnResponseDto(
 		turn.doneJumping,
 		turn.landingShip,
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
-		turn.resolvedGoods.map { MarketGoodResponseDto(it) }
+		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
+		turn.resolution?.let { ResolutionResponseDto(it) }
 	)
+}
+
+/**
+ * The good resolving now, or the last one resolved (E05-S02). Public: [offers] are disclosed to everyone once the good
+ * starts resolving (S02-1), the Dictator's last if they placed one. [dictator] is the email of the good's Dictator at
+ * that system, or null; [awaitingDictator] is that email while they still decide (R38, D09), else null; [finished] says
+ * whether anything is left to decide.
+ */
+data class ResolutionResponseDto(
+	val good: MarketGoodResponseDto,
+	val offers: List<DisclosedOfferResponseDto>,
+	val dictator: String?,
+	val awaitingDictator: String?,
+	val finished: Boolean
+) {
+
+	constructor(resolution: Resolution) : this(
+		MarketGoodResponseDto(resolution.good),
+		resolution.offers.map { DisclosedOfferResponseDto(it) },
+		resolution.dictator,
+		resolution.awaitingDictator(),
+		resolution.isFinished()
+	)
+}
+
+/** An offer once its good resolves, which every player may see (S02-1): whose, Buy or Sell, and its price. */
+data class DisclosedOfferResponseDto(val playerEmail: String, val type: String, val price: Int) {
+
+	constructor(offer: Offer) : this(offer.playerEmail, offer.type.name, offer.price)
 }
 
 /** One good at one system, as Trading resolves it: [system] and [goods] are the constants, [systemName] for display. */
@@ -258,4 +292,16 @@ data class MarketGoodRequestDto(val system: String? = null, val goods: String? =
 		val goods = Goods.entries.firstOrNull { it.name == goods } ?: return null
 		return MarketGood(system, goods)
 	}
+}
+
+/**
+ * The Dictator's offer (R38). The type's name is checked here, so an unknown one is a `400` with a message; [price] is a
+ * [BigDecimal] so 2.5 reaches the domain's "whole number" message instead of being rounded to 2.
+ */
+data class DictatorOfferRequestDto(val type: String? = null, val price: BigDecimal? = null) {
+
+	fun type(): OfferType? = OfferType.entries.firstOrNull { it.name == type }
+
+	/** The price as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
+	fun wholePrice(): Int? = price?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
