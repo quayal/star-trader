@@ -137,6 +137,16 @@ is public and logged (S04-6), and the trader's money and cargo change (S04-7).
 - Not walked: S04-7's top bar money is the existing `you.money` line, refreshed by the poll (the API showed 170 after
   the trade).
 
+## Review
+
+The `om-auto-review-pr` (autofix) pass found no blockers or majors. It found one nit: a ship carrying more than 10 cargo
+spaces could have had goods removed by `load`. That was fixed in a4fc02c, with a test. It left another nit (`Trade(offer)`
+for the 0-unit trade, required by `trader:functions-in-classes`) and one minor that's a direction question: a 0-unit
+trade is public as "couldn't trade", so others can infer a buyer lacked money or a seller lacked cargo, though the
+reason stays private. The gate passed again at a4fc02c (471 Kotlin, 0 skipped; 179 JS). The verdict wasn't posted as an
+approval: the sandbox refused self-approval, so the findings are a PR comment and the PR stays in `review` for the
+creator.
+
 ## Progress
 
 PR: #91
