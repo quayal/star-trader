@@ -108,7 +108,38 @@ is public and logged (S04-6), and the trader's money and cargo change (S04-7).
   controller tests.
 - An S03 resolution saved mid-game reads with no initiative. It ran to its end, so nothing waits; tested.
 
+## Notes from the run
+
+- **Changed from the plan while building:**
+  - `Trade` takes a secondary constructor `Trade(offer)` for the 0-unit trade, not a `nothingFor` factory:
+    `trader:functions-in-classes` asks for a constructor when a function converts one of our types.
+  - `Resolution.nextTrade` is private again. `awaitingTrade()` is what the rest of the game reads, and the S03-3
+    buyer–seller tie test now reaches it through a partial trade, as S03's run log said it would.
+  - `Game.trade` skips the next traders with the players as they were before the trade. Each player has one offer per
+    good (R33, R38), so the trader who just traded is never the next one.
+  - The design system gains `.message--warn` (amber, `--status-warn`) for S04-4's "the rest will be lost".
+- **Docker was running**, so `GameControllerTest` and the DynamoDB tests ran: 470 Kotlin tests, 0 skipped, plus 179 JS
+  tests.
+- **Browser walk** (agent-browser 0.35.2, two players, own DynamoDB Local on 8100 and app on 3100 with
+  `RESEND_API_KEY=` blank; games set up through the API; cargo and money seeded in DynamoDB, lesson 2026-11-07):
+  - Mu Herculis ISO, market +7: Vega (both ships there, Wayfarer 7/10 used) got the form pre-filled with 12 and the
+    split 3 + 9 into free space. Orion saw "Vega Lines can buy up to 12 u — waiting for their decision." and a disabled
+    Resolve next (S04-1, S01-8).
+  - Amount 13: "Enter a whole number from 1 to 12." under the amount, with focus. 10 split 5 + 5: "Only 8 u fit in the
+    ships you chose; the rest will be lost." (S04-4). Confirmed: money 300 → 170, Wayfarer ISO 3, Lantern ISO 5.
+  - The walk found one bug, fixed in 3e50d82: the amount error stayed after a valid amount was typed.
+  - Orion's sell: the counter allowed 10, but the form offered 6, what Meridian held (R10). "You get your offer price,
+    9 HT each." Sold 4; the good resolved with both trades and "No one else can trade at this market." (S04-6).
+  - Beta Hydri CHIPS, Orion at 5 HT buying at 20: skipped with no click. Orion saw "You couldn't trade. You can't
+    afford any units at 20 HT."; Vega and the log saw only "Orion Freight couldn't trade" (S04-5, R29).
+  - A second game at 390 px: the Deck showed "Your decision is needed: your buy of ISO at Mu Herculis can trade now."
+    with Go to Trading (S01-9). The form fit with no horizontal scroll and listed only the ship at Mu Herculis.
+- Not walked: S04-7's top bar money is the existing `you.money` line, refreshed by the poll (the API showed 170 after
+  the trade).
+
 ## Progress
+
+PR: #91
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
@@ -125,9 +156,9 @@ is public and logged (S04-6), and the trader's money and cargo change (S04-7).
 
 ### Phase 3: Frontend
 
-- [ ] 3.1 trading.js helpers for the amount form
-- [ ] 3.2 s03 amount form
+- [x] 3.1 trading.js helpers for the amount form — 776d643
+- [x] 3.2 s03 amount form — 81e6a4f
 
 ### Phase 4: Verify
 
-- [ ] 4.1 Full gate and browser walk
+- [x] 4.1 Full gate and browser walk — 3e50d82
