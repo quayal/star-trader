@@ -228,7 +228,7 @@ export function tradeForm(game, email) {
 		price: trade.price,
 		max,
 		ships,
-		heading: `Your ${action} at ${trade.price} HT can trade now`,
+		heading: max > 0 ? `Your ${action} at ${trade.price} HT can trade now` : `The market has reached your ${action} at ${trade.price} HT`,
 		amountLabel: `Amount to ${action} (u)`,
 		help: `${trade.type === 'SELL' ? 'You get' : 'You pay'} your offer price, ${trade.price} HT each. Trading more leaves less for others.`,
 		shipsLegend: `Your ships in port at ${good.systemName}`,

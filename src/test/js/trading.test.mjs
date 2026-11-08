@@ -383,6 +383,7 @@ describe('a trader choosing an amount (E05-S04)', () => {
 
 		assert.equal(broke.max, 0);
 		assert.equal(broke.cannot, "You can't afford any units at 20 HT.");
+		assert.equal(broke.heading, 'The market has reached your buy at 20 HT');
 		assert.equal(empty.cannot, "You have no ISO in your ships in port at Mu Herculis, so you can't sell any.");
 		assert.equal(tradeForm(mine(game({ resolution: awaitingMe() })), ME).cannot, '');
 	});

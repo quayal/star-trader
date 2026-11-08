@@ -1507,31 +1507,6 @@
 
 	$('trade-nothing-button').addEventListener('click', () => sendTrade('trade-nothing', null));
 
-		} catch {
-			response = null;
-		}
-		submittingTrade = false;
-		$('trade-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
-		if (gameId !== currentGameId) {
-			return;
-		}
-		if (response?.ok) {
-			render(await response.json());
-			$('resolution-title').focus(); // the form is gone; the heading leads to the trade just made
-			return;
-		}
-		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
-		if (response?.status === 400) {
-			setTradeError({ error: message, field: message.startsWith('Enter a whole number from') ? 'amount' : 0 }).focus();
-			return;
-		}
-		setTradingMessage(message, true, game);
-		$('trading-message').focus();
-		if (response) {
-			repollNow();
-		}
-	});
-
 	function setDictatorPriceError(text) {
 		$('dictator-price-error').textContent = text;
 		if (text) {
