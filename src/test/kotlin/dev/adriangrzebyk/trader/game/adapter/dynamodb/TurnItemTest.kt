@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnOrderPick
 import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -35,12 +36,15 @@ class TurnItemTest {
 		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY)),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
+			6,
 			listOf(offer, Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9)),
 			"kim@example.com",
 			true,
 			-6,
 			listOf(Trade(Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9), 5, 3), Trade(offer, 2, 0)),
-			listOf("grace@example.com", "ada@example.com")
+			listOf("grace@example.com", "ada@example.com"),
+			listOf("ada@example.com", "kim@example.com"),
+			listOf(Wholesale("ada@example.com", OfferType.SELL, 2, 8), Wholesale("kim@example.com", null, 0, 8))
 		)
 	)
 
@@ -52,8 +56,8 @@ class TurnItemTest {
 	@Test
 	fun shouldReadBackAResolutionWithNoDictatorAndOneStillWaitingForTheirs() {
 		val good = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
-		val noDictator = Resolution(good, emptyList(), null, false, null, emptyList(), emptyList())
-		val waiting = Resolution(good, listOf(offer), "kim@example.com", false, null, emptyList(), emptyList())
+		val noDictator = Resolution(good, 6, emptyList(), null, false, null, emptyList(), emptyList(), emptyList(), emptyList())
+		val waiting = Resolution(good, 6, listOf(offer), "kim@example.com", false, null, emptyList(), emptyList(), emptyList(), emptyList())
 		listOf(noDictator, waiting).forEach { resolution ->
 			val withResolution = turn.copy(resolution = resolution)
 			assertThat(TurnItem(TurnItem(withResolution).attributes).toTurn()).isEqualTo(withResolution)
@@ -94,10 +98,13 @@ class TurnItemTest {
 			resolvedGoods = emptyList(),
 			resolution = Resolution(
 				MarketGood(StarSystem.TAU_CETI, Goods.POLY),
+				6,
 				listOf(offer),
 				"kim@example.com",
 				false,
 				null,
+				emptyList(),
+				emptyList(),
 				emptyList(),
 				emptyList()
 			)
@@ -158,7 +165,10 @@ class TurnItemTest {
 						"dictator" to AttributeValue.fromS("kim@example.com"),
 						"dictatorDecided" to AttributeValue.fromBool(false),
 						"trades" to AttributeValue.fromL(emptyList()),
-						"initiative" to AttributeValue.fromL(emptyList())
+						"initiative" to AttributeValue.fromL(emptyList()),
+						"startPrice" to AttributeValue.fromN("6"),
+						"wholesalers" to AttributeValue.fromL(emptyList()),
+						"wholesales" to AttributeValue.fromL(emptyList())
 					)
 				)
 			)
@@ -170,7 +180,14 @@ class TurnItemTest {
 		// An item saved before E05-S02 reads the same way: no resolution waits for anyone (BACKWARD_COMPATIBILITY.md §7).
 		assertThat(TurnItem(turn.copy(resolution = null)).attributes).doesNotContainKey("resolution")
 		assertThat(TurnItem(TurnItem(turn).attributes - "resolution").toTurn().resolution).isNull()
-		val noDictator = Resolution(MarketGood(StarSystem.TAU_CETI, Goods.POLY), emptyList(), null, false, null, emptyList(), emptyList())
+		val noDictator =
+			Resolution(
+				MarketGood(
+					StarSystem.TAU_CETI,
+					Goods.POLY
+				),
+				6, emptyList(), null, false, null, emptyList(), emptyList(), emptyList(), emptyList()
+			)
 		assertThat(TurnItem(turn.copy(resolution = noDictator)).attributes.getValue("resolution").m()).doesNotContainKey("dictator")
 	}
 
@@ -201,11 +218,49 @@ class TurnItemTest {
 	}
 
 	@Test
+	fun shouldStoreTheWholesaleStepUnderTheseAttributeNamesWithNoTypeForAPass() {
+		// E05-S05: the start price, who is asked and their answers
+		val resolution = TurnItem(turn).attributes.getValue("resolution").m()
+
+		assertThat(resolution.getValue("startPrice")).isEqualTo(AttributeValue.fromN("6"))
+		assertThat(resolution.getValue("wholesalers").l().map { it.s() }).containsExactly("ada@example.com", "kim@example.com")
+		val (sold, passed) = resolution.getValue("wholesales").l().map { it.m() }
+		assertThat(sold).isEqualTo(
+			mapOf(
+				"playerEmail" to AttributeValue.fromS("ada@example.com"),
+				"type" to AttributeValue.fromS("SELL"),
+				"units" to AttributeValue.fromN("2"),
+				"price" to AttributeValue.fromN("8")
+			)
+		)
+		assertThat(passed).doesNotContainKey("type")
+	}
+
+	@Test
+	fun shouldReadAResolutionSavedBeforePricesMovedAtTheBoardsStartPriceWithNobodyAskedToTradeWholesale() {
+		// BACKWARD_COMPATIBILITY.md §7: before E05-S05 every price was the board's and nobody was asked; Tau Ceti POLY is 6 HT.
+		val stored = TurnItem(turn).attributes.getValue("resolution").m()
+		val older = TurnItem(
+			TurnItem(turn).attributes + ("resolution" to AttributeValue.fromM(stored - "startPrice" - "wholesalers" - "wholesales"))
+		).toTurn()
+
+		assertThat(older.resolution!!.startPrice).isEqualTo(6)
+		assertThat(older.resolution!!.wholesalers).isEmpty()
+		assertThat(older.resolution!!.wholesales).isEmpty()
+	}
+
+	@Test
 	fun shouldStoreNoCounterBeforeItStartsAndReadAResolutionSavedBeforeTheCounterAsNothingTraded() {
 		// A resolution saved before E05-S03 finished without a counter, so it reads with none and no trades
 		// (BACKWARD_COMPATIBILITY.md §7).
 		val waiting =
-			Resolution(MarketGood(StarSystem.TAU_CETI, Goods.POLY), emptyList(), "kim@example.com", false, null, emptyList(), emptyList())
+			Resolution(
+				MarketGood(
+					StarSystem.TAU_CETI,
+					Goods.POLY
+				),
+				6, emptyList(), "kim@example.com", false, null, emptyList(), emptyList(), emptyList(), emptyList()
+			)
 		assertThat(TurnItem(turn.copy(resolution = waiting)).attributes.getValue("resolution").m()).doesNotContainKey("startingCounter")
 		val stored = TurnItem(turn).attributes.getValue("resolution").m()
 		val older = TurnItem(TurnItem(turn).attributes + ("resolution" to AttributeValue.fromM(stored - "startingCounter" - "trades"))).toTurn()

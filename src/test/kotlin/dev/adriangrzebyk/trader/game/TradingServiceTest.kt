@@ -90,7 +90,7 @@ class TradingServiceTest {
 
 		val passed = service.passAsDictator("game-1", "joiner@example.com")
 
-		assertThat(passed.turn!!.resolution!!.isFinished()).isTrue()
+		assertThat(passed.turn!!.resolution!!.awaitingDictator()).isNull()
 		assertThatThrownBy { service.placeDictatorOffer("game-1", "joiner@example.com", OfferType.BUY, 7) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(passed)
@@ -116,6 +116,28 @@ class TradingServiceTest {
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 		assertThatThrownBy { service.trade("game-1", "joiner@example.com", 5, listOf(ShipLoad("Meridian", 5))) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldStoreTheWholesaleAnswerAndRefuseASecondOne() {
+		// E05-S05, A04: Grace is Wholesaler of POLY at Gamma Leporis, the first good, with no offers on it; nobody can trade,
+		// so the price moves and she's asked. A second press finds nobody asked.
+		val wholesaler = joiner.copy(marketPositions = listOf(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER)))
+		val withWholesaler = Game.lobby("game-1", 20, creator).addPlayer(wholesaler)
+			.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+			.advancePhase(FakeDice(2, 1))
+			.pickTurnOrderPlace("creator@example.com", 1)
+			.finishJumping("creator@example.com")
+			.finishJumping("joiner@example.com")
+		gameStore.create(withWholesaler)
+		assertThat(service.resolveNext("game-1", "creator@example.com").turn!!.wholesalerToDecide()).isEqualTo("joiner@example.com")
+
+		val game = service.wholesale("game-1", "joiner@example.com", OfferType.BUY, 2, listOf(ShipLoad("Meridian", 2)))
+
+		assertThat(game.turn!!.resolution!!.wholesales.single().units).isEqualTo(2)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+		assertThatThrownBy { service.passWholesale("game-1", "joiner@example.com") }.isInstanceOf(InvalidGameOperationException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}
 }

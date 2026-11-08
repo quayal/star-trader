@@ -16,6 +16,19 @@ class SupplyDemandTest {
 		assertThat(SupplyDemand(indicator).priceModifier()).isEqualTo(priceModifier)
 	}
 
+	@ParameterizedTest
+	@CsvSource(
+		"4, -1",
+		"-9, 4",
+		"18, -6",
+		"25, -6",
+		"-18, 7",
+		"-30, 7"
+	)
+	fun `a final counter moves the price by its modifier, saturating beyond the table (R35, R15)`(counter: Int, priceModifier: Int) {
+		assertThat(SupplyDemand.priceModifierAt(counter)).isEqualTo(priceModifier)
+	}
+
 	@Test
 	fun `an indicator off the table has no price modifier`() {
 		assertThat(SupplyDemand(19).priceModifier()).isNull()

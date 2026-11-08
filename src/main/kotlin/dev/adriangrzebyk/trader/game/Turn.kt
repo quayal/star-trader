@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.OfferType
+
 /**
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).
  * [doneBidding] lists, in signal order, the players who have signalled done during this turn's Bidding;
@@ -214,17 +216,22 @@ data class Turn(
 	}
 
 	/**
-	 * This turn after the next good started resolving (R25, S01-4): its offers are disclosed (E05-S02-1) and [dictator],
-	 * that good's Dictator at that system if it has one, is asked before the roll (S02-2). With no Dictator the counter
-	 * starts at once with a roll from [dice] (S02-4, E05-S03-1). Refused while the last good is still resolving.
+	 * This turn after the next good started resolving (R25, S01-4) at its price in [prices] (R34): its offers are
+	 * disclosed (E05-S02-1) and [dictator], that good's Dictator at that system if it has one, is asked before the roll
+	 * (S02-2). With no Dictator the counter starts at once with a roll from [dice] (S02-4, E05-S03-1). [wholesalers] are
+	 * the good's Wholesalers there, asked after the price changes if they have no offer for it (R37). Refused while the
+	 * last good is still resolving.
 	 */
-	fun resolveNext(dictator: String?, dice: Dice): Turn {
+	fun resolveNext(dictator: String?, wholesalers: List<String>, prices: MarketPrices, dice: Dice): Turn {
 		requireTrading()
 		if (resolution?.isFinished() == false) {
 			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
 		}
 		val good = nextGood()
-		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator, initiative), dice)
+		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(
+			Resolution.start(good, prices.priceOf(good), offers, dictator, wholesalers, initiative),
+			dice
+		)
 	}
 
 	/**
@@ -256,6 +263,18 @@ data class Turn(
 
 	/** This turn after the awaited trade's player traded [units] (E05-S04); once nothing is left, its good counts as resolved. */
 	fun recordTrade(units: Int): Turn = withResolution(resolutionNow().withTrade(units))
+
+	/**
+	 * Whom the wholesale step waits for to trade or pass (R37, S05-4), refused when nobody is asked. Checking that it's the
+	 * caller is the caller's, which knows the players' names.
+	 */
+	fun wholesalerToDecide(): String {
+		requireTrading()
+		return resolution?.awaitingWholesaler() ?: throw InvalidGameOperationException("No wholesale decision is pending.")
+	}
+
+	/** This turn after the wholesaler asked traded [units] of [type], or passed (S05-4); after the last, its good counts as resolved. */
+	fun recordWholesale(type: OfferType?, units: Int): Turn = withResolution(resolutionNow().withWholesale(type, units))
 
 	private fun resolutionNow(): Resolution {
 		requireTrading()

@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.MarketPosition
+import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
@@ -173,7 +174,7 @@ class GameControllerTest {
 	fun shouldRejectJoiningAGameThatHasStarted() {
 		// Nothing can start a game through the API until E02-S05, so this one is stored already running.
 		val host = Player.newcomer("started-host@example.com", "Host", "Host Corp")
-		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, emptyList()))
+		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, MarketPrices.board(), emptyList()))
 
 		joinGame(signIn("late@example.com"), "started-game")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)

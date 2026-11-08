@@ -6,8 +6,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 /** One good at one system: what a Trading resolution is about (R25, R36). Public, like the board. */
 data class MarketGood(val system: StarSystem, val goods: Goods) {
 
-	/** Its price when it starts resolving (R34). Prices don't change in a game yet (E05-S05), so it's the board's. */
-	fun startPrice(): Int = system.getPrice(goods)
+	/** Its price on the board: where every game starts (R35 then moves it, game by game, in [MarketPrices]). */
+	fun boardPrice(): Int = system.getPrice(goods)
 
 	/** Its S/D indicator, which never changes (R35): the counter starts from it (R34). */
 	fun supplyDemand(): Int = system.getIndicator(goods)

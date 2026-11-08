@@ -46,6 +46,14 @@ data class Player(
 	 */
 	fun trade(offer: Offer, counterMax: Int, amount: Int?, loads: List<ShipLoad>): Player {
 		val max = tradeMax(offer, counterMax)
+		if (max == 0) {
+			throw InvalidTradeException(
+				when (offer.type) {
+					OfferType.BUY -> "You can't afford any units at ${offer.price} HT."
+					OfferType.SELL -> "You have no ${offer.goods.name} in your ships in port at ${offer.system.displayName}, so you can't sell any."
+				}
+			)
+		}
 		if (amount == null || amount !in 1..max) {
 			throw InvalidTradeException("Enter a whole number from 1 to $max.")
 		}
@@ -122,6 +130,10 @@ data class Player(
 	 * offer (R03). Being the Dictator asked is checked by the resolution, which asked them.
 	 */
 	fun dictatorOffer(good: MarketGood, type: OfferType, price: Int?): Offer = Offer.place(email, good.system, good.goods, type, price)
+
+	/** Whether this player is Wholesaler of [good] at its system (R28, R37). */
+	fun isWholesalerOf(good: MarketGood): Boolean =
+		marketPositions.any { it.system == good.system && it.goods == good.goods && it.tier == MarketTier.WHOLESALER }
 
 	/** Whether this player is Dictator of [goods] at [system] (R28, R38). */
 	fun isDictatorOf(system: StarSystem, goods: Goods): Boolean =

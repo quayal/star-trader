@@ -3,15 +3,19 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.LogEntry
+import dev.adriangrzebyk.trader.game.MarketGood
+import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 // A story that adds data to Game extends this round trip in the same PR (engineering standards §12).
 class GameItemTest {
@@ -61,6 +65,7 @@ class GameItemTest {
 			resolvedGoods = emptyList(),
 			resolution = null
 		),
+		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(
 			LogEntry(1, "Game started: 2 players, 20 turns"),
 			LogEntry(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
@@ -84,10 +89,24 @@ class GameItemTest {
 	}
 
 	@Test
+	fun shouldStoreEachPriceUnderItsGoodAndReadAGameSavedBeforePricesMovedAtTheBoardsPrices() {
+		// E05-S05, R35: a game saved before then never moved a price (BACKWARD_COMPATIBILITY.md §7).
+		val item = GameItem(startedGame, version = 0).attributes
+		val muHerculisIso = item.getValue("prices").l().map { it.m() }.single {
+			it.getValue("system").s() == "MU_HERCULIS" &&
+				it.getValue("goods").s() == "ISO"
+		}
+
+		assertThat(muHerculisIso.keys).containsExactlyInAnyOrder("system", "goods", "price")
+		assertThat(muHerculisIso.getValue("price")).isEqualTo(AttributeValue.fromN("10"))
+		assertThat(GameItem(item - "prices").toGame().prices).isEqualTo(MarketPrices.board())
+	}
+
+	@Test
 	fun shouldStoreTheGameAsNativeAttributesWithNestedMapsAndLists() {
 		val item = GameItem(startedGame, version = 0).attributes
 
-		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "log", "version")
+		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "log", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
 		assertThat(item.getValue("log").l()).isEqualTo(startedGame.log.map { LogEntryItem(it).attribute })

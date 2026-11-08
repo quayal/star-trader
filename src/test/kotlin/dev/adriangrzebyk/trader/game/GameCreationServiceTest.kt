@@ -14,7 +14,9 @@ class GameCreationServiceTest {
 	fun shouldCreateAGameInTheLobbyWithTheCreatorAsItsOnlyPlayer() {
 		val game = service.createGame(creator, 20)
 
-		assertThat(game).isEqualTo(Game("game-1", 20, GameStatus.LOBBY, "creator@example.com", listOf(creator), null, emptyList()))
+		assertThat(
+			game
+		).isEqualTo(Game("game-1", 20, GameStatus.LOBBY, "creator@example.com", listOf(creator), null, MarketPrices.board(), emptyList()))
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}
 

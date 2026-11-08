@@ -122,11 +122,14 @@ class GameResponseDtoTest {
 		val orion = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 10)
 		val resolution = Resolution(
 			MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
+			11,
 			listOf(vega, orion),
 			null,
 			false,
 			3,
 			listOf(Trade(vega, 4, 4), Trade(orion, 5, 0)),
+			emptyList(),
+			emptyList(),
 			emptyList()
 		)
 
@@ -143,7 +146,13 @@ class GameResponseDtoTest {
 	// E05-S04: Grace (guest) buys ISO at 11 at Mu Herculis; the counter is at 3, so up to 4 u, and the game waits for her.
 	private val gracesBuy = Offer("guest@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
 	private val awaitingGrace =
-		Resolution(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), listOf(gracesBuy), null, false, 3, emptyList(), emptyList())
+		Resolution(
+			MarketGood(
+				StarSystem.MU_HERCULIS,
+				Goods.ISO
+			),
+			11, listOf(gracesBuy), null, false, 3, emptyList(), emptyList(), emptyList(), emptyList()
+		)
 
 	@Test
 	fun shouldTellEveryoneWhoTheGameWaitsForAndWhatTheMarketAllows() {
