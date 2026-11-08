@@ -16,7 +16,10 @@ data class Ship(val name: String, val system: StarSystem, val location: ShipLoca
 	fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
 	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
-	fun unitsThatFit(goods: Goods, units: Int): Int = if (goods.takesCargoSpace) minOf(units, CARGO_SPACES - cargoSpacesUsed()) else units
+	fun unitsThatFit(goods: Goods, units: Int): Int = if (goods.takesCargoSpace) minOf(units, freeCargoSpaces()) else units
+
+	/** Free cargo spaces (R42), never below 0, even for a ship that somehow carries more than it holds. */
+	private fun freeCargoSpaces(): Int = (CARGO_SPACES - cargoSpacesUsed()).coerceAtLeast(0)
 
 	/** This ship after loading [units] of [goods] it bought: what fits ([unitsThatFit]); the rest is lost (R16, R42). */
 	fun load(goods: Goods, units: Int): Ship = withCargo(goods, holding(goods) + unitsThatFit(goods, units))

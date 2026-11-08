@@ -94,4 +94,12 @@ class ShipTest {
 			.isInstanceOf(InvalidTradeException::class.java)
 			.hasMessage("Wayfarer has only 2 ISO.")
 	}
+
+	@Test
+	fun shouldFitNothingInAnOverfullShip() {
+		val overfull = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 12))
+
+		assertThat(overfull.unitsThatFit(Goods.ISO, 3)).isZero()
+		assertThat(overfull.load(Goods.ISO, 3).holding(Goods.ISO)).isZero()
+	}
 }
