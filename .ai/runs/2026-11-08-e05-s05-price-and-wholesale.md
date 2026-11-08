@@ -144,7 +144,22 @@ capped by money and cargo, or pass (S05-4, S05-6). Wholesale trades don't move t
     by hash, the button below the fold) worked the first time, as did every other click, so it wasn't reproduced. I
     put it down to clicking while the view was switching, not to the form.
 
+## Review
+
+The `om-auto-review-pr` (autofix) pass found two majors and one nit. Both majors were fixed in bd1730b:
+
+- `Turn.resolveNext` took another part, `MarketPrices`, and looked the price up itself (CODE_REVIEW.md §8). `Game`,
+  which already finds the good, now passes the start price.
+- The wholesale endpoints had no outsider (403), missing-game (404), no-session (401) or before-Trading tests. They're
+  now in `shouldRefuseATradeOutsideTradingOrFromOutsiders`.
+
+The nit was the shape of the "waiting for the wholesaler" check in `Game.resolveNextGood`; I left it as it is. The gate
+passed again at bd1730b: 501 Kotlin tests (0 skipped) and 187 JS tests. The verdict is a PR comment rather than a
+review, because GitHub doesn't accept a review on one's own PR.
+
 ## Progress
+
+PR: #92
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
