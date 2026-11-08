@@ -120,23 +120,58 @@ class GameResponseDtoTest {
 		// E05-S03: public, like the disclosed offers
 		val vega = Offer("vega@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
 		val orion = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 10)
-		val resolution =
-			Resolution(
-				MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
-				listOf(vega, orion),
-				null,
-				false,
-				3,
-				listOf(Trade(vega, 4), Trade(orion, 5)),
-				emptyList()
-			)
+		val resolution = Resolution(
+			MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
+			listOf(vega, orion),
+			null,
+			false,
+			3,
+			listOf(Trade(vega, 4), Trade(orion, 5)),
+			emptyList()
+		)
 
-		val dto = ResolutionResponseDto(resolution)
+		val dto = ResolutionResponseDto(resolution, "kim@example.com")
 
 		assertThat(dto.startingCounter).isEqualTo(3)
 		assertThat(dto.trades).containsExactly(
-			TradeResponseDto("vega@example.com", "BUY", 11, 4),
-			TradeResponseDto("orion@example.com", "SELL", 10, 5)
+			TradeResponseDto("vega@example.com", "BUY", 11, 4, null),
+			TradeResponseDto("orion@example.com", "SELL", 10, 5, null)
 		)
+		assertThat(dto.awaitingTrade).isNull()
+	}
+
+	// E05-S04: Grace (guest) buys ISO at 11 at Mu Herculis; the counter is at 3, so up to 4 u, and the game waits for her.
+	private val gracesBuy = Offer("guest@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
+	private val awaitingGrace =
+		Resolution(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), listOf(gracesBuy), null, false, 3, emptyList(), emptyList())
+
+	@Test
+	fun shouldTellEveryoneWhoTheGameWaitsForAndTheCountersMax() {
+		// S01-8, D09
+		assertThat(ResolutionResponseDto(awaitingGrace, "host@example.com").awaitingTrade)
+			.isEqualTo(AwaitingTradeResponseDto("guest@example.com", "BUY", 11, 4))
+	}
+
+	@Test
+	fun shouldSendTheTradersOwnMaxOnlyToThem() {
+		// S04-1, S04-2, R29: Grace has 30 HT, so 2 u at 11 HT; her max depends on her money, so nobody else sees it.
+		val game = started.copy(
+			players = started.players.map { if (it.email == "guest@example.com") it.pay(270) else it },
+			turn = started.turn!!.copy(resolution = awaitingGrace)
+		)
+
+		assertThat(GameResponseDto(game, "guest@example.com").you!!.tradeMax).isEqualTo(2)
+		assertThat(GameResponseDto(game, "host@example.com").you!!.tradeMax).isNull()
+		assertThat(GameResponseDto(started, "guest@example.com").you!!.tradeMax).isNull()
+	}
+
+	@Test
+	fun shouldTellOnlyTheTraderWhyTheyCouldTradeNothing() {
+		// S04-5, R29: the reason tells something about her money
+		val skipped = awaitingGrace.withTrade(Trade(gracesBuy))
+
+		assertThat(ResolutionResponseDto(skipped, "guest@example.com").trades.single())
+			.isEqualTo(TradeResponseDto("guest@example.com", "BUY", 11, 0, "You can't afford any units at 11 HT"))
+		assertThat(ResolutionResponseDto(skipped, "host@example.com").trades.single().reason).isNull()
 	}
 }

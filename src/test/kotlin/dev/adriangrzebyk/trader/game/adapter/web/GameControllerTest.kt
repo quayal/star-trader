@@ -85,7 +85,7 @@ class GameControllerTest {
 		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null))
 	}
 
 	@Test
@@ -940,7 +940,7 @@ class GameControllerTest {
 		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
 		assertThat(asking.turn!!.resolution).isEqualTo(
 			// R38: no roll while the Dictator decides
-			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false, null, emptyList())
+			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false, null, emptyList(), null)
 		)
 		assertThat(asking.turn!!.resolvedGoods).isEmpty()
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.resolution)
@@ -965,28 +965,76 @@ class GameControllerTest {
 		// S02-3: the Dictator's offer is disclosed like the others, and the good has resolved.
 		val offered = dictatorOffer(joinerToken, gameId, """{"type": "SELL", "price": 9}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		// E05-S03: then the counter starts, at S/D +1 plus 2d6. Both offers saturate (R15, targets -18), so the buy takes
-		// everything the counter allows and the sell can't trade.
+		// E05-S03: then the counter starts, at S/D +1 plus 2d6. Both offers saturate (R15, targets -18), so the host's buy
+		// may take everything the counter allows, and E05-S04: the game waits for the host to choose.
 		val resolution = offered.turn!!.resolution!!
 		val counter = resolution.startingCounter!!
 		assertThat(counter).isBetween(3, 13)
+		val offers = listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9))
 		assertThat(resolution).isEqualTo(
-			ResolutionResponseDto(
-				good,
-				listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9)),
-				guest,
-				null,
-				true,
-				counter,
-				listOf(TradeResponseDto(host, "BUY", 11, counter + 18))
-			)
+			ResolutionResponseDto(good, offers, guest, null, false, counter, emptyList(), AwaitingTradeResponseDto(host, "BUY", 11, counter + 18))
 		)
-		assertThat(offered.turn!!.resolvedGoods).containsExactly(good)
+		assertThat(offered.turn!!.resolvedGoods).isEmpty()
 		assertThat(offered.log.map { it.text }).contains("Grace Freight (Dictator) offers to sell at 9 HT")
 		passAsDictator(joinerToken, gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No Dictator decision is pending.")
+
+		// S04-1, S04-2, R29: only the host sees their own max, capped by 300 HT at 11 HT each (27 u).
+		assertThat(offered.you!!.tradeMax).isNull()
+		val hostView = pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val max = minOf(counter + 18, 27)
+		assertThat(hostView.you!!.tradeMax).isEqualTo(max)
+		val waiting = "Adrian Star Traders can buy up to ${counter + 18} u — waiting for their decision."
+		resolveNext("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(waiting)
+		trade(
+			joinerToken,
+			gameId,
+			"""{"amount": 1}"""
+		).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(waiting)
+		listOf("""{"amount": 0}""", """{"amount": 2.5}""", """{"amount": ${max + 1}}""", "{}").forEach { body ->
+			trade(creatorToken, gameId, body)
+				.expectStatus().isBadRequest
+				.expectBody(String::class.java).isEqualTo("Enter a whole number from 1 to $max.")
+		}
+		trade(creatorToken, gameId, """{"amount": 1, "ships": [{"name": "Wayfarer", "units": 0.5}]}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 0 or more, for each ship.")
+
+		// S04-3, S04-6, S04-7: the host buys 1 u into a ship of theirs there, if any (else it's lost, S04-4).
+		val shipHere = hostView.players.first { it.email == host }.ships.firstOrNull { it.system == "GAMMA_LEPORIS" }
+		val ships = shipHere?.let { """[{"name": "${it.name}", "units": 1}]""" } ?: "[]"
+		val traded = trade(creatorToken, gameId, """{"amount": 1, "ships": $ships}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(traded.you!!.money).isEqualTo(289)
+		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
+		// The guest's sell (target -18) still can't trade, so the good has resolved.
+		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, 1, null))
+		assertThat(traded.turn!!.resolution!!.finished).isTrue()
+		assertThat(traded.turn!!.resolvedGoods).containsExactly(good)
+		assertThat(traded.log.map { it.text }).contains("Adrian Star Traders bought 1 u at 11 HT each")
+		trade(creatorToken, gameId, """{"amount": 1, "ships": $ships}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("No trade is waiting for a decision.")
 		resolveNext("token-$first", gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldRefuseATradeOutsideTradingOrFromOutsiders() {
+		val (first, _, gameId) = orderedGame("trade-refused")
+
+		trade("token-$first", gameId, """{"amount": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		trade(signIn("trade-refused-stranger@example.com"), gameId, """{"amount": 1}""").expectStatus().isForbidden
+		trade(signIn("trade-refused-lost@example.com"), "missing-game", """{"amount": 1}""").expectStatus().isNotFound
+		trade(null, gameId, """{"amount": 1}""").expectStatus().isUnauthorized
+	}
+
+	private fun trade(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/trade", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	@Test
