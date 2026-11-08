@@ -115,14 +115,14 @@ capped by money and cargo, or pass (S05-4, S05-6). Wholesale trades don't move t
 
 ### Phase 1: Domain
 
-- [ ] 1.1 Game prices, the resolution's start price and new price
-- [ ] 1.2 Resolution asks the wholesalers
-- [ ] 1.3 Game, Turn, Player and TradingService apply the price and take wholesale decisions
+- [x] 1.1 Game prices, the resolution's start price and new price — ffff03d
+- [x] 1.2 Resolution asks the wholesalers — ffff03d
+- [x] 1.3 Game, Turn, Player and TradingService apply the price and take wholesale decisions — ffff03d
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 Persistence of prices and the wholesale step
-- [ ] 2.2 Web: wholesale endpoints, the board's prices and the wholesale step in the game shape
+- [x] 2.1 Persistence of prices and the wholesale step — ffff03d (landed with Phase 1: the new fields don't compile without it)
+- [x] 2.2 Web: wholesale endpoints, the board's prices and the wholesale step in the game shape — fd845f8
 
 ### Phase 3: Frontend
 
