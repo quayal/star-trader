@@ -237,6 +237,7 @@
 		.trade-ships { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); min-width: 0; }
 		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
 		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
+		.trade-ships legend { padding: 0; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
 		@media (max-width: 900px) {
@@ -1430,8 +1431,15 @@
 		return target;
 	}
 
-	$('trade-amount').addEventListener('input', fillDefaultSplit);
-	$('trade-ship-rows').addEventListener('input', updateTradeWarning);
+	// Typing again clears a shown error: it was about what was there before.
+	$('trade-amount').addEventListener('input', () => {
+		setTradeError(null);
+		fillDefaultSplit();
+	});
+	$('trade-ship-rows').addEventListener('input', () => {
+		setTradeError(null);
+		updateTradeWarning();
+	});
 
 	/** S04-1: the amount and split are checked here first, then by the server; the answer redraws Trading. */
 	$('trade-form').addEventListener('submit', async (event) => {
