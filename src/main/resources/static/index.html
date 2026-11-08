@@ -232,6 +232,12 @@
 		.counter-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-related); }
 		.dictator-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
 		.dictator-actions { display: flex; gap: var(--space-related); align-items: center; flex-wrap: wrap; }
+		/* E05-S04: the trader's amount and, per ship there, how many units it loads or unloads. */
+		.trade-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
+		.trade-ships { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); min-width: 0; }
+		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
+		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
+		.offer-form .trade-ship .price-input { max-width: 96px; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
 		@media (max-width: 900px) {
 			.trading__body { grid-template-columns: minmax(0, 1fr); }
@@ -558,6 +564,26 @@
 							<button class="text-action" id="dictator-pass-button" type="button">Pass</button>
 						</div>
 					</form>
+					<!-- E05-S04: for the trader the counter reached; static markup, so what was typed survives the poll. -->
+					<form class="offer-form trade-form" id="trade-form" novalidate hidden>
+						<h3 id="trade-heading"></h3>
+						<div>
+							<label class="field-label" for="trade-amount" id="trade-amount-label"></label>
+							<input class="control price-input" id="trade-amount" inputmode="numeric" aria-describedby="trade-help trade-amount-error">
+							<p class="message muted" id="trade-help"></p>
+							<p class="message message--error field-error" id="trade-amount-error"></p>
+						</div>
+						<fieldset class="trade-ships">
+							<legend class="field-label" id="trade-ships-legend"></legend>
+							<div class="trade-ships" id="trade-ship-rows"></div>
+							<p class="muted" id="trade-no-ship"></p>
+							<p class="message message--error field-error" id="trade-ships-error"></p>
+						</fieldset>
+						<p class="message message--warn" id="trade-warning" role="status"></p>
+						<div class="dictator-actions">
+							<button class="btn" id="trade-button" type="submit">Confirm</button>
+						</div>
+					</form>
 				</section>
 				</div>
 				<section class="panel queue-panel" id="queue-panel" aria-labelledby="queue-title" hidden>
@@ -659,6 +685,8 @@
 		awaitingDictator,
 		counterLines,
 		decisionText,
+		defaultSplit,
+		lossWarning,
 		dictatorFormKey,
 		dictatorLine,
 		dictatorQuestion,
@@ -673,7 +701,9 @@
 		resolutionTitle,
 		resolver,
 		sameOrder,
+		tradeForm,
 		tradingJustStarted,
+		validateTrade,
 		waitingText,
 	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
@@ -1291,7 +1321,7 @@
 
 	/**
 	 * E05-S02: the good resolving or last resolved, its disclosed offers, the Dictator's line and, for them, the form.
-	 * E05-S03: then how the market traded.
+	 * E05-S03: then how the market traded. E05-S04: for the trader the counter reached, the amount form.
 	 */
 	function renderResolution(game) {
 		const title = resolutionTitle(game);
@@ -1313,7 +1343,7 @@
 				element('td', {}, element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`))));
 		}
 		$('resolution-dictator').textContent = dictatorLine(game);
-		const lines = counterLines(game);
+		const lines = counterLines(game, session.email);
 		$('resolution-counter-title').hidden = lines.length === 0;
 		$('resolution-counter').hidden = lines.length === 0;
 		const linesKey = JSON.stringify(lines);
@@ -1334,7 +1364,118 @@
 		$('dictator-help').textContent = DICTATOR_HELP;
 		$('dictator-offer-button').disabled = deciding;
 		$('dictator-pass-button').disabled = deciding;
+		renderTradeForm(game);
 	}
+
+	// E05-S04: the amount form as last set up (tradeForm), so a poll keeps what was typed, and a new trade (good, game or
+	// turn) starts afresh with the max and the default split (lesson 2026-11-04).
+	let shownTrade = null;
+	let submittingTrade = false;
+
+	function renderTradeForm(game) {
+		const form = tradeForm(game, session.email);
+		$('trade-form').hidden = form === null;
+		if (form === null) {
+			shownTrade = null;
+			return;
+		}
+		if (form.key !== shownTrade?.key || JSON.stringify(form.ships) !== JSON.stringify(shownTrade.ships)) {
+			shownTrade = form;
+			$('trade-heading').textContent = form.heading;
+			$('trade-amount-label').textContent = form.amountLabel;
+			$('trade-help').textContent = form.help;
+			$('trade-ships-legend').textContent = form.shipsLegend;
+			$('trade-no-ship').textContent = form.noShip;
+			$('trade-ship-rows').replaceChildren(...form.ships.map((ship, index) => element('div', { class: 'trade-ship' },
+				element('label', { for: `trade-ship-${index}` }, ship.label),
+				element('input', { class: 'control price-input', id: `trade-ship-${index}`, inputmode: 'numeric', 'aria-describedby': 'trade-ships-error' }))));
+			$('trade-ship-rows').hidden = form.ships.length === 0;
+			setTradeError(null);
+			$('trade-amount').value = String(form.max); // S04-1: pre-filled with the max
+			fillDefaultSplit();
+		}
+		$('trade-button').disabled = submittingTrade;
+	}
+
+	function shipInputs() {
+		return [...$('trade-ship-rows').querySelectorAll('input')];
+	}
+
+	/** S04-3: the split follows the amount until the player changes a ship's units; S04-4: the warning follows both. */
+	function fillDefaultSplit() {
+		const amount = Number($('trade-amount').value.trim());
+		if (Number.isInteger(amount) && amount > 0) {
+			defaultSplit(shownTrade, amount).forEach((units, index) => { shipInputs()[index].value = String(units); });
+		}
+		updateTradeWarning();
+	}
+
+	function updateTradeWarning() {
+		const amount = Number($('trade-amount').value.trim());
+		const split = shipInputs().map(input => Number(input.value.trim()) || 0);
+		const text = Number.isInteger(amount) && amount > 0 ? lossWarning(shownTrade, amount, split) : '';
+		if ($('trade-warning').textContent !== text) {
+			$('trade-warning').textContent = text;
+		}
+	}
+
+	/** One error at a time, under the amount (field 'amount') or the ships (a ship's index), with that input marked. */
+	function setTradeError(checked) {
+		const onAmount = checked?.field === 'amount';
+		$('trade-amount-error').textContent = onAmount ? checked.error : '';
+		$('trade-ships-error').textContent = checked && !onAmount ? checked.error : '';
+		[$('trade-amount'), ...shipInputs()].forEach(input => input.removeAttribute('aria-invalid'));
+		const target = onAmount ? $('trade-amount') : checked ? shipInputs()[checked.field] ?? $('trade-amount') : null;
+		target?.setAttribute('aria-invalid', 'true');
+		return target;
+	}
+
+	$('trade-amount').addEventListener('input', fillDefaultSplit);
+	$('trade-ship-rows').addEventListener('input', updateTradeWarning);
+
+	/** S04-1: the amount and split are checked here first, then by the server; the answer redraws Trading. */
+	$('trade-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const checked = validateTrade(shownTrade, $('trade-amount').value, shipInputs().map(input => input.value));
+		const target = setTradeError(checked.error ? checked : null);
+		if (checked.error) {
+			target.focus();
+			return;
+		}
+		const gameId = currentGameId;
+		const game = lastGame;
+		submittingTrade = true;
+		$('trade-button').disabled = true;
+		setTradingMessage('', false, game);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/trading/trade`, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked.body),
+			});
+		} catch {
+			response = null;
+		}
+		submittingTrade = false;
+		$('trade-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			render(await response.json());
+			$('resolution-title').focus(); // the form is gone; the heading leads to the trade just made
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setTradeError({ error: message, field: message.startsWith('Enter a whole number from') ? 'amount' : 0 }).focus();
+			return;
+		}
+		setTradingMessage(message, true, game);
+		$('trading-message').focus();
+		if (response) {
+			repollNow();
+		}
+	});
 
 	function setDictatorPriceError(text) {
 		$('dictator-price-error').textContent = text;
