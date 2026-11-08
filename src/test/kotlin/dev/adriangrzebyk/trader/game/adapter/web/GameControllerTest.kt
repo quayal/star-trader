@@ -86,7 +86,7 @@ class GameControllerTest {
 		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null))
 	}
 
 	@Test
@@ -876,11 +876,12 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(resolved.turn!!.resolvedGoods).containsExactly(reversed.first())
 		assertThat(resolved.turn!!.tradingQueue).isEqualTo(reversed.drop(1))
-		// S03-7: with no offers, whatever the roll, nobody can trade.
-		assertThat(resolved.log.takeLast(4).map { it.text }).startsWith(
+		// S03-7: with no offers, whatever the roll, nobody can trade. E05-S05-2: the price still moves, from 8 HT.
+		assertThat(resolved.log.takeLast(5).map { it.text }).startsWith(
 			"Resolving: Sigma Draconis POLY (chosen by $firstCorporation)",
 			"No offers for Sigma Draconis POLY"
-		).endsWith("No one can trade at Sigma Draconis POLY")
+		).contains("No one can trade at Sigma Draconis POLY")
+		assertThat(resolved.log.last().text).matches("POLY price at Sigma Draconis: 8 → \\d+ HT")
 
 		// A04: the old order still names the good that just resolved, so it's stale.
 		reorderQueue("token-$first", gameId, body)
@@ -941,7 +942,21 @@ class GameControllerTest {
 		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
 		assertThat(asking.turn!!.resolution).isEqualTo(
 			// R38: no roll while the Dictator decides
-			ResolutionResponseDto(good, listOf(DisclosedOfferResponseDto(host, "BUY", 11)), guest, guest, false, null, emptyList(), null)
+			ResolutionResponseDto(
+				good,
+				listOf(DisclosedOfferResponseDto(host, "BUY", 11)),
+				guest,
+				guest,
+				false,
+				null,
+				emptyList(),
+				null,
+				2,
+				null,
+				listOf(guest),
+				null,
+				emptyList()
+			)
 		)
 		assertThat(asking.turn!!.resolvedGoods).isEmpty()
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.resolution)
@@ -973,7 +988,21 @@ class GameControllerTest {
 		assertThat(counter).isBetween(3, 13)
 		val offers = listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9))
 		assertThat(resolution).isEqualTo(
-			ResolutionResponseDto(good, offers, guest, null, false, counter, emptyList(), AwaitingTradeResponseDto(host, "BUY", 11, counter + 18))
+			ResolutionResponseDto(
+				good,
+				offers,
+				guest,
+				null,
+				false,
+				counter,
+				emptyList(),
+				AwaitingTradeResponseDto(host, "BUY", 11, counter + 18),
+				2,
+				null,
+				listOf(guest),
+				null,
+				emptyList()
+			)
 		)
 		assertThat(offered.turn!!.resolvedGoods).isEmpty()
 		assertThat(offered.log.map { it.text }).contains("Grace Freight (Dictator) offers to sell at 9 HT")
@@ -1015,18 +1044,53 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(traded.you!!.money).isEqualTo(289)
 		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
-		// The guest's sell (target -18) still can't trade, so the good has resolved.
+		// The guest's sell (target -18) still can't trade, so trading is over: the price moves (E05-S05-1) and the guest,
+		// as Dictator, is asked to trade wholesale (R37).
 		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1))
-		assertThat(traded.turn!!.resolution!!.finished).isTrue()
-		assertThat(traded.turn!!.resolvedGoods).containsExactly(good)
+		val newPrice = traded.turn!!.resolution!!.newPrice!!
+		assertThat(traded.turn!!.resolution!!.awaitingWholesaler).isEqualTo(guest)
+		assertThat(traded.turn!!.resolution!!.finished).isFalse()
+		assertThat(traded.turn!!.resolvedGoods).isEmpty()
+		assertThat(traded.board.single { it.id == "GAMMA_LEPORIS" }.market.single().price).isEqualTo(newPrice)
 		assertThat(
 			traded.log.map {
 				it.text
 			}
-		).contains("Adrian Star Traders could buy up to ${counter + 18} u: bought 1 u at 11 HT each, paid 11 HT")
+		).contains(
+			"Adrian Star Traders could buy up to ${counter + 18} u: bought 1 u at 11 HT each, paid 11 HT",
+			"POLY price at Gamma Leporis: 2 → $newPrice HT"
+		)
 		trade(creatorToken, gameId, """{"amount": 1, "ships": $ships}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No trade is waiting for a decision.")
+
+		// E05-S05-4, R29: only the guest gets their own wholesale max; only they may answer; the host waits.
+		val wholesaleWait = "Waiting for Grace Freight (Dictator) to trade up to 5 u at $newPrice HT, or pass."
+		assertThat(traded.you!!.wholesaleMax).isNull()
+		val guestView = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(guestView.you!!.wholesaleMax).isEqualTo(WholesaleMaxResponseDto(minOf(5, 300 / newPrice), 0))
+		resolveNext("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(wholesaleWait)
+		passWholesale(creatorToken, gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(wholesaleWait)
+		listOf("""{"type": "SWAP", "amount": 1}""", """{"amount": 1}""").forEach { body ->
+			wholesale(joinerToken, gameId, body).expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo("Choose Buy or Sell, or pass.")
+		}
+		wholesale(joinerToken, gameId, """{"type": "BUY", "amount": 6}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number from 1 to ${minOf(5, 300 / newPrice)}.")
+		wholesale(joinerToken, gameId, """{"type": "SELL", "amount": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You have no POLY in your ships in port at Gamma Leporis, so you can't sell any.")
+
+		// S05-5: the guest passes; it's public and logged, and the good has resolved.
+		val passed = passWholesale(joinerToken, gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(passed.turn!!.resolution!!.wholesales).containsExactly(WholesaleResponseDto(guest, "Dictator", null, 0, newPrice))
+		assertThat(passed.turn!!.resolution!!.finished).isTrue()
+		assertThat(passed.turn!!.resolvedGoods).containsExactly(good)
+		assertThat(passed.log.last().text).isEqualTo("Grace Freight (Dictator) passed on wholesale")
+		passWholesale(joinerToken, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("No wholesale decision is pending.")
 		resolveNext("token-$first", gameId).expectStatus().isOk
 	}
 
@@ -1043,6 +1107,18 @@ class GameControllerTest {
 		tradeNothing("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT)
 		tradeNothing(signIn("trade-refused-stranger2@example.com"), gameId).expectStatus().isForbidden
 		tradeNothing(null, gameId).expectStatus().isUnauthorized
+	}
+
+	private fun wholesale(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/wholesale", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun passWholesale(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/wholesale-pass", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun tradeNothing(token: String?, gameId: String): RestTestClient.ResponseSpec {

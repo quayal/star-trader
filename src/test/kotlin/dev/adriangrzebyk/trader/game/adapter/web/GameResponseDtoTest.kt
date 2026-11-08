@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
+import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -175,5 +176,59 @@ class GameResponseDtoTest {
 		assertThat(GameResponseDto(withMoney(5), "guest@example.com").you!!.tradeMax).isZero()
 		assertThat(GameResponseDto(withMoney(30), "host@example.com").you!!.tradeMax).isNull()
 		assertThat(GameResponseDto(started, "guest@example.com").you!!.tradeMax).isNull()
+	}
+
+	@Test
+	fun shouldSendEachSystemsMarketAtThisGamesPrices() {
+		// E05-S05-3, R35: the board shows the price Trading moved; the S/D indicator never changes
+		val moved = started.copy(prices = started.prices.withPrice(MarketGood(StarSystem.TAU_CETI, Goods.POLY), 7))
+
+		val tauCeti = GameResponseDto(moved, "guest@example.com").board.single { it.id == "TAU_CETI" }
+
+		assertThat(tauCeti.market).containsExactly(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 7, -10))
+	}
+
+	// E05-S05: Grace's buy traded 4 at Mu Herculis ISO (11 HT), counter 3 → -1, so the price is 11 + modifier(-1) = 11;
+	// Ada, Wholesaler there with no offer, sold 2, and Kim, the Dictator, is asked.
+	private val wholesaleStep = Resolution(
+		MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
+		11,
+		listOf(gracesBuy),
+		"kim@example.com",
+		true,
+		3,
+		listOf(Trade(gracesBuy, 4, 4)),
+		emptyList(),
+		listOf("host@example.com", "kim@example.com"),
+		listOf(Wholesale("host@example.com", OfferType.SELL, 2, 11))
+	)
+
+	@Test
+	fun shouldSendThePriceChangeAndTheWholesaleStepToEveryone() {
+		// S05-1, S05-2, S05-4, S05-5: public, like the trades
+		val dto = ResolutionResponseDto(wholesaleStep)
+
+		assertThat(dto.startPrice).isEqualTo(11)
+		assertThat(dto.newPrice).isEqualTo(11)
+		assertThat(dto.wholesalers).containsExactly("host@example.com", "kim@example.com")
+		assertThat(dto.awaitingWholesaler).isEqualTo("kim@example.com")
+		assertThat(dto.wholesales).containsExactly(WholesaleResponseDto("host@example.com", "Wholesaler", "SELL", 2, 11))
+		assertThat(dto.finished).isFalse()
+		assertThat(ResolutionResponseDto(awaitingGrace).newPrice).isNull()
+	}
+
+	@Test
+	fun shouldSendTheWholesalersOwnMaxOnlyToThem() {
+		// R37, R12, R10, R29: here the guest passed and the host is asked; with 300 HT at 11 HT and no ISO in port
+		// they may buy 5 and sell none. Nobody else gets it.
+		val askingHost = wholesaleStep.copy(
+			wholesalers = listOf("guest@example.com", "host@example.com"),
+			wholesales = listOf(Wholesale("guest@example.com", null, 0, 11))
+		)
+		val game = started.copy(turn = started.turn!!.copy(resolution = askingHost))
+
+		assertThat(GameResponseDto(game, "host@example.com").you!!.wholesaleMax).isEqualTo(WholesaleMaxResponseDto(5, 0))
+		assertThat(GameResponseDto(game, "guest@example.com").you!!.wholesaleMax).isNull()
+		assertThat(GameResponseDto(started, "host@example.com").you!!.wholesaleMax).isNull()
 	}
 }
