@@ -258,5 +258,5 @@ class TurnTest {
 
 	/** [turn] after its next good started resolving at the board's price, with [dictator] and no Wholesalers. */
 	private fun resolving(turn: Turn, dictator: String?, dice: Dice): Turn =
-		turn.resolveNext(dictator, emptyList(), MarketPrices.board(), dice)
+		turn.resolveNext(dictator, emptyList(), turn.tradingQueue.firstOrNull()?.boardPrice() ?: 0, dice)
 }

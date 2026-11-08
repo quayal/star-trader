@@ -216,20 +216,20 @@ data class Turn(
 	}
 
 	/**
-	 * This turn after the next good started resolving (R25, S01-4) at its price in [prices] (R34): its offers are
+	 * This turn after the next good started resolving (R25, S01-4) at [startPrice], the game's price for it (R34): its offers are
 	 * disclosed (E05-S02-1) and [dictator], that good's Dictator at that system if it has one, is asked before the roll
 	 * (S02-2). With no Dictator the counter starts at once with a roll from [dice] (S02-4, E05-S03-1). [wholesalers] are
 	 * the good's Wholesalers there, asked after the price changes if they have no offer for it (R37). Refused while the
 	 * last good is still resolving.
 	 */
-	fun resolveNext(dictator: String?, wholesalers: List<String>, prices: MarketPrices, dice: Dice): Turn {
+	fun resolveNext(dictator: String?, wholesalers: List<String>, startPrice: Int, dice: Dice): Turn {
 		requireTrading()
 		if (resolution?.isFinished() == false) {
 			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
 		}
 		val good = nextGood()
 		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(
-			Resolution.start(good, prices.priceOf(good), offers, dictator, wholesalers, initiative),
+			Resolution.start(good, startPrice, offers, dictator, wholesalers, initiative),
 			dice
 		)
 	}

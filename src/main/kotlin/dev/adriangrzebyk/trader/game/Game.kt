@@ -207,7 +207,7 @@ data class Game(
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
 		val wholesalers = players.filter { it.isWholesalerOf(good) }.map { it.email }
-		val started = current.resolveNext(dictator?.email, wholesalers, prices, dice)
+		val started = current.resolveNext(dictator?.email, wholesalers, prices.priceOf(good), dice)
 		val resolution = checkNotNull(started.resolution)
 		return withResolutionMoved(
 			started,

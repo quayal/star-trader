@@ -1107,6 +1107,19 @@ class GameControllerTest {
 		tradeNothing("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT)
 		tradeNothing(signIn("trade-refused-stranger2@example.com"), gameId).expectStatus().isForbidden
 		tradeNothing(null, gameId).expectStatus().isUnauthorized
+		// E05-S05: the wholesale endpoints are refused the same way
+		wholesale("token-$first", gameId, """{"type": "BUY", "amount": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		wholesale(signIn("trade-refused-stranger3@example.com"), gameId, """{"type": "BUY", "amount": 1}""").expectStatus().isForbidden
+		wholesale(signIn("trade-refused-lost2@example.com"), "missing-game", """{"type": "BUY", "amount": 1}""").expectStatus().isNotFound
+		wholesale(null, gameId, """{"type": "BUY", "amount": 1}""").expectStatus().isUnauthorized
+		passWholesale("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		passWholesale(signIn("trade-refused-stranger4@example.com"), gameId).expectStatus().isForbidden
+		passWholesale(signIn("trade-refused-lost3@example.com"), "missing-game").expectStatus().isNotFound
+		passWholesale(null, gameId).expectStatus().isUnauthorized
 	}
 
 	private fun wholesale(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
