@@ -12,6 +12,28 @@ data class Ship(val name: String, val system: StarSystem, val location: ShipLoca
 	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
+	/** How many units of [goods] this ship carries. */
+	fun holding(goods: Goods): Int = cargo[goods] ?: 0
+
+	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
+	fun unitsThatFit(goods: Goods, units: Int): Int = if (goods.takesCargoSpace) minOf(units, CARGO_SPACES - cargoSpacesUsed()) else units
+
+	/** This ship after loading [units] of [goods] it bought: what fits ([unitsThatFit]); the rest is lost (R16, R42). */
+	fun load(goods: Goods, units: Int): Ship = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
+
+	/** This ship after unloading [units] of [goods] it sold (R10), refused when it holds fewer. */
+	fun unload(goods: Goods, units: Int): Ship {
+		if (units > holding(goods)) {
+			throw InvalidTradeException("$name has only ${holding(goods)} ${goods.name}.")
+		}
+		return withCargo(goods, holding(goods) - units)
+	}
+
+	private fun withCargo(goods: Goods, units: Int): Ship {
+		val others = cargo - goods
+		return copy(cargo = if (units > 0) others + (goods to units) else others)
+	}
+
 	/**
 	 * This ship after jumping to [destination] (R19, S02): instantly, arriving in Space until its player chooses where it
 	 * ends up (S03). Never to the system it's already at (S02-4).

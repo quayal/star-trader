@@ -121,7 +121,15 @@ class GameResponseDtoTest {
 		val vega = Offer("vega@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
 		val orion = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 10)
 		val resolution =
-			Resolution(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), listOf(vega, orion), null, false, 3, listOf(Trade(vega, 4), Trade(orion, 5)))
+			Resolution(
+				MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
+				listOf(vega, orion),
+				null,
+				false,
+				3,
+				listOf(Trade(vega, 4), Trade(orion, 5)),
+				emptyList()
+			)
 
 		val dto = ResolutionResponseDto(resolution)
 

@@ -21,4 +21,11 @@ class TradingService(private val gameStore: GameStore, private val dice: Dice) {
 
 	/** The Dictator passes inside [GameStore.update], so a pass and an offer sent together can't both apply (A04, R38). */
 	fun passAsDictator(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.passAsDictator(callerEmail, dice) }
+
+	/**
+	 * The trader whose offer the counter reached trades [amount] units split as [loads] (E05-S04), inside
+	 * [GameStore.update], so a double press trades once and is checked against the saved resolution (A04).
+	 */
+	fun trade(gameId: String, callerEmail: String, amount: Int?, loads: List<ShipLoad>): Game =
+		gameStore.update(gameId) { it.trade(callerEmail, amount, loads) }
 }

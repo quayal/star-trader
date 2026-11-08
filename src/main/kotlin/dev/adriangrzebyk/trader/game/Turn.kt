@@ -224,7 +224,7 @@ data class Turn(
 			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
 		}
 		val good = nextGood()
-		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator), dice)
+		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(Resolution.start(good, offers, dictator, initiative), dice)
 	}
 
 	/**
@@ -245,19 +245,29 @@ data class Turn(
 	/** This turn after the Dictator passed (S02-2); then the counter starts with a roll from [dice] (S03-1). */
 	fun dictatorPassed(dice: Dice): Turn = withResolution(resolutionNow().withDictatorPassed(), dice)
 
+	/**
+	 * The trade the resolution waits for its player to choose an amount for (E05-S04-1), refused when there is none.
+	 * Checking that it's the caller's is the caller's, which knows the players' names.
+	 */
+	fun tradeAwaited(): Trade {
+		requireTrading()
+		return resolution?.awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
+	}
+
+	/** This turn after the awaited trade's player traded [trade] (E05-S04); once nothing is left, its good counts as resolved. */
+	fun recordTrade(trade: Trade): Turn = withResolution(resolutionNow().withTrade(trade))
+
 	private fun resolutionNow(): Resolution {
 		requireTrading()
 		return resolution ?: throw InvalidGameOperationException("No Dictator decision is pending.")
 	}
 
-	/**
-	 * This turn with [changed] as its resolution, its counter started with [dice] once nobody is asked any more (R34,
-	 * initiative breaking ties); once it has finished, its good counts as resolved.
-	 */
-	private fun withResolution(changed: Resolution, dice: Dice): Turn {
-		val current = changed.startCounterOnceDecided(dice, initiative)
-		return copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
-	}
+	/** This turn with [changed] as its resolution, its counter started with [dice] once nobody is asked any more (R34). */
+	private fun withResolution(changed: Resolution, dice: Dice): Turn = withResolution(changed.startCounterOnceDecided(dice))
+
+	/** This turn with [current] as its resolution; once it has finished, its good counts as resolved. */
+	private fun withResolution(current: Resolution): Turn =
+		copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
 
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)

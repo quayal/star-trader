@@ -64,4 +64,117 @@ class PlayerTest {
 	fun shouldListStartingPositionsForTheLog() {
 		assertThat(player.startingPositions()).isEqualTo("Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri")
 	}
+
+	@Test
+	fun shouldCapABuyAtWhatTheyCanAfford() {
+		// R12: 300 HT at 20 HT each affords 15.
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 20)
+
+		assertThat(player.tradeMax(buy, 16)).isEqualTo(15)
+		assertThat(player.tradeMax(buy, 4)).isEqualTo(4)
+		assertThat(player.pay(290).tradeMax(buy, 4)).isZero()
+	}
+
+	@Test
+	fun shouldCapASellAtWhatTheirShipsAtThatSystemHold() {
+		// R10, R42: Wayfarer and Meridian are at Tau Ceti (one in space), Lantern isn't.
+		val trader = player.copy(
+			ships = listOf(
+				wayfarer.load(Goods.ISO, 3),
+				lantern.load(Goods.ISO, 9),
+				Ship.emptyAt("Meridian", StarSystem.TAU_CETI, ShipLocation.SPACE).load(Goods.ISO, 2)
+			)
+		)
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+
+		assertThat(trader.tradeMax(sell, 8)).isEqualTo(5)
+		assertThat(player.tradeMax(sell, 8)).isZero()
+	}
+
+	@Test
+	fun shouldNeverCapBelowZero() {
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		assertThat(player.tradeMax(buy, -2)).isZero()
+	}
+
+	@Test
+	fun shouldPayForABuyAndLoadWhatFitsLosingTheRest() {
+		// S04-4: Wayfarer has 10 free spaces; 12 ISO split 10 + 2 onto Wayfarer and Meridian (8 used) fit 10 + 2.
+		val meridian = Ship("Meridian", StarSystem.TAU_CETI, ShipLocation.PLANET, mapOf(Goods.POLY to 9))
+		val trader = player.copy(ships = listOf(wayfarer, meridian))
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		val traded = trader.trade(buy, 14, 12, listOf(ShipLoad("Wayfarer", 10), ShipLoad("Meridian", 2)))
+
+		assertThat(traded.money).isEqualTo(180)
+		assertThat(traded.ship("Wayfarer")?.holding(Goods.ISO)).isEqualTo(10)
+		assertThat(traded.ship("Meridian")?.holding(Goods.ISO)).isEqualTo(1)
+	}
+
+	@Test
+	fun shouldLoseEverythingBoughtWithNoShipThere() {
+		// S04-4, R23
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 10)
+
+		val traded = player.trade(buy, 4, 3, emptyList())
+
+		assertThat(traded.money).isEqualTo(270)
+		assertThat(traded.ships).containsExactly(wayfarer, lantern)
+	}
+
+	@Test
+	fun shouldBePaidForASellAndUnloadIt() {
+		val trader = player.copy(ships = listOf(wayfarer.load(Goods.CHIPS, 7), lantern))
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.CHIPS, OfferType.SELL, 9)
+
+		val traded = trader.trade(sell, 5, 5, listOf(ShipLoad("Wayfarer", 5)))
+
+		assertThat(traded.money).isEqualTo(345)
+		assertThat(traded.ship("Wayfarer")?.holding(Goods.CHIPS)).isEqualTo(2)
+	}
+
+	@Test
+	fun shouldRefuseAnAmountOutsideOneToTheirMax() {
+		// S04-1
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		for (amount in listOf(null, 0, 5)) {
+			assertThatThrownBy { player.trade(buy, 4, amount, listOf(ShipLoad("Wayfarer", amount ?: 0))) }
+				.isInstanceOf(InvalidTradeException::class.java)
+				.hasMessage("Enter a whole number from 1 to 4.")
+		}
+	}
+
+	@Test
+	fun shouldRefuseASplitThatDoesNotAddUpOrNamesAShipElsewhere() {
+		// S04-3
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Wayfarer", 3))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Your ships' units must add up to 4.")
+		assertThatThrownBy { player.trade(buy, 4, 4, emptyList()) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Your ships' units must add up to 4.")
+		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Lantern", 4))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Choose your ships at Tau Ceti.")
+		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Wayfarer", 5), ShipLoad("Wayfarer", -1))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Enter a whole number of units, 0 or more, for each ship.")
+	}
+
+	@Test
+	fun shouldRefuseToSellMoreFromAShipThanItHolds() {
+		// S04-3, R10: 5 ISO at Tau Ceti in all, but Wayfarer holds only 2.
+		val trader = player.copy(
+			ships = listOf(wayfarer.load(Goods.ISO, 2), Ship.emptyAt("Meridian", StarSystem.TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3))
+		)
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+
+		assertThatThrownBy { trader.trade(sell, 5, 3, listOf(ShipLoad("Wayfarer", 3), ShipLoad("Meridian", 0))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Wayfarer has only 2 ISO.")
+	}
 }

@@ -132,8 +132,7 @@ class GameTradingTest {
 
 		val resolution = game.turn!!.resolution!!
 		assertThat(resolution.offers.last()).isEqualTo(Offer("ada@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 9))
-		assertThat(resolution.isFinished()).isTrue()
-		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
+		assertThat(resolution.awaitingDictator()).isNull()
 		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) offers to sell at 9 HT"))
 		assertThat(game.turn!!.offersOf("ada@example.com")).isEmpty()
 	}
@@ -144,27 +143,100 @@ class GameTradingTest {
 		val game = askingDictator.passAsDictator("ada@example.com", dice())
 
 		assertThat(game.turn!!.resolution!!.offers).hasSize(2)
-		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
+		assertThat(game.turn!!.resolution!!.awaitingDictator()).isNull()
 		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) passed"))
-		assertThat(game.resolveNextGood("grace@example.com", dice()).turn!!.resolvedGoods).hasSize(2)
 	}
 
 	@Test
-	fun shouldStartTheCounterAfterTheDictatorDecidesAndLogEachTrade() {
+	fun shouldStartTheCounterAfterTheDictatorDecidesAndWaitForTheWinner() {
 		// S03-1, S03-2, S03-6. Gamma Leporis POLY: S/D +1, 2 HT. Vega's buy at 11 and Altair's sell at 10 saturate (R15):
-		// targets -18 for both. Roll 2: counter 3, so Vega buys 3 - (-18) = 21, and then Altair's sell allows nothing.
+		// targets -18 for both. Roll 2: counter 3, so Vega may buy up to 3 - (-18) = 21, and the game waits for her.
 		assertThat(askingDictator.turn!!.resolution!!.startingCounter).isNull()
 
 		val game = askingDictator.passAsDictator("ada@example.com", FakeDice.twoD6(2))
 
-		assertThat(game.turn!!.resolution!!.trades).containsExactly(
-			Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21)
-		)
+		assertThat(game.turn!!.tradeAwaited()).isEqualTo(Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21))
+		assertThat(game.turn!!.resolvedGoods).isEmpty()
 		assertThat(game.log.drop(askingDictator.log.size)).containsExactly(
 			LogEntry(1, "Orion Freight (Dictator) passed"),
-			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first"),
-			LogEntry(1, "Vega Lines bought 21 u at 11 HT each"),
+			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first")
+		)
+	}
+
+	// E05-S04: Grace (Vega Lines) may buy up to 21 POLY at Gamma Leporis, where her ship Meridian is.
+	private val gracesTurnToTrade = askingDictator.passAsDictator("ada@example.com", FakeDice.twoD6(2))
+
+	@Test
+	fun shouldLetTheTraderChooseAnAmountAndShipsThenLogTheTrade() {
+		// S04-1, S04-3, S04-4, S04-6, S04-7: 12 POLY at 11 HT costs 132; Meridian has 10 free spaces, so 2 are lost. Then
+		// the counter is -9 and Altair's sell at 10 (target -18) allows nothing, so the good is resolved.
+		val game = gracesTurnToTrade.trade("grace@example.com", 12, listOf(ShipLoad("Meridian", 12)))
+
+		val grace = game.players.first { it.email == "grace@example.com" }
+		assertThat(grace.money).isEqualTo(168)
+		assertThat(grace.ship("Meridian")!!.holding(Goods.POLY)).isEqualTo(10)
+		assertThat(
+			game.turn!!.resolution!!.trades
+		).containsExactly(Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 12))
+		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
+		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
+			LogEntry(1, "Vega Lines bought 12 u at 11 HT each"),
 			LogEntry(1, "No one else can trade at Gamma Leporis POLY")
+		)
+		assertThat(game.resolveNextGood("grace@example.com", dice()).turn!!.resolvedGoods).hasSize(2)
+	}
+
+	@Test
+	fun shouldRefuseTheNextGoodAndOtherPlayersWhileTheTraderDecides() {
+		// S01-4, S01-8 (D09); R04
+		assertThatThrownBy { gracesTurnToTrade.resolveNextGood("grace@example.com", dice()) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Vega Lines can buy up to 21 u — waiting for their decision.")
+		assertThatThrownBy { gracesTurnToTrade.trade("kim@example.com", 1, emptyList()) }
+			.isInstanceOf(NotYourTurnException::class.java)
+			.hasMessage("Vega Lines can buy up to 21 u — waiting for their decision.")
+		assertThatThrownBy { askingDictator.trade("grace@example.com", 1, emptyList()) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("No trade is waiting for a decision.")
+	}
+
+	@Test
+	fun shouldRefuseAnAmountOutsideOneToTheTradersMaxAndTradeNothing() {
+		// S04-1
+		assertThatThrownBy { gracesTurnToTrade.trade("grace@example.com", 22, listOf(ShipLoad("Meridian", 22))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Enter a whole number from 1 to 21.")
+	}
+
+	@Test
+	fun shouldSkipATraderWhoCanAffordNothingAndSayWhyOnlyToThem() {
+		// S04-5: Grace bid all her 300 HT for initiative, so she can't afford POLY at 11 HT. Her offer is done with none,
+		// the counter stays at 3, and Altair's sell allows nothing, so nobody traded.
+		val broke = Game.lobby("game-3", 3, dictatorOfPoly)
+			.addPlayer(grace)
+			.addPlayer(kim)
+			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS))
+			.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
+			.placeInitiativeBid("grace@example.com", 300)
+			.advancePhase(FakeDice(1, 2, 1, 1, 2))
+			.pickTurnOrderPlace("grace@example.com", 1)
+			.pickTurnOrderPlace("kim@example.com", 2)
+			.finishJumping("grace@example.com")
+			.finishJumping("kim@example.com")
+			.finishJumping("ada@example.com")
+			.resolveNextGood("grace@example.com", dice())
+
+		val game = broke.passAsDictator("ada@example.com", FakeDice.twoD6(2))
+
+		val trade = game.turn!!.resolution!!.trades.single()
+		assertThat(trade.units).isZero()
+		assertThat(trade.shortfall?.reason(trade.offer)).isEqualTo("You can't afford any units at 11 HT")
+		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
+		assertThat(game.log.drop(broke.log.size)).containsExactly(
+			LogEntry(1, "Orion Freight (Dictator) passed"),
+			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first"),
+			LogEntry(1, "Vega Lines couldn't trade"),
+			LogEntry(1, "No one can trade at Gamma Leporis POLY")
 		)
 	}
 
