@@ -126,8 +126,8 @@ capped by money and cargo, or pass (S05-4, S05-6). Wholesale trades don't move t
 
 ### Phase 3: Frontend
 
-- [ ] 3.1 trading.js helpers for the price line and the wholesale form
-- [ ] 3.2 s03 wholesale form
+- [x] 3.1 trading.js helpers for the price line and the wholesale form — 60454fe
+- [x] 3.2 s03 wholesale form — bba4034
 
 ### Phase 4: Verify
 
