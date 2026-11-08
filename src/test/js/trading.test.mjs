@@ -5,6 +5,8 @@ import {
 	YOUR_QUEUE_NOTE,
 	awaitingDictator,
 	awaitingTrade,
+	awaitingWholesaler,
+	wholesaleForm,
 	defaultSplit,
 	lossWarning,
 	lostUnits,
@@ -386,5 +388,92 @@ describe('a trader choosing an amount (E05-S04)', () => {
 		assert.equal(broke.heading, 'The market has reached your buy at 20 HT');
 		assert.equal(empty.cannot, "You have no ISO in your ships in port at Mu Herculis, so you can't sell any.");
 		assert.equal(tradeForm(mine(game({ resolution: awaitingMe() })), ME).cannot, '');
+	});
+});
+
+// E05-S05: the worked example after its trades: counter 4, price 11 → 10. Altair (Dictator) and I (Wholesaler) are asked.
+function priceChanged({ wholesales = [], awaitingWholesaler = ME } = {}) {
+	return {
+		...resolving({
+			dictator: ALTAIR,
+			awaiting: null,
+			startingCounter: 3,
+			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }],
+		}),
+		finished: awaitingWholesaler === null,
+		awaitingTrade: null,
+		startPrice: 11,
+		newPrice: 10,
+		wholesalers: [ME, ALTAIR],
+		awaitingWholesaler,
+		wholesales,
+	};
+}
+
+describe('the price change and the wholesale step (E05-S05)', () => {
+	it('shows the price change after the end line, then each wholesale answer (S05-2, S05-5)', () => {
+		const answered = game({
+			resolution: priceChanged({
+				awaitingWholesaler: null,
+				wholesales: [
+					{ playerEmail: ME, role: 'Wholesaler', type: 'BUY', units: 3, price: 10 },
+					{ playerEmail: ALTAIR, role: 'Dictator', type: null, units: 0, price: 10 },
+				],
+			}),
+		});
+
+		assert.deepEqual(counterLines(answered).slice(2), [
+			'No one else can trade at this market.',
+			'ISO price at Mu Herculis: 11 \u2192 10 HT',
+			'Orion Freight (Wholesaler) bought 3 u at 10 HT each, paid 30 HT',
+			'Altair Trade Co. (Dictator) passed on wholesale',
+		]);
+	});
+
+	it('shows the price change even when nobody traded (S05-2)', () => {
+		const none = game({ resolution: { ...resolving({ awaiting: null, startingCounter: 13 }), startPrice: 11, newPrice: 7, wholesales: [] } });
+
+		assert.deepEqual(counterLines(none), ['Market +13 \u2192 buyers first', 'No one can trade at this market.', 'ISO price at Mu Herculis: 11 \u2192 7 HT']);
+	});
+
+	it('names whom the wholesale step waits for, holds Resolve next, and alerts only them (S01-8, S01-9, S05-4)', () => {
+		const waiting = game({ resolution: priceChanged() });
+
+		assert.equal(awaitingWholesaler(waiting), ME);
+		assert.equal(resolver(waiting), null);
+		assert.equal(waitingText(waiting, VEGA), 'Waiting for Orion Freight (Wholesaler) to trade up to 5 u at 10 HT, or pass.');
+		assert.equal(waitingText(waiting, ME), 'As Wholesaler, you may buy or sell up to 5 u at the new price, 10 HT, or pass: your decision.');
+		assert.equal(decisionText(waiting, ME), 'Your decision is needed: as Wholesaler, buy or sell up to 5 u of ISO at Mu Herculis at 10 HT, or pass.');
+		assert.equal(decisionText(waiting, VEGA), '');
+		const dictatorAsked = game({ resolution: priceChanged({ awaitingWholesaler: ALTAIR }) });
+		assert.equal(waitingText(dictatorAsked, VEGA), 'Waiting for Altair Trade Co. (Dictator) to trade up to 5 u at 10 HT, or pass.');
+	});
+
+	it('gives the one asked a form like the amount form, Buy first, with their own max for each (S05-4, R37)', () => {
+		const seen = { ...mine(game({ resolution: priceChanged() })), you: { ...mine(game()).you, wholesaleMax: { buy: 5, sell: 4 } } };
+
+		const buy = wholesaleForm(seen, ME, null);
+		const sell = wholesaleForm(seen, ME, 'SELL');
+
+		assert.equal(buy.type, 'BUY');
+		assert.equal(buy.max, 5);
+		assert.equal(buy.heading, 'As Wholesaler, buy or sell up to 5 u of ISO at the new price, 10 HT?');
+		assert.equal(buy.help, "You pay 10 HT each, from 1 to 5. This doesn't move the price.");
+		assert.equal(sell.max, 4);
+		assert.equal(sell.amountLabel, 'Amount to sell (u)');
+		assert.notEqual(sell.key, buy.key);
+		assert.deepEqual(sell.ships.map(ship => ship.name), ['Wayfarer', 'Lantern']);
+		assert.deepEqual(validateTrade(sell, '4', ['3', '1']).body, { amount: 4, ships: [{ name: 'Wayfarer', units: 3 }, { name: 'Lantern', units: 1 }] });
+		assert.equal(wholesaleForm(seen, VEGA, null), null);
+		assert.equal(wholesaleForm(mine(game({ resolution: priceChanged() })), ME, null), null);
+	});
+
+	it('says why, to them alone, when they can trade nothing that way, and starts on a way they can (S05-4)', () => {
+		const seen = (wholesaleMax) => ({ ...mine(game({ resolution: priceChanged() })), you: { ...mine(game()).you, wholesaleMax } });
+
+		assert.equal(wholesaleForm(seen({ buy: 0, sell: 3 }), ME, null).type, 'SELL');
+		assert.equal(wholesaleForm(seen({ buy: 0, sell: 3 }), ME, 'BUY').cannot, "You can't afford any units at 10 HT.");
+		assert.equal(wholesaleForm(seen({ buy: 2, sell: 0 }), ME, 'SELL').cannot, "You have no ISO in your ships in port at Mu Herculis, so you can't sell any.");
+		assert.equal(wholesaleForm(seen({ buy: 0, sell: 0 }), ME, null).type, 'BUY');
 	});
 });

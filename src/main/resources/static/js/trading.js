@@ -1,8 +1,9 @@
 /*
- * Pure helpers for the Trading screen (s03, E05-S01 to S04) and the Trading parts of the top bar and the decision alert.
+ * Pure helpers for the Trading screen (s03, E05-S01 to S05) and the Trading parts of the top bar and the decision alert.
  * They read `turn.initiative`, `turn.tradingQueue`, `turn.resolvedGoods` and `turn.resolution` from GET /api/games/{id}
  * (BACKWARD_COMPATIBILITY.md §6). Those are public (R25, R36): the only offers are those a resolution has disclosed
- * (E05-S02-1). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get.
+ * (E05-S02-1). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get,
+ * and the wholesale form (E05-S05) their `you.wholesaleMax`.
  */
 
 export const BEFORE_TRADING_TEXT = 'Trading starts after Ship-jumps. Results will appear here.';
@@ -14,6 +15,7 @@ export const YOUR_DICTATOR_DECISION = "You're Dictator of the good resolving: pl
 export const GO_TO_TRADING = 'Go to Trading';
 export const NO_OFFERS_TEXT = 'No offers for this good.';
 export const TRADE_NOTHING_BUTTON = 'Trade nothing';
+export const WHOLESALE_HELP = "This doesn't move the price.";
 export const DICTATOR_HELP = "You see everyone's offers above. Your offer has no other advantage: it trades only if the market and your price allow it.";
 
 const TYPE_NAMES = { BUY: 'Buy', SELL: 'Sell' };
@@ -53,6 +55,16 @@ export function awaitingDictator(game) {
 /** The offer whose player the game waits for to choose an amount (E05-S04, D09), with the counter's max; else null. */
 export function awaitingTrade(game) {
 	return resolution(game)?.awaitingTrade ?? null;
+}
+
+/** Whom the wholesale step waits for to trade or pass (R37, E05-S05-4, D09); else null. */
+export function awaitingWholesaler(game) {
+	return resolution(game)?.awaitingWholesaler ?? null;
+}
+
+/** "Dictator" or "Wholesaler": why [email] is asked in the wholesale step of the current resolution (R37). */
+function wholesaleRole(game, email) {
+	return resolution(game)?.dictator === email ? 'Dictator' : 'Wholesaler';
 }
 
 /**
@@ -101,6 +113,13 @@ export function waitingText(game, email) {
 		return trade.playerEmail === email
 			? `The market has reached your ${verb(trade.type)} at ${trade.price} HT: your decision.`
 			: `${corporation(game, trade.playerEmail)} can ${verb(trade.type)} up to ${trade.maxUnits} u — waiting for their decision.`;
+	}
+	const wholesaler = awaitingWholesaler(game);
+	if (wholesaler !== null) {
+		const { newPrice } = resolution(game);
+		return wholesaler === email
+			? `As ${wholesaleRole(game, email)}, you may buy or sell up to 5 u at the new price, ${newPrice} HT, or pass: your decision.`
+			: `Waiting for ${corporation(game, wholesaler)} (${wholesaleRole(game, wholesaler)}) to trade up to 5 u at ${newPrice} HT, or pass.`;
 	}
 	const who = resolver(game);
 	if (who === null) {
@@ -160,7 +179,9 @@ export function dictatorLine(game) {
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
  * each trade with what the market allowed and what took place (E05-S04-6: "Vega Lines could buy up to 12 u: bought
  * 10 u at 13 HT each, paid 130 HT"), then "No one else can trade at this market." once it's over, or "No one can trade
- * at this market." when no unit traded (S03-7). Empty until the counter starts (after the Dictator).
+ * at this market." when no unit traded (S03-7). Then the price change, "ISO price at Mu Herculis: 11 → 10 HT" (E05-S05-2),
+ * and each wholesale answer: "Kessler Cargo (Wholesaler) bought 3 u at 10 HT each, paid 30 HT" (S05-5). Empty until the
+ * counter starts (after the Dictator).
  */
 export function counterLines(game) {
 	const current = resolution(game);
@@ -174,10 +195,25 @@ export function counterLines(game) {
 		`Market ${signed} \u2192 ${counter >= 0 ? 'buyers' : 'sellers'} first`,
 		...trades.map(trade => tradeLine(game, trade)),
 	];
-	if (current.finished) {
+	const over = current.newPrice !== null && current.newPrice !== undefined;
+	if (over || current.finished) {
 		lines.push(trades.some(trade => trade.units > 0) ? 'No one else can trade at this market.' : 'No one can trade at this market.');
 	}
+	if (over) {
+		const { good } = current;
+		lines.push(`${good.goods} price at ${good.systemName}: ${current.startPrice} \u2192 ${current.newPrice} HT`);
+		lines.push(...(current.wholesales ?? []).map(wholesale => wholesaleLine(game, wholesale)));
+	}
 	return lines;
+}
+
+function wholesaleLine(game, wholesale) {
+	const who = `${corporation(game, wholesale.playerEmail)} (${wholesale.role})`;
+	if (!wholesale.type) {
+		return `${who} passed on wholesale`;
+	}
+	const [done, total] = wholesale.type === 'SELL' ? ['sold', 'received'] : ['bought', 'paid'];
+	return `${who} ${done} ${wholesale.units} u at ${wholesale.price} HT each, ${total} ${wholesale.units * wholesale.price} HT`;
 }
 
 function tradeLine(game, trade) {
@@ -198,6 +234,22 @@ export function shipLabel(ship) {
 }
 
 /**
+ * [email]'s ships in port at [good]'s system (trading happens in port, R23, R42), each with what it holds of the good and
+ * its free cargo space for it (unlimited for CHIPS and FOOD).
+ */
+function shipsInPort(game, email, good) {
+	const here = (game.players.find(p => p.email === email)?.ships ?? [])
+		.filter(ship => ship.system === good.system && ship.location === 'PORT')
+		.map(ship => ship.name);
+	return (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
+		name: ship.name,
+		label: shipLabel(ship),
+		holding: ship.cargo?.[good.goods] ?? 0,
+		free: TAKES_CARGO_SPACE.has(good.goods) ? Math.max(0, ship.cargoSpaces - ship.cargoUsed) : Infinity,
+	}));
+}
+
+/**
  * E05-S04: the amount form for [email] when the game waits for their amount, else null. [max] is their own max after
  * money and cargo (R12, R10); [ships] are their ships in port at that system (trading happens in port, R23, R42), each
  * with what it holds of the good and its free cargo space for it (unlimited for CHIPS and FOOD). With a max of 0,
@@ -210,15 +262,7 @@ export function tradeForm(game, email) {
 		return null;
 	}
 	const { good } = resolution(game);
-	const here = (game.players.find(p => p.email === email)?.ships ?? [])
-		.filter(ship => ship.system === good.system && ship.location === 'PORT')
-		.map(ship => ship.name);
-	const ships = (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
-		name: ship.name,
-		label: shipLabel(ship),
-		holding: ship.cargo?.[good.goods] ?? 0,
-		free: TAKES_CARGO_SPACE.has(good.goods) ? Math.max(0, ship.cargoSpaces - ship.cargoUsed) : Infinity,
-	}));
+	const ships = shipsInPort(game, email, good);
 	const action = verb(trade.type);
 	return {
 		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${email}`,
@@ -236,6 +280,43 @@ export function tradeForm(game, email) {
 		cannot: max > 0 ? '' : trade.type === 'SELL'
 			? `You have no ${good.goods} in your ships in port at ${good.systemName}, so you can't sell any.`
 			: `You can't afford any units at ${trade.price} HT.`,
+	};
+}
+
+/**
+ * E05-S05-4: the wholesale form for [email] when the wholesale step waits for them, else null; shaped like [tradeForm]
+ * so the same split, warning and checks apply. [type] is the Buy or Sell they chose; null picks one they can trade (Buy
+ * first). [max] is theirs for that type, after money and cargo, at most 5 u (R37, R12, R10); with 0, [cannot] says why,
+ * and they can still pass.
+ */
+export function wholesaleForm(game, email, type) {
+	const maxes = game.you?.wholesaleMax;
+	if (awaitingWholesaler(game) !== email || !maxes) {
+		return null;
+	}
+	const chosen = type ?? (maxes.buy > 0 || maxes.sell === 0 ? 'BUY' : 'SELL');
+	const max = chosen === 'SELL' ? maxes.sell : maxes.buy;
+	const current = resolution(game);
+	const { good } = current;
+	const price = current.newPrice;
+	const ships = shipsInPort(game, email, good);
+	return {
+		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${email}/wholesale/${chosen}`,
+		wholesale: true,
+		type: chosen,
+		goods: good.goods,
+		systemName: good.systemName,
+		price,
+		max,
+		ships,
+		heading: `As ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at the new price, ${price} HT?`,
+		amountLabel: `Amount to ${verb(chosen)} (u)`,
+		help: `${chosen === 'SELL' ? 'You get' : 'You pay'} ${price} HT each, from 1 to ${max}. ${WHOLESALE_HELP}`,
+		shipsLegend: `Your ships in port at ${good.systemName}`,
+		noShip: ships.length === 0 ? `You have no ship in port at ${good.systemName}.` : '',
+		cannot: max > 0 ? '' : chosen === 'SELL'
+			? `You have no ${good.goods} in your ships in port at ${good.systemName}, so you can't sell any.`
+			: `You can't afford any units at ${price} HT.`,
 	};
 }
 
@@ -347,7 +428,7 @@ export function sameOrder(a, b) {
 
 /**
  * S01-9: the decision the game waits on [email] for, as the alert's text, or "" when there's none: the Dictator's offer
- * (E05-S02), their amount (E05-S04) or resolving the next good. The wholesale decision joins it in S05.
+ * (E05-S02), their amount (E05-S04), the wholesale step (E05-S05) or resolving the next good.
  */
 export function decisionText(game, email) {
 	if (awaitingDictator(game) === email) {
@@ -357,6 +438,10 @@ export function decisionText(game, email) {
 	if (awaitingTrade(game)?.playerEmail === email) {
 		const { good } = resolution(game);
 		return `Your decision is needed: the market has reached your ${verb(awaitingTrade(game).type)} of ${good.goods} at ${good.systemName}.`;
+	}
+	if (awaitingWholesaler(game) === email) {
+		const { good, newPrice } = resolution(game);
+		return `Your decision is needed: as ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at ${good.systemName} at ${newPrice} HT, or pass.`;
 	}
 	return resolver(game) === email ? 'Your decision is needed: resolve the next good.' : '';
 }
