@@ -159,6 +159,7 @@ h1, h2, h3 {
 .message { min-height: 1.4em; font-size: var(--text-body); }
 .message--error { color: var(--status-danger); }
 .message--success { color: var(--status-live); }
+.message--warn { color: var(--status-warn); }
 
 /* ── Data table ── */
 .data-table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }

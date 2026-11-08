@@ -95,4 +95,27 @@ class TradingServiceTest {
 			.isInstanceOf(InvalidGameOperationException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(passed)
 	}
+
+	@Test
+	fun shouldStoreTheTradeAndRefuseASecondOne() {
+		// E05-S04, A04: Grace's buy at 11 for Gamma Leporis POLY (no Dictator) is the first good; counter 1 + 7 = 8, so up
+		// to 26 u. A second press finds no trade waiting.
+		val withOffer = Game.lobby("game-1", 20, creator).addPlayer(joiner)
+			.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+			.placeOffer("joiner@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
+			.advancePhase(FakeDice(2, 1))
+			.pickTurnOrderPlace("creator@example.com", 1)
+			.finishJumping("creator@example.com")
+			.finishJumping("joiner@example.com")
+		gameStore.create(withOffer)
+		service.resolveNext("game-1", "creator@example.com")
+
+		val game = service.trade("game-1", "joiner@example.com", 5, listOf(ShipLoad("Meridian", 5)))
+
+		assertThat(game.players.first { it.email == "joiner@example.com" }.money).isEqualTo(245)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+		assertThatThrownBy { service.trade("game-1", "joiner@example.com", 5, listOf(ShipLoad("Meridian", 5))) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
 }

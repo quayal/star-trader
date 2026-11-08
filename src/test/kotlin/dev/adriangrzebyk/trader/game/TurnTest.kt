@@ -157,7 +157,7 @@ class TurnTest {
 
 		assertThat(turn.resolution!!.good).isEqualTo(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
 		assertThat(turn.resolution!!.offers).containsExactly(vega, orion)
-		assertThat(turn.resolution!!.isFinished()).isTrue()
+		assertThat(turn.resolution!!.initiative).isEqualTo(trading.initiative)
 	}
 
 	@Test
@@ -225,12 +225,30 @@ class TurnTest {
 
 	@Test
 	fun shouldBreakTiesByTurnInitiativeOrder() {
-		// R34, R24: two buys at the same price; "b" is ahead of "c" in initiative, though "c" placed first. Counter 1 + 6 = 7: b buys 8, and then c can't
+		// R34, R24: two buys at the same price; "b" is ahead of "c" in initiative, though "c" placed first. Counter 1 + 6 = 7:
+		// b may buy 8 first.
 		val c = Offer("c", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
 		val b = Offer("b", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
 
 		val turn = shipJumps.copy(offers = listOf(c, b)).toTrading().resolveNext(null, FakeDice.twoD6(6))
 
-		assertThat(turn.resolution!!.trades).containsExactly(Trade(b, 8))
+		assertThat(turn.tradeAwaited()).isEqualTo(AwaitedTrade(b, 8))
+	}
+
+	@Test
+	fun shouldWaitForEachTraderBeforeTheGoodCountsAsResolved() {
+		// E05-S04, S01-4: b buys 3 of 8 (counter 4); c may then buy 4 - (-1) = 5, and once c has, the good is resolved.
+		val c = Offer("c", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
+		val b = Offer("b", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
+		val started = shipJumps.copy(offers = listOf(c, b)).toTrading().resolveNext(null, FakeDice.twoD6(6))
+
+		val bBought = started.recordTrade(3)
+
+		assertThat(bBought.resolvedGoods).isEmpty()
+		assertThatThrownBy { bBought.resolveNext(null, dice()) }.hasMessage("Gamma Leporis POLY hasn't finished resolving.")
+		assertThat(bBought.tradeAwaited()).isEqualTo(AwaitedTrade(c, 5))
+		val cBought = bBought.recordTrade(5)
+		assertThat(cBought.resolvedGoods).containsExactly(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
+		assertThatThrownBy { cBought.tradeAwaited() }.hasMessage("No trade is waiting for a decision.")
 	}
 }

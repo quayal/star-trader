@@ -15,6 +15,7 @@ import dev.adriangrzebyk.trader.game.InvalidJumpException
 import dev.adriangrzebyk.trader.game.InvalidLandingException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.InvalidPlaceException
+import dev.adriangrzebyk.trader.game.InvalidTradeException
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.NotYourTurnException
@@ -403,6 +404,59 @@ class GameController(
 		val session = sessionFor(authorization)
 		val game = try {
 			tradingService.passAsDictator(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The trader the counter reached chooses their amount and ships (E05-S04). `400` for an amount or split the rules
+	 * refuse ("Enter a whole number from 1 to {max}."); `409` "{corporation} can buy up to 4 u — waiting for their
+	 * decision." for anyone else, "No trade is waiting for a decision." when nobody is asked, or outside Trading.
+	 */
+	@PostMapping("/games/{id}/trading/trade")
+	fun trade(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: TradeRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val loads = (request ?: TradeRequestDto()).loads()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for each ship.")
+		val game = try {
+			tradingService.trade(id, session.email, request?.wholeAmount(), loads)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidTradeException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** The trader the counter reached trades nothing (E05-S04-5); `409`, `403`, `404` and `401` as for `/trading/trade`. */
+	@PostMapping("/games/{id}/trading/trade-nothing")
+	fun tradeNothing(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			tradingService.tradeNothing(id, session.email)
 		} catch (ex: GameNotFoundException) {
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {

@@ -68,7 +68,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.nav-item` + `aria-current="page"` | Rail/sidebar destinations (R03.1) | In-page actions |
 | `.link` | Inline navigation in text | Actions that change state (use a button) |
 | `.badge .badge--live/--warn/--danger` | A status with a word: "Your turn", "Waiting", "Outbid" | Decoration, counts |
-| `.message .message--error/--success` + `role="status"` | Feedback under a form | Errors the player must act on elsewhere |
+| `.message .message--error/--success/--warn` + `role="status"` | Feedback under a form; `--warn` for a consequence to check before confirming ("the rest will be lost") | Errors the player must act on elsewhere |
 | `.data-table` (+ `.num` on numeric cells) | Tabular data with aligned numbers | One-dimensional lists of 1–3 facts |
 | `.trade .trade--buy/--sell` | The Buy/Sell cell of an offer row (R04.1) | Any other column |
 | `.good .good--poly/…` | The goods name in a goods column or on the map (R04.1); `color` in HTML, `fill` in SVG | Elsewhere |

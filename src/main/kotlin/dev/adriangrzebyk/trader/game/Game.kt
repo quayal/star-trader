@@ -196,6 +196,7 @@ data class Game(
 	fun resolveNextGood(email: String, dice: Dice): Game {
 		val current = resolverTurnOf(email)
 		current.resolution?.awaitingDictator()?.let { throw InvalidGameOperationException(waitingForDictator(it)) }
+		current.resolution?.awaitingTrade()?.let { throw InvalidGameOperationException(waitingForTrader(it)) }
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
 		val started = current.resolveNext(dictator?.email, dice)
@@ -203,7 +204,7 @@ data class Game(
 		return copy(
 			turn = started,
 			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})") +
-				LogEntry(current.number, disclosure(resolution)) + counterLog(current.number, resolution)
+				LogEntry(current.number, disclosure(resolution)) + counterLog(current.number, null, resolution)
 		)
 	}
 
@@ -219,7 +220,7 @@ data class Game(
 		return copy(
 			turn = decided,
 			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) offers to ${offer.terms()}") +
-				counterLog(current.number, checkNotNull(decided.resolution))
+				counterLog(current.number, current.resolution, checkNotNull(decided.resolution))
 		)
 	}
 
@@ -233,20 +234,58 @@ data class Game(
 		return copy(
 			turn = decided,
 			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) passed") +
-				counterLog(current.number, checkNotNull(decided.resolution))
+				counterLog(current.number, current.resolution, checkNotNull(decided.resolution))
 		)
 	}
 
 	/**
-	 * The public log lines of [resolution]'s counter in turn [turn], once it has started (S03-6, D07: no dice arithmetic):
-	 * "Mu Herculis ISO: market +3 → buyers first", each trade ("Vega Lines bought 4 u at 11 HT each"), then "No one else
-	 * can trade at Mu Herculis ISO". None while the Dictator is still asked.
+	 * [email], whose offer the counter has reached, trades [amount] units, split across their ships in port there as
+	 * [loads] (E05-S04): [Player.trade] checks the amount against their max (R34, R12, R10) and the split (R42), and
+	 * moves their money and cargo. The trade is public and logged (S04-6): "Vega Lines could buy up to 12 u: bought 10 u
+	 * at 13 HT each, paid 130 HT". Then the counter reaches the next offer.
 	 */
-	private fun counterLog(turn: Int, resolution: Resolution): List<LogEntry> {
+	fun trade(email: String, amount: Int?, loads: List<ShipLoad>): Game {
+		val current = traderTurnOf(email)
+		val awaited = current.tradeAwaited()
+		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads)
+		return copy(players = replace(trader)).withTradeRecorded(current, checkNotNull(amount))
+	}
+
+	/**
+	 * [email], whose offer the counter has reached, acknowledges that they can trade nothing (E05-S04-5): no money for a
+	 * unit (R12), or none of the good in their ships in port there (R10). Refused while they can trade a unit: then they
+	 * trade 1 to their max (R34). Logged like any trade, without the reason (R29): "Orion Freight could buy up to 3 u:
+	 * bought nothing".
+	 */
+	fun tradeNothing(email: String): Game {
+		val current = traderTurnOf(email)
+		val awaited = current.tradeAwaited()
+		val max = playerOf(email).tradeMax(awaited.offer, awaited.marketMax)
+		if (max > 0) {
+			throw InvalidGameOperationException("You can ${awaited.offer.type.name.lowercase()} up to $max u: choose from 1 to $max.")
+		}
+		return withTradeRecorded(current, 0)
+	}
+
+	private fun withTradeRecorded(current: Turn, units: Int): Game {
+		val after = current.recordTrade(units)
+		return copy(turn = after, log = log + counterLog(current.number, current.resolution, checkNotNull(after.resolution)))
+	}
+
+	/**
+	 * The public log lines of what [resolution]'s counter did in turn [turn] since [before] (null for a good that just
+	 * started resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first"
+	 * when it starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT"),
+	 * then "No one else can trade at Mu Herculis ISO" once it's over. None while the Dictator is still asked.
+	 */
+	private fun counterLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
 		val market = resolution.marketText() ?: return emptyList()
-		return listOf(LogEntry(turn, "${resolution.good.label()}: $market")) +
-			resolution.trades.map { LogEntry(turn, "${corporationOf(it.offer.playerEmail)} ${it.terms()}") } +
-			LogEntry(turn, "${resolution.endText()} at ${resolution.good.label()}")
+		val label = resolution.good.label()
+		val started = listOfNotNull(LogEntry(turn, "$label: $market").takeIf { before?.startingCounter == null })
+		val newTrades = resolution.trades.drop(before?.trades?.size ?: 0)
+		val trades = newTrades.map { LogEntry(turn, "${corporationOf(it.offer.playerEmail)} ${it.terms()}") }
+		val ended = listOfNotNull(LogEntry(turn, "${resolution.endText()} at $label").takeIf { resolution.isFinished() })
+		return started + trades + ended
 	}
 
 	/** The running turn, once checked that its resolution waits for [email], as Dictator, to decide (R38, R04). */
@@ -258,6 +297,23 @@ data class Game(
 			throw NotYourTurnException(waitingForDictator(dictator))
 		}
 		return current
+	}
+
+	/** The running turn, once checked that its resolution waits for [email] to choose an amount (E05-S04, R04). */
+	private fun traderTurnOf(email: String): Turn {
+		playerOf(email)
+		val current = runningTurn()
+		val awaited = current.tradeAwaited()
+		if (awaited.offer.playerEmail != email) {
+			throw NotYourTurnException(waitingForTrader(awaited))
+		}
+		return current
+	}
+
+	/** S01-8 (D09): "Vega Lines can buy up to 4 u — waiting for their decision." The counter's max: money stays private (R29). */
+	private fun waitingForTrader(awaited: AwaitedTrade): String {
+		val verb = awaited.offer.type.name.lowercase()
+		return "${corporationOf(awaited.offer.playerEmail)} can $verb up to ${awaited.marketMax} u — waiting for their decision."
 	}
 
 	/** S01-8 (D09): "Waiting for Altair Trade Co. (Dictator) to decide." */

@@ -58,4 +58,48 @@ class ShipTest {
 
 		assertThat(ship.landingLog()).isEqualTo("Wayfarer lands at the port (Tau Ceti)")
 	}
+
+	@Test
+	fun shouldLoadPolyAndIsoUpToItsFreeSpaceAndLoseTheRest() {
+		// R42, R16: 4 of 10 spaces used, so 6 of 8 ISO fit.
+		val ship = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 4, Goods.CHIPS to 12))
+
+		assertThat(ship.unitsThatFit(Goods.ISO, 8)).isEqualTo(6)
+		assertThat(ship.load(Goods.ISO, 8).cargo).isEqualTo(mapOf(Goods.POLY to 4, Goods.CHIPS to 12, Goods.ISO to 6))
+	}
+
+	@Test
+	fun shouldLoadAnyAmountOfChipsAndFood() {
+		val full = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 10))
+
+		assertThat(full.unitsThatFit(Goods.FOOD, 30)).isEqualTo(30)
+		assertThat(full.load(Goods.FOOD, 30).holding(Goods.FOOD)).isEqualTo(30)
+		assertThat(full.load(Goods.ISO, 3).holding(Goods.ISO)).isZero()
+	}
+
+	@Test
+	fun shouldUnloadWhatItSoldAndDropAGoodItNoLongerCarries() {
+		val ship = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.ISO to 5, Goods.CHIPS to 2))
+
+		assertThat(ship.unload(Goods.ISO, 2).cargo).isEqualTo(mapOf(Goods.ISO to 3, Goods.CHIPS to 2))
+		assertThat(ship.unload(Goods.ISO, 5).cargo).isEqualTo(mapOf(Goods.CHIPS to 2))
+	}
+
+	@Test
+	fun shouldRefuseToUnloadMoreThanItHolds() {
+		// R10
+		val ship = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.ISO to 2))
+
+		assertThatThrownBy { ship.unload(Goods.ISO, 3) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Wayfarer has only 2 ISO.")
+	}
+
+	@Test
+	fun shouldFitNothingInAnOverfullShip() {
+		val overfull = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 12))
+
+		assertThat(overfull.unitsThatFit(Goods.ISO, 3)).isZero()
+		assertThat(overfull.load(Goods.ISO, 3).holding(Goods.ISO)).isZero()
+	}
 }

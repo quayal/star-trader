@@ -20,6 +20,60 @@ data class Player(
 	/** This player after paying [amount] HT. */
 	fun pay(amount: Int): Player = copy(money = money - amount)
 
+	/** This player after being paid [amount] HT. */
+	fun receive(amount: Int): Player = copy(money = money + amount)
+
+	/** This player's ships in port at [system]: only they trade there (R23, R42; trading happens in port). */
+	fun shipsInPortAt(system: StarSystem): List<Ship> = ships.filter { it.isInPortAt(system) }
+
+	/**
+	 * The most units this player can trade on [offer] when the counter allows [counterMax] (R34): a buy also capped by
+	 * what they can afford at its price (R12), a sell by what their ships at that system hold (R10, R42). Never below 0.
+	 */
+	fun tradeMax(offer: Offer, counterMax: Int): Int {
+		val cap = when (offer.type) {
+			OfferType.BUY -> money / offer.price
+			OfferType.SELL -> shipsInPortAt(offer.system).sumOf { it.holding(offer.goods) }
+		}
+		return minOf(counterMax, cap).coerceAtLeast(0)
+	}
+
+	/**
+	 * This player after trading [amount] units on their [offer] (E05-S04), the counter allowing [counterMax]. [amount] is
+	 * a whole number from 1 to [tradeMax] (S04-1). [loads] split it across their ships in port there, adding up to it;
+	 * with no ship in port they're empty, and a buy's goods are all lost (S04-4, R23). A buy pays the offer's price per
+	 * unit and loads what fits; a sell unloads and is paid (R34: at the offer's own price).
+	 */
+	fun trade(offer: Offer, counterMax: Int, amount: Int?, loads: List<ShipLoad>): Player {
+		val max = tradeMax(offer, counterMax)
+		if (amount == null || amount !in 1..max) {
+			throw InvalidTradeException("Enter a whole number from 1 to $max.")
+		}
+		val here = shipsInPortAt(offer.system)
+		if (loads.any { load -> here.none { it.name == load.shipName } }) {
+			throw InvalidTradeException("Choose your ships in port at ${offer.system.displayName}.")
+		}
+		if (loads.map { it.shipName }.toSet().size != loads.size || loads.any { it.units < 0 }) {
+			throw InvalidTradeException("Enter a whole number of units, 0 or more, for each ship.")
+		}
+		if (here.isNotEmpty() && loads.sumOf { it.units } != amount) {
+			throw InvalidTradeException("Your ships' units must add up to $amount.")
+		}
+		val moved = loads.fold(this) { player, load ->
+			val ship = checkNotNull(player.ship(load.shipName))
+			player.withShip(
+				when (offer.type) {
+					OfferType.BUY -> ship.load(offer.goods, load.units)
+					OfferType.SELL -> ship.unload(offer.goods, load.units)
+				}
+			)
+		}
+		return when (offer.type) {
+			OfferType.BUY -> moved.pay(amount * offer.price)
+			OfferType.SELL -> moved.receive(amount * offer.price)
+		}
+	}
+
 	/** This player set up for the first turn (R40): [money] HT and [ships]. */
 	fun startWith(money: Int, ships: List<Ship>): Player = copy(money = money, ships = ships)
 
