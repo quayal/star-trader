@@ -147,6 +147,28 @@ reason stays private. The gate passed again at a4fc02c (471 Kotlin, 0 skipped; 1
 approval: the sandbox refused self-approval, so the findings are a PR comment and the PR stays in `review` for the
 creator.
 
+## Creator's decisions after the first build (2026-11-08)
+
+The creator reviewed PR #91 and changed four of the run's autonomous calls. They're recorded in the E05 spec under S04.
+
+- **Trading happens in port.** Only ships in port load, unload and count for a sell's cap (`Ship.isInPortAt`,
+  `Player.shipsInPortAt`). This replaces "any ship in the system".
+- **No automatic skip.** A trader whose max is 0 sees why, privately ("You can't afford any units at 20 HT.", "You have
+  no ISO in your ships in port at Mu Herculis, so you can't sell any."), and presses **Trade nothing**
+  (`POST /trading/trade-nothing`). The creator corrected my first reading while I was working on it: trading nothing is
+  only for a max of 0. A trader who can trade a unit trades 1 to their max (R34), and the endpoint refuses otherwise.
+- **Public lines say what the market allowed and what took place:** "Vega Lines could buy up to 17 u: bought 10 u at
+  13 HT each, paid 130 HT", "Orion Freight could sell up to 5 u: sold nothing". There's no "couldn't trade" and no
+  reason anywhere public. `Shortfall` and the private `reason` are gone; a stored trade keeps `marketMax` instead.
+- **"Can buy up to n u" stays the market's max** (as built). Why a player trades less is their business.
+
+Rework commits: eb28281 (the decisions), then a fix found by the second walk. A bad splice in `index.html` left the page's
+module script unparseable, so every screen was blank, yet `./gradlew build` passed. `src/test/js/index-html.test.mjs`
+now parses that script; it fails on eb28281 and passes after. The second walk (same setup, Meridian moved to space in the
+walk's DynamoDB) checked the following. Vega's form listed only Wayfarer, in port; Lantern on the planet was left out.
+She bought 10 of 17. Orion saw why he couldn't sell and only Trade nothing. After he pressed it, both players' s03 and
+the log read the new lines. Gate: 471 Kotlin tests, 0 skipped; 182 JS tests.
+
 ## Progress
 
 PR: #91
