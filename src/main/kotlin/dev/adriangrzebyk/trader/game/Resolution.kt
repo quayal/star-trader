@@ -26,10 +26,10 @@ data class Resolution(
 
 	/**
 	 * The trade the resolution waits for its player to choose an amount for (E05-S04-1, D09): the next offer the counter
-	 * reaches, with [Trade.units] the most the counter allows (before that player's money and cargo, R12, R10). Null
-	 * before the counter starts and once no offer that hasn't traded allows a unit (S03-3).
+	 * reaches, with the most the market allows. Null before the counter starts and once no offer that hasn't traded allows
+	 * a unit (S03-3).
 	 */
-	fun awaitingTrade(): Trade? = startingCounter?.let { nextTrade() }
+	fun awaitingTrade(): AwaitedTrade? = startingCounter?.let { nextTrade() }
 
 	/** Whether nothing is left to decide: the Dictator has decided, and no offer can trade any more. */
 	fun isFinished(): Boolean = awaitingDictator() == null && awaitingTrade() == null
@@ -79,13 +79,13 @@ data class Resolution(
 	}
 
 	/**
-	 * This resolution after the awaited trade's player traded [trade]'s units (E05-S04): from 0, when they could trade
-	 * none (S04-5), to the most the counter allows. Then the counter has moved, and the next offer it reaches is awaited.
+	 * This resolution after the awaited trade's player traded [units] (E05-S04): from 0, trading nothing, to the most the
+	 * market allows. Then the counter has moved, and the next offer it reaches is awaited.
 	 */
-	fun withTrade(trade: Trade): Resolution {
+	fun withTrade(units: Int): Resolution {
 		val awaited = awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
-		check(trade.offer == awaited.offer && trade.units in 0..awaited.units) { "$trade isn't the awaited $awaited" }
-		return copy(trades = trades + trade)
+		check(units in 0..awaited.marketMax) { "$units u isn't within what the market allows, ${awaited.marketMax}" }
+		return copy(trades = trades + awaited.traded(units))
 	}
 
 	/**
@@ -94,7 +94,7 @@ data class Resolution(
 	 * lowest sell (S03-2); when that side has no offer able to trade, it goes as every later one does: the most units at
 	 * the current counter, a buyer–seller tie by the counter's sign (0 or more: the buyer), then [initiative] order.
 	 */
-	private fun nextTrade(): Trade? {
+	private fun nextTrade(): AwaitedTrade? {
 		val counter = checkNotNull(counter())
 		val able = offers.filter { offer -> trades.none { it.offer == offer } && maxUnitsOf(offer) >= 1 }
 		val favoured = if (counter >= 0) OfferType.BUY else OfferType.SELL
@@ -102,7 +102,7 @@ data class Resolution(
 		val winners = if (trades.isEmpty()) able.filter { it.type == favoured } else emptyList()
 		val winner = winners.sortedWith(compareBy(Offer::bestPriceFirst).then(byInitiative)).firstOrNull()
 		val mostUnits = able.sortedWith(compareByDescending(::maxUnitsOf).thenBy { it.type != favoured }.then(byInitiative)).firstOrNull()
-		return (winner ?: mostUnits)?.let { Trade(it, maxUnitsOf(it)) }
+		return (winner ?: mostUnits)?.let { AwaitedTrade(it, maxUnitsOf(it)) }
 	}
 
 	/** The most units [offer] allows at the counter now, from the start price (R34). */

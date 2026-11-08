@@ -28,4 +28,7 @@ class TradingService(private val gameStore: GameStore, private val dice: Dice) {
 	 */
 	fun trade(gameId: String, callerEmail: String, amount: Int?, loads: List<ShipLoad>): Game =
 		gameStore.update(gameId) { it.trade(callerEmail, amount, loads) }
+
+	/** The trader whose offer the counter reached trades nothing, inside [GameStore.update] (E05-S04-5, A04). */
+	fun tradeNothing(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.tradeNothing(callerEmail) }
 }

@@ -74,7 +74,7 @@ class ResolutionTest {
 	/** [resolution] after each awaited trader in turn traded their max: how the counter ran before E05-S04. */
 	private tailrec fun tradingTheirMax(resolution: Resolution): Resolution {
 		val awaited = resolution.awaitingTrade() ?: return resolution
-		return tradingTheirMax(resolution.withTrade(awaited))
+		return tradingTheirMax(resolution.withTrade(awaited.marketMax))
 	}
 
 	@Test
@@ -84,11 +84,11 @@ class ResolutionTest {
 		val started = Resolution.start(good, listOf(vega, orion), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
 		assertThat(started.startingCounter).isEqualTo(3)
-		assertThat(started.awaitingTrade()).isEqualTo(Trade(vega, 4))
+		assertThat(started.awaitingTrade()).isEqualTo(AwaitedTrade(vega, 4))
 		assertThat(started.isFinished()).isFalse()
-		val vegaBought = started.withTrade(Trade(vega, 4))
-		assertThat(vegaBought.awaitingTrade()).isEqualTo(Trade(orion, 5))
-		val orionSold = vegaBought.withTrade(Trade(orion, 5))
+		val vegaBought = started.withTrade(4)
+		assertThat(vegaBought.awaitingTrade()).isEqualTo(AwaitedTrade(orion, 5))
+		val orionSold = vegaBought.withTrade(5)
 		assertThat(orionSold.awaitingTrade()).isNull()
 		assertThat(orionSold.isFinished()).isTrue()
 		assertThat(orionSold.counter()).isEqualTo(4)
@@ -101,7 +101,7 @@ class ResolutionTest {
 		// The worked example's variant: Vega buys only 1 (counter 2), so Orion may sell only 4 - 2 = 2.
 		val started = Resolution.start(good, listOf(vega, orion), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		assertThat(started.withTrade(Trade(vega, 1)).awaitingTrade()).isEqualTo(Trade(orion, 2))
+		assertThat(started.withTrade(1).awaitingTrade()).isEqualTo(AwaitedTrade(orion, 2))
 	}
 
 	@Test
@@ -110,7 +110,7 @@ class ResolutionTest {
 		val resolution =
 			tradingTheirMax(Resolution.start(good, listOf(kessler, orion, vega), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2)))
 
-		assertThat(resolution.trades).containsExactly(Trade(vega, 4), Trade(orion, 5), Trade(kessler, 2))
+		assertThat(resolution.trades).containsExactly(Trade(vega, 4, 4), Trade(orion, 5, 5), Trade(kessler, 2, 2))
 		assertThat(resolution.counter()).isEqualTo(2)
 	}
 
@@ -126,7 +126,7 @@ class ResolutionTest {
 			Resolution.start(tauCetiIso, listOf(buyAt11, sellAt5, sellAt4), null, initiative).startCounterOnceDecided(FakeDice.twoD6(5))
 		)
 
-		assertThat(resolution.trades).containsExactly(Trade(sellAt4, 5), Trade(buyAt11, 19), Trade(sellAt5, 16))
+		assertThat(resolution.trades).containsExactly(Trade(sellAt4, 5, 5), Trade(buyAt11, 19, 19), Trade(sellAt5, 16, 16))
 		assertThat(resolution.counter()).isEqualTo(-2)
 		assertThat(resolution.marketText()).isEqualTo("market \u22124 → sellers first")
 	}
@@ -136,7 +136,7 @@ class ResolutionTest {
 		// Counter 3 favours buyers, but there are none: Orion's sell (target 4) may still sell 1.
 		val resolution = Resolution.start(good, listOf(orion), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		assertThat(resolution.awaitingTrade()).isEqualTo(Trade(orion, 1))
+		assertThat(resolution.awaitingTrade()).isEqualTo(AwaitedTrade(orion, 1))
 	}
 
 	@Test
@@ -148,14 +148,14 @@ class ResolutionTest {
 		val buyAt12 = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 12)
 		val sellAt9 = Offer("kessler@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 9)
 		val buyAt13 = Offer("vega@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 13)
-		val atTwo = Resolution(good, listOf(buyAt13, sellAt9, buyAt12), null, false, 3, listOf(Trade(buyAt13, 1)), initiative)
+		val atTwo = Resolution(good, listOf(buyAt13, sellAt9, buyAt12), null, false, 3, listOf(Trade(buyAt13, 6, 1)), initiative)
 		val buyAt6 = Offer("vega@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 6)
 		val sellAt4 = Offer("orion@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 4)
 		val sellAt3 = Offer("kessler@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 3)
-		val atMinusTwo = Resolution(tauCetiIso, listOf(sellAt3, buyAt6, sellAt4), null, false, -4, listOf(Trade(sellAt3, 2)), initiative)
+		val atMinusTwo = Resolution(tauCetiIso, listOf(sellAt3, buyAt6, sellAt4), null, false, -4, listOf(Trade(sellAt3, 4, 2)), initiative)
 
-		assertThat(atTwo.awaitingTrade()).isEqualTo(Trade(buyAt12, 5))
-		assertThat(atMinusTwo.awaitingTrade()).isEqualTo(Trade(sellAt4, 3))
+		assertThat(atTwo.awaitingTrade()).isEqualTo(AwaitedTrade(buyAt12, 5))
+		assertThat(atMinusTwo.awaitingTrade()).isEqualTo(AwaitedTrade(sellAt4, 3))
 	}
 
 	@Test
@@ -163,20 +163,20 @@ class ResolutionTest {
 		// E05-S04-5: Vega can't afford a unit, so her offer is done with none; the counter stays at 3 for Orion (target 4: 1 u).
 		val started = Resolution.start(good, listOf(vega, orion), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		val skipped = started.withTrade(Trade(vega))
+		val skipped = started.withTrade(0)
 
 		assertThat(skipped.counter()).isEqualTo(3)
-		assertThat(skipped.awaitingTrade()).isEqualTo(Trade(orion, 1))
-		assertThat(skipped.withTrade(Trade(orion)).endText()).isEqualTo("No one can trade")
+		assertThat(skipped.awaitingTrade()).isEqualTo(AwaitedTrade(orion, 1))
+		assertThat(skipped.withTrade(0).endText()).isEqualTo("No one can trade")
 	}
 
 	@Test
 	fun shouldRefuseATradeThatIsNotTheAwaitedOne() {
 		val started = Resolution.start(good, listOf(vega, orion), null, initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		assertThatThrownBy { started.withTrade(Trade(orion, 1)) }.isInstanceOf(IllegalStateException::class.java)
-		assertThatThrownBy { started.withTrade(Trade(vega, 5)) }.isInstanceOf(IllegalStateException::class.java)
-		assertThatThrownBy { Resolution.start(good, listOf(vega), null, initiative).withTrade(Trade(vega, 1)) }
+		assertThatThrownBy { started.withTrade(5) }.isInstanceOf(IllegalStateException::class.java)
+		assertThatThrownBy { started.withTrade(-1) }.isInstanceOf(IllegalStateException::class.java)
+		assertThatThrownBy { Resolution.start(good, listOf(vega), null, initiative).withTrade(1) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("No trade is waiting for a decision.")
 	}
@@ -224,16 +224,10 @@ class ResolutionTest {
 	}
 
 	@Test
-	fun shouldDescribeATradeForThePublicLog() {
-		assertThat(Trade(vega, 4).terms()).isEqualTo("bought 4 u at 11 HT each")
-		assertThat(Trade(orion, 5).terms()).isEqualTo("sold 5 u at 10 HT each")
-		assertThat(Trade(vega).terms()).isEqualTo("couldn't trade")
-	}
-
-	@Test
-	fun shouldTellOnlyTheTraderWhyTheyCouldTradeNothing() {
-		// E05-S04-5
-		assertThat(Trade(vega).shortfall?.reason(vega)).isEqualTo("You can't afford any units at 11 HT")
-		assertThat(Trade(orion).shortfall?.reason(orion)).isEqualTo("You have no ISO in your ships at Mu Herculis")
+	fun shouldSayWhatTheMarketAllowedAndWhatTookPlace() {
+		// E05-S04-6
+		assertThat(Trade(vega, 12, 10).terms()).isEqualTo("could buy up to 12 u: bought 10 u at 11 HT each, paid 110 HT")
+		assertThat(Trade(orion, 10, 4).terms()).isEqualTo("could sell up to 10 u: sold 4 u at 10 HT each, received 40 HT")
+		assertThat(Trade(vega, 3, 0).terms()).isEqualTo("could buy up to 3 u: bought nothing")
 	}
 }

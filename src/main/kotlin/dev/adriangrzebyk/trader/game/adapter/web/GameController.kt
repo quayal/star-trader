@@ -448,6 +448,28 @@ class GameController(
 		return GameResponseDto(game, session.email)
 	}
 
+	/** The trader the counter reached trades nothing (E05-S04-5); `409`, `403`, `404` and `401` as for `/trading/trade`. */
+	@PostMapping("/games/{id}/trading/trade-nothing")
+	fun tradeNothing(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			tradingService.tradeNothing(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: NotYourTurnException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
 	private fun sessionFor(authorization: String?): Session {
 		val token = authorization?.takeIf { it.startsWith(BEARER_PREFIX, ignoreCase = true) }
 			?.substring(BEARER_PREFIX.length)?.trim()

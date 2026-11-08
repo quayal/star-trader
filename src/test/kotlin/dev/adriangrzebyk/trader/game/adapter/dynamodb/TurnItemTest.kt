@@ -39,7 +39,7 @@ class TurnItemTest {
 			"kim@example.com",
 			true,
 			-6,
-			listOf(Trade(Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9), 3), Trade(offer)),
+			listOf(Trade(Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9), 5, 3), Trade(offer, 2, 0)),
 			listOf("grace@example.com", "ada@example.com")
 		)
 	)
@@ -179,24 +179,25 @@ class TurnItemTest {
 		val resolution = TurnItem(turn).attributes.getValue("resolution").m()
 
 		assertThat(resolution.getValue("startingCounter")).isEqualTo(AttributeValue.fromN("-6"))
-		assertThat(resolution.getValue("trades").l().first().m().keys).containsExactlyInAnyOrder("offer", "units")
+		assertThat(resolution.getValue("trades").l().first().m().keys).containsExactlyInAnyOrder("offer", "marketMax", "units")
+		assertThat(resolution.getValue("trades").l().first().m().getValue("marketMax")).isEqualTo(AttributeValue.fromN("5"))
 		assertThat(resolution.getValue("trades").l().first().m().getValue("units")).isEqualTo(AttributeValue.fromN("3"))
-		assertThat(resolution.getValue("trades").l().last().m().getValue("shortfall")).isEqualTo(AttributeValue.fromS(offer.shortfall().name))
 		assertThat(resolution.getValue("initiative").l().map { it.s() }).containsExactly("grace@example.com", "ada@example.com")
 	}
 
 	@Test
-	fun shouldReadAResolutionSavedBeforeTradersChoseAmountsWithNoInitiativeOrShortfall() {
-		// E05-S03 ran the counter to its end, so nothing waits and no tie is left to break (BACKWARD_COMPATIBILITY.md §7).
+	fun shouldReadAResolutionSavedBeforeTradersChoseAmountsWithNoInitiativeAndEachTradeAtTheMarketsMax() {
+		// E05-S03 ran the counter to its end, every offer trading the most the market allowed, so nothing waits and no tie
+		// is left to break (BACKWARD_COMPATIBILITY.md §7).
 		val stored = TurnItem(turn).attributes.getValue("resolution").m()
-		val olderTrades = stored.getValue("trades").l().map { AttributeValue.fromM(it.m() - "shortfall") }
+		val olderTrades = stored.getValue("trades").l().map { AttributeValue.fromM(it.m() - "marketMax") }
 		val older = TurnItem(
 			TurnItem(turn).attributes +
 				("resolution" to AttributeValue.fromM(stored - "initiative" + ("trades" to AttributeValue.fromL(olderTrades))))
 		).toTurn()
 
 		assertThat(older.resolution!!.initiative).isEmpty()
-		assertThat(older.resolution!!.trades.map { it.shortfall }).containsOnlyNulls()
+		assertThat(older.resolution!!.trades.map { it.marketMax }).containsExactly(3, 0)
 	}
 
 	@Test

@@ -13,6 +13,7 @@ export const YOUR_RESOLVE = "It's your turn to resolve the next good.";
 export const YOUR_DICTATOR_DECISION = "You're Dictator of the good resolving: place an offer before the roll, or pass.";
 export const GO_TO_TRADING = 'Go to Trading';
 export const NO_OFFERS_TEXT = 'No offers for this good.';
+export const TRADE_NOTHING_BUTTON = 'Trade nothing';
 export const DICTATOR_HELP = "You see everyone's offers above. Your offer has no other advantage: it trades only if the market and your price allow it.";
 
 const TYPE_NAMES = { BUY: 'Buy', SELL: 'Sell' };
@@ -98,7 +99,7 @@ export function waitingText(game, email) {
 	const trade = awaitingTrade(game);
 	if (trade !== null) {
 		return trade.playerEmail === email
-			? `Your ${verb(trade.type)} at ${trade.price} HT can trade now: choose how many units.`
+			? `The market has reached your ${verb(trade.type)} at ${trade.price} HT: your decision.`
 			: `${corporation(game, trade.playerEmail)} can ${verb(trade.type)} up to ${trade.maxUnits} u — waiting for their decision.`;
 	}
 	const who = resolver(game);
@@ -157,11 +158,11 @@ export function dictatorLine(game) {
 
 /**
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
- * each trade ("Vega Lines bought 4 u at 11 HT each"), then "No one else can trade at this market." once it's over, or
- * "No one can trade at this market." when nothing traded (S03-7). Empty until the counter starts (after the Dictator).
- * A trader who could trade nothing reads "Vega Lines couldn't trade"; to that trader, with why (E05-S04-5, R29).
+ * each trade with what the market allowed and what took place (E05-S04-6: "Vega Lines could buy up to 12 u: bought
+ * 10 u at 13 HT each, paid 130 HT"), then "No one else can trade at this market." once it's over, or "No one can trade
+ * at this market." when no unit traded (S03-7). Empty until the counter starts (after the Dictator).
  */
-export function counterLines(game, email) {
+export function counterLines(game) {
 	const current = resolution(game);
 	const counter = current?.startingCounter;
 	if (counter === null || counter === undefined) {
@@ -171,7 +172,7 @@ export function counterLines(game, email) {
 	const trades = current.trades ?? [];
 	const lines = [
 		`Market ${signed} \u2192 ${counter >= 0 ? 'buyers' : 'sellers'} first`,
-		...trades.map(trade => tradeLine(game, trade, email)),
+		...trades.map(trade => tradeLine(game, trade)),
 	];
 	if (current.finished) {
 		lines.push(trades.some(trade => trade.units > 0) ? 'No one else can trade at this market.' : 'No one can trade at this market.');
@@ -179,11 +180,12 @@ export function counterLines(game, email) {
 	return lines;
 }
 
-function tradeLine(game, trade, email) {
-	if (trade.units === 0) {
-		return trade.playerEmail === email && trade.reason ? `You couldn't trade. ${trade.reason}.` : `${corporation(game, trade.playerEmail)} couldn't trade`;
-	}
-	return `${corporation(game, trade.playerEmail)} ${trade.type === 'BUY' ? 'bought' : 'sold'} ${trade.units} u at ${trade.price} HT each`;
+function tradeLine(game, trade) {
+	const [action, done, total] = trade.type === 'SELL' ? ['sell', 'sold', 'received'] : ['buy', 'bought', 'paid'];
+	const allowed = `${corporation(game, trade.playerEmail)} could ${action} up to ${trade.marketMax ?? trade.units} u`;
+	return trade.units === 0
+		? `${allowed}: ${done} nothing`
+		: `${allowed}: ${done} ${trade.units} u at ${trade.price} HT each, ${total} ${trade.units * trade.price} HT`;
 }
 
 /** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
@@ -197,16 +199,20 @@ export function shipLabel(ship) {
 
 /**
  * E05-S04: the amount form for [email] when the game waits for their amount, else null. [max] is their own max after
- * money and cargo (R12, R10); [ships] are their ships at that system (R42), each with what it holds of the good and
- * its free cargo space for it (unlimited for CHIPS and FOOD).
+ * money and cargo (R12, R10); [ships] are their ships in port at that system (trading happens in port, R23, R42), each
+ * with what it holds of the good and its free cargo space for it (unlimited for CHIPS and FOOD). With a max of 0,
+ * [cannot] says why, and the player acknowledges by trading nothing (S04-5); otherwise it's "".
  */
 export function tradeForm(game, email) {
 	const trade = awaitingTrade(game);
-	if (trade === null || trade.playerEmail !== email || !game.you?.tradeMax) {
+	const max = game.you?.tradeMax;
+	if (trade === null || trade.playerEmail !== email || max === null || max === undefined) {
 		return null;
 	}
 	const { good } = resolution(game);
-	const here = (game.players.find(p => p.email === email)?.ships ?? []).filter(ship => ship.system === good.system).map(ship => ship.name);
+	const here = (game.players.find(p => p.email === email)?.ships ?? [])
+		.filter(ship => ship.system === good.system && ship.location === 'PORT')
+		.map(ship => ship.name);
 	const ships = (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
 		name: ship.name,
 		label: shipLabel(ship),
@@ -220,13 +226,16 @@ export function tradeForm(game, email) {
 		goods: good.goods,
 		systemName: good.systemName,
 		price: trade.price,
-		max: game.you.tradeMax,
+		max,
 		ships,
 		heading: `Your ${action} at ${trade.price} HT can trade now`,
 		amountLabel: `Amount to ${action} (u)`,
 		help: `${trade.type === 'SELL' ? 'You get' : 'You pay'} your offer price, ${trade.price} HT each. Trading more leaves less for others.`,
-		shipsLegend: `Your ships at ${good.systemName}`,
-		noShip: ships.length === 0 ? `You have no ship at ${good.systemName}.` : '',
+		shipsLegend: `Your ships in port at ${good.systemName}`,
+		noShip: ships.length === 0 ? `You have no ship in port at ${good.systemName}.` : '',
+		cannot: max > 0 ? '' : trade.type === 'SELL'
+			? `You have no ${good.goods} in your ships in port at ${good.systemName}, so you can't sell any.`
+			: `You can't afford any units at ${trade.price} HT.`,
 	};
 }
 
@@ -265,7 +274,7 @@ export function lossWarning(form, amount, split) {
 		return '';
 	}
 	return form.ships.length === 0
-		? `You have no ship at ${form.systemName}, so everything you buy will be lost.`
+		? `You have no ship in port at ${form.systemName}, so everything you buy will be lost.`
 		: `Only ${amount - lost} u fit in the ships you chose; the rest will be lost.`;
 }
 
@@ -347,7 +356,7 @@ export function decisionText(game, email) {
 	}
 	if (awaitingTrade(game)?.playerEmail === email) {
 		const { good } = resolution(game);
-		return `Your decision is needed: your ${verb(awaitingTrade(game).type)} of ${good.goods} at ${good.systemName} can trade now. Choose how many units.`;
+		return `Your decision is needed: the market has reached your ${verb(awaitingTrade(game).type)} of ${good.goods} at ${good.systemName}.`;
 	}
 	return resolver(game) === email ? 'Your decision is needed: resolve the next good.' : '';
 }

@@ -77,7 +77,7 @@ class PlayerTest {
 
 	@Test
 	fun shouldCapASellAtWhatTheirShipsAtThatSystemHold() {
-		// R10, R42: Wayfarer and Meridian are at Tau Ceti (one in space), Lantern isn't.
+		// R10, R42: only ships in port trade. Wayfarer is in port at Tau Ceti; Meridian is there but in space; Lantern is elsewhere.
 		val trader = player.copy(
 			ships = listOf(
 				wayfarer.load(Goods.ISO, 3),
@@ -87,7 +87,7 @@ class PlayerTest {
 		)
 		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
 
-		assertThat(trader.tradeMax(sell, 8)).isEqualTo(5)
+		assertThat(trader.tradeMax(sell, 8)).isEqualTo(3)
 		assertThat(player.tradeMax(sell, 8)).isZero()
 	}
 
@@ -100,8 +100,8 @@ class PlayerTest {
 
 	@Test
 	fun shouldPayForABuyAndLoadWhatFitsLosingTheRest() {
-		// S04-4: Wayfarer has 10 free spaces; 12 ISO split 10 + 2 onto Wayfarer and Meridian (8 used) fit 10 + 2.
-		val meridian = Ship("Meridian", StarSystem.TAU_CETI, ShipLocation.PLANET, mapOf(Goods.POLY to 9))
+		// S04-4: Wayfarer has 10 free spaces and Meridian 1; 12 ISO split 10 + 2 onto them fit 10 + 1, and 1 is lost.
+		val meridian = Ship("Meridian", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 9))
 		val trader = player.copy(ships = listOf(wayfarer, meridian))
 		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
 
@@ -159,7 +159,7 @@ class PlayerTest {
 			.hasMessage("Your ships' units must add up to 4.")
 		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Lantern", 4))) }
 			.isInstanceOf(InvalidTradeException::class.java)
-			.hasMessage("Choose your ships at Tau Ceti.")
+			.hasMessage("Choose your ships in port at Tau Ceti.")
 		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Wayfarer", 5), ShipLoad("Wayfarer", -1))) }
 			.isInstanceOf(InvalidTradeException::class.java)
 			.hasMessage("Enter a whole number of units, 0 or more, for each ship.")
@@ -176,5 +176,19 @@ class PlayerTest {
 		assertThatThrownBy { trader.trade(sell, 5, 3, listOf(ShipLoad("Wayfarer", 3), ShipLoad("Meridian", 0))) }
 			.isInstanceOf(InvalidTradeException::class.java)
 			.hasMessage("Wayfarer has only 2 ISO.")
+	}
+
+	@Test
+	fun shouldTradeOnlyThroughShipsInPort() {
+		// R23, R42: trading happens in port. Wayfarer is at Tau Ceti but on the planet, so it can't load, and with no ship
+		// in port a buy's goods are lost.
+		val trader = player.copy(ships = listOf(wayfarer.landAt(ShipLocation.PLANET), lantern))
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		assertThat(trader.shipsInPortAt(StarSystem.TAU_CETI)).isEmpty()
+		assertThatThrownBy { trader.trade(buy, 4, 2, listOf(ShipLoad("Wayfarer", 2))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Choose your ships in port at Tau Ceti.")
+		assertThat(trader.trade(buy, 4, 2, emptyList()).ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
 	}
 }

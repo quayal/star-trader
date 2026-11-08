@@ -77,6 +77,12 @@ s03 Trading (main column: current resolution; side column: queue), the "your dec
 6. [s03, s04] [R25] Each trade is public: "{corp} {bought | sold} {n} u at {price} HT each".
 7. [s01 top bar] [R29] Your money updates; nobody else sees it.
 
+Creator's decisions while reviewing the first build (2026-11-08, PR #91):
+
+- Trading happens in port: only the player's ships **in port** at that system load or unload, and count for S04-3's sell cap. A ship on the planet or in space doesn't trade.
+- S04-5: the player isn't skipped automatically. They see why, privately, and acknowledge with **Trade nothing**. That's only possible when their max is 0. A player who can trade a unit trades 1 to their max (R34).
+- S04-6: each public trade line says what the market allowed and what took place, including the total: "Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT", "… could sell up to 10 u: sold 4 u at 9 HT each, received 36 HT", "… could buy up to 3 u: bought nothing". It never says why a player traded less (R29).
+
 ### E05-S05 — The price changes, then Wholesalers trade
 
 1. [—] [R35] New price = start price + modifier(final counter), clamped to 1–20 HT.

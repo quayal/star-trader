@@ -210,15 +210,15 @@ describe('the counter (E05-S03)', () => {
 			dictator: null,
 			awaiting: null,
 			startingCounter: 3,
-			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, units: 4 }, { playerEmail: ME, type: 'SELL', price: 10, units: 5 }],
+			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }, { playerEmail: ME, type: 'SELL', price: 10, marketMax: 5, units: 5 }],
 		}),
 	});
 
 	it('shows the market, each trade and the end in plain terms (S03-6)', () => {
 		assert.deepEqual(counterLines(traded), [
 			'Market +3 \u2192 buyers first',
-			'Vega Lines bought 4 u at 11 HT each',
-			'Orion Freight sold 5 u at 10 HT each',
+			'Vega Lines could buy up to 4 u: bought 4 u at 11 HT each, paid 44 HT',
+			'Orion Freight could sell up to 5 u: sold 5 u at 10 HT each, received 50 HT',
 			'No one else can trade at this market.',
 		]);
 	});
@@ -255,9 +255,10 @@ function mine(base, { tradeMax = 5, wayfarer = { ISO: 3, CHIPS: 12 }, lantern = 
 		players: base.players.map(p => p.email !== ME ? p : {
 			...p,
 			ships: [
-				{ name: 'Wayfarer', system: 'MU_HERCULIS' },
-				{ name: 'Meridian', system: 'TAU_CETI' },
-				{ name: 'Lantern', system: 'MU_HERCULIS' },
+				{ name: 'Wayfarer', system: 'MU_HERCULIS', location: 'PORT' },
+				{ name: 'Meridian', system: 'TAU_CETI', location: 'PORT' },
+				{ name: 'Lantern', system: 'MU_HERCULIS', location: 'PORT' },
+				{ name: 'Halcyon', system: 'MU_HERCULIS', location: 'PLANET' },
 			],
 		}),
 		you: {
@@ -277,10 +278,10 @@ describe('a trader choosing an amount (E05-S04)', () => {
 		const waiting = game({ resolution: { ...awaitingMe(), awaitingTrade: { playerEmail: VEGA, type: 'BUY', price: 11, maxUnits: 4 } } });
 
 		assert.equal(waitingText(waiting, ME), 'Vega Lines can buy up to 4 u \u2014 waiting for their decision.');
-		assert.equal(waitingText(game({ resolution: awaitingMe() }), ME), 'Your sell at 10 HT can trade now: choose how many units.');
+		assert.equal(waitingText(game({ resolution: awaitingMe() }), ME), 'The market has reached your sell at 10 HT: your decision.');
 		assert.equal(resolver(waiting), null);
 		assert.equal(awaitingTrade(waiting).playerEmail, VEGA);
-		assert.equal(decisionText(waiting, VEGA), 'Your decision is needed: your buy of ISO at Mu Herculis can trade now. Choose how many units.');
+		assert.equal(decisionText(waiting, VEGA), 'Your decision is needed: the market has reached your buy of ISO at Mu Herculis.');
 		assert.equal(decisionText(waiting, ME), '');
 	});
 
@@ -321,14 +322,14 @@ describe('a trader choosing an amount (E05-S04)', () => {
 		assert.equal(lossWarning(buy, 12, [10, 2]), 'Only 9 u fit in the ships you chose; the rest will be lost.');
 		assert.equal(lossWarning(buy, 9, [7, 2]), '');
 		const nowhere = { ...buy, ships: [] };
-		assert.equal(lossWarning(nowhere, 3, []), 'You have no ship at Mu Herculis, so everything you buy will be lost.');
+		assert.equal(lossWarning(nowhere, 3, []), 'You have no ship in port at Mu Herculis, so everything you buy will be lost.');
 		assert.equal(lossWarning(tradeForm(mine(game({ resolution: awaitingMe() })), ME), 5, [3, 2]), '');
 	});
 
 	it('loses nothing of CHIPS or FOOD, which take no space (R42)', () => {
 		const chips = { ...game({ resolution: { ...awaitingMe({ type: 'BUY', price: 3 }), good: CHIPS } }) };
 		const seen = mine(chips, { tradeMax: 30 });
-		seen.players = seen.players.map(p => p.email !== ME ? p : { ...p, ships: [{ name: 'Wayfarer', system: 'BETA_HYDRI' }] });
+		seen.players = seen.players.map(p => p.email !== ME ? p : { ...p, ships: [{ name: 'Wayfarer', system: 'BETA_HYDRI', location: 'PORT' }] });
 		const form = tradeForm(seen, ME);
 
 		assert.deepEqual(defaultSplit(form, 30), [30]);
@@ -350,23 +351,39 @@ describe('a trader choosing an amount (E05-S04)', () => {
 		assert.deepEqual(validateTrade({ ...sell, type: 'BUY', ships: [] }, '2', []), { body: { amount: 2, ships: [] } });
 	});
 
-	it('says who couldn\'t trade, and why only to them (S04-5, R29)', () => {
-		const skipped = game({
+	it('says what the market allowed and what took place, never why (S04-5, S04-6, R29)', () => {
+		const nothing = game({
 			resolution: {
 				...resolving({ dictator: null, awaiting: null, startingCounter: 3 }),
 				trades: [
-					{ playerEmail: ME, type: 'SELL', price: 10, units: 0, reason: 'You have no ISO in your ships at Mu Herculis' },
-					{ playerEmail: VEGA, type: 'BUY', price: 11, units: 0, reason: null },
+					{ playerEmail: ME, type: 'SELL', price: 10, marketMax: 2, units: 0 },
+					{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 3, units: 0 },
 				],
 			},
 		});
 
-		assert.deepEqual(counterLines(skipped, ME), [
+		assert.deepEqual(counterLines(nothing), [
 			'Market +3 \u2192 buyers first',
-			"You couldn't trade. You have no ISO in your ships at Mu Herculis.",
-			"Vega Lines couldn't trade",
+			'Orion Freight could sell up to 2 u: sold nothing',
+			'Vega Lines could buy up to 3 u: bought nothing',
 			'No one can trade at this market.',
 		]);
-		assert.equal(counterLines(skipped, VEGA)[1], "Orion Freight couldn't trade");
+	});
+
+	it('lists only ships in port, where trading happens (R23, R42)', () => {
+		const form = tradeForm(mine(game({ resolution: awaitingMe() })), ME);
+
+		assert.deepEqual(form.ships.map(ship => ship.name), ['Wayfarer', 'Lantern']);
+		assert.equal(form.shipsLegend, 'Your ships in port at Mu Herculis');
+	});
+
+	it('lets a trader with nothing to trade only acknowledge it, saying why to them alone (S04-5)', () => {
+		const broke = tradeForm(mine(game({ resolution: awaitingMe({ type: 'BUY', price: 20 }) }), { tradeMax: 0 }), ME);
+		const empty = tradeForm(mine(game({ resolution: awaitingMe() }), { tradeMax: 0 }), ME);
+
+		assert.equal(broke.max, 0);
+		assert.equal(broke.cannot, "You can't afford any units at 20 HT.");
+		assert.equal(empty.cannot, "You have no ISO in your ships in port at Mu Herculis, so you can't sell any.");
+		assert.equal(tradeForm(mine(game({ resolution: awaitingMe() })), ME).cannot, '');
 	});
 });

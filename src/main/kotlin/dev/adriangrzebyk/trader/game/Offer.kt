@@ -30,12 +30,6 @@ data class Offer(val playerEmail: String, val system: StarSystem, val goods: Goo
 		OfferType.SELL -> price
 	}
 
-	/** Why this offer trades nothing when its player's max is 0 (E05-S04-5): money for a buy (R12), cargo for a sell (R10). */
-	fun shortfall(): Shortfall = when (type) {
-		OfferType.BUY -> Shortfall.CANT_AFFORD
-		OfferType.SELL -> Shortfall.NOTHING_TO_SELL
-	}
-
 	/** For the public log once it's disclosed (E05-S02): "buy at 11 HT". */
 	fun terms(): String = "${type.name.lowercase()} at $price HT"
 

@@ -155,7 +155,9 @@ class GameTradingTest {
 
 		val game = askingDictator.passAsDictator("ada@example.com", FakeDice.twoD6(2))
 
-		assertThat(game.turn!!.tradeAwaited()).isEqualTo(Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21))
+		assertThat(
+			game.turn!!.tradeAwaited()
+		).isEqualTo(AwaitedTrade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21))
 		assertThat(game.turn!!.resolvedGoods).isEmpty()
 		assertThat(game.log.drop(askingDictator.log.size)).containsExactly(
 			LogEntry(1, "Orion Freight (Dictator) passed"),
@@ -177,10 +179,10 @@ class GameTradingTest {
 		assertThat(grace.ship("Meridian")!!.holding(Goods.POLY)).isEqualTo(10)
 		assertThat(
 			game.turn!!.resolution!!.trades
-		).containsExactly(Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 12))
+		).containsExactly(Trade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21, 12))
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
-			LogEntry(1, "Vega Lines bought 12 u at 11 HT each"),
+			LogEntry(1, "Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT"),
 			LogEntry(1, "No one else can trade at Gamma Leporis POLY")
 		)
 		assertThat(game.resolveNextGood("grace@example.com", dice()).turn!!.resolvedGoods).hasSize(2)
@@ -209,9 +211,10 @@ class GameTradingTest {
 	}
 
 	@Test
-	fun shouldSkipATraderWhoCanAffordNothingAndSayWhyOnlyToThem() {
-		// S04-5: Grace bid all her 300 HT for initiative, so she can't afford POLY at 11 HT. Her offer is done with none,
-		// the counter stays at 3, and Altair's sell allows nothing, so nobody traded.
+	fun shouldLetATraderWhoCanAffordNothingAcknowledgeIt() {
+		// S04-5: Grace bid all her 300 HT for initiative, so she can't afford POLY at 11 HT. The game waits for her to
+		// acknowledge; then her offer is done with none, the counter stays at 3, Altair's sell allows nothing, and nobody
+		// traded. The log says what the market allowed, never why she traded nothing (R29).
 		val broke = Game.lobby("game-3", 3, dictatorOfPoly)
 			.addPlayer(grace)
 			.addPlayer(kim)
@@ -225,19 +228,28 @@ class GameTradingTest {
 			.finishJumping("kim@example.com")
 			.finishJumping("ada@example.com")
 			.resolveNextGood("grace@example.com", dice())
+			.passAsDictator("ada@example.com", FakeDice.twoD6(2))
 
-		val game = broke.passAsDictator("ada@example.com", FakeDice.twoD6(2))
+		assertThat(broke.turn!!.tradeAwaited().offer.playerEmail).isEqualTo("grace@example.com")
+		assertThat(broke.players.first { it.email == "grace@example.com" }.tradeMax(broke.turn!!.tradeAwaited().offer, 21)).isZero()
+		val game = broke.tradeNothing("grace@example.com")
 
-		val trade = game.turn!!.resolution!!.trades.single()
-		assertThat(trade.units).isZero()
-		assertThat(trade.shortfall?.reason(trade.offer)).isEqualTo("You can't afford any units at 11 HT")
+		assertThat(game.turn!!.resolution!!.trades.single().units).isZero()
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
 		assertThat(game.log.drop(broke.log.size)).containsExactly(
-			LogEntry(1, "Orion Freight (Dictator) passed"),
-			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first"),
-			LogEntry(1, "Vega Lines couldn't trade"),
+			LogEntry(1, "Vega Lines could buy up to 21 u: bought nothing"),
 			LogEntry(1, "No one can trade at Gamma Leporis POLY")
 		)
+	}
+
+	@Test
+	fun shouldRefuseToTradeNothingWhileTheTraderCanTradeAUnit() {
+		// S04-5, R34: a trader who can trade buys or sells 1 to their max; trading nothing only acknowledges they can't.
+		assertThatThrownBy { gracesTurnToTrade.tradeNothing("grace@example.com") }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("You can buy up to 21 u: choose from 1 to 21.")
+		assertThatThrownBy { gracesTurnToTrade.tradeNothing("kim@example.com") }
+			.isInstanceOf(NotYourTurnException::class.java)
 	}
 
 	@Test

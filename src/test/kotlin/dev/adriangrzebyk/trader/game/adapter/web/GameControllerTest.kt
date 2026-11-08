@@ -1001,6 +1001,12 @@ class GameControllerTest {
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 0 or more, for each ship.")
 
+		// S04-5, R34: the host can buy, so trading nothing is refused.
+		tradeNothing(creatorToken, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You can buy up to $max u: choose from 1 to $max.")
+		tradeNothing(joinerToken, gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(waiting)
+
 		// S04-3, S04-6, S04-7: the host buys 1 u into a ship of theirs there, if any (else it's lost, S04-4).
 		val shipHere = hostView.players.first { it.email == host }.ships.firstOrNull { it.system == "GAMMA_LEPORIS" }
 		val ships = shipHere?.let { """[{"name": "${it.name}", "units": 1}]""" } ?: "[]"
@@ -1009,10 +1015,14 @@ class GameControllerTest {
 		assertThat(traded.you!!.money).isEqualTo(289)
 		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
 		// The guest's sell (target -18) still can't trade, so the good has resolved.
-		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, 1, null))
+		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1))
 		assertThat(traded.turn!!.resolution!!.finished).isTrue()
 		assertThat(traded.turn!!.resolvedGoods).containsExactly(good)
-		assertThat(traded.log.map { it.text }).contains("Adrian Star Traders bought 1 u at 11 HT each")
+		assertThat(
+			traded.log.map {
+				it.text
+			}
+		).contains("Adrian Star Traders could buy up to ${counter + 18} u: bought 1 u at 11 HT each, paid 11 HT")
 		trade(creatorToken, gameId, """{"amount": 1, "ships": $ships}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No trade is waiting for a decision.")
@@ -1029,6 +1039,15 @@ class GameControllerTest {
 		trade(signIn("trade-refused-stranger@example.com"), gameId, """{"amount": 1}""").expectStatus().isForbidden
 		trade(signIn("trade-refused-lost@example.com"), "missing-game", """{"amount": 1}""").expectStatus().isNotFound
 		trade(null, gameId, """{"amount": 1}""").expectStatus().isUnauthorized
+		tradeNothing("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		tradeNothing(signIn("trade-refused-stranger2@example.com"), gameId).expectStatus().isForbidden
+		tradeNothing(null, gameId).expectStatus().isUnauthorized
+	}
+
+	private fun tradeNothing(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/trading/trade-nothing", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun trade(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

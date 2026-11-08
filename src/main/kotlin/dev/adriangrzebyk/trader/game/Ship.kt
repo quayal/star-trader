@@ -12,6 +12,9 @@ data class Ship(val name: String, val system: StarSystem, val location: ShipLoca
 	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
+	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
+	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
+
 	/** How many units of [goods] this ship carries. */
 	fun holding(goods: Goods): Int = cargo[goods] ?: 0
 

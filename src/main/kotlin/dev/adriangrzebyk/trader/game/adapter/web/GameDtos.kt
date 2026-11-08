@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.LogEntry
@@ -49,7 +50,7 @@ data class GameResponseDto(
 		game.status.name,
 		game.creatorEmail,
 		game.players.map { PlayerResponseDto(it) },
-		game.turn?.let { TurnResponseDto(it, viewerEmail) },
+		game.turn?.let { TurnResponseDto(it) },
 		game.log.map { LogEntryResponseDto(it) },
 		StarSystem.entries.map { SystemResponseDto(it) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {
@@ -123,7 +124,7 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
  * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
  * now, or the last one resolved, and null before the first. Offers never go here except the disclosed ones of
- * [resolution] (R17, E05-S02-1), and bids never do (R29). [viewerEmail] sees why their own offer traded nothing (E05-S04-5).
+ * [resolution] (R17, E05-S02-1), and bids never do (R29).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -139,7 +140,7 @@ data class TurnResponseDto(
 	val resolution: ResolutionResponseDto?
 ) {
 
-	constructor(turn: Turn, viewerEmail: String) : this(
+	constructor(turn: Turn) : this(
 		turn.number,
 		turn.phase.name,
 		turn.doneBidding,
@@ -150,7 +151,7 @@ data class TurnResponseDto(
 		turn.landingShip,
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
-		turn.resolution?.let { ResolutionResponseDto(it, viewerEmail) }
+		turn.resolution?.let { ResolutionResponseDto(it) }
 	)
 }
 
@@ -174,31 +175,25 @@ data class ResolutionResponseDto(
 	val awaitingTrade: AwaitingTradeResponseDto?
 ) {
 
-	constructor(resolution: Resolution, viewerEmail: String) : this(
+	constructor(resolution: Resolution) : this(
 		MarketGoodResponseDto(resolution.good),
 		resolution.offers.map { DisclosedOfferResponseDto(it) },
 		resolution.dictator,
 		resolution.awaitingDictator(),
 		resolution.isFinished(),
 		resolution.startingCounter,
-		resolution.trades.map { TradeResponseDto(it, viewerEmail) },
+		resolution.trades.map { TradeResponseDto(it) },
 		resolution.awaitingTrade()?.let { AwaitingTradeResponseDto(it) }
 	)
 }
 
 /**
- * A trade in a resolution, public like the resolution (E05-S03): whose offer, Buy or Sell, its price, and the units
- * traded, 0 when its player could trade none (E05-S04-5). [reason] says why, and only to that player (R29).
+ * A trade in a resolution, public like the resolution (E05-S03, E05-S04-6): whose offer, Buy or Sell, its price, the
+ * most units the market allowed and the units traded, 0 when its player traded nothing. Why is their own business (R29).
  */
-data class TradeResponseDto(val playerEmail: String, val type: String, val price: Int, val units: Int, val reason: String?) {
+data class TradeResponseDto(val playerEmail: String, val type: String, val price: Int, val marketMax: Int, val units: Int) {
 
-	constructor(trade: Trade, viewerEmail: String) : this(
-		trade.offer.playerEmail,
-		trade.offer.type.name,
-		trade.offer.price,
-		trade.units,
-		trade.shortfall?.takeIf { trade.offer.playerEmail == viewerEmail }?.reason(trade.offer)
-	)
+	constructor(trade: Trade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.marketMax, trade.units)
 }
 
 /**
@@ -207,7 +202,7 @@ data class TradeResponseDto(val playerEmail: String, val type: String, val price
  */
 data class AwaitingTradeResponseDto(val playerEmail: String, val type: String, val price: Int, val maxUnits: Int) {
 
-	constructor(trade: Trade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.units)
+	constructor(trade: AwaitedTrade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.marketMax)
 }
 
 /** An offer once its good resolves, which every player may see (S02-1): whose, Buy or Sell, and its price. */
@@ -231,7 +226,8 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
 /**
  * Only for the viewer: their money (R29), what their own ships carry (S02-5), their own offers this turn (R17), their
  * own initiative bid this turn, or null if they haven't placed one (R29), and [tradeMax], the most they may trade now
- * when the game waits for their amount (E05-S04-1), after their money and cargo (R12, R10), else null.
+ * when the game waits for their amount (E05-S04-1), after their money and cargo (R12, R10), 0 when that leaves nothing
+ * (S04-5), else null.
  */
 data class YouResponseDto(
 	val money: Int,
@@ -245,12 +241,12 @@ data class YouResponseDto(
 	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
 	 * `turn.bidOf(player.email)`, never the whole turn's. [awaitingTrade] is the resolution's, whoever's it is.
 	 */
-	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?, awaitingTrade: Trade?) : this(
+	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?, awaitingTrade: AwaitedTrade?) : this(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
 		offers.map { YourOfferResponseDto(it) },
 		bid?.amount,
-		awaitingTrade?.takeIf { it.offer.playerEmail == player.email }?.let { player.tradeMax(it.offer, it.units) }
+		awaitingTrade?.takeIf { it.offer.playerEmail == player.email }?.let { player.tradeMax(it.offer, it.marketMax) }
 	)
 }
 
@@ -338,7 +334,7 @@ data class MarketGoodRequestDto(val system: String? = null, val goods: String? =
 }
 
 /**
- * The awaited trader's amount and how it splits across their ships at that system (E05-S04-1, S04-3). Numbers are
+ * The awaited trader's amount and how it splits across their ships in port there (E05-S04-1, S04-3). Numbers are
  * [BigDecimal] so 2.5 reaches the domain's "whole number" message instead of being rounded to 2.
  */
 data class TradeRequestDto(val amount: BigDecimal? = null, val ships: List<ShipLoadRequestDto>? = null) {
@@ -346,7 +342,7 @@ data class TradeRequestDto(val amount: BigDecimal? = null, val ships: List<ShipL
 	/** The amount as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
 	fun wholeAmount(): Int? = amount?.let { runCatching { it.intValueExact() }.getOrNull() }
 
-	/** The split, empty when absent (no ship there), or null when a ship's units aren't a whole number or its name is missing. */
+	/** The split, empty when absent (no ship in port there), or null when a ship's units aren't a whole number or its name is missing. */
 	fun loads(): List<ShipLoad>? = ships.orEmpty().map { it.shipLoad() ?: return null }
 }
 

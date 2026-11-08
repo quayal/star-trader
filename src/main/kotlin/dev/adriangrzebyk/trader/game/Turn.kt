@@ -249,13 +249,13 @@ data class Turn(
 	 * The trade the resolution waits for its player to choose an amount for (E05-S04-1), refused when there is none.
 	 * Checking that it's the caller's is the caller's, which knows the players' names.
 	 */
-	fun tradeAwaited(): Trade {
+	fun tradeAwaited(): AwaitedTrade {
 		requireTrading()
 		return resolution?.awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
 	}
 
-	/** This turn after the awaited trade's player traded [trade] (E05-S04); once nothing is left, its good counts as resolved. */
-	fun recordTrade(trade: Trade): Turn = withResolution(resolutionNow().withTrade(trade))
+	/** This turn after the awaited trade's player traded [units] (E05-S04); once nothing is left, its good counts as resolved. */
+	fun recordTrade(units: Int): Turn = withResolution(resolutionNow().withTrade(units))
 
 	private fun resolutionNow(): Resolution {
 		requireTrading()
