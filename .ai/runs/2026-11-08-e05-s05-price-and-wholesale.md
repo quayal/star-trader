@@ -109,6 +109,41 @@ capped by money and cargo, or pass (S05-4, S05-6). Wholesale trades don't move t
 - Money and cargo stay private: `you.wholesaleMax` only for the player asked. Tested in DTO and controller tests.
 - A resolution saved before S05 reads with the board's start price and nobody asked; one saved finished stays finished.
 
+## Notes from the run
+
+- **Changed from the plan while building:**
+  - A Dictator's pass in the wholesale step is logged as "… (Dictator) passed on wholesale". Plain "passed" would read
+    the same as their pass before the roll ("Altair Trade Co. (Dictator) passed"), which is already in the log.
+  - `Player.trade` now says why when the player's max is 0 ("You can't afford any units at 10 HT.", "You have no POLY
+    in your ships in port at Gamma Leporis, so you can't sell any."), not "Enter a whole number from 1 to 0.". Only the
+    wholesale step can reach it with a 0 max; S04's trader acknowledges with Trade nothing instead.
+  - The wholesale step reuses s03's amount form (amount, per-ship split, loss warning), adding Buy/Sell and Pass in
+    wholesale mode, so there's one form to keep right rather than two.
+  - The Dictator is now asked in the wholesale step of every good they're Dictator of (R37), so a good with a Dictator
+    resolves only once they've answered. Existing S02/S04 tests that expected it resolved right after the trades now
+    pass the Dictator's wholesale step first.
+- **Docker was running**, so `GameControllerTest` and the DynamoDB tests ran: 501 Kotlin tests, 0 skipped; 187 JS tests.
+- **Browser walk** (agent-browser 0.35.2, two players, own DynamoDB Local on 8100 and app on 3100 with
+  `RESEND_API_KEY=` blank; game set up through the API; positions, a ship's system and cargo seeded in DynamoDB):
+  - Gamma Leporis POLY (2 HT, market +10): Vega bought 16 of 18 at 5 HT. Both players' s03 then read "No one else can
+    trade at this market." and "POLY price at Gamma Leporis: 2 → 5 HT" (S05-1, S05-2). The Deck's map read "POLY 5 HT"
+    straight after (S05-3).
+  - Orion (Wholesaler, no offer) got "As Wholesaler, buy or sell up to 5 u of POLY at the new price, 5 HT?" with his
+    two ships in port, the amount pre-filled with 5 and the split into Meridian's free space. Sell switched to his own
+    sell max. A 2 + 3 split warned "Only 4 u fit in the ships you chose; the rest will be lost.". Vega meanwhile saw
+    "Waiting for Orion Freight (Wholesaler) to trade up to 5 u at 5 HT, or pass." and the Deck showed Orion "Your
+    decision is needed: as Wholesaler, …" with Go to Trading (S01-8, S01-9). He bought 5 into Meridian: money 300 →
+    275, and "Orion Freight (Wholesaler) bought 5 u at 5 HT each, paid 25 HT" on s03 and in the log (S05-5).
+  - Sigma Draconis FOOD, Vega Dictator, no offers: she passed before the roll; market 0, so "FOOD price at Sigma
+    Draconis: 10 → 10 HT" was still shown and logged. Then she was asked as Dictator; Sell said "You have no FOOD in your
+    ships in port at Sigma Draconis, so you can't sell any." with only Pass; she passed: "Vega Lines (Dictator) passed on
+    wholesale".
+  - At 390 px, Beta Hydri ISO with Orion as Wholesaler and no ship there: "You have no ship in port at Beta Hydri, so
+    everything you buy will be lost." The form fit with no horizontal scroll. He passed.
+  - One click on Trade didn't submit (no request, no error). Replaying the same steps on another good (Deck → Trading
+    by hash, the button below the fold) worked the first time, as did every other click, so it wasn't reproduced. I
+    put it down to clicking while the view was switching, not to the form.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
@@ -131,4 +166,4 @@ capped by money and cargo, or pass (S05-4, S05-6). Wholesale trades don't move t
 
 ### Phase 4: Verify
 
-- [ ] 4.1 Full gate and browser walk
+- [x] 4.1 Full gate and browser walk — bba4034
