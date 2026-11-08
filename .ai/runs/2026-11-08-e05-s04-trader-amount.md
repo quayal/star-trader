@@ -114,14 +114,14 @@ is public and logged (S04-6), and the trader's money and cargo change (S04-7).
 
 ### Phase 1: Domain
 
-- [ ] 1.1 Ship load/unload and Player caps and settlement
-- [ ] 1.2 Resolution waits for each trader
-- [ ] 1.3 Turn, Game and TradingService take the trader's decision
+- [x] 1.1 Ship load/unload and Player caps and settlement — 1717d7e
+- [x] 1.2 Resolution waits for each trader — 1717d7e
+- [x] 1.3 Turn, Game and TradingService take the trader's decision — 1717d7e
 
 ### Phase 2: Adapters
 
-- [ ] 2.1 Persistence of initiative and shortfall
-- [ ] 2.2 Web: the trade endpoint and the awaiting trade in the game shape
+- [x] 2.1 Persistence of initiative and shortfall — 1717d7e (landed with Phase 1: the new Resolution fields don't compile without it)
+- [x] 2.2 Web: the trade endpoint and the awaiting trade in the game shape — b4a869a
 
 ### Phase 3: Frontend
 
