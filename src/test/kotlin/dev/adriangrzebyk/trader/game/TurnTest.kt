@@ -246,12 +246,12 @@ class TurnTest {
 		val b = Offer("b", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
 		val started = resolving(shipJumps.copy(offers = listOf(c, b)).toTrading(), null, FakeDice.twoD6(6))
 
-		val bBought = started.recordTrade(3)
+		val bBought = started.recordTrade(3, null)
 
 		assertThat(bBought.resolvedGoods).isEmpty()
 		assertThatThrownBy { resolving(bBought, null, dice()) }.hasMessage("Gamma Leporis POLY hasn't finished resolving.")
 		assertThat(bBought.tradeAwaited()).isEqualTo(AwaitedTrade(c, 5))
-		val cBought = bBought.recordTrade(5)
+		val cBought = bBought.recordTrade(5, null)
 		assertThat(cBought.resolvedGoods).containsExactly(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY))
 		assertThatThrownBy { cBought.tradeAwaited() }.hasMessage("No trade is waiting for a decision.")
 	}

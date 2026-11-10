@@ -11,7 +11,7 @@ internal class TradeItem(val attributes: Map<String, AttributeValue>) {
 			OFFER to AttributeValue.fromM(OfferItem(trade.offer).attributes),
 			MARKET_MAX to number(trade.marketMax),
 			UNITS to number(trade.units)
-		)
+		) + listOfNotNull(trade.positionRoll?.let { POSITION_ROLL to AttributeValue.fromM(PositionRollItem(it).attributes) })
 	)
 
 	fun toTrade(): Trade {
@@ -20,7 +20,9 @@ internal class TradeItem(val attributes: Map<String, AttributeValue>) {
 			offer = OfferItem(attributes.attribute(OFFER).m()).toOffer(),
 			// Absent on trades saved before E05-S04, when every offer traded the most the market allowed.
 			marketMax = attributes[MARKET_MAX]?.n()?.toInt() ?: units,
-			units = units
+			units = units,
+			// Absent when the trade made no position roll, and on every trade saved before E05-S06.
+			positionRoll = attributes[POSITION_ROLL]?.m()?.let { PositionRollItem(it).toPositionRoll() }
 		)
 	}
 
@@ -28,5 +30,6 @@ internal class TradeItem(val attributes: Map<String, AttributeValue>) {
 		const val OFFER = "offer"
 		const val MARKET_MAX = "marketMax"
 		const val UNITS = "units"
+		const val POSITION_ROLL = "positionRoll"
 	}
 }

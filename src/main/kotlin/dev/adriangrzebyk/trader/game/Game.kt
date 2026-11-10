@@ -242,13 +242,55 @@ data class Game(
 	 * [email], whose offer the counter has reached, trades [amount] units, split across their ships in port there as
 	 * [loads] (E05-S04): [Player.trade] checks the amount against their max (R34, R12, R10) and the split (R42), and
 	 * moves their money and cargo. The trade is public and logged (S04-6): "Vega Lines could buy up to 12 u: bought 10 u
-	 * at 13 HT each, paid 130 HT". Then the counter reaches the next offer.
+	 * at 13 HT each, paid 130 HT". A trade of 6 units or more then rolls 2d6 from [dice] for its player's market position
+	 * there (R43, E05-S06), logged right after it. Then the counter reaches the next offer.
 	 */
-	fun trade(email: String, amount: Int?, loads: List<ShipLoad>): Game {
+	fun trade(email: String, amount: Int?, loads: List<ShipLoad>, dice: Dice): Game {
 		val current = traderTurnOf(email)
 		val awaited = current.tradeAwaited()
 		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads)
-		return copy(players = replace(trader)).withTradeRecorded(current, checkNotNull(amount))
+		val units = checkNotNull(amount)
+		val good = checkNotNull(current.resolution).good
+		val positionRoll = positionRollFor(trader, good, units, dice)
+		return copy(players = replace(trader)).withPositionRolled(email, good, positionRoll).withTradeRecorded(current, units, positionRoll)
+	}
+
+	/**
+	 * The position roll [trader] makes after trading [units] of [good] (R43, E05-S06-2), or null when they traded fewer
+	 * than 6 or are its Dictator already (S06-3: nothing to gain). A roll at most [units] moves them one tier up; becoming
+	 * Dictator demotes the Dictator there to Wholesaler (S06-3). Both hold at once (S06-5).
+	 */
+	private fun positionRollFor(trader: Player, good: MarketGood, units: Int, dice: Dice): PositionRoll? {
+		if (units < PositionRoll.MIN_UNITS || !trader.canRiseAt(good)) {
+			return null
+		}
+		val roll = dice.twoD6()
+		if (roll > units) {
+			return PositionRoll(roll, null, emptyList())
+		}
+		val tier = trader.promotionAt(good)
+		val demoted = if (tier == MarketTier.DICTATOR) {
+			players.filter { it.email != trader.email && it.isDictatorOf(good) }.map { it.email }
+		} else {
+			emptyList()
+		}
+		return PositionRoll(roll, tier, demoted)
+	}
+
+	/** This game once [positionRoll], made by [email] for [good], moved positions; unchanged when it didn't. */
+	private fun withPositionRolled(email: String, good: MarketGood, positionRoll: PositionRoll?): Game {
+		if (positionRoll?.promotedTo == null) {
+			return this
+		}
+		return copy(
+			players = players.map {
+				when {
+					it.email == email -> it.promotedAt(good)
+					it.email in positionRoll.demoted -> it.demotedAt(good)
+					else -> it
+				}
+			}
+		)
 	}
 
 	/**
@@ -264,11 +306,11 @@ data class Game(
 		if (max > 0) {
 			throw InvalidGameOperationException("You can ${awaited.offer.type.name.lowercase()} up to $max u: choose from 1 to $max.")
 		}
-		return withTradeRecorded(current, 0)
+		return withTradeRecorded(current, 0, null)
 	}
 
-	private fun withTradeRecorded(current: Turn, units: Int): Game =
-		withResolutionMoved(current.recordTrade(units), current.resolution, emptyList())
+	private fun withTradeRecorded(current: Turn, units: Int, positionRoll: PositionRoll?): Game =
+		withResolutionMoved(current.recordTrade(units, positionRoll), current.resolution, emptyList())
 
 	/**
 	 * [email], asked in the wholesale step (R37, E05-S05-4), buys or sells ([type]) [amount] units at the good's new price,
@@ -313,14 +355,16 @@ data class Game(
 	 * The public log lines of what [resolution] did in turn [turn] since [before] (null for a good that just started
 	 * resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first" when the
 	 * counter starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130
-	 * HT"), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
+	 * HT") and its position roll, if any (E05-S06-4), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
 	 * Herculis: 11 → 10 HT" (S05-2), then each wholesale answer (S05-5). None while the Dictator is still asked.
 	 */
 	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
 		val market = resolution.marketText() ?: return emptyList()
 		val label = resolution.good.label()
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
-		val trades = resolution.trades.drop(before?.trades?.size ?: 0).map { "${corporationOf(it.offer.playerEmail)} ${it.terms()}" }
+		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
+			listOfNotNull("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", positionRollText(trade, resolution.good))
+		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
 			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
 		} else {
@@ -329,6 +373,16 @@ data class Game(
 		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0)
 			.map { "${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}" }
 		return (started + trades + ended + wholesales).map { LogEntry(turn, it) }
+	}
+
+	/**
+	 * The public log line of [trade]'s position roll, if it made one (E05-S06-4): "Vega Lines traded 7 u — rolled 5: now
+	 * Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair Trade Co. is demoted
+	 * to Wholesaler".
+	 */
+	private fun positionRollText(trade: Trade, good: MarketGood): String? = trade.positionRoll?.let { roll ->
+		"${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
+			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler" }
 	}
 
 	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */

@@ -261,8 +261,11 @@ data class Turn(
 		return resolution?.awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
 	}
 
-	/** This turn after the awaited trade's player traded [units] (E05-S04); once nothing is left, its good counts as resolved. */
-	fun recordTrade(units: Int): Turn = withResolution(resolutionNow().withTrade(units))
+	/**
+	 * This turn after the awaited trade's player traded [units] (E05-S04) and made [positionRoll], if any (R43); once
+	 * nothing is left, its good counts as resolved.
+	 */
+	fun recordTrade(units: Int, positionRoll: PositionRoll?): Turn = withResolution(resolutionNow().withTrade(units, positionRoll))
 
 	/**
 	 * Whom the wholesale step waits for to trade or pass (R37, S05-4), refused when nobody is asked. Checking that it's the

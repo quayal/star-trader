@@ -5,9 +5,10 @@ import dev.adriangrzebyk.trader.trading.OfferType
 /**
  * What happened when the counter reached [offer] in a Trading resolution (R34): the market allowed up to [marketMax]
  * units, and its player traded [units] of them at the offer's own price, 0 when they chose to trade nothing (E05-S04).
- * Public, like the resolution; why a player traded less is their own business (R29).
+ * Public, like the resolution; why a player traded less is their own business (R29). [positionRoll] is the roll a trade of
+ * 6 or more units makes for its player's market position, and what came of it (R43, E05-S06); null when it made none.
  */
-data class Trade(val offer: Offer, val marketMax: Int, val units: Int) {
+data class Trade(val offer: Offer, val marketMax: Int, val units: Int, val positionRoll: PositionRoll?) {
 
 	/** The counter after this trade, from [counter] before it: each unit moves it one step, down for a buy, up for a sell (R34). */
 	fun counterAfter(counter: Int): Int = when (offer.type) {

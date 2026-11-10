@@ -178,7 +178,7 @@ export function dictatorLine(game) {
 /**
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
  * each trade with what the market allowed and what took place (E05-S04-6: "Vega Lines could buy up to 12 u: bought
- * 10 u at 13 HT each, paid 130 HT"), then "No one else can trade at this market." once it's over, or "No one can trade
+ * 10 u at 13 HT each, paid 130 HT") and the position roll it made, if any (E05-S06-4), then "No one else can trade at this market." once it's over, or "No one can trade
  * at this market." when no unit traded (S03-7). Then the price change, "ISO price at Mu Herculis: 11 → 10 HT" (E05-S05-2),
  * and each wholesale answer: "Kessler Cargo (Wholesaler) bought 3 u at 10 HT each, paid 30 HT" (S05-5). Empty until the
  * counter starts (after the Dictator).
@@ -193,7 +193,7 @@ export function counterLines(game) {
 	const trades = current.trades ?? [];
 	const lines = [
 		`Market ${signed} \u2192 ${counter >= 0 ? 'buyers' : 'sellers'} first`,
-		...trades.map(trade => tradeLine(game, trade)),
+		...trades.flatMap(trade => [tradeLine(game, trade), positionRollLine(game, trade, current.good)].filter(Boolean)),
 	];
 	const over = current.newPrice !== null && current.newPrice !== undefined;
 	if (over || current.finished) {
@@ -214,6 +214,26 @@ function wholesaleLine(game, wholesale) {
 	}
 	const [done, total] = wholesale.type === 'SELL' ? ['sold', 'received'] : ['bought', 'paid'];
 	return `${who} ${done} ${wholesale.units} u at ${wholesale.price} HT each, ${total} ${wholesale.units * wholesale.price} HT`;
+}
+
+/** R28: the market-position tiers' names. */
+const TIER_NAMES = { RETAILER: 'Retailer', WHOLESALER: 'Wholesaler', DICTATOR: 'Dictator' };
+
+/**
+ * E05-S06-4: a trade's position roll, if it made one: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu
+ * Herculis", "… rolled 9: no change", and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null
+ * for a trade that made no roll.
+ */
+function positionRollLine(game, trade, good) {
+	const roll = trade.positionRoll;
+	if (!roll) {
+		return null;
+	}
+	const change = roll.promotedTo
+		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName}`
+		: 'no change';
+	const demoted = (roll.demoted ?? []).map(email => `; ${corporation(game, email)} is demoted to Wholesaler`).join('');
+	return `${corporation(game, trade.playerEmail)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
 }
 
 function tradeLine(game, trade) {
