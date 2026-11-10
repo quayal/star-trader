@@ -60,7 +60,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldStartTheNextTurnWithBiddingOnceTheLastGoodHasResolved() {
 		// S07-1, S07-2: the last trade finishes the last good, and the turn ends in the same step
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 		assertThat(game.status).isEqualTo(GameStatus.RUNNING)
 		assertThat(game.turn).isEqualTo(Turn.bidding(2))
@@ -69,7 +69,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldLetOffersThatDidNotTradeExpire() {
 		// S07-2 (proposed): the next turn starts with no offers, whether they traded or not
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 		assertThat(game.turn!!.offers).isEmpty()
 		assertThat(game.turn!!.offersOf("grace@example.com")).isEmpty()
@@ -87,7 +87,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldLogTheEndOfTheTurnAndStartANewGroupForTheNextOne() {
 		// S07-3: the new turn's first line is logged under its own number, so the log starts a new group
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 		assertThat(game.log.takeLast(2)).containsExactly(
 			LogEntry(1, "All goods resolved"),
@@ -98,7 +98,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldKeepTheMovedPricesIntoTheNextTurn() {
 		// R35: only the price carries over. Grace bought 1, counter 2, so Gamma Leporis POLY moves from 2 HT by modifier(2)
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 		assertThat(game.prices.priceOf(gammaLeporisPoly)).isEqualTo((2 + SupplyDemand.priceModifierAt(2)).coerceAtLeast(1))
 	}
@@ -106,7 +106,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldNotStartAnotherTurnAfterTheLastOne() {
 		// R39, R41: a one-turn game is over after its first Trading, and keeps its last turn
-		val game = lastGoodWaitingForGrace(1).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+		val game = lastGoodWaitingForGrace(1).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 		assertThat(game.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(game.turn!!.number).isEqualTo(1)

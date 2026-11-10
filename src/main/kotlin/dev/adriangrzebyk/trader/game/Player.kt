@@ -139,6 +139,38 @@ data class Player(
 	fun isDictatorOf(system: StarSystem, goods: Goods): Boolean =
 		marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }
 
+	/** This player's tier for [good] at its system, or null when they hold none there (R28, R40). */
+	fun tierAt(good: MarketGood): MarketTier? = marketPositions.firstOrNull { it.isFor(good) }?.tier
+
+	/** Whether a position roll can move this player up for [good] (E05-S06-3): not once they're its Dictator. */
+	fun canRiseAt(good: MarketGood): Boolean = tierAt(good) != MarketTier.DICTATOR
+
+	/**
+	 * The tier a won position roll gives this player for [good] (R43): one up from the tier they hold, none → Retailer →
+	 * Wholesaler → Dictator. Only for a player who [canRiseAt] it.
+	 */
+	fun promotionAt(good: MarketGood): MarketTier =
+		tierAt(good)?.let { checkNotNull(it.next()) { "A Dictator can't go higher" } } ?: MarketTier.RETAILER
+
+	/**
+	 * This player after winning a position roll for [good]: they hold [promotionAt] it at once (E05-S06-5). It changes
+	 * nothing for the rest of the turn, since each good resolves once a turn and its Dictator and Wholesalers are fixed
+	 * when it starts.
+	 */
+	fun promotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
+
+	/** Whether this player is Dictator of [good] at its system (R28). */
+	fun isDictatorOf(good: MarketGood): Boolean = tierAt(good) == MarketTier.DICTATOR
+
+	/** This player as Wholesaler of [good], once someone else became its Dictator (S06-3). */
+	fun demotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
+
+	/** This player holding [position], in place of whatever they held for that good at that system. */
+	private fun withPosition(position: MarketPosition): Player {
+		val good = MarketGood(position.system, position.goods)
+		return copy(marketPositions = marketPositions.filterNot { it.isFor(good) } + position)
+	}
+
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 
 	companion object {

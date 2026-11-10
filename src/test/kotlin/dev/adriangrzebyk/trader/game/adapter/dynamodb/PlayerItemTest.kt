@@ -55,7 +55,9 @@ class PlayerItemTest {
 	fun shouldStoreAPlayerUnderTheseAttributeNames() {
 		val attributes = PlayerItem(player).attributes
 
-		assertThat(attributes.keys).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions")
+		assertThat(
+			attributes.keys
+		).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions")
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
 	}

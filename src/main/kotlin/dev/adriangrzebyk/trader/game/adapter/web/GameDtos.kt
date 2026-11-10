@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
@@ -232,10 +233,34 @@ data class WholesaleResponseDto(val playerEmail: String, val role: String, val t
 /**
  * A trade in a resolution, public like the resolution (E05-S03, E05-S04-6): whose offer, Buy or Sell, its price, the
  * most units the market allowed and the units traded, 0 when its player traded nothing. Why is their own business (R29).
+ * [positionRoll] is the market-position roll a trade of 6 or more units made, else null (R43, E05-S06-4).
  */
-data class TradeResponseDto(val playerEmail: String, val type: String, val price: Int, val marketMax: Int, val units: Int) {
+data class TradeResponseDto(
+	val playerEmail: String,
+	val type: String,
+	val price: Int,
+	val marketMax: Int,
+	val units: Int,
+	val positionRoll: PositionRollResponseDto?
+) {
 
-	constructor(trade: Trade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.marketMax, trade.units)
+	constructor(trade: Trade) : this(
+		trade.offer.playerEmail,
+		trade.offer.type.name,
+		trade.offer.price,
+		trade.marketMax,
+		trade.units,
+		trade.positionRoll?.let { PositionRollResponseDto(it) }
+	)
+}
+
+/**
+ * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds now ([promotedTo], null for no change),
+ * and the email of the Dictator it demoted to Wholesaler, if any (S06-3).
+ */
+data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>) {
+
+	constructor(positionRoll: PositionRoll) : this(positionRoll.roll, positionRoll.promotedTo?.name, positionRoll.demoted)
 }
 
 /**

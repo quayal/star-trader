@@ -6,6 +6,9 @@ package dev.adriangrzebyk.trader.game
  */
 data class AwaitedTrade(val offer: Offer, val marketMax: Int) {
 
-	/** What took place once its player chose [units], from 0 (trading nothing) to [marketMax]. */
-	fun traded(units: Int): Trade = Trade(offer, marketMax, units)
+	/**
+	 * What took place once its player chose [units], from 0 (trading nothing) to [marketMax], with the [positionRoll] it
+	 * made, if any (R43).
+	 */
+	fun traded(units: Int, positionRoll: PositionRoll?): Trade = Trade(offer, marketMax, units, positionRoll)
 }

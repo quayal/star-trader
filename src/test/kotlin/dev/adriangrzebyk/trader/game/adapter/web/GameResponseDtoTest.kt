@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Wholesale
@@ -68,6 +69,26 @@ class GameResponseDtoTest {
 	}
 
 	@Test
+	fun shouldSendAPositionWonThisTurnToEveryone() {
+		// E05-S06-4, S06-5: public at once, like the roll that won it
+		val game = started.copy(
+			players = started.players.map {
+				if (it.email ==
+					"guest@example.com"
+				) {
+					it.promotedAt(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO))
+				} else {
+					it
+				}
+			}
+		)
+
+		val guest = GameResponseDto(game, "host@example.com").players.single { it.email == "guest@example.com" }
+
+		assertThat(guest.marketPositions).containsExactly(MarketPositionResponseDto("MU_HERCULIS", "ISO", "RETAILER"))
+	}
+
+	@Test
 	fun shouldGiveTheViewerTheirOwnShipsCargoAndCargoSpaceUsed() {
 		val host = started.players.first()
 		val loaded = host.copy(
@@ -122,6 +143,7 @@ class GameResponseDtoTest {
 		// E05-S03, E05-S04-6: public, like the disclosed offers: what the market allowed and what took place
 		val vega = Offer("vega@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
 		val orion = Offer("orion@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 10)
+		val kessler = Offer("kessler@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 9)
 		val resolution = Resolution(
 			MarketGood(StarSystem.MU_HERCULIS, Goods.ISO),
 			11,
@@ -129,7 +151,11 @@ class GameResponseDtoTest {
 			null,
 			false,
 			3,
-			listOf(Trade(vega, 4, 4), Trade(orion, 5, 0)),
+			listOf(
+				Trade(vega, 4, 4, null),
+				Trade(orion, 5, 0, null),
+				Trade(kessler, 8, 7, PositionRoll(5, MarketTier.DICTATOR, listOf("vega@example.com")))
+			),
 			emptyList(),
 			emptyList(),
 			emptyList()
@@ -139,8 +165,10 @@ class GameResponseDtoTest {
 
 		assertThat(dto.startingCounter).isEqualTo(3)
 		assertThat(dto.trades).containsExactly(
-			TradeResponseDto("vega@example.com", "BUY", 11, 4, 4),
-			TradeResponseDto("orion@example.com", "SELL", 10, 5, 0)
+			TradeResponseDto("vega@example.com", "BUY", 11, 4, 4, null),
+			TradeResponseDto("orion@example.com", "SELL", 10, 5, 0, null),
+			// E05-S06-4: the position roll is public too
+			TradeResponseDto("kessler@example.com", "SELL", 9, 8, 7, PositionRollResponseDto(5, "DICTATOR", listOf("vega@example.com")))
 		)
 		assertThat(dto.awaitingTrade).isNull()
 	}
@@ -198,7 +226,7 @@ class GameResponseDtoTest {
 		"kim@example.com",
 		true,
 		3,
-		listOf(Trade(gracesBuy, 4, 4)),
+		listOf(Trade(gracesBuy, 4, 4, null)),
 		emptyList(),
 		listOf("host@example.com", "kim@example.com"),
 		listOf(Wholesale("host@example.com", OfferType.SELL, 2, 11))
