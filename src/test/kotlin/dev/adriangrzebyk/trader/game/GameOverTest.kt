@@ -46,7 +46,7 @@ class GameOverTest {
 		started(1, grace).placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 	).resolveNextGood("grace@example.com", FakeDice.twoD6(2))
 
-	private val over = graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)))
+	private val over = graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
 
 	@Test
 	fun shouldEndTheGameWhenTheLastTurnsLastGoodHasResolved() {
