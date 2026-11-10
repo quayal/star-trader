@@ -78,7 +78,7 @@ class ResolutionTest {
 	/** [resolution] after each awaited trader in turn traded their max: how the counter ran before E05-S04. */
 	private tailrec fun tradingTheirMax(resolution: Resolution): Resolution {
 		val awaited = resolution.awaitingTrade() ?: return resolution
-		return tradingTheirMax(resolution.withTrade(awaited.marketMax))
+		return tradingTheirMax(resolution.withTrade(awaited.marketMax, null))
 	}
 
 	@Test
@@ -90,9 +90,9 @@ class ResolutionTest {
 		assertThat(started.startingCounter).isEqualTo(3)
 		assertThat(started.awaitingTrade()).isEqualTo(AwaitedTrade(vega, 4))
 		assertThat(started.isFinished()).isFalse()
-		val vegaBought = started.withTrade(4)
+		val vegaBought = started.withTrade(4, null)
 		assertThat(vegaBought.awaitingTrade()).isEqualTo(AwaitedTrade(orion, 5))
-		val orionSold = vegaBought.withTrade(5)
+		val orionSold = vegaBought.withTrade(5, null)
 		assertThat(orionSold.awaitingTrade()).isNull()
 		assertThat(orionSold.isFinished()).isTrue()
 		assertThat(orionSold.counter()).isEqualTo(4)
@@ -105,7 +105,7 @@ class ResolutionTest {
 		// The worked example's variant: Vega buys only 1 (counter 2), so Orion may sell only 4 - 2 = 2.
 		val started = start(listOf(vega, orion), null).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		assertThat(started.withTrade(1).awaitingTrade()).isEqualTo(AwaitedTrade(orion, 2))
+		assertThat(started.withTrade(1, null).awaitingTrade()).isEqualTo(AwaitedTrade(orion, 2))
 	}
 
 	@Test
@@ -114,7 +114,7 @@ class ResolutionTest {
 		val resolution =
 			tradingTheirMax(start(listOf(kessler, orion, vega), null).startCounterOnceDecided(FakeDice.twoD6(2)))
 
-		assertThat(resolution.trades).containsExactly(Trade(vega, 4, 4), Trade(orion, 5, 5), Trade(kessler, 2, 2))
+		assertThat(resolution.trades).containsExactly(Trade(vega, 4, 4, null), Trade(orion, 5, 5, null), Trade(kessler, 2, 2, null))
 		assertThat(resolution.counter()).isEqualTo(2)
 	}
 
@@ -130,7 +130,7 @@ class ResolutionTest {
 			start(listOf(buyAt11, sellAt5, sellAt4), null, tauCetiIso).startCounterOnceDecided(FakeDice.twoD6(5))
 		)
 
-		assertThat(resolution.trades).containsExactly(Trade(sellAt4, 5, 5), Trade(buyAt11, 19, 19), Trade(sellAt5, 16, 16))
+		assertThat(resolution.trades).containsExactly(Trade(sellAt4, 5, 5, null), Trade(buyAt11, 19, 19, null), Trade(sellAt5, 16, 16, null))
 		assertThat(resolution.counter()).isEqualTo(-2)
 		assertThat(resolution.marketText()).isEqualTo("market \u22124 → sellers first")
 	}
@@ -160,7 +160,7 @@ class ResolutionTest {
 					sellAt9,
 					buyAt12
 				),
-				null, false, 3, listOf(Trade(buyAt13, 6, 1)), initiative, emptyList(), emptyList()
+				null, false, 3, listOf(Trade(buyAt13, 6, 1, null)), initiative, emptyList(), emptyList()
 			)
 		val buyAt6 = Offer("vega@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 6)
 		val sellAt4 = Offer("orion@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 4)
@@ -173,7 +173,7 @@ class ResolutionTest {
 					buyAt6,
 					sellAt4
 				),
-				null, false, -4, listOf(Trade(sellAt3, 4, 2)), initiative, emptyList(), emptyList()
+				null, false, -4, listOf(Trade(sellAt3, 4, 2, null)), initiative, emptyList(), emptyList()
 			)
 
 		assertThat(atTwo.awaitingTrade()).isEqualTo(AwaitedTrade(buyAt12, 5))
@@ -185,20 +185,20 @@ class ResolutionTest {
 		// E05-S04-5: Vega can't afford a unit, so her offer is done with none; the counter stays at 3 for Orion (target 4: 1 u).
 		val started = start(listOf(vega, orion), null).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		val skipped = started.withTrade(0)
+		val skipped = started.withTrade(0, null)
 
 		assertThat(skipped.counter()).isEqualTo(3)
 		assertThat(skipped.awaitingTrade()).isEqualTo(AwaitedTrade(orion, 1))
-		assertThat(skipped.withTrade(0).endText()).isEqualTo("No one can trade")
+		assertThat(skipped.withTrade(0, null).endText()).isEqualTo("No one can trade")
 	}
 
 	@Test
 	fun shouldRefuseATradeThatIsNotTheAwaitedOne() {
 		val started = start(listOf(vega, orion), null).startCounterOnceDecided(FakeDice.twoD6(2))
 
-		assertThatThrownBy { started.withTrade(5) }.isInstanceOf(IllegalStateException::class.java)
-		assertThatThrownBy { started.withTrade(-1) }.isInstanceOf(IllegalStateException::class.java)
-		assertThatThrownBy { start(listOf(vega), null).withTrade(1) }
+		assertThatThrownBy { started.withTrade(5, null) }.isInstanceOf(IllegalStateException::class.java)
+		assertThatThrownBy { started.withTrade(-1, null) }.isInstanceOf(IllegalStateException::class.java)
+		assertThatThrownBy { start(listOf(vega), null).withTrade(1, null) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("No trade is waiting for a decision.")
 	}
@@ -232,8 +232,8 @@ class ResolutionTest {
 
 		assertThat(started.newPrice()).isNull()
 		assertThat(started.priceText()).isNull()
-		assertThat(started.withTrade(4).newPrice()).isNull()
-		val over = started.withTrade(4).withTrade(5)
+		assertThat(started.withTrade(4, null).newPrice()).isNull()
+		val over = started.withTrade(4, null).withTrade(5, null)
 		assertThat(over.isTradingOver()).isTrue()
 		assertThat(over.newPrice()).isEqualTo(10)
 		assertThat(over.priceText()).isEqualTo("ISO price at Mu Herculis: 11 → 10 HT")
@@ -256,7 +256,7 @@ class ResolutionTest {
 		val resolution = Resolution.start(good, 14, listOf(buyAt15), null, emptyList(), initiative).startCounterOnceDecided(FakeDice.twoD6(2))
 
 		assertThat(resolution.awaitingTrade()).isEqualTo(AwaitedTrade(buyAt15, 6))
-		assertThat(resolution.withTrade(6).newPrice()).isEqualTo(15)
+		assertThat(resolution.withTrade(6, null).newPrice()).isEqualTo(15)
 	}
 
 	@Test
@@ -279,7 +279,7 @@ class ResolutionTest {
 		val started = workedExample("altair@example.com", listOf("vega@example.com", "kessler@example.com"))
 
 		assertThat(started.wholesalers).containsExactly("kessler@example.com", "altair@example.com")
-		val over = started.withDictatorPassed().startCounterOnceDecided(FakeDice.twoD6(2)).withTrade(4).withTrade(5)
+		val over = started.withDictatorPassed().startCounterOnceDecided(FakeDice.twoD6(2)).withTrade(4, null).withTrade(5, null)
 		assertThat(started.withDictatorPassed().startCounterOnceDecided(FakeDice.twoD6(2)).awaitingWholesaler()).isNull()
 		assertThat(over.awaitingWholesaler()).isEqualTo("kessler@example.com")
 		assertThat(over.isFinished()).isFalse()
@@ -291,7 +291,7 @@ class ResolutionTest {
 	fun shouldRecordEachWholesaleAtTheNewPriceWithoutMovingItAndFinishAfterTheLast() {
 		// The worked example's step 6: Kessler buys 3 u at 10 HT, Altair sells 2 u at 10 HT; the price stays 10.
 		val over = workedExample("altair@example.com", listOf("kessler@example.com")).withDictatorPassed()
-			.startCounterOnceDecided(FakeDice.twoD6(2)).withTrade(4).withTrade(5)
+			.startCounterOnceDecided(FakeDice.twoD6(2)).withTrade(4, null).withTrade(5, null)
 
 		assertThat(
 			over.wholesaleOffer(OfferType.BUY)
@@ -349,8 +349,8 @@ class ResolutionTest {
 	@Test
 	fun shouldSayWhatTheMarketAllowedAndWhatTookPlace() {
 		// E05-S04-6
-		assertThat(Trade(vega, 12, 10).terms()).isEqualTo("could buy up to 12 u: bought 10 u at 11 HT each, paid 110 HT")
-		assertThat(Trade(orion, 10, 4).terms()).isEqualTo("could sell up to 10 u: sold 4 u at 10 HT each, received 40 HT")
-		assertThat(Trade(vega, 3, 0).terms()).isEqualTo("could buy up to 3 u: bought nothing")
+		assertThat(Trade(vega, 12, 10, null).terms()).isEqualTo("could buy up to 12 u: bought 10 u at 11 HT each, paid 110 HT")
+		assertThat(Trade(orion, 10, 4, null).terms()).isEqualTo("could sell up to 10 u: sold 4 u at 10 HT each, received 40 HT")
+		assertThat(Trade(vega, 3, 0, null).terms()).isEqualTo("could buy up to 3 u: bought nothing")
 	}
 }

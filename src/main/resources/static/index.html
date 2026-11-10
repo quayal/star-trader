@@ -693,7 +693,6 @@
 		validateTurns,
 	} from './js/game.js';
 	import {
-		BEFORE_TRADING_TEXT,
 		DICTATOR_HELP,
 		awaitingDictator,
 		counterLines,
@@ -718,8 +717,8 @@
 		tradeForm,
 		wholesaleForm,
 		tradingJustStarted,
+		tradingStatus,
 		validateTrade,
-		waitingText,
 	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
@@ -1300,7 +1299,7 @@
 		return queueDraft?.key === tradingKey(game) ? queueDraft.goods : game.turn.tradingQueue ?? [];
 	}
 
-	/** S01-1 to S01-8: before Trading, the status; in Trading, whom the game waits for, the last good resolved and the queue. */
+	/** S01-1 to S01-8: before Trading, the status; in Trading, whom the game waits for, the last good resolved and the queue; after it, that the next turn has started (E05-S07-1). */
 	function renderTrading(game) {
 		if (tradingMessageKey !== null && tradingMessageKey !== tradingKey(game)) {
 			setTradingMessage('', false, game);
@@ -1309,7 +1308,7 @@
 			queueDraft = null;
 		}
 		const trading = isTrading(game);
-		const status = trading ? waitingText(game, session.email) : BEFORE_TRADING_TEXT; // S01-7, S01-8
+		const status = tradingStatus(game, session.email); // S01-7, S01-8, E05-S07-1
 		if ($('trading-status').textContent !== status) {
 			$('trading-status').textContent = status;
 		}
@@ -1522,7 +1521,8 @@
 		}
 		if (response?.ok) {
 			render(await response.json());
-			$('resolution-title').focus(); // the form is gone; the heading leads to the trade just made
+			// The form is gone; the heading leads to the trade just made, or the status says the turn has ended (E05-S07).
+			$($('resolution-panel').hidden ? 'trading-status' : 'resolution-title').focus();
 			return;
 		}
 		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
@@ -1573,7 +1573,8 @@
 		}
 		if (response?.ok) {
 			render(await response.json());
-			$('resolution-title').focus(); // the form is gone; the heading leads to what was decided
+			// The form is gone; the heading leads to what was decided, or the status says the turn has ended (E05-S07).
+			$($('resolution-panel').hidden ? 'trading-status' : 'resolution-title').focus();
 			return;
 		}
 		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;

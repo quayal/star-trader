@@ -215,4 +215,40 @@ class PlayerTest {
 			.hasMessage("Choose your ships in port at Tau Ceti.")
 		assertThat(trader.trade(buy, 4, 2, emptyList()).ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
 	}
+
+	private val muHerculisIso = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
+
+	@Test
+	fun shouldRiseOneTierAtOnceAfterAWonPositionRoll() {
+		// E05-S06-2, S06-5: none → Retailer → Wholesaler → Dictator
+		val retailer = player.promotedAt(muHerculisIso)
+		val wholesaler = retailer.promotedAt(muHerculisIso)
+		val dictator = wholesaler.promotedAt(muHerculisIso)
+
+		assertThat(retailer.marketPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER))
+		assertThat(wholesaler.tierAt(muHerculisIso)).isEqualTo(MarketTier.WHOLESALER)
+		assertThat(dictator.marketPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR))
+		assertThat(dictator.isDictatorOf(muHerculisIso)).isTrue()
+		assertThat(dictator.canRiseAt(muHerculisIso)).isFalse()
+	}
+
+	@Test
+	fun shouldKeepPositionsForOtherGoodsAndSystemsWhenOneChanges() {
+		// R28: a position is for one good at one system
+		val tauCetiPoly = MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.WHOLESALER)
+		val holder = player.copy(marketPositions = listOf(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER)))
+
+		assertThat(
+			holder.promotedAt(muHerculisIso).marketPositions
+		).containsExactlyInAnyOrder(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
+	}
+
+	@Test
+	fun shouldBeWholesalerAtOnceWhenDemoted() {
+		// E05-S06-3
+		val dictator = player.copy(marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR)))
+
+		assertThat(dictator.demotedAt(muHerculisIso).marketPositions)
+			.containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
+	}
 }

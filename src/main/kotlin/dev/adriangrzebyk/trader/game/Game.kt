@@ -68,17 +68,36 @@ data class Game(
 
 	/**
 	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. Closing Bidding
-	 * charges the bids and rolls the initiative order with [dice] (R27). After the last turn's Trading (R41) the game
-	 * is over and keeps its last turn. No clock calls this (D09): a phase ends only when its players are through, and
-	 * the caller runs it inside [GameStore.update] so it happens once.
+	 * charges the bids and rolls the initiative order with [dice] (R27); leaving Trading ends the turn ([endTurn]). No
+	 * clock calls this (D09): a phase ends only when its players are through, and the caller runs it inside
+	 * [GameStore.update] so it happens once.
 	 */
 	fun advancePhase(dice: Dice): Game {
 		val current = runningTurn()
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
-			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = current.next())
+			TurnPhase.TRADING -> endTurn(current)
 		}
+	}
+
+	/**
+	 * Ends [current], whose Trading is over (E05-S07, N06): logged "All goods resolved" in that turn. After the last
+	 * turn the creator chose (R39, R41) the game is over and keeps its last turn; otherwise the next turn starts with
+	 * Bidding, with no offers, so offers that didn't trade expire (S07-2, proposed), and its first log line starts a new
+	 * group in the log (S07-3). This is the one place a turn ends and the next starts: anything that takes effect "from
+	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
+	 */
+	private fun endTurn(current: Turn): Game {
+		val ended = log + LogEntry(current.number, ALL_GOODS_RESOLVED)
+		if (current.number >= turns) {
+			return copy(status = GameStatus.FINISHED, log = ended)
+		}
+		val next = current.next()
+		return copy(
+			turn = next,
+			log = ended + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
+		)
 	}
 
 	/**
@@ -242,13 +261,55 @@ data class Game(
 	 * [email], whose offer the counter has reached, trades [amount] units, split across their ships in port there as
 	 * [loads] (E05-S04): [Player.trade] checks the amount against their max (R34, R12, R10) and the split (R42), and
 	 * moves their money and cargo. The trade is public and logged (S04-6): "Vega Lines could buy up to 12 u: bought 10 u
-	 * at 13 HT each, paid 130 HT". Then the counter reaches the next offer.
+	 * at 13 HT each, paid 130 HT". A trade of 6 units or more then rolls 2d6 from [dice] for its player's market position
+	 * there (R43, E05-S06), logged right after it. Then the counter reaches the next offer.
 	 */
-	fun trade(email: String, amount: Int?, loads: List<ShipLoad>): Game {
+	fun trade(email: String, amount: Int?, loads: List<ShipLoad>, dice: Dice): Game {
 		val current = traderTurnOf(email)
 		val awaited = current.tradeAwaited()
 		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads)
-		return copy(players = replace(trader)).withTradeRecorded(current, checkNotNull(amount))
+		val units = checkNotNull(amount)
+		val good = checkNotNull(current.resolution).good
+		val positionRoll = positionRollFor(trader, good, units, dice)
+		return copy(players = replace(trader)).withPositionRolled(email, good, positionRoll).withTradeRecorded(current, units, positionRoll)
+	}
+
+	/**
+	 * The position roll [trader] makes after trading [units] of [good] (R43, E05-S06-2), or null when they traded fewer
+	 * than 6 or are its Dictator already (S06-3: nothing to gain). A roll at most [units] moves them one tier up; becoming
+	 * Dictator demotes the Dictator there to Wholesaler (S06-3). Both hold at once (S06-5).
+	 */
+	private fun positionRollFor(trader: Player, good: MarketGood, units: Int, dice: Dice): PositionRoll? {
+		if (units < PositionRoll.MIN_UNITS || !trader.canRiseAt(good)) {
+			return null
+		}
+		val roll = dice.twoD6()
+		if (roll > units) {
+			return PositionRoll(roll, null, emptyList())
+		}
+		val tier = trader.promotionAt(good)
+		val demoted = if (tier == MarketTier.DICTATOR) {
+			players.filter { it.email != trader.email && it.isDictatorOf(good) }.map { it.email }
+		} else {
+			emptyList()
+		}
+		return PositionRoll(roll, tier, demoted)
+	}
+
+	/** This game once [positionRoll], made by [email] for [good], moved positions; unchanged when it didn't. */
+	private fun withPositionRolled(email: String, good: MarketGood, positionRoll: PositionRoll?): Game {
+		if (positionRoll?.promotedTo == null) {
+			return this
+		}
+		return copy(
+			players = players.map {
+				when {
+					it.email == email -> it.promotedAt(good)
+					it.email in positionRoll.demoted -> it.demotedAt(good)
+					else -> it
+				}
+			}
+		)
 	}
 
 	/**
@@ -264,11 +325,11 @@ data class Game(
 		if (max > 0) {
 			throw InvalidGameOperationException("You can ${awaited.offer.type.name.lowercase()} up to $max u: choose from 1 to $max.")
 		}
-		return withTradeRecorded(current, 0)
+		return withTradeRecorded(current, 0, null)
 	}
 
-	private fun withTradeRecorded(current: Turn, units: Int): Game =
-		withResolutionMoved(current.recordTrade(units), current.resolution, emptyList())
+	private fun withTradeRecorded(current: Turn, units: Int, positionRoll: PositionRoll?): Game =
+		withResolutionMoved(current.recordTrade(units, positionRoll), current.resolution, emptyList())
 
 	/**
 	 * [email], asked in the wholesale step (R37, E05-S05-4), buys or sells ([type]) [amount] units at the good's new price,
@@ -297,30 +358,34 @@ data class Game(
 	/**
 	 * This game with [after] as its turn, once its resolution moved on from [before] (null for a good that just started
 	 * resolving). [events] are logged first, then what the resolution did. The moment no offer can trade any more, the
-	 * good's new price replaces its old one in [prices] (R35, S05-3).
+	 * good's new price replaces its old one in [prices] (R35, S05-3). Once the last good has finished resolving, the turn
+	 * ends in the same step (E05-S07, D09: nobody has to press anything, and it happens once, A04).
 	 */
 	private fun withResolutionMoved(after: Turn, before: Resolution?, events: List<String>): Game {
 		val resolution = checkNotNull(after.resolution)
 		val repriced = resolution.newPrice()?.takeIf { before?.isTradingOver() != true }
-		return copy(
+		val moved = copy(
 			turn = after,
 			prices = repriced?.let { prices.withPrice(resolution.good, it) } ?: prices,
 			log = log + events.map { LogEntry(after.number, it) } + resolutionLog(after.number, before, resolution)
 		)
+		return if (after.isEveryGoodResolved()) moved.endTurn(after) else moved
 	}
 
 	/**
 	 * The public log lines of what [resolution] did in turn [turn] since [before] (null for a good that just started
 	 * resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first" when the
 	 * counter starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130
-	 * HT"), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
+	 * HT") and its position roll, if any (E05-S06-4), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
 	 * Herculis: 11 → 10 HT" (S05-2), then each wholesale answer (S05-5). None while the Dictator is still asked.
 	 */
 	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
 		val market = resolution.marketText() ?: return emptyList()
 		val label = resolution.good.label()
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
-		val trades = resolution.trades.drop(before?.trades?.size ?: 0).map { "${corporationOf(it.offer.playerEmail)} ${it.terms()}" }
+		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
+			listOfNotNull("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", positionRollText(trade, resolution.good))
+		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
 			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
 		} else {
@@ -329,6 +394,16 @@ data class Game(
 		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0)
 			.map { "${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}" }
 		return (started + trades + ended + wholesales).map { LogEntry(turn, it) }
+	}
+
+	/**
+	 * The public log line of [trade]'s position roll, if it made one (E05-S06-4): "Vega Lines traded 7 u — rolled 5: now
+	 * Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair Trade Co. is demoted
+	 * to Wholesaler".
+	 */
+	private fun positionRollText(trade: Trade, good: MarketGood): String? = trade.positionRoll?.let { roll ->
+		"${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
+			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler" }
 	}
 
 	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */
@@ -445,6 +520,9 @@ data class Game(
 	companion object {
 		const val MAX_PLAYERS = 6
 		const val MIN_PLAYERS_TO_START = 2
+
+		/** S07-1: the log line once a turn's last good has resolved. */
+		const val ALL_GOODS_RESOLVED = "All goods resolved"
 
 		/** R40: every player starts with 300 HT. */
 		const val STARTING_MONEY = 300

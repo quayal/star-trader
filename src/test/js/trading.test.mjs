@@ -31,6 +31,7 @@ import {
 	resolver,
 	sameOrder,
 	tradingJustStarted,
+	tradingStatus,
 	waitingText,
 } from '../../main/resources/static/js/trading.js';
 
@@ -77,6 +78,21 @@ describe('who orders and resolves (R25)', () => {
 	it('leaves nobody to resolve once the queue is empty', () => {
 		assert.equal(resolver(game({ queue: [], done: [ISO, POLY] })), null);
 		assert.equal(orderedBy(game({ queue: [], done: [ISO, POLY] })), VEGA);
+	});
+});
+
+describe('s03 status line', () => {
+	it('names whom the game waits for during Trading (S01-8)', () => {
+		assert.equal(tradingStatus(game(), ME), 'Waiting for Vega Lines to resolve the next good.');
+	});
+
+	it('says when Trading starts, before the first one (S01-7)', () => {
+		assert.equal(tradingStatus(game({ phase: 'BIDDING' }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
+		assert.equal(tradingStatus(game({ phase: 'SHIP_JUMPS', number: 3 }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
+	});
+
+	it("says every good resolved once the next turn's Bidding has started (E05-S07-1)", () => {
+		assert.equal(tradingStatus(game({ phase: 'BIDDING', number: 2, queue: [] }), ME), 'All goods resolved. The next turn starts with Bidding.');
 	});
 });
 
@@ -223,6 +239,30 @@ describe('the counter (E05-S03)', () => {
 			'Orion Freight could sell up to 5 u: sold 5 u at 10 HT each, received 50 HT',
 			'No one else can trade at this market.',
 		]);
+	});
+
+	it("shows each trade's position roll right after it, with the turn a change counts from (E05-S06-4, S06-5)", () => {
+		const rolled = game({
+			number: 4,
+			resolution: resolving({
+				dictator: null,
+				awaiting: null,
+				startingCounter: 3,
+				trades: [
+					{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 9, units: 7, positionRoll: { roll: 5, promotedTo: 'WHOLESALER', demoted: [] } },
+					{ playerEmail: ME, type: 'SELL', price: 10, marketMax: 9, units: 6, positionRoll: { roll: 9, promotedTo: null, demoted: [] } },
+					{ playerEmail: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA] } },
+					{ playerEmail: VEGA, type: 'BUY', price: 12, marketMax: 2, units: 2, positionRoll: null },
+				],
+			}),
+		});
+
+		assert.deepEqual(counterLines(rolled).filter(line => line.includes('rolled')), [
+			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis',
+			'Orion Freight traded 6 u \u2014 rolled 9: no change',
+			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
+		]);
+		assert.equal(counterLines(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis');
 	});
 
 	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
