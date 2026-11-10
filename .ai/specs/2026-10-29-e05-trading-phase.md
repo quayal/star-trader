@@ -98,7 +98,7 @@ Creator's decisions while reviewing the first build (2026-11-08, PR #91):
 2. [—] [R43] After a trade of at least 6 units of a good at a system (one offer's trade, not summed across a resolution), roll 2d6. If the roll is ≤ the units traded, the trader moves up one tier for that good at that system: none → Retailer → Wholesaler → Dictator.
 3. [—] [R43] A Dictator can't go higher. A Wholesaler who becomes Dictator demotes the previous Dictator to Wholesaler. Positions never drop any other way.
 4. [s03, s04] The roll and its outcome are public: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis" / "rolled 9: no change".
-5. [—] [R43] A position change, including a Dictator's demotion, takes effect from the next turn. For the rest of this turn, including the wholesale step of the same resolution and the other goods still to resolve, everyone keeps the position they had. The log line says so: "… now Wholesaler of ISO at Mu Herculis from turn 5".
+5. [s02] [R43] A position change, including a Dictator's demotion, is held at once and shown to everyone. The log line gives just the position: "… now Wholesaler of ISO at Mu Herculis". It changes nothing for the rest of the turn, because each good resolves once a turn and its Dictator and the Wholesalers asked are fixed when it starts. *(Changed 2026-11-10 by the creator: this used to say the change takes effect from the next turn, with "from turn 5" in the log line.)*
 
 ### E05-S07 — The turn ends
 
