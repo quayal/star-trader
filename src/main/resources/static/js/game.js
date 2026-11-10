@@ -16,7 +16,7 @@ const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
 /**
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
  * `#game/{id}/system/{SYSTEM}` → System details (s02); `#game/{id}/log` → the Game log (s04); `#game/{id}/trading` → Trading
- * (s03). Any other fragment is an unknown screen (s08), carrying
+ * (s03); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
  * the game id when there is one so its "back to the Deck" link stays in that game.
  */
 export function parseRoute(hash) {
@@ -38,6 +38,10 @@ export function parseRoute(hash) {
 	const trading = /^#game\/([^/]+)\/trading$/.exec(text);
 	if (trading) {
 		return { view: 'trading', id: decodeURIComponent(trading[1]) };
+	}
+	const over = /^#game\/([^/]+)\/game-over$/.exec(text);
+	if (over) {
+		return { view: 'over', id: decodeURIComponent(over[1]) };
 	}
 	const game = /^#game\/([^/]+)$/.exec(text);
 	if (game) {
@@ -65,6 +69,11 @@ export function logLink(id) {
 /** Trading (s03) of game [id]. */
 export function tradingLink(id) {
 	return `#game/${encodeURIComponent(id)}/trading`;
+}
+
+/** The hash of a game's Game over screen (s09, E05-S08). */
+export function gameOverLink(id) {
+	return `#game/${encodeURIComponent(id)}/game-over`;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */

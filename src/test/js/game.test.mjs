@@ -12,6 +12,7 @@ import {
 	shipLine,
 	systemLink,
 	tradingLink,
+	gameOverLink,
 	turnText,
 	validateTurns,
 } from '../../main/resources/static/js/game.js';
@@ -57,6 +58,8 @@ describe('parseRoute', () => {
 	it('reads Trading of a game (s03)', () => {
 		assert.deepEqual(parseRoute('#game/g-1/trading'), { view: 'trading', id: 'g-1' });
 		assert.deepEqual(parseRoute(tradingLink('a/b')), { view: 'trading', id: 'a/b' });
+		assert.deepEqual(parseRoute('#game/g-1/game-over'), { view: 'over', id: 'g-1' }); // s09, E05-S08
+		assert.deepEqual(parseRoute(gameOverLink('a/b')), { view: 'over', id: 'a/b' });
 		assert.equal(tradingLink('a/b'), '#game/a%2Fb/trading');
 		assert.deepEqual(parseRoute('#game/g-1/trading/2'), { view: 'unknown', id: 'g-1' });
 	});
