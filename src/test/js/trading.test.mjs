@@ -225,6 +225,30 @@ describe('the counter (E05-S03)', () => {
 		]);
 	});
 
+	it("shows each trade's position roll right after it, with the turn a change counts from (E05-S06-4, S06-5)", () => {
+		const rolled = game({
+			number: 4,
+			resolution: resolving({
+				dictator: null,
+				awaiting: null,
+				startingCounter: 3,
+				trades: [
+					{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 9, units: 7, positionRoll: { roll: 5, promotedTo: 'WHOLESALER', demoted: [] } },
+					{ playerEmail: ME, type: 'SELL', price: 10, marketMax: 9, units: 6, positionRoll: { roll: 9, promotedTo: null, demoted: [] } },
+					{ playerEmail: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA] } },
+					{ playerEmail: VEGA, type: 'BUY', price: 12, marketMax: 2, units: 2, positionRoll: null },
+				],
+			}),
+		});
+
+		assert.deepEqual(counterLines(rolled).filter(line => line.includes('rolled')), [
+			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5',
+			'Orion Freight traded 6 u \u2014 rolled 9: no change',
+			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis from turn 5; Vega Lines is demoted to Wholesaler from turn 5',
+		]);
+		assert.equal(counterLines(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5');
+	});
+
 	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
 		assert.deepEqual(counterLines(game({ resolution: resolving({ awaiting: null, startingCounter: -2 }) })), [
 			'Market \u22122 \u2192 sellers first',

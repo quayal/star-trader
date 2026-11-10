@@ -226,13 +226,24 @@ export function locations(game, system, myEmail) {
 	}));
 }
 
-/** S02-7/8: per good at [system], the corporations holding each tier; players without a position are left out. */
+/**
+ * S02-7/8: per good at [system], the corporations holding each tier; players without a position are left out. A change
+ * this turn's position rolls made counts from the next turn (E05-S06-5), so it's shown beside the tier held now:
+ * "Vega Lines (Wholesaler from turn 5)", or for a first position, under it: "Kessler Cargo (from turn 5)".
+ */
 export function marketPositions(game, system) {
+	const from = (game.turn?.number ?? 0) + 1;
+	const tierName = id => TIERS.find(tier => tier.id === id)?.name ?? id;
 	return system.market.map(entry => {
-		const holders = tier => game.players
-			.filter(player => (player.marketPositions ?? []).some(position =>
-				position.system === system.id && position.goods === entry.goods && position.tier === tier))
-			.map(player => player.corporationName);
+		const at = positions => (positions ?? []).find(position => position.system === system.id && position.goods === entry.goods);
+		const holders = tier => game.players.flatMap(player => {
+			const held = at(player.marketPositions);
+			const pending = at(player.pendingPositions);
+			if (held?.tier === tier) {
+				return [pending ? `${player.corporationName} (${tierName(pending.tier)} from turn ${from})` : player.corporationName];
+			}
+			return !held && pending?.tier === tier ? [`${player.corporationName} (from turn ${from})`] : [];
+		});
 		const tiers = TIERS.map(tier => ({ id: tier.id, name: tier.name, holders: holders(tier.id) }));
 		return { goods: entry.goods, tiers, nobody: tiers.every(tier => tier.holders.length === 0) };
 	});

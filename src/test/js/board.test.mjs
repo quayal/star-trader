@@ -208,6 +208,32 @@ describe('Market positions (S02-7, S02-8)', () => {
 	});
 });
 
+describe('Pending market positions (E05-S06-5)', () => {
+	it('shows a change beside the tier held now, and a first position under its tier, with the turn it counts from', () => {
+		// Orion (Wholesaler of POLY) became Dictator, demoting Vega, and is Retailer of ISO, all from turn 5
+		const pending = {
+			'ada@example.com': [{ system: 'TAU_CETI', goods: 'POLY', tier: 'DICTATOR' }, { system: 'TAU_CETI', goods: 'ISO', tier: 'RETAILER' }],
+			'grace@example.com': [{ system: 'TAU_CETI', goods: 'POLY', tier: 'WHOLESALER' }],
+		};
+		const changing = {
+			...game,
+			turn: { number: 4 },
+			players: game.players.map(player => ({ ...player, pendingPositions: pending[player.email] })),
+		};
+		const holders = row => row.tiers.map(tier => [tier.name, tier.holders]);
+
+		const [iso, poly] = marketPositions(changing, tauCeti);
+
+		assert.deepEqual(holders(poly), [
+			['Dictator', ['Vega Lines (Wholesaler from turn 5)']],
+			['Wholesaler', ['Orion Freight (Dictator from turn 5)']],
+			['Retailer', []],
+		]);
+		assert.equal(iso.nobody, false);
+		assert.deepEqual(holders(iso), [['Dictator', []], ['Wholesaler', []], ['Retailer', ['Orion Freight (from turn 5)']]]);
+	});
+});
+
 describe('staleText (S02-12)', () => {
 	it('says how old the state on screen is', () => {
 		assert.equal(staleText(12.4), "Couldn't refresh the game. Showing the state from 12 seconds ago.");
