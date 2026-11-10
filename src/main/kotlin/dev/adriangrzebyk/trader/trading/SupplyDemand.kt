@@ -11,6 +11,8 @@ internal value class SupplyDemand(val indicator: Int) {
 
 		private const val MIN_PRICE_MODIFIER = -6
 		private const val MAX_PRICE_MODIFIER = 7
+		private const val MIN_INDICATOR = -18
+		private const val MAX_INDICATOR = 18
 
 		private val PRICE_MODIFIER_BY_INDICATOR: Map<Int, Int> = mapOf(
 			-18 to 7,
@@ -65,6 +67,12 @@ internal value class SupplyDemand(val indicator: Int) {
 		 * as +7.
 		 */
 		fun sellTargetFor(priceModifier: Int): SupplyDemand = highestFor(priceModifier.coerceIn(MIN_PRICE_MODIFIER, MAX_PRICE_MODIFIER))
+
+		/**
+		 * The price modifier at [indicator] (R35: a resolution's final counter moves the price by it), saturating at the
+		 * table's ends (R15): beyond −18 counts as −18, beyond +18 as +18.
+		 */
+		fun priceModifierAt(indicator: Int): Int = checkNotNull(SupplyDemand(indicator.coerceIn(MIN_INDICATOR, MAX_INDICATOR)).priceModifier())
 
 		/** The lowest indicator with [priceModifier]: what a buy is measured against. */
 		fun lowestFor(priceModifier: Int): SupplyDemand = SupplyDemand(indicatorsFor(priceModifier).min())

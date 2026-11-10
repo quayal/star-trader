@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.MarketPrices
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /**
@@ -21,6 +22,11 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 			PLAYERS to AttributeValue.fromL(game.players.map { AttributeValue.fromM(PlayerItem(it).attributes) }),
 			// Explicit NULL rather than a missing attribute: "not started" is a value, not an old item.
 			TURN to (game.turn?.let { AttributeValue.fromM(TurnItem(it).attributes) } ?: AttributeValue.fromNul(true)),
+			PRICES to AttributeValue.fromL(
+				game.prices.prices.map { (good, price) ->
+					AttributeValue.fromM(MarketPriceItem(good, price).attributes)
+				}
+			),
 			LOG to AttributeValue.fromL(game.log.map { LogEntryItem(it).attribute }),
 			VERSION to number(version)
 		)
@@ -36,6 +42,10 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		creatorEmail = attributes.attribute(CREATOR_EMAIL).s(),
 		players = attributes.attribute(PLAYERS).l().map { PlayerItem(it.m()).toPlayer() },
 		turn = attributes.attribute(TURN).takeUnless { it.nul() == true }?.let { TurnItem(it.m()).toTurn() },
+		// Absent on games saved before E05-S05, when prices never changed: they're the board's.
+		prices = MarketPrices(
+			MarketPrices.board().prices + attributes[PRICES]?.l().orEmpty().map { MarketPriceItem(it.m()) }.associate { it.good() to it.price() }
+		),
 		log = attributes.attribute(LOG).l().map { LogEntryItem(it).toLogEntry() }
 	)
 
@@ -47,6 +57,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		private const val CREATOR_EMAIL = "creatorEmail"
 		private const val PLAYERS = "players"
 		private const val TURN = "turn"
+		private const val PRICES = "prices"
 		private const val LOG = "log"
 	}
 }

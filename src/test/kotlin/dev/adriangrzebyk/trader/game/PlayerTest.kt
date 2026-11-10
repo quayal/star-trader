@@ -49,6 +49,16 @@ class PlayerTest {
 	}
 
 	@Test
+	fun shouldBeWholesalerOnlyOfTheGoodAndSystemTheyHoldIt() {
+		// R28, R37
+		val wholesaler = player.copy(marketPositions = listOf(MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.WHOLESALER)))
+
+		assertThat(wholesaler.isWholesalerOf(MarketGood(StarSystem.TAU_CETI, Goods.POLY))).isTrue()
+		assertThat(wholesaler.isWholesalerOf(MarketGood(StarSystem.TAU_CETI, Goods.ISO))).isFalse()
+		assertThat(wholesaler.isDictatorOf(StarSystem.TAU_CETI, Goods.POLY)).isFalse()
+	}
+
+	@Test
 	fun shouldNotOfferAGoodTheyAreDictatorOfThere() {
 		// R38: the Dictator places that offer when it resolves in Trading.
 		val dictator = player.copy(marketPositions = listOf(MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.DICTATOR)))
@@ -144,6 +154,20 @@ class PlayerTest {
 				.isInstanceOf(InvalidTradeException::class.java)
 				.hasMessage("Enter a whole number from 1 to 4.")
 		}
+	}
+
+	@Test
+	fun shouldSayWhyTheyCanTradeNothingWhenTheirMaxIsZero() {
+		// S04-5, E05-S05-4: a wholesale reaches Player.trade even when they can't trade a unit; they're told why
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 20)
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+
+		assertThatThrownBy { player.pay(290).trade(buy, 5, 1, listOf(ShipLoad("Wayfarer", 1))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("You can't afford any units at 20 HT.")
+		assertThatThrownBy { player.trade(sell, 5, 1, listOf(ShipLoad("Wayfarer", 1))) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("You have no ISO in your ships in port at Tau Ceti, so you can't sell any.")
 	}
 
 	@Test

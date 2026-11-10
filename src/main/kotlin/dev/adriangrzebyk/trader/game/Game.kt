@@ -4,7 +4,10 @@ import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
 
-/** [turn] is null until the game starts; [log] holds the public events, oldest first, each with its turn. */
+/**
+ * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
+ * (R35); [log] holds the public events, oldest first, each with its turn.
+ */
 data class Game(
 	val id: String,
 	val turns: Int,
@@ -12,6 +15,7 @@ data class Game(
 	val creatorEmail: String,
 	val players: List<Player>,
 	val turn: Turn?,
+	val prices: MarketPrices,
 	val log: List<LogEntry>
 ) {
 
@@ -197,14 +201,18 @@ data class Game(
 		val current = resolverTurnOf(email)
 		current.resolution?.awaitingDictator()?.let { throw InvalidGameOperationException(waitingForDictator(it)) }
 		current.resolution?.awaitingTrade()?.let { throw InvalidGameOperationException(waitingForTrader(it)) }
+		current.resolution?.let { previous ->
+			previous.awaitingWholesaler()?.let { throw InvalidGameOperationException(waitingForWholesaler(previous)) }
+		}
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
-		val started = current.resolveNext(dictator?.email, dice)
+		val wholesalers = players.filter { it.isWholesalerOf(good) }.map { it.email }
+		val started = current.resolveNext(dictator?.email, wholesalers, prices.priceOf(good), dice)
 		val resolution = checkNotNull(started.resolution)
-		return copy(
-			turn = started,
-			log = log + LogEntry(current.number, "Resolving: ${good.label()} (chosen by ${corporationOf(email)})") +
-				LogEntry(current.number, disclosure(resolution)) + counterLog(current.number, null, resolution)
+		return withResolutionMoved(
+			started,
+			null,
+			listOf("Resolving: ${good.label()} (chosen by ${corporationOf(email)})", disclosure(resolution))
 		)
 	}
 
@@ -217,11 +225,7 @@ data class Game(
 		val current = dictatorTurnOf(email)
 		val offer = playerOf(email).dictatorOffer(checkNotNull(current.resolution).good, type, price)
 		val decided = current.placeDictatorOffer(offer, dice)
-		return copy(
-			turn = decided,
-			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) offers to ${offer.terms()}") +
-				counterLog(current.number, current.resolution, checkNotNull(decided.resolution))
-		)
+		return withResolutionMoved(decided, current.resolution, listOf("${corporationOf(email)} (Dictator) offers to ${offer.terms()}"))
 	}
 
 	/**
@@ -231,11 +235,7 @@ data class Game(
 	fun passAsDictator(email: String, dice: Dice): Game {
 		val current = dictatorTurnOf(email)
 		val decided = current.dictatorPassed(dice)
-		return copy(
-			turn = decided,
-			log = log + LogEntry(current.number, "${corporationOf(email)} (Dictator) passed") +
-				counterLog(current.number, current.resolution, checkNotNull(decided.resolution))
-		)
+		return withResolutionMoved(decided, current.resolution, listOf("${corporationOf(email)} (Dictator) passed"))
 	}
 
 	/**
@@ -267,25 +267,87 @@ data class Game(
 		return withTradeRecorded(current, 0)
 	}
 
-	private fun withTradeRecorded(current: Turn, units: Int): Game {
-		val after = current.recordTrade(units)
-		return copy(turn = after, log = log + counterLog(current.number, current.resolution, checkNotNull(after.resolution)))
+	private fun withTradeRecorded(current: Turn, units: Int): Game =
+		withResolutionMoved(current.recordTrade(units), current.resolution, emptyList())
+
+	/**
+	 * [email], asked in the wholesale step (R37, E05-S05-4), buys or sells ([type]) [amount] units at the good's new price,
+	 * split across their ships in port there as [loads]: settled like any trade ([Player.trade]), with at most 5 units,
+	 * capped by money and cargo (R12, R10, R42). It doesn't move the price. Logged (S05-5): "Kessler Cargo (Wholesaler)
+	 * bought 3 u at 10 HT each, paid 30 HT".
+	 */
+	fun wholesale(email: String, type: OfferType?, amount: Int?, loads: List<ShipLoad>): Game {
+		val current = wholesalerTurnOf(email)
+		if (type == null) {
+			throw InvalidTradeException("Choose Buy or Sell, or pass.")
+		}
+		val offer = checkNotNull(current.resolution).wholesaleOffer(type)
+		val trader = playerOf(email).trade(offer, Wholesale.MAX_UNITS, amount, loads)
+		return copy(
+			players = replace(trader)
+		).withResolutionMoved(current.recordWholesale(type, checkNotNull(amount)), current.resolution, emptyList())
+	}
+
+	/** [email], asked in the wholesale step, passes (S05-4: always possible); logged: "Kessler Cargo (Wholesaler) passed on wholesale". */
+	fun passWholesale(email: String): Game {
+		val current = wholesalerTurnOf(email)
+		return withResolutionMoved(current.recordWholesale(null, 0), current.resolution, emptyList())
 	}
 
 	/**
-	 * The public log lines of what [resolution]'s counter did in turn [turn] since [before] (null for a good that just
-	 * started resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first"
-	 * when it starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT"),
-	 * then "No one else can trade at Mu Herculis ISO" once it's over. None while the Dictator is still asked.
+	 * This game with [after] as its turn, once its resolution moved on from [before] (null for a good that just started
+	 * resolving). [events] are logged first, then what the resolution did. The moment no offer can trade any more, the
+	 * good's new price replaces its old one in [prices] (R35, S05-3).
 	 */
-	private fun counterLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
+	private fun withResolutionMoved(after: Turn, before: Resolution?, events: List<String>): Game {
+		val resolution = checkNotNull(after.resolution)
+		val repriced = resolution.newPrice()?.takeIf { before?.isTradingOver() != true }
+		return copy(
+			turn = after,
+			prices = repriced?.let { prices.withPrice(resolution.good, it) } ?: prices,
+			log = log + events.map { LogEntry(after.number, it) } + resolutionLog(after.number, before, resolution)
+		)
+	}
+
+	/**
+	 * The public log lines of what [resolution] did in turn [turn] since [before] (null for a good that just started
+	 * resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first" when the
+	 * counter starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130
+	 * HT"), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
+	 * Herculis: 11 → 10 HT" (S05-2), then each wholesale answer (S05-5). None while the Dictator is still asked.
+	 */
+	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
 		val market = resolution.marketText() ?: return emptyList()
 		val label = resolution.good.label()
-		val started = listOfNotNull(LogEntry(turn, "$label: $market").takeIf { before?.startingCounter == null })
-		val newTrades = resolution.trades.drop(before?.trades?.size ?: 0)
-		val trades = newTrades.map { LogEntry(turn, "${corporationOf(it.offer.playerEmail)} ${it.terms()}") }
-		val ended = listOfNotNull(LogEntry(turn, "${resolution.endText()} at $label").takeIf { resolution.isFinished() })
-		return started + trades + ended
+		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
+		val trades = resolution.trades.drop(before?.trades?.size ?: 0).map { "${corporationOf(it.offer.playerEmail)} ${it.terms()}" }
+		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
+			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
+		} else {
+			emptyList()
+		}
+		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0)
+			.map { "${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}" }
+		return (started + trades + ended + wholesales).map { LogEntry(turn, it) }
+	}
+
+	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */
+	private fun wholesalerTurnOf(email: String): Turn {
+		playerOf(email)
+		val current = runningTurn()
+		if (current.wholesalerToDecide() != email) {
+			throw NotYourTurnException(waitingForWholesaler(checkNotNull(current.resolution)))
+		}
+		return current
+	}
+
+	/** S01-8 (D09): "Waiting for Kessler Cargo (Wholesaler) to trade up to 5 u at 10 HT, or pass." */
+	private fun waitingForWholesaler(resolution: Resolution): String {
+		val email = checkNotNull(resolution.awaitingWholesaler())
+		val price = checkNotNull(resolution.newPrice())
+		return "Waiting for ${corporationOf(
+			email
+		)} (${resolution.wholesaleRole(email)}) to trade up to ${Wholesale.MAX_UNITS} u at $price HT, or pass."
 	}
 
 	/** The running turn, once checked that its resolution waits for [email], as Dictator, to decide (R38, R04). */
@@ -396,7 +458,7 @@ data class Game(
 			if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {
 				throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
 			}
-			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, emptyList())
+			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList())
 		}
 	}
 }

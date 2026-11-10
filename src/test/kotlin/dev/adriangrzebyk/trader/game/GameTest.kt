@@ -74,5 +74,5 @@ class GameTest {
 	}
 
 	private fun gameWith(vararg players: Player) =
-		Game("game-1", 20, GameStatus.LOBBY, players.first().email, players.toList(), null, emptyList())
+		Game("game-1", 20, GameStatus.LOBBY, players.first().email, players.toList(), null, MarketPrices.board(), emptyList())
 }
