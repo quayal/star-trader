@@ -497,7 +497,7 @@
 					<h2 id="deck-offer-title">Place an offer</h2>
 					<div id="deck-offer"></div>
 				</section>
-				<section class="panel" aria-labelledby="your-offers-title">
+				<section class="panel" id="your-offers-panel" aria-labelledby="your-offers-title">
 					<h2 id="your-offers-title">Your offers this turn</h2>
 					<ul class="offer-list" id="your-offers"></ul>
 					<p class="muted">Only you can see these until Trading resolves them.</p>
@@ -795,6 +795,7 @@
 		isClosedRefusal,
 		noOffersText,
 		offerChoices,
+		showsYourOffers,
 		placedText,
 		refusalText,
 		validatePrice,
@@ -1869,6 +1870,7 @@
 
 	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
 	function renderYourOffers(game) {
+		$('your-offers-panel').hidden = !showsYourOffers(game); // E05-S08-6: no stale offers after the game ends
 		const offers = game.you?.offers ?? [];
 		const bid = bidLine(game); // S05-2: the bid sits with the offers, just as private
 		$('your-offers').replaceChildren(...(bid ? [element('li', {}, bid)] : []), ...(offers.length

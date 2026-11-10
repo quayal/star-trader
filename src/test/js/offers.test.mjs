@@ -11,6 +11,7 @@ import {
 	isBidding,
 	isClosedRefusal,
 	noOffersText,
+	showsYourOffers,
 	offerChoices,
 	offerText,
 	placedText,
@@ -112,6 +113,11 @@ describe('texts', () => {
 	it('says the empty list differently once Bidding has closed', () => {
 		assert.equal(noOffersText(game()), 'No offers yet this turn.');
 		assert.equal(noOffersText(game({ phase: 'SHIP_JUMPS' })), 'You placed no offers this turn.');
+	});
+
+	it('hides your offers once the game is over (E05-S08-6)', () => {
+		assert.equal(showsYourOffers(game()), true);
+		assert.equal(showsYourOffers({ ...game({ phase: 'TRADING' }), status: 'FINISHED' }), false);
 	});
 });
 

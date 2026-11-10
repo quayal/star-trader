@@ -83,6 +83,14 @@ export function placedText(offer, systemName) {
 	return `Offer placed: ${offerText(offer)}, ${systemName}. Hidden from other players until Trading.`;
 }
 
+/**
+ * Whether the Deck shows "Your offers this turn": not once the game is over (E05-S08-6). The last turn's offers have
+ * all been resolved by then, so the list and its "Only you can see these until Trading resolves them" are stale.
+ */
+export function showsYourOffers(game) {
+	return game.status !== 'FINISHED';
+}
+
 /** "Your offers this turn" when it's empty: still open during Bidding, closed after. */
 export function noOffersText(game) {
 	return isBidding(game) ? 'No offers yet this turn.' : 'You placed no offers this turn.';
