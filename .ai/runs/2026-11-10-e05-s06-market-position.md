@@ -116,7 +116,7 @@ the position they had (S06-5). s02 shows positions per good at each system (S06-
 
 ## Progress
 
-PR: (set when opened)
+PR: #94
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
