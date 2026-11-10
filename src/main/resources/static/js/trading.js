@@ -7,6 +7,8 @@
  */
 
 export const BEFORE_TRADING_TEXT = 'Trading starts after Ship-jumps. Results will appear here.';
+/** E05-S07-1: s03 once the last good has resolved and the next turn has started. */
+export const TURN_ENDED_TEXT = 'All goods resolved. The next turn starts with Bidding.';
 export const QUEUE_TITLE = 'Remaining goods';
 export const RESOLVE_BUTTON = 'Resolve next';
 export const YOUR_QUEUE_NOTE = 'You are first in initiative. Every good resolves, with or without offers. Drag to reorder, or use the arrows, at any time.';
@@ -126,6 +128,21 @@ export function waitingText(game, email) {
 		return `All ${resolved(game).length} goods resolved.`;
 	}
 	return who === email ? 'You are first in initiative: resolve the next good.' : `Waiting for ${corporation(game, who)} to resolve the next good.`;
+}
+
+/**
+ * s03's status line: during Trading, whom the game waits for (S01-8); in the Bidding that follows a turn's Trading, that
+ * every good resolved and the new turn has started (E05-S07-1: the turn ends the moment its last good resolves); before
+ * Trading otherwise, when it starts (S01-7).
+ */
+export function tradingStatus(game, email) {
+	if (isTrading(game)) {
+		return waitingText(game, email);
+	}
+	if (game.status === 'RUNNING' && game.turn?.phase === 'BIDDING' && game.turn.number > 1) {
+		return TURN_ENDED_TEXT;
+	}
+	return BEFORE_TRADING_TEXT;
 }
 
 /** S01-3: the read-only list's note for everyone but the first in initiative. */
