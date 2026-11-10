@@ -83,7 +83,7 @@ class GameControllerTest {
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
 		assertThat(
 			game.players
-		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList()))
+		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
 		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null))
@@ -134,8 +134,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList())
+			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)

@@ -62,17 +62,13 @@ data class GameResponseDto(
 	)
 }
 
-/**
- * Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28), and so are
- * [pendingPositions], the ones this turn's position rolls changed, which count from the next turn (E05-S06-5).
- */
+/** Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28). */
 data class PlayerResponseDto(
 	val email: String,
 	val name: String,
 	val corporationName: String,
 	val ships: List<ShipResponseDto>,
-	val marketPositions: List<MarketPositionResponseDto>,
-	val pendingPositions: List<MarketPositionResponseDto>
+	val marketPositions: List<MarketPositionResponseDto>
 ) {
 
 	constructor(player: Player) : this(
@@ -80,8 +76,7 @@ data class PlayerResponseDto(
 		player.name,
 		player.corporationName,
 		player.ships.map { ShipResponseDto(it) },
-		player.marketPositions.map { MarketPositionResponseDto(it) },
-		player.pendingPositions.map { MarketPositionResponseDto(it) }
+		player.marketPositions.map { MarketPositionResponseDto(it) }
 	)
 }
 
@@ -241,8 +236,8 @@ data class TradeResponseDto(
 }
 
 /**
- * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds from the next turn ([promotedTo], null
- * for no change), and the emails of the Dictators it demoted to Wholesaler from then (S06-3).
+ * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds now ([promotedTo], null for no change),
+ * and the email of the Dictator it demoted to Wholesaler, if any (S06-3).
  */
 data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>) {
 

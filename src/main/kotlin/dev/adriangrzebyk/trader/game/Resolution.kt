@@ -170,7 +170,7 @@ data class Resolution(
 		/**
 		 * [good] starting to resolve at [startPrice]: of [turnOffers], those for [good] are disclosed (S02-1), and
 		 * [dictator], if any, is asked before the roll (S02-2, S02-4). [initiative] is the turn's, for ties (R34). Who the
-		 * wholesale step will ask is fixed now, since positions don't change during a turn (E05-S06-5): of [wholesalers],
+		 * wholesale step will ask is fixed now, so a position roll during it changes nothing here (E05-S06-5): of [wholesalers],
 		 * those without an offer for it, and the Dictator even if they place one (R37), in [initiative] order (S05-6).
 		 */
 		fun start(

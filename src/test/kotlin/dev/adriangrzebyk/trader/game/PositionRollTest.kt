@@ -10,11 +10,11 @@ class PositionRollTest {
 	private val muHerculisIso = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
 
 	@Test
-	fun shouldSayWhatTheRollChangedAndFromWhichTurn() {
-		// E05-S06-4, S06-5
-		assertThat(PositionRoll(5, MarketTier.WHOLESALER, emptyList()).outcome(muHerculisIso, 5))
-			.isEqualTo("rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5")
-		assertThat(PositionRoll(9, null, emptyList()).outcome(muHerculisIso, 5)).isEqualTo("rolled 9: no change")
+	fun shouldSayWhatTheRollChanged() {
+		// E05-S06-4
+		assertThat(PositionRoll(5, MarketTier.WHOLESALER, emptyList()).outcome(muHerculisIso))
+			.isEqualTo("rolled 5: now Wholesaler of ISO at Mu Herculis")
+		assertThat(PositionRoll(9, null, emptyList()).outcome(muHerculisIso)).isEqualTo("rolled 9: no change")
 	}
 
 	@Test

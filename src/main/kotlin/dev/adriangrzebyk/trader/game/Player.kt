@@ -6,9 +6,7 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * A player's membership in one game; [email] is the membership key. [money] is private to its owner (R29);
- * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43). [pendingPositions] are the
- * changes this turn's position rolls made, public too, which take effect from the next turn (E05-S06-5): until then
- * [marketPositions] are the ones that count.
+ * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43).
  */
 data class Player(
 	val email: String,
@@ -16,8 +14,7 @@ data class Player(
 	val corporationName: String,
 	val money: Int,
 	val ships: List<Ship>,
-	val marketPositions: List<MarketPosition>,
-	val pendingPositions: List<MarketPosition>
+	val marketPositions: List<MarketPosition>
 ) {
 
 	/** This player after paying [amount] HT. */
@@ -142,51 +139,42 @@ data class Player(
 	fun isDictatorOf(system: StarSystem, goods: Goods): Boolean =
 		marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }
 
-	/** This player's tier for [good] at its system this turn, or null when they hold none there (R28, R40). */
+	/** This player's tier for [good] at its system, or null when they hold none there (R28, R40). */
 	fun tierAt(good: MarketGood): MarketTier? = marketPositions.firstOrNull { it.isFor(good) }?.tier
 
 	/** Whether a position roll can move this player up for [good] (E05-S06-3): not once they're its Dictator. */
 	fun canRiseAt(good: MarketGood): Boolean = tierAt(good) != MarketTier.DICTATOR
 
 	/**
-	 * The tier a won position roll gives this player for [good] (R43): one up from the tier they hold this turn (S06-5),
-	 * none → Retailer → Wholesaler → Dictator. Only for a player who [canRiseAt] it.
+	 * The tier a won position roll gives this player for [good] (R43): one up from the tier they hold, none → Retailer →
+	 * Wholesaler → Dictator. Only for a player who [canRiseAt] it.
 	 */
 	fun promotionAt(good: MarketGood): MarketTier =
 		tierAt(good)?.let { checkNotNull(it.next()) { "A Dictator can't go higher" } } ?: MarketTier.RETAILER
 
-	/** This player after winning a position roll for [good]: [promotionAt] it, from the next turn (S06-5). */
-	fun promotedAt(good: MarketGood): Player = withPending(MarketPosition(good.system, good.goods, promotionAt(good)))
-
-	/** Whether this player is Dictator of [good], or will be from the next turn, as the next turn stands now. */
-	fun willBeDictatorOf(good: MarketGood): Boolean =
-		(pendingPositions.firstOrNull { it.isFor(good) }?.tier ?: tierAt(good)) == MarketTier.DICTATOR
-
-	/** This player as Wholesaler of [good] from the next turn, once someone else became its Dictator (S06-3). */
-	fun demotedAt(good: MarketGood): Player = withPending(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
-
 	/**
-	 * This player with their [pendingPositions] in effect: the turn they were made in is over (E05-S06-5). Each replaces
-	 * the position they held for that good at that system, if any.
+	 * This player after winning a position roll for [good]: they hold [promotionAt] it at once (E05-S06-5). It changes
+	 * nothing for the rest of the turn, since each good resolves once a turn and its Dictator and Wholesalers are fixed
+	 * when it starts.
 	 */
-	fun applyPendingPositions(): Player = copy(
-		marketPositions = marketPositions.filterNot { held -> pendingPositions.any { it.system == held.system && it.goods == held.goods } } +
-			pendingPositions,
-		pendingPositions = emptyList()
-	)
+	fun promotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
 
-	/** This player with [position] in effect from the next turn, replacing any earlier change for that good; none if it's no change. */
-	private fun withPending(position: MarketPosition): Player {
+	/** Whether this player is Dictator of [good] at its system (R28). */
+	fun isDictatorOf(good: MarketGood): Boolean = tierAt(good) == MarketTier.DICTATOR
+
+	/** This player as Wholesaler of [good], once someone else became its Dictator (S06-3). */
+	fun demotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
+
+	/** This player holding [position], in place of whatever they held for that good at that system. */
+	private fun withPosition(position: MarketPosition): Player {
 		val good = MarketGood(position.system, position.goods)
-		val change = position.takeUnless { it.tier == tierAt(good) }
-		return copy(pendingPositions = pendingPositions.filterNot { it.isFor(good) } + listOfNotNull(change))
+		return copy(marketPositions = marketPositions.filterNot { it.isFor(good) } + position)
 	}
 
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */
-		fun newcomer(email: String, name: String, corporationName: String) =
-			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList())
+		fun newcomer(email: String, name: String, corporationName: String) = Player(email, name, corporationName, 0, emptyList(), emptyList())
 	}
 }

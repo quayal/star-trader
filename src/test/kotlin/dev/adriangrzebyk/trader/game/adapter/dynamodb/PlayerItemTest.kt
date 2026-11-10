@@ -36,10 +36,6 @@ class PlayerItemTest {
 		marketPositions = listOf(
 			MarketPosition(system = StarSystem.TAU_CETI, goods = Goods.POLY, tier = MarketTier.WHOLESALER),
 			MarketPosition(system = StarSystem.MU_HERCULIS, goods = Goods.ISO, tier = MarketTier.DICTATOR)
-		),
-		pendingPositions = listOf(
-			MarketPosition(system = StarSystem.MU_HERCULIS, goods = Goods.ISO, tier = MarketTier.WHOLESALER),
-			MarketPosition(system = StarSystem.BETA_HYDRI, goods = Goods.FOOD, tier = MarketTier.RETAILER)
 		)
 	)
 
@@ -61,7 +57,7 @@ class PlayerItemTest {
 
 		assertThat(
 			attributes.keys
-		).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions", "pendingPositions")
+		).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions")
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
 	}
@@ -82,12 +78,6 @@ class PlayerItemTest {
 	@Test
 	fun shouldReadAPlayerStoredBeforeMarketPositionsExistedAsHoldingNone() {
 		assertThat(PlayerItem(PlayerItem(player).attributes - "marketPositions").toPlayer().marketPositions).isEmpty()
-	}
-
-	@Test
-	fun shouldReadAPlayerStoredBeforePositionRollsExistedWithNoPendingPositions() {
-		// E05-S06 (BACKWARD_COMPATIBILITY.md §7)
-		assertThat(PlayerItem(PlayerItem(player).attributes - "pendingPositions").toPlayer().pendingPositions).isEmpty()
 	}
 
 	@Test

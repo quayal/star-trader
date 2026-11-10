@@ -36,8 +36,7 @@ class GameItemTest {
 					Ship(name = "Wayfarer", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap()),
 					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE, cargo = emptyMap())
 				),
-				marketPositions = emptyList(),
-				pendingPositions = emptyList()
+				marketPositions = emptyList()
 			),
 			Player(
 				email = "guest@example.com",
@@ -48,8 +47,7 @@ class GameItemTest {
 					Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET, cargo = emptyMap()),
 					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
 				),
-				marketPositions = emptyList(),
-				pendingPositions = emptyList()
+				marketPositions = emptyList()
 			)
 		),
 		turn = Turn(

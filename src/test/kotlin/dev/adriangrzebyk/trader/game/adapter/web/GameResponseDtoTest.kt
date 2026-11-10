@@ -68,8 +68,8 @@ class GameResponseDtoTest {
 	}
 
 	@Test
-	fun shouldSendEachPlayersPendingPositionsToEveryone() {
-		// E05-S06-4, S06-5: public, like the roll that made them
+	fun shouldSendAPositionWonThisTurnToEveryone() {
+		// E05-S06-4, S06-5: public at once, like the roll that won it
 		val game = started.copy(
 			players = started.players.map {
 				if (it.email ==
@@ -84,8 +84,7 @@ class GameResponseDtoTest {
 
 		val guest = GameResponseDto(game, "host@example.com").players.single { it.email == "guest@example.com" }
 
-		assertThat(guest.marketPositions).isEmpty()
-		assertThat(guest.pendingPositions).containsExactly(MarketPositionResponseDto("MU_HERCULIS", "ISO", "RETAILER"))
+		assertThat(guest.marketPositions).containsExactly(MarketPositionResponseDto("MU_HERCULIS", "ISO", "RETAILER"))
 	}
 
 	@Test

@@ -174,7 +174,7 @@ class GameTradingTest {
 		// S04-1, S04-3, S04-4, S04-6, S04-7: 12 POLY at 11 HT costs 132; Meridian has 10 free spaces, so 2 are lost. Then
 		// the counter is -9 and Altair's sell at 10 (target -18) allows nothing, so trading is over: the price moves from
 		// 2 by modifier(-9) = +4 to 6 HT (E05-S05-1), and Ada, the Dictator, is asked to trade wholesale (R37). Trading 12 u
-		// rolls for a position (E05-S06): 7 is at most 12, so Grace is Retailer from turn 2.
+		// rolls for a position (E05-S06): 7 is at most 12, so Grace is Retailer at once.
 		val game = gracesTurnToTrade.trade("grace@example.com", 12, listOf(ShipLoad("Meridian", 12)), FakeDice.twoD6(7))
 
 		val grace = game.players.first { it.email == "grace@example.com" }
@@ -193,7 +193,7 @@ class GameTradingTest {
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
 			LogEntry(1, "Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT"),
-			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis from turn 2"),
+			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis"),
 			LogEntry(1, "No one else can trade at Gamma Leporis POLY"),
 			LogEntry(1, "POLY price at Gamma Leporis: 2 → 6 HT")
 		)

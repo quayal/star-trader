@@ -9,7 +9,7 @@ import dev.adriangrzebyk.trader.trading.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-// E05-S06: a trade of 6 or more units rolls 2d6 for its player's market position (R43), which changes from the next turn.
+// E05-S06: a trade of 6 or more units rolls 2d6 for its player's market position (R43), held at once.
 class GamePositionRollTest {
 
 	private fun dice() = FakeDice.twoD6(*IntArray(MarketGood.everyOnBoard().size) { 7 })
@@ -41,44 +41,39 @@ class GamePositionRollTest {
 	private val kimsTurnToTrade = trading.resolveNextGood("grace@example.com", dice())
 		.passAsDictator("ada@example.com", FakeDice.twoD6(2))
 
-	// Kim buys 6 and rolls 6: Wholesaler → Dictator, which demotes Ada to Wholesaler, both from turn 2. Counter -3.
+	// Kim buys 6 and rolls 6: Wholesaler → Dictator, which demotes Ada to Wholesaler at once. Counter -3.
 	private val kimPromoted = kimsTurnToTrade.trade("kim@example.com", 6, listOf(ShipLoad("Bright Reach", 6)), FakeDice.twoD6(6))
 
 	@Test
-	fun shouldRollAfterSixUnitsAndPromoteFromTheNextTurnDemotingTheDictator() {
+	fun shouldRollAfterSixUnitsAndPromoteAtOnceDemotingTheDictator() {
 		// S06-2, S06-3, S06-4, S06-5
 		val kim = playerIn(kimPromoted, "kim@example.com")
 		val ada = playerIn(kimPromoted, "ada@example.com")
 
 		assertThat(kimPromoted.turn!!.resolution!!.trades.single().positionRoll)
 			.isEqualTo(PositionRoll(6, MarketTier.DICTATOR, listOf("ada@example.com")))
-		assertThat(kim.pendingPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.DICTATOR))
-		assertThat(ada.pendingPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER))
+		assertThat(kim.marketPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.DICTATOR))
+		assertThat(ada.marketPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER))
 		assertThat(kimPromoted.log.drop(kimsTurnToTrade.log.size).map { it.text }).containsExactly(
 			"Altair Trade Co. could buy up to 21 u: bought 6 u at 12 HT each, paid 72 HT",
-			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis from turn 2; " +
-				"Orion Freight is demoted to Wholesaler from turn 2"
+			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; Orion Freight is demoted to Wholesaler"
 		)
 	}
 
 	@Test
-	fun shouldKeepEveryonesPositionForTheRestOfTheTurn() {
-		// S06-5: Grace's 7 u roll 3, so she's Retailer from turn 2; trading is then over, and the wholesale step still asks
-		// Ada as Dictator, while Kim, with an offer, isn't asked at all.
+	fun shouldChangeNothingForTheRestOfTheResolution() {
+		// S06-5: Grace's 7 u roll 3, so she's Retailer at once; trading is then over, and the wholesale step asks whom it
+		// fixed when the good started resolving: Ada as Dictator, not Kim, who has an offer for it.
 		val game = kimPromoted.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(3))
 
-		assertThat(game.log.map { it.text }).contains("Vega Lines traded 7 u — rolled 3: now Retailer of POLY at Gamma Leporis from turn 2")
+		assertThat(game.log.map { it.text }).contains("Vega Lines traded 7 u — rolled 3: now Retailer of POLY at Gamma Leporis")
+		assertThat(playerIn(game, "grace@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.RETAILER)
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.turn!!.resolution!!.wholesaleRole("ada@example.com")).isEqualTo("Dictator")
-		assertThat(playerIn(game, "ada@example.com").isDictatorOf(GAMMA_LEPORIS, Goods.POLY)).isTrue()
-		assertThat(playerIn(game, "kim@example.com").isDictatorOf(GAMMA_LEPORIS, Goods.POLY)).isFalse()
-		assertThat(playerIn(game, "kim@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.WHOLESALER)
-		assertThat(playerIn(game, "grace@example.com").tierAt(gammaLeporisPoly)).isNull()
 	}
 
 	@Test
-	fun shouldApplyThePendingPositionsWhenTheNextTurnStarts() {
-		// S06-5: from turn 2
+	fun shouldKeepThePositionsIntoTheNextTurn() {
 		val next = kimPromoted.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(3))
 			.passWholesale("ada@example.com")
 			.advancePhase(dice())
@@ -87,7 +82,6 @@ class GamePositionRollTest {
 		assertThat(playerIn(next, "kim@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.DICTATOR)
 		assertThat(playerIn(next, "ada@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.WHOLESALER)
 		assertThat(playerIn(next, "grace@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.RETAILER)
-		assertThat(next.players.flatMap { it.pendingPositions }).isEmpty()
 	}
 
 	@Test
@@ -96,8 +90,7 @@ class GamePositionRollTest {
 		val game = kimPromoted.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(9))
 
 		assertThat(game.log.map { it.text }).contains("Vega Lines traded 7 u — rolled 9: no change")
-		assertThat(playerIn(game, "grace@example.com").pendingPositions).isEmpty()
-		assertThat(playerIn(game.applyPendingPositions(), "grace@example.com").marketPositions).isEmpty()
+		assertThat(playerIn(game, "grace@example.com").marketPositions).isEmpty()
 	}
 
 	@Test
@@ -111,8 +104,8 @@ class GamePositionRollTest {
 	}
 
 	@Test
-	fun shouldDemoteAWholesalerAboutToBeDictatorWhenAnotherBecomesDictatorTheSameTurn() {
-		// S06-3: only one Dictator per good; the later roll wins, and whoever would have been Dictator is Wholesaler
+	fun shouldDemoteTheDictatorPromotedEarlierThisTurnWhenAnotherBecomesDictator() {
+		// S06-3: only one Dictator per good; Kim became Dictator this turn, and Grace's later roll demotes him
 		val graceAsWholesaler = kimPromoted.copy(
 			players = kimPromoted.players.map {
 				if (it.email ==
@@ -130,10 +123,9 @@ class GamePositionRollTest {
 		assertThat(game.turn!!.resolution!!.trades.last().positionRoll)
 			.isEqualTo(PositionRoll(4, MarketTier.DICTATOR, listOf("kim@example.com")))
 		assertThat(game.log.last { it.text.startsWith("Vega Lines traded") }.text).isEqualTo(
-			"Vega Lines traded 7 u — rolled 4: now Dictator of POLY at Gamma Leporis from turn 2; " +
-				"Altair Trade Co. is demoted to Wholesaler from turn 2"
+			"Vega Lines traded 7 u — rolled 4: now Dictator of POLY at Gamma Leporis; Altair Trade Co. is demoted to Wholesaler"
 		)
-		val next = game.applyPendingPositions()
+		val next = game
 		assertThat(
 			next.players.filter {
 				it.tierAt(gammaLeporisPoly) == MarketTier.DICTATOR
@@ -151,7 +143,7 @@ class GamePositionRollTest {
 			.trade("ada@example.com", 6, emptyList(), FakeDice.twoD6())
 
 		assertThat(game.turn!!.resolution!!.trades.single().positionRoll).isNull()
-		assertThat(game.players.flatMap { it.pendingPositions }).isEmpty()
+		assertThat(playerIn(game, "ada@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.DICTATOR)
 	}
 
 	private fun playerIn(game: Game, email: String): Player = game.players.first { it.email == email }

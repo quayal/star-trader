@@ -219,20 +219,17 @@ class PlayerTest {
 	private val muHerculisIso = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
 
 	@Test
-	fun shouldRiseOneTierFromTheNextTurnAfterAWonPositionRoll() {
-		// E05-S06-2, S06-5: none → Retailer → Wholesaler → Dictator, from the tier held this turn
+	fun shouldRiseOneTierAtOnceAfterAWonPositionRoll() {
+		// E05-S06-2, S06-5: none → Retailer → Wholesaler → Dictator
 		val retailer = player.promotedAt(muHerculisIso)
-		val wholesaler = retailer.applyPendingPositions().promotedAt(muHerculisIso)
-		val dictator = wholesaler.applyPendingPositions().promotedAt(muHerculisIso)
+		val wholesaler = retailer.promotedAt(muHerculisIso)
+		val dictator = wholesaler.promotedAt(muHerculisIso)
 
-		assertThat(retailer.tierAt(muHerculisIso)).isNull()
-		assertThat(retailer.pendingPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER))
-		assertThat(wholesaler.pendingPositions.single().tier).isEqualTo(MarketTier.WHOLESALER)
-		assertThat(dictator.willBeDictatorOf(muHerculisIso)).isTrue()
-		assertThat(dictator.isDictatorOf(StarSystem.MU_HERCULIS, Goods.ISO)).isFalse()
-		assertThat(dictator.applyPendingPositions().marketPositions)
-			.containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR))
-		assertThat(dictator.applyPendingPositions().canRiseAt(muHerculisIso)).isFalse()
+		assertThat(retailer.marketPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER))
+		assertThat(wholesaler.tierAt(muHerculisIso)).isEqualTo(MarketTier.WHOLESALER)
+		assertThat(dictator.marketPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR))
+		assertThat(dictator.isDictatorOf(muHerculisIso)).isTrue()
+		assertThat(dictator.canRiseAt(muHerculisIso)).isFalse()
 	}
 
 	@Test
@@ -241,22 +238,17 @@ class PlayerTest {
 		val tauCetiPoly = MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.WHOLESALER)
 		val holder = player.copy(marketPositions = listOf(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER)))
 
-		val next = holder.promotedAt(muHerculisIso).applyPendingPositions()
-
 		assertThat(
-			next.marketPositions
+			holder.promotedAt(muHerculisIso).marketPositions
 		).containsExactlyInAnyOrder(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
-		assertThat(next.pendingPositions).isEmpty()
 	}
 
 	@Test
-	fun shouldBeWholesalerFromTheNextTurnOnceDemotedAndDropAPendingDictatorship() {
+	fun shouldBeWholesalerAtOnceWhenDemoted() {
 		// E05-S06-3
 		val dictator = player.copy(marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR)))
-		val wholesaler = player.copy(marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER)))
 
-		assertThat(dictator.demotedAt(muHerculisIso).willBeDictatorOf(muHerculisIso)).isFalse()
-		assertThat(dictator.demotedAt(muHerculisIso).isDictatorOf(StarSystem.MU_HERCULIS, Goods.ISO)).isTrue()
-		assertThat(wholesaler.promotedAt(muHerculisIso).demotedAt(muHerculisIso).pendingPositions).isEmpty()
+		assertThat(dictator.demotedAt(muHerculisIso).marketPositions)
+			.containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
 	}
 }

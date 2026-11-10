@@ -220,20 +220,19 @@ function wholesaleLine(game, wholesale) {
 const TIER_NAMES = { RETAILER: 'Retailer', WHOLESALER: 'Wholesaler', DICTATOR: 'Dictator' };
 
 /**
- * E05-S06-4, S06-5: a trade's position roll, if it made one, with the turn its change counts from: "Vega Lines traded
- * 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5", "… rolled 9: no change", and a Dictator's demotion,
- * "…; Altair Trade Co. is demoted to Wholesaler from turn 5". Null for a trade that made no roll.
+ * E05-S06-4: a trade's position roll, if it made one: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu
+ * Herculis", "… rolled 9: no change", and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null
+ * for a trade that made no roll.
  */
 function positionRollLine(game, trade, good) {
 	const roll = trade.positionRoll;
 	if (!roll) {
 		return null;
 	}
-	const from = game.turn.number + 1;
 	const change = roll.promotedTo
-		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName} from turn ${from}`
+		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName}`
 		: 'no change';
-	const demoted = (roll.demoted ?? []).map(email => `; ${corporation(game, email)} is demoted to Wholesaler from turn ${from}`).join('');
+	const demoted = (roll.demoted ?? []).map(email => `; ${corporation(game, email)} is demoted to Wholesaler`).join('');
 	return `${corporation(game, trade.playerEmail)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
 }
 

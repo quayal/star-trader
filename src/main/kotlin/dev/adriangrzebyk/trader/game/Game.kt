@@ -77,22 +77,9 @@ data class Game(
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
-			TurnPhase.TRADING -> if (current.number ==
-				turns
-			) {
-				copy(status = GameStatus.FINISHED)
-			} else {
-				copy(turn = current.next()).applyPendingPositions()
-			}
+			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = current.next())
 		}
 	}
-
-	/**
-	 * This game with every player's pending market positions in effect (E05-S06-5): the position rolls of the turn that
-	 * just ended, including a Dictator's demotion, count from the next turn. Whatever starts the next turn calls this once,
-	 * as it starts.
-	 */
-	fun applyPendingPositions(): Game = copy(players = players.map { it.applyPendingPositions() })
 
 	/**
 	 * Records that [email] is done bidding (R17). Bidding closes the moment the last player signals done (D09), rolling
@@ -271,7 +258,7 @@ data class Game(
 	/**
 	 * The position roll [trader] makes after trading [units] of [good] (R43, E05-S06-2), or null when they traded fewer
 	 * than 6 or are its Dictator already (S06-3: nothing to gain). A roll at most [units] moves them one tier up; becoming
-	 * Dictator demotes whoever is or was about to be its Dictator to Wholesaler (S06-3), all from the next turn (S06-5).
+	 * Dictator demotes the Dictator there to Wholesaler (S06-3). Both hold at once (S06-5).
 	 */
 	private fun positionRollFor(trader: Player, good: MarketGood, units: Int, dice: Dice): PositionRoll? {
 		if (units < PositionRoll.MIN_UNITS || !trader.canRiseAt(good)) {
@@ -283,14 +270,14 @@ data class Game(
 		}
 		val tier = trader.promotionAt(good)
 		val demoted = if (tier == MarketTier.DICTATOR) {
-			players.filter { it.email != trader.email && it.willBeDictatorOf(good) }.map { it.email }
+			players.filter { it.email != trader.email && it.isDictatorOf(good) }.map { it.email }
 		} else {
 			emptyList()
 		}
 		return PositionRoll(roll, tier, demoted)
 	}
 
-	/** This game once [positionRoll], made by [email] for [good], moved positions from the next turn; unchanged when it didn't. */
+	/** This game once [positionRoll], made by [email] for [good], moved positions; unchanged when it didn't. */
 	private fun withPositionRolled(email: String, good: MarketGood, positionRoll: PositionRoll?): Game {
 		if (positionRoll?.promotedTo == null) {
 			return this
@@ -376,7 +363,7 @@ data class Game(
 		val label = resolution.good.label()
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
 		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
-			listOfNotNull("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", positionRollText(trade, resolution.good, turn + 1))
+			listOfNotNull("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", positionRollText(trade, resolution.good))
 		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
 			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
@@ -389,13 +376,13 @@ data class Game(
 	}
 
 	/**
-	 * The public log line of [trade]'s position roll, if it made one (E05-S06-4, S06-5), with any change counting
-	 * [fromTurn]: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5", "… rolled 9: no
-	 * change", or, becoming Dictator, "…; Altair Trade Co. is demoted to Wholesaler from turn 5".
+	 * The public log line of [trade]'s position roll, if it made one (E05-S06-4): "Vega Lines traded 7 u — rolled 5: now
+	 * Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair Trade Co. is demoted
+	 * to Wholesaler".
 	 */
-	private fun positionRollText(trade: Trade, good: MarketGood, fromTurn: Int): String? = trade.positionRoll?.let { roll ->
-		"${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good, fromTurn)}" +
-			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler from turn $fromTurn" }
+	private fun positionRollText(trade: Trade, good: MarketGood): String? = trade.positionRoll?.let { roll ->
+		"${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
+			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler" }
 	}
 
 	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */

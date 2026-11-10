@@ -242,11 +242,11 @@ describe('the counter (E05-S03)', () => {
 		});
 
 		assert.deepEqual(counterLines(rolled).filter(line => line.includes('rolled')), [
-			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5',
+			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis',
 			'Orion Freight traded 6 u \u2014 rolled 9: no change',
-			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis from turn 5; Vega Lines is demoted to Wholesaler from turn 5',
+			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
 		]);
-		assert.equal(counterLines(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis from turn 5');
+		assert.equal(counterLines(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis');
 	});
 
 	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
