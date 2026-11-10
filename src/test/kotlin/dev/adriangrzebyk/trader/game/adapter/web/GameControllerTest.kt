@@ -1075,7 +1075,7 @@ class GameControllerTest {
 		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
 		// The guest's sell (target -18) still can't trade, so trading is over: the price moves (E05-S05-1) and the guest,
 		// as Dictator, is asked to trade wholesale (R37).
-		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1))
+		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1, null))
 		val newPrice = traded.turn!!.resolution!!.newPrice!!
 		assertThat(traded.turn!!.resolution!!.awaitingWholesaler).isEqualTo(guest)
 		assertThat(traded.turn!!.resolution!!.finished).isFalse()

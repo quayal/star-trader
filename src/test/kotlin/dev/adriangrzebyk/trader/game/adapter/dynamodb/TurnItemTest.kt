@@ -2,7 +2,9 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.MarketGood
+import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Offer
+import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Turn
@@ -41,7 +43,7 @@ class TurnItemTest {
 			"kim@example.com",
 			true,
 			-6,
-			listOf(Trade(Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9), 5, 3), Trade(offer, 2, 0)),
+			listOf(Trade(Offer("kim@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 9), 5, 3, null), Trade(offer, 2, 0, null)),
 			listOf("grace@example.com", "ada@example.com"),
 			listOf("ada@example.com", "kim@example.com"),
 			listOf(Wholesale("ada@example.com", OfferType.SELL, 2, 8), Wholesale("kim@example.com", null, 0, 8))
@@ -200,6 +202,25 @@ class TurnItemTest {
 		assertThat(resolution.getValue("trades").l().first().m().getValue("marketMax")).isEqualTo(AttributeValue.fromN("5"))
 		assertThat(resolution.getValue("trades").l().first().m().getValue("units")).isEqualTo(AttributeValue.fromN("3"))
 		assertThat(resolution.getValue("initiative").l().map { it.s() }).containsExactly("grace@example.com", "ada@example.com")
+	}
+
+	@Test
+	fun shouldReadBackAndStoreEachTradesPositionRollWithNoTierForNoChange() {
+		// E05-S06: a trade without a roll (fewer than 6 u, and every trade saved before) has no "positionRoll" at all
+		val promoted = Trade(offer.copy(type = OfferType.BUY), 9, 8, PositionRoll(5, MarketTier.DICTATOR, listOf("kim@example.com")))
+		val noChange = Trade(offer, 7, 7, PositionRoll(9, null, emptyList()))
+		val withRolls = turn.copy(resolution = turn.resolution!!.copy(trades = listOf(promoted, noChange)))
+
+		assertThat(TurnItem(TurnItem(withRolls).attributes).toTurn()).isEqualTo(withRolls)
+		val (promotedItem, noChangeItem) = TurnItem(withRolls).attributes.getValue("resolution").m().getValue("trades").l().map { it.m() }
+		assertThat(promotedItem.getValue("positionRoll").m()).isEqualTo(
+			mapOf(
+				"roll" to AttributeValue.fromN("5"),
+				"promotedTo" to AttributeValue.fromS("DICTATOR"),
+				"demoted" to AttributeValue.fromL(listOf(AttributeValue.fromS("kim@example.com")))
+			)
+		)
+		assertThat(noChangeItem.getValue("positionRoll").m()).doesNotContainKey("promotedTo")
 	}
 
 	@Test
