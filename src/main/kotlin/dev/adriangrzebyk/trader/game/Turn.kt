@@ -288,6 +288,9 @@ data class Turn(
 	private fun withResolution(current: Resolution): Turn =
 		copy(resolution = current, resolvedGoods = if (current.isFinished()) resolvedGoods + current.good else resolvedGoods)
 
+	/** Whether this turn's Trading is over (E05-S07-1): nothing left in the queue, and the last good has finished resolving. */
+	fun isEveryGoodResolved(): Boolean = phase == TurnPhase.TRADING && tradingQueue.isEmpty() && resolution?.isFinished() == true
+
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
 

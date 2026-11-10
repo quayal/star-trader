@@ -890,6 +890,35 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldStartTheNextTurnWithBiddingOnceTheLastGoodHasResolved() {
+		// E05-S07: with no offers and no positions, each good resolves on Resolve next; the last one ends the turn.
+		val (first, second, gameId) = orderedGame("turn-end")
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		repeat(17) { resolveNext("token-$first", gameId).expectStatus().isOk }
+
+		val ended = resolveNext("token-$first", gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		// S07-2: turn 2's Bidding, with nothing of turn 1's Trading left; saved, so the other player's poll sees it too.
+		assertThat(ended.status).isEqualTo("RUNNING")
+		assertThat(ended.turn!!.number).isEqualTo(2)
+		assertThat(ended.turn!!.phase).isEqualTo("BIDDING")
+		assertThat(ended.turn!!.tradingQueue).isEmpty()
+		assertThat(ended.turn!!.resolution).isNull()
+		assertThat(pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn)
+			.isEqualTo(ended.turn)
+		// S07-3: turn 2 starts its own group in the log.
+		assertThat(ended.log.takeLast(2)).containsExactly(
+			LogEntryResponseDto(1, "All goods resolved"),
+			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired")
+		)
+		resolveNext("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+	}
+
+	@Test
 	fun shouldRefuseTradingActionsOutsideTradingWithABadOrderOrFromOutsiders() {
 		val (first, _, gameId) = orderedGame("trade-refused")
 		val body = """{"queue": [{"system": "MU_HERCULIS", "goods": "ISO"}]}"""

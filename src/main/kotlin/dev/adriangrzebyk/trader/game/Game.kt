@@ -68,17 +68,36 @@ data class Game(
 
 	/**
 	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. Closing Bidding
-	 * charges the bids and rolls the initiative order with [dice] (R27). After the last turn's Trading (R41) the game
-	 * is over and keeps its last turn. No clock calls this (D09): a phase ends only when its players are through, and
-	 * the caller runs it inside [GameStore.update] so it happens once.
+	 * charges the bids and rolls the initiative order with [dice] (R27); leaving Trading ends the turn ([endTurn]). No
+	 * clock calls this (D09): a phase ends only when its players are through, and the caller runs it inside
+	 * [GameStore.update] so it happens once.
 	 */
 	fun advancePhase(dice: Dice): Game {
 		val current = runningTurn()
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
-			TurnPhase.TRADING -> if (current.number == turns) copy(status = GameStatus.FINISHED) else copy(turn = current.next())
+			TurnPhase.TRADING -> endTurn(current)
 		}
+	}
+
+	/**
+	 * Ends [current], whose Trading is over (E05-S07, N06): logged "All goods resolved" in that turn. After the last
+	 * turn the creator chose (R39, R41) the game is over and keeps its last turn; otherwise the next turn starts with
+	 * Bidding, with no offers, so offers that didn't trade expire (S07-2, proposed), and its first log line starts a new
+	 * group in the log (S07-3). This is the one place a turn ends and the next starts: anything that takes effect "from
+	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
+	 */
+	private fun endTurn(current: Turn): Game {
+		val ended = log + LogEntry(current.number, ALL_GOODS_RESOLVED)
+		if (current.number >= turns) {
+			return copy(status = GameStatus.FINISHED, turn = current, log = ended)
+		}
+		val next = current.next()
+		return copy(
+			turn = next,
+			log = ended + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
+		)
 	}
 
 	/**
@@ -297,16 +316,18 @@ data class Game(
 	/**
 	 * This game with [after] as its turn, once its resolution moved on from [before] (null for a good that just started
 	 * resolving). [events] are logged first, then what the resolution did. The moment no offer can trade any more, the
-	 * good's new price replaces its old one in [prices] (R35, S05-3).
+	 * good's new price replaces its old one in [prices] (R35, S05-3). Once the last good has finished resolving, the turn
+	 * ends in the same step (E05-S07, D09: nobody has to press anything, and it happens once, A04).
 	 */
 	private fun withResolutionMoved(after: Turn, before: Resolution?, events: List<String>): Game {
 		val resolution = checkNotNull(after.resolution)
 		val repriced = resolution.newPrice()?.takeIf { before?.isTradingOver() != true }
-		return copy(
+		val moved = copy(
 			turn = after,
 			prices = repriced?.let { prices.withPrice(resolution.good, it) } ?: prices,
 			log = log + events.map { LogEntry(after.number, it) } + resolutionLog(after.number, before, resolution)
 		)
+		return if (after.isEveryGoodResolved()) moved.endTurn(after) else moved
 	}
 
 	/**
@@ -445,6 +466,9 @@ data class Game(
 	companion object {
 		const val MAX_PLAYERS = 6
 		const val MIN_PLAYERS_TO_START = 2
+
+		/** S07-1: the log line, and s03's words, once a turn's last good has resolved. */
+		const val ALL_GOODS_RESOLVED = "All goods resolved"
 
 		/** R40: every player starts with 300 HT. */
 		const val STARTING_MONEY = 300
