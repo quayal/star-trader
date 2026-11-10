@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
@@ -61,13 +62,17 @@ data class GameResponseDto(
 	)
 }
 
-/** Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28). */
+/**
+ * Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28), and so are
+ * [pendingPositions], the ones this turn's position rolls changed, which count from the next turn (E05-S06-5).
+ */
 data class PlayerResponseDto(
 	val email: String,
 	val name: String,
 	val corporationName: String,
 	val ships: List<ShipResponseDto>,
-	val marketPositions: List<MarketPositionResponseDto>
+	val marketPositions: List<MarketPositionResponseDto>,
+	val pendingPositions: List<MarketPositionResponseDto>
 ) {
 
 	constructor(player: Player) : this(
@@ -75,7 +80,8 @@ data class PlayerResponseDto(
 		player.name,
 		player.corporationName,
 		player.ships.map { ShipResponseDto(it) },
-		player.marketPositions.map { MarketPositionResponseDto(it) }
+		player.marketPositions.map { MarketPositionResponseDto(it) },
+		player.pendingPositions.map { MarketPositionResponseDto(it) }
 	)
 }
 
@@ -213,10 +219,34 @@ data class WholesaleResponseDto(val playerEmail: String, val role: String, val t
 /**
  * A trade in a resolution, public like the resolution (E05-S03, E05-S04-6): whose offer, Buy or Sell, its price, the
  * most units the market allowed and the units traded, 0 when its player traded nothing. Why is their own business (R29).
+ * [positionRoll] is the market-position roll a trade of 6 or more units made, else null (R43, E05-S06-4).
  */
-data class TradeResponseDto(val playerEmail: String, val type: String, val price: Int, val marketMax: Int, val units: Int) {
+data class TradeResponseDto(
+	val playerEmail: String,
+	val type: String,
+	val price: Int,
+	val marketMax: Int,
+	val units: Int,
+	val positionRoll: PositionRollResponseDto?
+) {
 
-	constructor(trade: Trade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.marketMax, trade.units)
+	constructor(trade: Trade) : this(
+		trade.offer.playerEmail,
+		trade.offer.type.name,
+		trade.offer.price,
+		trade.marketMax,
+		trade.units,
+		trade.positionRoll?.let { PositionRollResponseDto(it) }
+	)
+}
+
+/**
+ * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds from the next turn ([promotedTo], null
+ * for no change), and the emails of the Dictators it demoted to Wholesaler from then (S06-3).
+ */
+data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>) {
+
+	constructor(positionRoll: PositionRoll) : this(positionRoll.roll, positionRoll.promotedTo?.name, positionRoll.demoted)
 }
 
 /**

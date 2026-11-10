@@ -39,10 +39,10 @@ class GamePriceAndWholesaleTest {
 		.finishJumping("ada@example.com")
 
 	// Ada passes before the roll; roll 2, counter 3. Grace buys 12 (counter -9), and nobody else can trade: the price moves
-	// from 2 by modifier(-9) = +4 to 6 HT, and Kim, then Ada, are asked.
+	// from 2 by modifier(-9) = +4 to 6 HT, and Kim, then Ada, are asked. Grace's 12 u roll 7 for a position (E05-S06).
 	private val priceChanged = trading.resolveNextGood("grace@example.com", dice())
 		.passAsDictator("ada@example.com", FakeDice.twoD6(2))
-		.trade("grace@example.com", 12, listOf(ShipLoad("Meridian", 12)))
+		.trade("grace@example.com", 12, listOf(ShipLoad("Meridian", 12)), FakeDice.twoD6(7))
 
 	@Test
 	fun shouldChangeThePriceOnceTradingIsOverAndLogIt() {

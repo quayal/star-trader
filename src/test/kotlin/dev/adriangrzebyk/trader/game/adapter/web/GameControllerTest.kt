@@ -83,7 +83,7 @@ class GameControllerTest {
 		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
 		assertThat(
 			game.players
-		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()))
+		).containsExactly(PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList()))
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
 		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null))
@@ -134,8 +134,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList())
+			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList()),
+			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
@@ -1046,7 +1046,7 @@ class GameControllerTest {
 		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
 		// The guest's sell (target -18) still can't trade, so trading is over: the price moves (E05-S05-1) and the guest,
 		// as Dictator, is asked to trade wholesale (R37).
-		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1))
+		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1, null))
 		val newPrice = traded.turn!!.resolution!!.newPrice!!
 		assertThat(traded.turn!!.resolution!!.awaitingWholesaler).isEqualTo(guest)
 		assertThat(traded.turn!!.resolution!!.finished).isFalse()

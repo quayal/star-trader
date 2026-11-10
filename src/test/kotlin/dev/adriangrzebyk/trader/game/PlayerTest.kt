@@ -215,4 +215,48 @@ class PlayerTest {
 			.hasMessage("Choose your ships in port at Tau Ceti.")
 		assertThat(trader.trade(buy, 4, 2, emptyList()).ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
 	}
+
+	private val muHerculisIso = MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)
+
+	@Test
+	fun shouldRiseOneTierFromTheNextTurnAfterAWonPositionRoll() {
+		// E05-S06-2, S06-5: none → Retailer → Wholesaler → Dictator, from the tier held this turn
+		val retailer = player.promotedAt(muHerculisIso)
+		val wholesaler = retailer.applyPendingPositions().promotedAt(muHerculisIso)
+		val dictator = wholesaler.applyPendingPositions().promotedAt(muHerculisIso)
+
+		assertThat(retailer.tierAt(muHerculisIso)).isNull()
+		assertThat(retailer.pendingPositions).containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER))
+		assertThat(wholesaler.pendingPositions.single().tier).isEqualTo(MarketTier.WHOLESALER)
+		assertThat(dictator.willBeDictatorOf(muHerculisIso)).isTrue()
+		assertThat(dictator.isDictatorOf(StarSystem.MU_HERCULIS, Goods.ISO)).isFalse()
+		assertThat(dictator.applyPendingPositions().marketPositions)
+			.containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR))
+		assertThat(dictator.applyPendingPositions().canRiseAt(muHerculisIso)).isFalse()
+	}
+
+	@Test
+	fun shouldKeepPositionsForOtherGoodsAndSystemsWhenOneChanges() {
+		// R28: a position is for one good at one system
+		val tauCetiPoly = MarketPosition(StarSystem.TAU_CETI, Goods.POLY, MarketTier.WHOLESALER)
+		val holder = player.copy(marketPositions = listOf(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.RETAILER)))
+
+		val next = holder.promotedAt(muHerculisIso).applyPendingPositions()
+
+		assertThat(
+			next.marketPositions
+		).containsExactlyInAnyOrder(tauCetiPoly, MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
+		assertThat(next.pendingPositions).isEmpty()
+	}
+
+	@Test
+	fun shouldBeWholesalerFromTheNextTurnOnceDemotedAndDropAPendingDictatorship() {
+		// E05-S06-3
+		val dictator = player.copy(marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.DICTATOR)))
+		val wholesaler = player.copy(marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER)))
+
+		assertThat(dictator.demotedAt(muHerculisIso).willBeDictatorOf(muHerculisIso)).isFalse()
+		assertThat(dictator.demotedAt(muHerculisIso).isDictatorOf(StarSystem.MU_HERCULIS, Goods.ISO)).isTrue()
+		assertThat(wholesaler.promotedAt(muHerculisIso).demotedAt(muHerculisIso).pendingPositions).isEmpty()
+	}
 }

@@ -121,12 +121,13 @@ data class Resolution(
 
 	/**
 	 * This resolution after the awaited trade's player traded [units] (E05-S04): from 0, trading nothing, to the most the
-	 * market allows. Then the counter has moved, and the next offer it reaches is awaited.
+	 * market allows, and made [positionRoll], if any (R43, E05-S06). Then the counter has moved, and the next offer it
+	 * reaches is awaited.
 	 */
-	fun withTrade(units: Int): Resolution {
+	fun withTrade(units: Int, positionRoll: PositionRoll?): Resolution {
 		val awaited = awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
 		check(units in 0..awaited.marketMax) { "$units u isn't within what the market allows, ${awaited.marketMax}" }
-		return copy(trades = trades + awaited.traded(units))
+		return copy(trades = trades + awaited.traded(units, positionRoll))
 	}
 
 	/**
