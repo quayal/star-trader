@@ -31,6 +31,7 @@ import {
 	resolver,
 	sameOrder,
 	tradingJustStarted,
+	tradingStatus,
 	waitingText,
 } from '../../main/resources/static/js/trading.js';
 
@@ -77,6 +78,21 @@ describe('who orders and resolves (R25)', () => {
 	it('leaves nobody to resolve once the queue is empty', () => {
 		assert.equal(resolver(game({ queue: [], done: [ISO, POLY] })), null);
 		assert.equal(orderedBy(game({ queue: [], done: [ISO, POLY] })), VEGA);
+	});
+});
+
+describe('s03 status line', () => {
+	it('names whom the game waits for during Trading (S01-8)', () => {
+		assert.equal(tradingStatus(game(), ME), 'Waiting for Vega Lines to resolve the next good.');
+	});
+
+	it('says when Trading starts, before the first one (S01-7)', () => {
+		assert.equal(tradingStatus(game({ phase: 'BIDDING' }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
+		assert.equal(tradingStatus(game({ phase: 'SHIP_JUMPS', number: 3 }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
+	});
+
+	it("says every good resolved once the next turn's Bidding has started (E05-S07-1)", () => {
+		assert.equal(tradingStatus(game({ phase: 'BIDDING', number: 2, queue: [] }), ME), 'All goods resolved. The next turn starts with Bidding.');
 	});
 });
 
