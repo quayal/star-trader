@@ -91,7 +91,7 @@ data class Game(
 	private fun endTurn(current: Turn): Game {
 		val ended = log + LogEntry(current.number, ALL_GOODS_RESOLVED)
 		if (current.number >= turns) {
-			return copy(status = GameStatus.FINISHED, turn = current, log = ended)
+			return copy(status = GameStatus.FINISHED, log = ended)
 		}
 		val next = current.next()
 		return copy(
@@ -467,7 +467,7 @@ data class Game(
 		const val MAX_PLAYERS = 6
 		const val MIN_PLAYERS_TO_START = 2
 
-		/** S07-1: the log line, and s03's words, once a turn's last good has resolved. */
+		/** S07-1: the log line once a turn's last good has resolved. */
 		const val ALL_GOODS_RESOLVED = "All goods resolved"
 
 		/** R40: every player starts with 300 HT. */
