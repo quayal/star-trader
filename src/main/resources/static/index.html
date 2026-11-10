@@ -1521,7 +1521,8 @@
 		}
 		if (response?.ok) {
 			render(await response.json());
-			$('resolution-title').focus(); // the form is gone; the heading leads to the trade just made
+			// The form is gone; the heading leads to the trade just made, or the status says the turn has ended (E05-S07).
+			$($('resolution-panel').hidden ? 'trading-status' : 'resolution-title').focus();
 			return;
 		}
 		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
@@ -1572,7 +1573,8 @@
 		}
 		if (response?.ok) {
 			render(await response.json());
-			$('resolution-title').focus(); // the form is gone; the heading leads to what was decided
+			// The form is gone; the heading leads to what was decided, or the status says the turn has ended (E05-S07).
+			$($('resolution-panel').hidden ? 'trading-status' : 'resolution-title').focus();
 			return;
 		}
 		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
