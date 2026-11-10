@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -31,7 +32,8 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
 /**
  * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, their
  * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems with this game's prices, which Trading
- * moves (E05-S05, R35).
+ * moves (E05-S05, R35). [result] is null until the game is over, then every player's final money and the winners for
+ * everyone (E05-S08, R39: the one exception to R29).
  */
 data class GameResponseDto(
 	val id: String,
@@ -42,6 +44,7 @@ data class GameResponseDto(
 	val turn: TurnResponseDto?,
 	val log: List<LogEntryResponseDto>,
 	val board: List<SystemResponseDto>,
+	val result: GameResultResponseDto?,
 	val you: YouResponseDto?
 ) {
 
@@ -55,10 +58,26 @@ data class GameResponseDto(
 		game.turn?.let { TurnResponseDto(it) },
 		game.log.map { LogEntryResponseDto(it) },
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
+		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {
 			YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty(), game.turn?.bidOf(it.email), game.turn?.resolution)
 		}
 	)
+}
+
+/**
+ * A finished game's result (E05-S08-2, S08-3), public: every player, most money first, and the emails of the winners,
+ * several when they tie on money (S08-4). Only built for a finished game: until then money is private (R29).
+ */
+data class GameResultResponseDto(val standings: List<StandingResponseDto>, val winners: List<String>) {
+
+	constructor(game: Game) : this(game.standings().map { StandingResponseDto(it) }, game.winners().map { it.email })
+}
+
+/** One player's final money (R39: cash only), shown to everyone once the game is over (S08-3). */
+data class StandingResponseDto(val email: String, val corporationName: String, val money: Int) {
+
+	constructor(player: Player) : this(player.email, player.corporationName, player.money)
 }
 
 /** Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28). */

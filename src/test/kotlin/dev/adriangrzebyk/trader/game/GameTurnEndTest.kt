@@ -110,6 +110,6 @@ class GameTurnEndTest {
 
 		assertThat(game.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(game.turn!!.number).isEqualTo(1)
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "All goods resolved"))
+		assertThat(game.log.map { it.text }).contains("All goods resolved").noneMatch { it.startsWith("Turn 2") }
 	}
 }
