@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
+import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
@@ -258,5 +259,33 @@ class GameResponseDtoTest {
 		assertThat(GameResponseDto(game, "host@example.com").you!!.wholesaleMax).isEqualTo(WholesaleMaxResponseDto(5, 0))
 		assertThat(GameResponseDto(game, "guest@example.com").you!!.wholesaleMax).isNull()
 		assertThat(GameResponseDto(started, "host@example.com").you!!.wholesaleMax).isNull()
+	}
+
+	@Test
+	fun shouldSendEveryonesFinalMoneyAndTheWinnersOnlyOnceTheGameIsOver() {
+		// E05-S08-2, S08-3: final money for everyone, most first; R29 until then
+		val endMoney = started.copy(players = started.players.map { if (it.email == "guest@example.com") it.receive(2010) else it })
+		val finished = endMoney.copy(status = GameStatus.FINISHED)
+
+		assertThat(GameResponseDto(endMoney, "host@example.com").result).isNull()
+		listOf("host@example.com", "guest@example.com").forEach { viewer ->
+			assertThat(GameResponseDto(finished, viewer).result).isEqualTo(
+				GameResultResponseDto(
+					listOf(
+						StandingResponseDto("guest@example.com", "Vega Lines", 2310),
+						StandingResponseDto("host@example.com", "Orion Freight", 300)
+					),
+					listOf("guest@example.com")
+				)
+			)
+		}
+	}
+
+	@Test
+	fun shouldNameEveryPlayerTiedOnMoneyAsAWinner() {
+		// S08-4 (proposed): both still have their 300 HT
+		val finished = started.copy(status = GameStatus.FINISHED)
+
+		assertThat(GameResponseDto(finished, "guest@example.com").result!!.winners).containsExactly("host@example.com", "guest@example.com")
 	}
 }

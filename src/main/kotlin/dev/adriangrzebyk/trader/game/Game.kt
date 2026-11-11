@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
+import java.util.Locale
 
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
@@ -83,7 +84,8 @@ data class Game(
 
 	/**
 	 * Ends [current], whose Trading is over (E05-S07, N06): logged "All goods resolved" in that turn. After the last
-	 * turn the creator chose (R39, R41) the game is over and keeps its last turn; otherwise the next turn starts with
+	 * turn the creator chose (R39, R41) the game is over, keeps its last turn, and the log ends with the winner
+	 * (E05-S08-1, S08-5); otherwise the next turn starts with
 	 * Bidding, with no offers, so offers that didn't trade expire (S07-2, proposed), and its first log line starts a new
 	 * group in the log (S07-3). This is the one place a turn ends and the next starts: anything that takes effect "from
 	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
@@ -91,13 +93,34 @@ data class Game(
 	private fun endTurn(current: Turn): Game {
 		val ended = log + LogEntry(current.number, ALL_GOODS_RESOLVED)
 		if (current.number >= turns) {
-			return copy(status = GameStatus.FINISHED, log = ended)
+			return copy(status = GameStatus.FINISHED, log = ended + LogEntry(current.number, gameOverText()))
 		}
 		val next = current.next()
 		return copy(
 			turn = next,
 			log = ended + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
 		)
+	}
+
+	/**
+	 * Every player, most money first (R39: only cash counts, so ships and goods are worth nothing); players with the same
+	 * money keep the order they joined in. Each player's money is private (R29) until the game is over, so only a finished
+	 * game's view may show it (E05-S08-3).
+	 */
+	fun standings(): List<Player> = players.sortedByDescending { it.money }
+
+	/** The players with the most money (R39); several when they tie, and they share the win (E05-S08-4, proposed). */
+	fun winners(): List<Player> = players.filter { it.money == players.maxOf { player -> player.money } }
+
+	/**
+	 * S08-5: "Game over: Vega Lines wins with 2,310 HT", or for a shared win "Game over: Vega Lines and Kessler Cargo win
+	 * with 2,310 HT".
+	 */
+	private fun gameOverText(): String {
+		val names = winners().map { it.corporationName }
+		val who = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
+		val verb = if (names.size == 1) "wins" else "win"
+		return "Game over: $who $verb with ${String.format(Locale.US, "%,d", winners().first().money)} HT"
 	}
 
 	/**

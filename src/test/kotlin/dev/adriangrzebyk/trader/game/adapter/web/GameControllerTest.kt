@@ -919,6 +919,41 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldEndAOneTurnGameAfterItsTradingAndShowEveryonesFinalMoney() {
+		// E05-S08: a one-turn game; with no offers and no positions, each good resolves on Resolve next.
+		val creatorToken = signIn("game-over-host@example.com")
+		val joinerToken = signIn("game-over-guest@example.com", "Grace", "Grace Freight")
+		val gameId = createGame(creatorToken, """{"turns": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!.id
+		joinGame(joinerToken, gameId).expectStatus().isOk
+		startGame(creatorToken, gameId).expectStatus().isOk
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		repeat(18) { resolveNext("token-$first", gameId).expectStatus().isOk }
+
+		// S08-1 to S08-4: over, and both players see both final amounts, tied at 300 HT, so both win.
+		val over = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(over.status).isEqualTo("FINISHED")
+		assertThat(over.turn!!.number).isEqualTo(1)
+		assertThat(over.result!!.standings.map { it.money }).containsExactly(300, 300)
+		assertThat(over.result!!.winners).containsExactlyInAnyOrder("game-over-host@example.com", "game-over-guest@example.com")
+		assertThat(pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.result)
+			.isEqualTo(over.result)
+		// S08-5
+		assertThat(over.log.last().text).isEqualTo("Game over: Adrian Star Traders and Grace Freight win with 300 HT")
+		// S08-6: every action is refused.
+		signalDone(
+			joinerToken,
+			gameId
+		).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo("This game is over")
+		resolveNext("token-$first", gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game is over")
+	}
+
+	@Test
 	fun shouldRefuseTradingActionsOutsideTradingWithABadOrderOrFromOutsiders() {
 		val (first, _, gameId) = orderedGame("trade-refused")
 		val body = """{"queue": [{"system": "MU_HERCULIS", "goods": "ISO"}]}"""

@@ -114,7 +114,7 @@
 			border-radius: var(--radius-panel);
 			background: var(--surface-panel);
 		}
-		.stale-notice[hidden], .deck[hidden], .system[hidden], .game-log[hidden], .nav-item[hidden] { display: none; }
+		.stale-notice[hidden], .deck[hidden], .system[hidden], .game-log[hidden], .game-over[hidden], .nav-item[hidden] { display: none; }
 		/* s01: the fleet left of the map, offers right of it (D07); one column on a narrow screen, map first. */
 		.deck {
 			display: grid;
@@ -208,6 +208,11 @@
 		.system__title { font-size: var(--text-heading); }
 		/* s04: one column, a foldable panel per turn (prototype revision 014). */
 		.game-log { display: grid; gap: var(--space-panel); max-width: 960px; }
+		/* s09 (E05-S08): the winner, then everyone's final money. */
+		.game-over { display: grid; gap: var(--space-panel); max-width: 720px; }
+		.game-over p { margin: 0; }
+		.game-over .panel { display: grid; gap: var(--space-related); }
+		.game-over__winner { font-family: var(--font-display); font-size: var(--text-title); }
 		.game-log > p, .game-log__turns > p { margin: 0; }
 		.game-log__turns { display: grid; gap: var(--space-panel); }
 		.section > summary { font-family: var(--font-display); font-size: var(--text-title); cursor: pointer; }
@@ -305,6 +310,8 @@
 	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
+	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
+	<a class="nav-item" id="nav-over" href="/" hidden>Game over</a>
 	<a class="nav-item" id="nav-new" href="/#new">New game</a>
 </aside>
 
@@ -490,7 +497,7 @@
 					<h2 id="deck-offer-title">Place an offer</h2>
 					<div id="deck-offer"></div>
 				</section>
-				<section class="panel" aria-labelledby="your-offers-title">
+				<section class="panel" id="your-offers-panel" aria-labelledby="your-offers-title">
 					<h2 id="your-offers-title">Your offers this turn</h2>
 					<ul class="offer-list" id="your-offers"></ul>
 					<p class="muted">Only you can see these until Trading resolves them.</p>
@@ -517,6 +524,24 @@
 			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
 			<div class="game-log__turns" id="log-turns"></div>
 			<p class="muted">Public events only: offers, bids and money are never logged.</p>
+		</div>
+
+		<!-- s09 (E05-S08): Game over, once the last turn's Trading has resolved its last good. -->
+		<div class="game-over" id="game-over-panel" hidden>
+			<h2 class="system__title" id="game-over-title" tabindex="-1">Game over</h2>
+			<section class="panel" aria-labelledby="game-over-title">
+				<p class="game-over__winner" id="game-over-winner"></p>
+				<p id="game-over-not-yet" hidden></p>
+				<div class="table-wrap" id="game-over-table">
+					<table class="data-table">
+						<caption class="visually-hidden">Final money, most first</caption>
+						<thead><tr><th scope="col">Place</th><th scope="col">Corporation</th><th scope="col" class="num">Final money</th></tr></thead>
+						<tbody id="game-over-rows"></tbody>
+					</table>
+				</div>
+				<p class="muted" id="game-over-note"></p>
+			</section>
+			<p><a class="link" id="game-over-log" href="/">See how it happened in the Game log</a></p>
 		</div>
 
 		<!-- s02: System details -->
@@ -690,8 +715,10 @@
 		parseRoute,
 		systemLink,
 		tradingLink,
+		gameOverLink,
 		validateTurns,
 	} from './js/game.js';
+	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, gameJustEnded, isOver, standingRows, winnerText } from './js/game-over.js';
 	import {
 		DICTATOR_HELP,
 		awaitingDictator,
@@ -768,6 +795,7 @@
 		isClosedRefusal,
 		noOffersText,
 		offerChoices,
+		showsYourOffers,
 		placedText,
 		refusalText,
 		validatePrice,
@@ -780,7 +808,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'game-over-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
@@ -796,6 +824,7 @@
 	let focusSystemTitle = false;
 	// Set when the player opens the Game log, so its heading takes focus once, as on System details.
 	let focusLogTitle = false;
+	let focusOverTitle = false;
 	// Set when the player opens Trading (s03), so its heading takes focus once, as on the Game log.
 	let focusTradingTitle = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
@@ -843,13 +872,15 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
+		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
+		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
 			views.home.hidden = true; // no market flash while the remembered games are checked
@@ -866,10 +897,11 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
+			focusOverTitle = view === 'over';
 			openGame(id);
 		}
 	}
@@ -881,6 +913,7 @@
 		showView('unknown');
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
 		$('unknown-title').focus();
@@ -1124,9 +1157,14 @@
 		noteProgress(game, fromPoll);
 		// S01-1: every player is taken to Trading when it starts, whether a poll or their own last landing brought it.
 		const openTrading = tradingJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'trading';
+		// S08-2: every player is taken to Game over when the game ends, by a poll or by their own last answer.
+		const openGameOver = gameJustEnded(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'over';
 		lastGame = game;
 		if (openTrading) {
 			location.hash = tradingLink(game.id); // route() redraws on hashchange
+		}
+		if (openGameOver) {
+			location.hash = gameOverLink(game.id);
 		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -1143,8 +1181,10 @@
 		focusSystemTitle = false; // a System details link to a game that hasn't started shows the lobby
 		focusLogTitle = false;
 		focusTradingTitle = false;
+		focusOverTitle = false;
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, session.email);
 		setTitle('Lobby', 'Waiting for players to join.');
@@ -1171,6 +1211,8 @@
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
 		$('nav-trading').hidden = false;
+		$('nav-over').href = gameOverLink(game.id);
+		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
 		if (view !== 'log' && view !== 'trading') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1)
 		}
@@ -1208,6 +1250,16 @@
 			return;
 		}
 		focusTradingTitle = false;
+		if (view === 'over') {
+			renderGameOver(game);
+			showPanels('game-over-panel');
+			if (focusOverTitle) {
+				focusOverTitle = false;
+				$('game-over-title').focus();
+			}
+			return;
+		}
+		focusOverTitle = false;
 		if (view === 'log') {
 			if (changed) {
 				renderLog(game);
@@ -1268,6 +1320,27 @@
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		renderYourOffers(game);
+	}
+
+	// ── s09 Game over (E05-S08) ──
+
+	/** S08-2 to S08-4: the winner, then every player's final money, most first; before the end, that it isn't over yet. */
+	function renderGameOver(game) {
+		const over = isOver(game);
+		$('game-over-winner').textContent = winnerText(game);
+		$('game-over-winner').hidden = !over;
+		$('game-over-not-yet').textContent = over ? '' : NOT_OVER_TEXT;
+		$('game-over-not-yet').hidden = over;
+		$('game-over-table').hidden = !over;
+		$('game-over-note').textContent = over ? CASH_ONLY_TEXT : '';
+		$('game-over-note').hidden = !over;
+		$('game-over-log').href = logLink(game.id);
+		$('game-over-rows').replaceChildren(...standingRows(game, session.email).map(row => element('tr', {},
+			element('td', { class: 'num' }, String(row.place)),
+			element('td', {}, row.corporation,
+				...(row.you ? [element('span', { class: 'muted' }, ' (you)')] : []),
+				...(row.winner ? [' ', element('span', { class: 'badge badge--live' }, 'Winner')] : [])),
+			element('td', { class: 'num' }, row.money))));
 	}
 
 	// ── s03 Trading (E05-S01) ──
@@ -1797,6 +1870,7 @@
 
 	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
 	function renderYourOffers(game) {
+		$('your-offers-panel').hidden = !showsYourOffers(game); // E05-S08-6: no stale offers after the game ends
 		const offers = game.you?.offers ?? [];
 		const bid = bidLine(game); // S05-2: the bid sits with the offers, just as private
 		$('your-offers').replaceChildren(...(bid ? [element('li', {}, bid)] : []), ...(offers.length
