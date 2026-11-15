@@ -48,10 +48,10 @@ Earlier (2026-10-25): E03–E05 still had no stories/tasks filed — this run wa
 | E05-S08 | #53 | The game ends after the last turn and shows the winner | #11 | E05-S07 | no |
 | E06 | #98 | Factories, warehouses and the Investment phase | — | E05 | no |
 | E06-S01 | #99 | A turn also has an Investment phase | #98 | E05-S07 | no |
-| E06-S02 | #100 | A player can own warehouses and factories, and everyone sees them | #98 | E06-S01 | no |
-| E06-S03 | #101 | Collecting output at the start of Investment | #98 | E06-S02 | no |
+| E06-S02 | #100 | A player can own warehouses and factories, and everyone sees them | #98 | E05 | no |
+| E06-S03 | #101 | Collecting output at the start of Investment | #98 | E06-S01, E06-S02 | no |
 | E06-S04 | #102 | Buying warehouse blocks | #98 | E06-S03 | no |
 | E06-S05 | #103 | Building or extending a factory | #98 | E06-S03 | no |
-| E06-S06 | #104 | A warehouse lets you trade without a ship | #98 | E06-S04, E05-S04 | no |
+| E06-S06 | #104 | A warehouse lets you trade without a ship | #98 | E06-S02, E05-S04 | no |
 | E06-S07 | #105 | The Game log shows builds and collected output | #98 | E06-S04, E06-S05 | no |
 | E99 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting); renamed from E06 on 2026-11-15 so E06 could be factories | — | — | not filed |

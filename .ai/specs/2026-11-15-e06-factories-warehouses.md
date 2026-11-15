@@ -129,6 +129,12 @@ None blocking. These are small defaults, not decisions, and can change after the
 ## 📋 Phasing and dependencies
 
 - Depends on E05-S07 (turn end) for S01 and on E05-S04 (ships choosing what to load) for S06.
-- Order: S01 (engine) → S02 (state and System details) → S03 (Collect) → S04 + S05 (buying) → S07 (log) → S06 (Trading from a warehouse, the riskiest because it changes shipped rules).
+- S02 adds state and the System details section only, so it doesn't need S01's phase. S06 needs a warehouse to exist in a player's state (S02), not the buying step (S04), so tests can set warehouses up directly.
+- Waves, for parallel work:
+  1. S01 (engine) ∥ S02 (state and System details)
+  2. S03 (Collect; needs S01 and S02) ∥ S06 (Trading from a warehouse; needs S02)
+  3. S04 (warehouse blocks) ∥ S05 (factory units); both need S03
+  4. S07 (Game log; needs S04 and S05)
+- Merge conflicts: nearly every story touches the game's turn and player model, so merge the first one to finish at once and have the others rebase early. S01 ∥ S02 is the riskiest pair.
 - S01 and S06 carry the most risk and should start first, in that order, to leave time before the playtest.
 - Existing code: to be confirmed when S01 starts. It touches the game's phase order, a ship's cargo rules, and the trade flow's choice of which ships load, and the persistence mapping for the new state.
