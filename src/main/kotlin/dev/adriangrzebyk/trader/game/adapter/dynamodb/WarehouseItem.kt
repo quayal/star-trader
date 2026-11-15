@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Warehouse
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
@@ -10,17 +11,21 @@ internal class WarehouseItem(val attributes: Map<String, AttributeValue>) {
 	constructor(warehouse: Warehouse) : this(
 		mapOf(
 			SYSTEM to AttributeValue.fromS(warehouse.system.name),
-			BLOCKS to number(warehouse.blocks)
+			BLOCKS to number(warehouse.blocks),
+			CARGO to AttributeValue.fromM(warehouse.cargo.entries.associate { (goods, units) -> goods.name to number(units) })
 		)
 	)
 
 	fun toWarehouse(): Warehouse = Warehouse(
 		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
-		blocks = attributes.attribute(BLOCKS).n().toInt()
+		blocks = attributes.attribute(BLOCKS).n().toInt(),
+		// Items saved before E06-S06 have no cargo; every warehouse was empty then (BACKWARD_COMPATIBILITY.md §7).
+		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap()
 	)
 
 	private companion object {
 		const val SYSTEM = "system"
 		const val BLOCKS = "blocks"
+		const val CARGO = "cargo"
 	}
 }

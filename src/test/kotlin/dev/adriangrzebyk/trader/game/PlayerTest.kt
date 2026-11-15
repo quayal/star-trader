@@ -251,4 +251,139 @@ class PlayerTest {
 		assertThat(dictator.demotedAt(muHerculisIso).marketPositions)
 			.containsExactly(MarketPosition(StarSystem.MU_HERCULIS, Goods.ISO, MarketTier.WHOLESALER))
 	}
+
+	// E06-S06 (R49): a warehouse at a system is presence there, beside the ships in port.
+	private val warehouseAtTau = Warehouse(StarSystem.TAU_CETI, 1, emptyMap())
+	private val warehouseAtMu = Warehouse(StarSystem.MU_HERCULIS, 2, emptyMap())
+
+	@Test
+	fun shouldTradeFromAWarehouseWithNoShipThere() {
+		// R49: Ada has no ship at Mu Herculis, only a warehouse; 4 ISO at 10 HT go into it.
+		val trader = player.copy(warehouses = listOf(warehouseAtMu))
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 10)
+
+		val traded = trader.trade(buy, 6, 4, emptyList(), 4)
+
+		assertThat(traded.money).isEqualTo(260)
+		assertThat(traded.warehouseAt(StarSystem.MU_HERCULIS)!!.holding(Goods.ISO)).isEqualTo(4)
+		assertThat(traded.ships).containsExactly(wayfarer, lantern)
+	}
+
+	@Test
+	fun shouldSplitATradeAcrossShipsAndTheWarehouse() {
+		// R49: 12 ISO bought at Tau Ceti: Wayfarer (10 free) takes 8, the warehouse (10 free) takes 4.
+		val trader = player.copy(warehouses = listOf(warehouseAtTau))
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		val traded = trader.trade(buy, 14, 12, listOf(ShipLoad("Wayfarer", 8)), 4)
+
+		assertThat(traded.money).isEqualTo(180)
+		assertThat(traded.ship("Wayfarer")!!.holding(Goods.ISO)).isEqualTo(8)
+		assertThat(traded.warehouseAt(StarSystem.TAU_CETI)!!.holding(Goods.ISO)).isEqualTo(4)
+	}
+
+	@Test
+	fun shouldLoseWhatDoesNotFitTheWarehouseButPayForIt() {
+		// R16, R49: 14 POLY into a 10-space warehouse: 10 fit, 4 are lost, all 14 are paid for.
+		val trader = player.copy(warehouses = listOf(warehouseAtMu.copy(blocks = 1)))
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.POLY, OfferType.BUY, 10)
+
+		val traded = trader.trade(buy, 14, 14, emptyList(), 14)
+
+		assertThat(traded.money).isEqualTo(160)
+		assertThat(traded.warehouseAt(StarSystem.MU_HERCULIS)!!.holding(Goods.POLY)).isEqualTo(10)
+	}
+
+	@Test
+	fun shouldKeepAnyAmountOfChipsInAWarehouse() {
+		// R42, R49: CHIPS take no space, and 12 (a market's whole range) fit even in a warehouse already full of POLY
+		val full = warehouseAtMu.load(Goods.POLY, 20)
+		val trader = player.copy(warehouses = listOf(full))
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.CHIPS, OfferType.BUY, 5)
+
+		val traded = trader.trade(buy, 12, 12, emptyList(), 12)
+
+		assertThat(traded.warehouseAt(StarSystem.MU_HERCULIS)!!.holding(Goods.CHIPS)).isEqualTo(12)
+	}
+
+	@Test
+	fun shouldCapASellAtWhatShipsAndWarehouseHoldTogether() {
+		// R10, R49: Wayfarer holds 2 ISO and the warehouse 3 at Tau Ceti: a sell may reach 5; Lantern's ISO is elsewhere
+		val trader = player.copy(
+			ships = listOf(wayfarer.load(Goods.ISO, 2), lantern.load(Goods.ISO, 9)),
+			warehouses = listOf(warehouseAtTau.load(Goods.ISO, 3))
+		)
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+
+		assertThat(trader.tradeMax(sell, 8)).isEqualTo(5)
+	}
+
+	@Test
+	fun shouldSellFromTheWarehouseAloneWithNoShipThere() {
+		// R49: 6 ISO in the warehouse at Mu Herculis, no ship there: sell 4 and be paid 4 x 9
+		val trader = player.copy(warehouses = listOf(warehouseAtMu.load(Goods.ISO, 6)))
+		val sell = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 9)
+
+		val traded = trader.trade(sell, 8, 4, emptyList(), 4)
+
+		assertThat(traded.money).isEqualTo(336)
+		assertThat(traded.warehouseAt(StarSystem.MU_HERCULIS)!!.holding(Goods.ISO)).isEqualTo(2)
+	}
+
+	@Test
+	fun shouldRefuseToSellMoreFromTheWarehouseThanItHolds() {
+		// R10: 3 in the warehouse and 2 on the ship make 5; 4 from the warehouse is refused
+		val trader = player.copy(ships = listOf(wayfarer.load(Goods.ISO, 2), lantern), warehouses = listOf(warehouseAtTau.load(Goods.ISO, 3)))
+		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+
+		assertThatThrownBy { trader.trade(sell, 8, 5, listOf(ShipLoad("Wayfarer", 1)), 4) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Your warehouse at Tau Ceti has only 3 ISO.")
+	}
+
+	@Test
+	fun shouldSayWhereTheyHaveNoGoodsToSellWhenTheyHaveAWarehouseThere() {
+		val trader = player.copy(warehouses = listOf(warehouseAtMu))
+		val sell = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.SELL, 9)
+
+		assertThatThrownBy { trader.trade(sell, 5, 1, emptyList(), 1) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("You have no ISO in your ships in port or warehouse at Mu Herculis, so you can't sell any.")
+	}
+
+	@Test
+	fun shouldRefuseWarehouseUnitsWithNoWarehouseThere() {
+		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
+
+		assertThatThrownBy { player.trade(buy, 4, 4, listOf(ShipLoad("Wayfarer", 2)), 2) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("You have no warehouse at Tau Ceti.")
+	}
+
+	@Test
+	fun shouldRefuseASplitThatDoesNotAddUpOnceTheyHaveAWarehouse() {
+		// R49: with only a warehouse (no ship) there, the split must still add up; nothing is "lost by default"
+		val trader = player.copy(warehouses = listOf(warehouseAtMu))
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 10)
+
+		assertThatThrownBy { trader.trade(buy, 6, 4, emptyList(), 3) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Your ships' and warehouse's units must add up to 4.")
+		assertThatThrownBy { trader.trade(buy, 6, 4, emptyList(), -1) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("Enter a whole number of units, 0 or more, for each ship and your warehouse.")
+	}
+
+	@Test
+	fun shouldStillLoseEverythingBoughtWithNeitherAShipNorAWarehouseThere() {
+		// R23: a warehouse elsewhere doesn't count
+		val trader = player.copy(warehouses = listOf(warehouseAtTau))
+		val buy = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 10)
+
+		val traded = trader.trade(buy, 4, 3, emptyList())
+
+		assertThat(traded.money).isEqualTo(270)
+		assertThat(traded.warehouseAt(StarSystem.TAU_CETI)).isEqualTo(warehouseAtTau)
+		assertThat(traded.ships).containsExactly(wayfarer, lantern)
+	}
 }

@@ -127,4 +127,28 @@ class GamePriceAndWholesaleTest {
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("No wholesale decision is pending.")
 	}
+
+	@Test
+	fun shouldLetAWholesalerWithOnlyAWarehouseThereTradeIntoIt() {
+		// R49, R37: Kim's ships are all away; her warehouse at Gamma Leporis takes 3 POLY at the new 6 HT
+		val away = priceChanged.copy(
+			players = priceChanged.players.map { player ->
+				if (player.email == "kim@example.com") {
+					player.copy(
+						ships = player.ships.map { it.copy(location = ShipLocation.SPACE) },
+						warehouses = listOf(Warehouse(GAMMA_LEPORIS, 1, emptyMap()))
+					)
+				} else {
+					player
+				}
+			}
+		)
+
+		val bought = away.wholesale("kim@example.com", OfferType.BUY, 3, emptyList(), 3)
+
+		val kim = bought.players.first { it.email == "kim@example.com" }
+		assertThat(kim.money).isEqualTo(282)
+		assertThat(kim.warehouseAt(GAMMA_LEPORIS)!!.holding(Goods.POLY)).isEqualTo(3)
+		assertThat(bought.log.last().text).isEqualTo("Altair Trade Co. (Wholesaler) bought 3 u at 6 HT each, paid 18 HT")
+	}
 }

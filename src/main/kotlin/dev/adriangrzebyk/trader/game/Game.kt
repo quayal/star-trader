@@ -297,15 +297,16 @@ data class Game(
 
 	/**
 	 * [email], whose offer the counter has reached, trades [amount] units, split across their ships in port there as
-	 * [loads] (E05-S04): [Player.trade] checks the amount against their max (R34, R12, R10) and the split (R42), and
+	 * [loads] and their warehouse there as [warehouseUnits] (E05-S04, R49): [Player.trade] checks the amount against their
+	 * max (R34, R12, R10) and the split (R42), and
 	 * moves their money and cargo. The trade is public and logged (S04-6): "Vega Lines could buy up to 12 u: bought 10 u
 	 * at 13 HT each, paid 130 HT". A trade of 6 units or more then rolls 2d6 from [dice] for its player's market position
 	 * there (R43, E05-S06), logged right after it. Then the counter reaches the next offer.
 	 */
-	fun trade(email: String, amount: Int?, loads: List<ShipLoad>, dice: Dice): Game {
+	fun trade(email: String, amount: Int?, loads: List<ShipLoad>, dice: Dice, warehouseUnits: Int = 0): Game {
 		val current = traderTurnOf(email)
 		val awaited = current.tradeAwaited()
-		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads)
+		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads, warehouseUnits)
 		val units = checkNotNull(amount)
 		val good = checkNotNull(current.resolution).good
 		val positionRoll = positionRollFor(trader, good, units, dice)
@@ -375,13 +376,13 @@ data class Game(
 	 * capped by money and cargo (R12, R10, R42). It doesn't move the price. Logged (S05-5): "Kessler Cargo (Wholesaler)
 	 * bought 3 u at 10 HT each, paid 30 HT".
 	 */
-	fun wholesale(email: String, type: OfferType?, amount: Int?, loads: List<ShipLoad>): Game {
+	fun wholesale(email: String, type: OfferType?, amount: Int?, loads: List<ShipLoad>, warehouseUnits: Int = 0): Game {
 		val current = wholesalerTurnOf(email)
 		if (type == null) {
 			throw InvalidTradeException("Choose Buy or Sell, or pass.")
 		}
 		val offer = checkNotNull(current.resolution).wholesaleOffer(type)
-		val trader = playerOf(email).trade(offer, Wholesale.MAX_UNITS, amount, loads)
+		val trader = playerOf(email).trade(offer, Wholesale.MAX_UNITS, amount, loads, warehouseUnits)
 		return copy(
 			players = replace(trader)
 		).withResolutionMoved(current.recordWholesale(type, checkNotNull(amount)), current.resolution, emptyList())

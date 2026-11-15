@@ -11,6 +11,7 @@ import {
 	lossWarning,
 	lostUnits,
 	shipLabel,
+	warehouseLabel,
 	tradeForm,
 	validateTrade,
 	decisionText,
@@ -526,5 +527,115 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 		assert.equal(wholesaleForm(seen({ buy: 0, sell: 3 }), ME, 'BUY').cannot, "You can't afford any units at 10 HT.");
 		assert.equal(wholesaleForm(seen({ buy: 2, sell: 0 }), ME, 'SELL').cannot, "You have no ISO in your ships in port at Mu Herculis, so you can't sell any.");
 		assert.equal(wholesaleForm(seen({ buy: 0, sell: 0 }), ME, null).type, 'BUY');
+	});
+});
+
+// E06-S06 (R49): my warehouse at the good's system is another place to load and unload, beside my ships in port there.
+describe('a trader with a warehouse there (E06-S06)', () => {
+	const warehouse = (cargo = { ISO: 4 }, cargoUsed = 4) => ({ system: 'MU_HERCULIS', cargo, cargoUsed, cargoSpaces: 10 });
+	/** [base] seen by me with a warehouse at Mu Herculis, and with no ships in port there if [noShips]. */
+	function withWarehouse(base, { noShips = false, ...options } = {}, held = warehouse()) {
+		const seen = mine(base, options);
+		const players = noShips
+			? seen.players.map(p => p.email !== ME ? p : { ...p, ships: p.ships.map(ship => ({ ...ship, location: 'SPACE' })) })
+			: seen.players;
+		return { ...seen, players, you: { ...seen.you, warehouses: [held] } };
+	}
+
+	it('labels the warehouse like a ship', () => {
+		assert.equal(warehouseLabel(warehouse()), 'Warehouse \u2014 ISO 4 \u00b7 cargo 4 / 10 used');
+		assert.equal(warehouseLabel({ cargo: {}, cargoUsed: 0, cargoSpaces: 20 }), 'Warehouse \u2014 empty \u00b7 cargo 0 / 20 used');
+	});
+
+	it('lists it after the ships in port, with what it holds and its free space', () => {
+		const form = tradeForm(withWarehouse(game({ resolution: awaitingMe() })), ME);
+
+		assert.deepEqual(form.ships.map(place => place.name), ['Wayfarer', 'Lantern', 'Warehouse']);
+		assert.equal(form.ships[2].label, 'Warehouse \u2014 ISO 4 \u00b7 cargo 4 / 10 used');
+		assert.equal(form.ships[2].holding, 4);
+		assert.equal(form.ships[2].free, 6);
+		assert.equal(form.ships[2].warehouse, true);
+		assert.equal(form.shipsLegend, 'Your ships in port and warehouse at Mu Herculis');
+	});
+
+	it('is the only place when my ships are away, and then needs no "no ship" note (R49)', () => {
+		const form = tradeForm(withWarehouse(game({ resolution: awaitingMe() }), { noShips: true }), ME);
+
+		assert.deepEqual(form.ships.map(place => place.name), ['Warehouse']);
+		assert.equal(form.noShip, '');
+	});
+
+	it('ignores a warehouse at another system', () => {
+		const seen = withWarehouse(game({ resolution: awaitingMe() }), {}, { ...warehouse(), system: 'TAU_CETI' });
+
+		assert.deepEqual(tradeForm(seen, ME).ships.map(place => place.name), ['Wayfarer', 'Lantern']);
+	});
+
+	it('keeps CHIPS and FOOD unlimited in a warehouse (R42)', () => {
+		const chips = { ...game({ resolution: { ...awaitingMe({ type: 'BUY', price: 3 }), good: { ...CHIPS, system: 'MU_HERCULIS' } } }) };
+		const form = tradeForm(withWarehouse(chips, { tradeMax: 30 }, warehouse({}, 10)), ME);
+
+		assert.equal(form.ships[2].free, Infinity);
+		assert.equal(lostUnits(form, 30, [0, 0, 30]), 0);
+	});
+
+	it('splits a sell across ships and warehouse by what each holds, and a buy into free space, ships first', () => {
+		const sell = tradeForm(withWarehouse(game({ resolution: awaitingMe() }), { tradeMax: 15 }), ME);
+		const buy = tradeForm(withWarehouse(game({ resolution: awaitingMe({ type: 'BUY', price: 11 }) }), { tradeMax: 20 }), ME);
+
+		assert.deepEqual(defaultSplit(sell, 15), [3, 8, 4]);
+		// Wayfarer has 7 free spaces, Lantern 2 and the warehouse 6
+		assert.deepEqual(defaultSplit(buy, 15), [7, 2, 6]);
+		// 20 u: the 15 that fit, and the 5 beyond go on the first place, where they're lost, as for ships alone
+		assert.deepEqual(defaultSplit(buy, 20), [12, 2, 6]);
+	});
+
+	it('warns when a buy will not fit, naming the warehouse too', () => {
+		const buy = tradeForm(withWarehouse(game({ resolution: awaitingMe({ type: 'BUY', price: 11 }) }), { tradeMax: 20 }), ME);
+
+		assert.equal(lossWarning(buy, 20, [7, 2, 11]), 'Only 15 u fit in the ships and warehouse you chose; the rest will be lost.');
+		assert.equal(lossWarning(buy, 15, [7, 2, 6]), '');
+	});
+
+	it('warns that everything is lost only with neither a ship nor a warehouse there (R23)', () => {
+		const buy = tradeForm(withWarehouse(game({ resolution: awaitingMe({ type: 'BUY', price: 11 }) }), { noShips: true, tradeMax: 6 }), ME);
+
+		assert.equal(lossWarning(buy, 6, [6]), '');
+		assert.equal(lossWarning({ ...buy, ships: [] }, 6, []), 'You have no ship in port at Mu Herculis, so everything you buy will be lost.');
+	});
+
+	it('checks the split like the server and sends the warehouse apart from the ships', () => {
+		const sell = tradeForm(withWarehouse(game({ resolution: awaitingMe() }), { tradeMax: 15 }), ME);
+
+		assert.deepEqual(validateTrade(sell, '15', ['3', '8', '4']), {
+			body: { amount: 15, ships: [{ name: 'Wayfarer', units: 3 }, { name: 'Lantern', units: 8 }], warehouse: 4 },
+		});
+		assert.deepEqual(validateTrade(sell, '15', ['3', '8', '5']), { error: 'Your warehouse has only 4 ISO.', field: 2 });
+		assert.deepEqual(validateTrade(sell, '15', ['3', '8', '3']), { error: "Your ships' and warehouse's units must add up to 15.", field: 0 });
+		assert.deepEqual(validateTrade(sell, '15', ['3', '8', 'x']), {
+			error: 'Enter a whole number of units, 0 or more, for each ship and your warehouse.',
+			field: 2,
+		});
+	});
+
+	it('sends no warehouse field when the player has none there', () => {
+		const sell = tradeForm(mine(game({ resolution: awaitingMe() })), ME);
+
+		assert.equal('warehouse' in validateTrade(sell, '5', ['3', '2']).body, false);
+	});
+
+	it('says where they have nothing to sell once a warehouse is there too', () => {
+		const empty = tradeForm(withWarehouse(game({ resolution: awaitingMe() }), { tradeMax: 0 }), ME);
+
+		assert.equal(empty.cannot, "You have no ISO in your ships in port or warehouse at Mu Herculis, so you can't sell any.");
+	});
+
+	it('serves the wholesale step the same way', () => {
+		const seen = { ...withWarehouse(game({ resolution: priceChanged() })), you: { ...withWarehouse(game()).you, wholesaleMax: { buy: 5, sell: 4 } } };
+		const sell = wholesaleForm(seen, ME, 'SELL');
+
+		assert.deepEqual(sell.ships.map(place => place.name), ['Wayfarer', 'Lantern', 'Warehouse']);
+		assert.equal(sell.shipsLegend, 'Your ships in port and warehouse at Mu Herculis');
+		assert.deepEqual(validateTrade(sell, '4', ['0', '0', '4']).body, { amount: 4, ships: [{ name: 'Wayfarer', units: 0 }, { name: 'Lantern', units: 0 }], warehouse: 4 });
 	});
 });
