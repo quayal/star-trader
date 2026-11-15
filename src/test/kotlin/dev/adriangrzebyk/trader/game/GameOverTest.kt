@@ -11,7 +11,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-// E05-S08: the game ends after the last turn's Trading and the most money wins (R39).
+// E05-S08: the game ends after the last turn's Investment and the most money wins (R39, R44).
 class GameOverTest {
 
 	private val gammaLeporisPoly = MarketGood(GAMMA_LEPORIS, Goods.POLY)
@@ -46,12 +46,21 @@ class GameOverTest {
 		started(1, grace).placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 	).resolveNextGood("grace@example.com", FakeDice.twoD6(2))
 
-	private val over = graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+	private val investing = graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+
+	private val over = everyoneDoneInvesting(investing, "ada@example.com", "grace@example.com")
+
+	/** [game] once each of [emails] has signalled done investing: the last one ends the turn (R44). */
+	private fun everyoneDoneInvesting(game: Game, vararg emails: String): Game =
+		emails.fold(game) { investing, email -> investing.signalDoneInvesting(email) }
 
 	@Test
-	fun shouldEndTheGameWhenTheLastTurnsLastGoodHasResolved() {
-		// S08-1: no further turn starts; the game keeps its last turn
+	fun shouldEndTheGameOnceEveryoneIsDoneInvestingAfterTheLastTurnsLastGood() {
+		// S08-1: no further turn starts; the game keeps its last turn. Resolving the last good only starts Investment (E06-S01).
 		assertThat(graceBought.status).isEqualTo(GameStatus.RUNNING)
+		assertThat(investing.status).isEqualTo(GameStatus.RUNNING)
+		assertThat(investing.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(everyoneDoneInvesting(investing, "ada@example.com").status).isEqualTo(GameStatus.RUNNING)
 		assertThat(over.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(over.turn!!.number).isEqualTo(1)
 	}
@@ -75,7 +84,12 @@ class GameOverTest {
 	@Test
 	fun shouldLetPlayersTiedOnMoneyShareTheWin() {
 		// S08-4 (proposed): nobody traded, so all three end with 300 HT
-		val tied = lastGoodLeft(started(1, grace, kim)).resolveNextGood("grace@example.com", FakeDice.twoD6(7))
+		val tied = everyoneDoneInvesting(
+			lastGoodLeft(started(1, grace, kim)).resolveNextGood("grace@example.com", FakeDice.twoD6(7)),
+			"ada@example.com",
+			"grace@example.com",
+			"kim@example.com"
+		)
 
 		assertThat(tied.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(tied.winners().map { it.corporationName }).containsExactly("Orion Freight", "Vega Lines", "Kessler Cargo")
@@ -95,7 +109,12 @@ class GameOverTest {
 			}
 		)
 
-		val game = moneyed.resolveNextGood("grace@example.com", FakeDice.twoD6(7))
+		val game = everyoneDoneInvesting(
+			moneyed.resolveNextGood("grace@example.com", FakeDice.twoD6(7)),
+			"ada@example.com",
+			"grace@example.com",
+			"kim@example.com"
+		)
 
 		assertThat(game.log.last().text).isEqualTo("Game over: Vega Lines and Kessler Cargo win with 2,310 HT")
 		assertThat(game.standings().map { it.money }).containsExactly(2310, 2310, 200)
@@ -109,7 +128,8 @@ class GameOverTest {
 			{ over.placeInitiativeBid("ada@example.com", 5) },
 			{ over.signalDoneBidding("ada@example.com", FakeDice(1)) },
 			{ over.resolveNextGood("grace@example.com", FakeDice.twoD6(7)) },
-			{ over.finishJumping("grace@example.com") }
+			{ over.finishJumping("grace@example.com") },
+			{ over.signalDoneInvesting("ada@example.com") }
 		).forEach { action ->
 			assertThatThrownBy { action() }.isInstanceOf(InvalidGameOperationException::class.java).hasMessage("This game is over")
 		}

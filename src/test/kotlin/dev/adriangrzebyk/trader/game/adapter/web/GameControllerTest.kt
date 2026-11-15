@@ -260,7 +260,10 @@ class GameControllerTest {
 		assertThat(
 			started.turn
 		).isEqualTo(
-			TurnResponseDto(1, "BIDDING", emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null)
+			TurnResponseDto(
+				1, "BIDDING",
+				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList()
+			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
 		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
@@ -380,7 +383,7 @@ class GameControllerTest {
 				listOf(
 					"done-guest@example.com"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList()
 			)
 		)
 
@@ -892,14 +895,28 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldStartTheNextTurnWithBiddingOnceTheLastGoodHasResolved() {
-		// E05-S07: with no offers and no positions, each good resolves on Resolve next; the last one ends the turn.
+	fun shouldStartTheNextTurnWithBiddingOnceEveryoneIsDoneInvesting() {
+		// E05-S07, E06-S01: with no offers and no positions, each good resolves on Resolve next; the last one starts Investment.
 		val (first, second, gameId) = orderedGame("turn-end")
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		finishJumping("token-$second", gameId).expectStatus().isOk
 		repeat(17) { resolveNext("token-$first", gameId).expectStatus().isOk }
 
-		val ended = resolveNext("token-$first", gameId).expectStatus().isOk
+		val investing = resolveNext("token-$first", gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(investing.turn!!.number).isEqualTo(1)
+		assertThat(investing.turn!!.phase).isEqualTo("INVESTMENT")
+		assertThat(investing.turn!!.doneInvesting).isEmpty()
+		assertThat(investing.log.last().text).isEqualTo("All goods resolved")
+
+		// E06-S01-2, S01-3: one player's signal shows to the other, and the last one's starts the next turn.
+		val oneDone = signalDoneInvesting("token-$first", gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(oneDone.turn!!.phase).isEqualTo("INVESTMENT")
+		assertThat(oneDone.turn!!.doneInvesting).hasSize(1)
+		assertThat(pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.doneInvesting)
+			.isEqualTo(oneDone.turn!!.doneInvesting)
+		val ended = signalDoneInvesting("token-$second", gameId).expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		// S07-2: turn 2's Bidding, with nothing of turn 1's Trading left; saved, so the other player's poll sees it too.
@@ -918,11 +935,27 @@ class GameControllerTest {
 		resolveNext("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")
+		// A04: a signal that arrives after Investment closed is refused.
+		signalDoneInvesting("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
 	}
 
 	@Test
-	fun shouldEndAOneTurnGameAfterItsTradingAndShowEveryonesFinalMoney() {
-		// E05-S08: a one-turn game; with no offers and no positions, each good resolves on Resolve next.
+	fun shouldRefuseDoneInvestingFromOutsidersOrOutsideInvestment() {
+		val (first, _, gameId) = orderedGame("investing-refused")
+
+		signalDoneInvesting("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		signalDoneInvesting(null, gameId).expectStatus().isUnauthorized
+		signalDoneInvesting(signIn("investing-stranger@example.com"), gameId).expectStatus().isForbidden
+		signalDoneInvesting("token-$first", "no-such-game").expectStatus().isNotFound
+	}
+
+	@Test
+	fun shouldEndAOneTurnGameAfterItsInvestmentAndShowEveryonesFinalMoney() {
+		// E05-S08, E06-S01-2: a one-turn game; with no offers and no positions, each good resolves on Resolve next, then Investment.
 		val creatorToken = signIn("game-over-host@example.com")
 		val joinerToken = signIn("game-over-guest@example.com", "Grace", "Grace Freight")
 		val gameId = createGame(creatorToken, """{"turns": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!.id
@@ -935,6 +968,11 @@ class GameControllerTest {
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		finishJumping("token-$second", gameId).expectStatus().isOk
 		repeat(18) { resolveNext("token-$first", gameId).expectStatus().isOk }
+		assertThat(
+			pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.status
+		).isEqualTo("RUNNING")
+		signalDoneInvesting("token-$first", gameId).expectStatus().isOk
+		signalDoneInvesting("token-$second", gameId).expectStatus().isOk
 
 		// S08-1 to S08-4: over, and both players see both final amounts, tied at 300 HT, so both win.
 		val over = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
@@ -1294,6 +1332,12 @@ class GameControllerTest {
 
 	private fun signalDone(token: String?, gameId: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/bidding/done", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
+	}
+
+	private fun signalDoneInvesting(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/done", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
 	}

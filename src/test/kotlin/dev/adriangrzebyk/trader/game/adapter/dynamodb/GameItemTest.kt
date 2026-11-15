@@ -69,7 +69,8 @@ class GameItemTest {
 			landingShip = null,
 			tradingQueue = emptyList(),
 			resolvedGoods = emptyList(),
-			resolution = null
+			resolution = null,
+			doneInvesting = emptyList()
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(

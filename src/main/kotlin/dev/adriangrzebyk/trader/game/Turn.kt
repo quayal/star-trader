@@ -14,7 +14,9 @@ import dev.adriangrzebyk.trader.trading.OfferType
  * pick order; public, and empty until the first pick. [jumpedShips] names the ships that jumped this turn (each may
  * jump once, R26; names are unique in a game) and [doneJumping] the players whose jump slot has ended, in order; both
  * public and empty until the first jump. [landingShip] is the ship that jumped and whose player hasn't chosen where it
- * ends up yet (R30, S03); public, and null when no ship waits to land.
+ * ends up yet (R30, S03); public, and null when no ship waits to land. [doneInvesting] lists, in signal order, the
+ * players who have signalled done during this turn's Investment (R44, E06-S01-2); like [doneBidding] it's public, so
+ * everyone can see who the game is waiting for (D09), and empty outside Investment.
  */
 data class Turn(
 	val number: Int,
@@ -29,7 +31,8 @@ data class Turn(
 	val landingShip: String?,
 	val tradingQueue: List<MarketGood>,
 	val resolvedGoods: List<MarketGood>,
-	val resolution: Resolution?
+	val resolution: Resolution?,
+	val doneInvesting: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -74,7 +77,7 @@ data class Turn(
 	fun requireShipJumps() {
 		when (phase) {
 			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
-			TurnPhase.TRADING -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
+			TurnPhase.TRADING, TurnPhase.INVESTMENT -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
 			TurnPhase.SHIP_JUMPS -> Unit
 		}
 	}
@@ -182,6 +185,25 @@ data class Turn(
 	/** Ship-jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
 	fun toTrading(): Turn =
 		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
+
+	/** Trading → Investment (R44): the phase after Trading, with nobody done investing yet. */
+	fun endTrading(): Turn = copy(phase = checkNotNull(TurnPhase.TRADING.next()), doneInvesting = emptyList())
+
+	/** Refuses anything but Investment: before it, it hasn't started, and once it has closed the turn has moved on (A04). */
+	fun requireInvesting() {
+		if (phase != TurnPhase.INVESTMENT) {
+			throw InvalidGameOperationException("Investment isn't open.")
+		}
+	}
+
+	/** This turn after [email] signalled done investing (R44: a readiness flag, so a repeat changes nothing). */
+	fun signalDoneInvesting(email: String): Turn {
+		requireInvesting()
+		return if (email in doneInvesting) this else copy(doneInvesting = doneInvesting + email)
+	}
+
+	/** Whether every one of [emails] has signalled done investing (D09). */
+	fun everyoneDoneInvesting(emails: List<String>): Boolean = emails.all { it in doneInvesting }
 
 	/** Refuses anything but Trading: before it, it hasn't started (A04). */
 	fun requireTrading() {
@@ -326,7 +348,8 @@ data class Turn(
 			null,
 			emptyList(),
 			emptyList(),
-			null
+			null,
+			emptyList()
 		)
 	}
 }

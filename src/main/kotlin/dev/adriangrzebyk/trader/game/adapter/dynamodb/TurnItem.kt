@@ -20,7 +20,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			JUMPED_SHIPS to AttributeValue.fromL(turn.jumpedShips.map { AttributeValue.fromS(it) }),
 			DONE_JUMPING to AttributeValue.fromL(turn.doneJumping.map { AttributeValue.fromS(it) }),
 			TRADING_QUEUE to AttributeValue.fromL(turn.tradingQueue.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
-			RESOLVED_GOODS to AttributeValue.fromL(turn.resolvedGoods.map { AttributeValue.fromM(MarketGoodItem(it).attributes) })
+			RESOLVED_GOODS to AttributeValue.fromL(turn.resolvedGoods.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
+			DONE_INVESTING to AttributeValue.fromL(turn.doneInvesting.map { AttributeValue.fromS(it) })
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) }
@@ -53,7 +54,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			resolvedGoods = attributes[RESOLVED_GOODS]?.l()?.map { MarketGoodItem(it.m()).toMarketGood() } ?: emptyList(),
 			// Absent before the first Resolve next, which is also how items saved before E05-S02 read: every resolution
 			// finished as it started then, so none is waiting for anyone (BACKWARD_COMPATIBILITY.md §7).
-			resolution = attributes[RESOLUTION]?.m()?.let { ResolutionItem(it).toResolution() }
+			resolution = attributes[RESOLUTION]?.m()?.let { ResolutionItem(it).toResolution() },
+			// Items saved before E06-S01 have no Investment; nobody could signal done there (BACKWARD_COMPATIBILITY.md §7).
+			doneInvesting = attributes[DONE_INVESTING]?.l()?.map { it.s() } ?: emptyList()
 		)
 	}
 
@@ -67,6 +70,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val TURN_ORDER_PICKS = "turnOrderPicks"
 		const val JUMPED_SHIPS = "jumpedShips"
 		const val DONE_JUMPING = "doneJumping"
+		const val DONE_INVESTING = "doneInvesting"
 		const val LANDING_SHIP = "landingShip"
 		const val TRADING_QUEUE = "tradingQueue"
 		const val RESOLVED_GOODS = "resolvedGoods"

@@ -146,6 +146,7 @@ describe('turnText', () => {
 	it('names every phase of a turn', () => {
 		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'SHIP_JUMPS' } }), 'Turn 4 of 20 · Ship-jumps');
 		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'TRADING' } }), 'Turn 4 of 20 · Trading');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'INVESTMENT' } }), 'Turn 4 of 20 · Investment');
 	});
 
 	it('says the game is over instead of naming the last phase', () => {

@@ -91,6 +91,13 @@ describe('s03 status line', () => {
 		assert.equal(tradingStatus(game({ phase: 'SHIP_JUMPS', number: 3 }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
 	});
 
+	it('says every good resolved while players invest (E06-S01)', () => {
+		assert.equal(
+			tradingStatus(game({ phase: 'INVESTMENT', queue: [] }), ME),
+			'All goods resolved. The next turn starts with Bidding once everyone is done investing.',
+		);
+	});
+
 	it('says the game is over once it is (E05-S08)', () => {
 		assert.equal(tradingStatus(game({ status: 'FINISHED', number: 20, queue: [] }), ME), 'All goods resolved. The game is over.');
 	});
