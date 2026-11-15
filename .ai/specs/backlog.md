@@ -3,7 +3,9 @@
 ## .ai/specs/product-brief.md
 
 Backlog source: `.ai/specs/product-brief.md`
-Last filed: 2026-10-29
+Last filed: 2026-10-29 (E06 filed 2026-11-15)
+
+2026-11-15 run: planned E06 (factories, warehouses, Investment phase) from the creator's answers; spec `2026-11-15-e06-factories-warehouses.md`. Filed as #98–#105. The parked "Later" row was renamed E99 so E06 could be used for this epic.
 
 2026-10-29 run: filed E01-S03, E02-S05 and the E03–E05 stories from the playtest specs (`2026-10-29-*.md`, each story's design authority); acceptance criteria are the specs' numbered criteria, verbatim. Epic bodies #8–#11 were refreshed to the current rule ids (R40–R43, R25–R27, R34–R38, D09) with the user's yes.
 
@@ -44,4 +46,12 @@ Earlier (2026-10-25): E03–E05 still had no stories/tasks filed — this run wa
 | E05-S02 | #51 | Offers are disclosed and the Dictator may act | #11 | E05-S03 | no |
 | E05-S07 | #52 | The turn ends and the next turn starts with Bidding | #11 | E05-S05 | no |
 | E05-S08 | #53 | The game ends after the last turn and shows the winner | #11 | E05-S07 | no |
-| E06 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting) | — | — | not filed |
+| E06 | #98 | Factories, warehouses and the Investment phase | — | E05 | no |
+| E06-S01 | #99 | A turn also has an Investment phase | #98 | E05-S07 | no |
+| E06-S02 | #100 | A player can own warehouses and factories, and everyone sees them | #98 | E06-S01 | no |
+| E06-S03 | #101 | Collecting output at the start of Investment | #98 | E06-S02 | no |
+| E06-S04 | #102 | Buying warehouse blocks | #98 | E06-S03 | no |
+| E06-S05 | #103 | Building or extending a factory | #98 | E06-S03 | no |
+| E06-S06 | #104 | A warehouse lets you trade without a ship | #98 | E06-S04, E05-S04 | no |
+| E06-S07 | #105 | The Game log shows builds and collected output | #98 | E06-S04, E06-S05 | no |
+| E99 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting); renamed from E06 on 2026-11-15 so E06 could be factories | — | — | not filed |
