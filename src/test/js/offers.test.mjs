@@ -119,6 +119,11 @@ describe('texts', () => {
 		assert.equal(showsYourOffers(game()), true);
 		assert.equal(showsYourOffers({ ...game({ phase: 'TRADING' }), status: 'FINISHED' }), false);
 	});
+
+	it('hides your offers during Investment, when every offer has resolved (E06-S01)', () => {
+		assert.equal(showsYourOffers(game({ phase: 'TRADING' })), true);
+		assert.equal(showsYourOffers(game({ phase: 'INVESTMENT' })), false);
+	});
 });
 
 describe('hasShipAt', () => {

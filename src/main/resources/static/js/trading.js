@@ -136,9 +136,10 @@ export function waitingText(game, email) {
 
 /**
  * s03's status line: during Trading, whom the game waits for (S01-8); during the Investment that follows it, that every
- * good resolved and the next turn waits for everyone's investing (E06-S01); in the Bidding that follows a turn's Trading, that
- * every good resolved and the new turn has started (E05-S07-1: the turn ends the moment its last good resolves); once
- * the game is over, that it is (E05-S08); before Trading otherwise, when it starts (S01-7).
+ * good resolved and the next turn waits for everyone's investing (E06-S01); in the Bidding that follows a turn's
+ * Investment, that every good resolved and the new turn has started (E05-S07-1: Trading ends the moment its last good
+ * resolves, and the turn once Investment has); once the game is over, that it is (E05-S08); before Trading otherwise,
+ * when it starts (S01-7).
  */
 export function tradingStatus(game, email) {
 	if (isTrading(game)) {
