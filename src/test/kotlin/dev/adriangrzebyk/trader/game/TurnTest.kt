@@ -40,6 +40,34 @@ class TurnTest {
 	}
 
 	@Test
+	fun shouldStartInvestmentWithNobodyCollected() {
+		assertThat(investment.collected).isEmpty()
+		assertThat(investment.isCollecting("a")).isTrue()
+	}
+
+	@Test
+	fun shouldRecordACollectOnlyOnce() {
+		// E06-S03-5, A04
+		val once = investment.collectedBy("a")
+
+		assertThat(once.collected).containsExactly("a")
+		assertThat(once.hasCollected("a")).isTrue()
+		assertThat(once.isCollecting("a")).isFalse()
+		assertThat(once.isCollecting("b")).isTrue()
+		assertThatThrownBy { once.collectedBy("a") }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("You have already collected your output.")
+	}
+
+	@Test
+	fun shouldBeCollectingOnlyInInvestment() {
+		assertThat(Turn.bidding(1).isCollecting("a")).isFalse()
+		assertThatThrownBy { Turn.bidding(1).collectedBy("a") }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
+	}
+
+	@Test
 	fun shouldKnowWhenEveryoneIsDoneInvesting() {
 		val one = investment.signalDoneInvesting("a")
 

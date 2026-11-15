@@ -85,6 +85,45 @@ data class Player(
 		}
 	}
 
+	/** Whether this player has a factory, so they collect output at the start of Investment (R47, E06-S03-6). */
+	fun hasFactories(): Boolean = factories.isNotEmpty()
+
+	/** This player's warehouse at [system], or null when they have none there (R45). */
+	fun warehouseAt(system: StarSystem): Warehouse? = warehouses.firstOrNull { it.system == system }
+
+	/**
+	 * This player after collecting this turn's output into [placements] (R47, E06-S03-5). Each factory makes its [Factory.size]
+	 * units; a placement names one of this player's factories and a destination at its system, their warehouse there or
+	 * one of their ships in port there, and a factory's placements can't add up to more than it makes. What fits is
+	 * stored; POLY and ISO beyond the free cargo space are lost (R16), and so is whatever isn't placed, which includes
+	 * CHIPS and FOOD with nowhere to keep them (R47).
+	 */
+	fun collect(placements: List<OutputPlacement>): Player {
+		if (placements.any { it.units < 0 }) {
+			throw InvalidCollectException("Enter a whole number of units, 0 or more, for each destination.")
+		}
+		placements.groupBy { it.system to it.goods }.forEach { (key, group) ->
+			val factory = factories.firstOrNull { it.system == key.first && it.goods == key.second }
+				?: throw InvalidCollectException("You have no ${key.second.name} factory at ${key.first.displayName}.")
+			if (group.sumOf { it.units } > factory.size) {
+				throw InvalidCollectException("Your ${factory.goods.name} factory at ${factory.system.displayName} makes ${factory.size} units.")
+			}
+		}
+		return placements.fold(this) { player, placement -> player.stored(placement) }
+	}
+
+	/** This player after one [placement] of their output: into the named ship in port there, or their warehouse at that system. */
+	private fun stored(placement: OutputPlacement): Player {
+		if (placement.shipName == null) {
+			val warehouse = warehouseAt(placement.system)
+				?: throw InvalidCollectException("You have no warehouse at ${placement.system.displayName}.")
+			return withWarehouse(warehouse.load(placement.goods, placement.units))
+		}
+		val ship = shipsInPortAt(placement.system).firstOrNull { it.name == placement.shipName }
+			?: throw InvalidCollectException("Choose your ships in port at ${placement.system.displayName}.")
+		return withShip(ship.load(placement.goods, placement.units))
+	}
+
 	/** This player set up for the first turn (R40): [money] HT and [ships]. */
 	fun startWith(money: Int, ships: List<Ship>): Player = copy(money = money, ships = ships)
 
@@ -175,6 +214,9 @@ data class Player(
 	}
 
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
+
+	private fun withWarehouse(warehouse: Warehouse): Player =
+		copy(warehouses = warehouses.map { if (it.system == warehouse.system) warehouse else it })
 
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */

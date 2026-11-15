@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Offer
+import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
@@ -63,7 +64,13 @@ data class GameResponseDto(
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
 		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {
-			YouResponseDto(it, game.turn?.offersOf(it.email).orEmpty(), game.turn?.bidOf(it.email), game.turn?.resolution)
+			YouResponseDto(
+				it,
+				game.turn?.offersOf(it.email).orEmpty(),
+				game.turn?.bidOf(it.email),
+				game.turn?.resolution,
+				game.turn?.isCollecting(it.email) == true
+			)
 		}
 	)
 }
@@ -172,7 +179,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
  * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
  * now, or the last one resolved, and null before the first. [doneInvesting] lists who has signalled done during
- * Investment (R44), so everyone sees who the game waits for (D09). Offers never go here except the disclosed ones of
+ * Investment (R44), so everyone sees who the game waits for (D09). [collected] lists the players with factories who have
+ * confirmed where their output goes (R47, E06-S03-5), public in the same way. Offers never go here except the disclosed ones of
  * [resolution] (R17, E05-S02-1), and bids never do (R29).
  */
 data class TurnResponseDto(
@@ -187,7 +195,8 @@ data class TurnResponseDto(
 	val tradingQueue: List<MarketGoodResponseDto>,
 	val resolvedGoods: List<MarketGoodResponseDto>,
 	val resolution: ResolutionResponseDto?,
-	val doneInvesting: List<String>
+	val doneInvesting: List<String>,
+	val collected: List<String>
 ) {
 
 	constructor(turn: Turn) : this(
@@ -202,7 +211,8 @@ data class TurnResponseDto(
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
 		turn.resolution?.let { ResolutionResponseDto(it) },
-		turn.doneInvesting
+		turn.doneInvesting,
+		turn.collected
 	)
 }
 
@@ -324,7 +334,9 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
  * own initiative bid this turn, or null if they haven't placed one (R29), and [tradeMax], the most they may trade now
  * when the game waits for their amount (E05-S04-1), after their money and cargo (R12, R10), 0 when that leaves nothing
  * (S04-5), else null. [wholesaleMax] is the same for the wholesale step when it waits for them (R37, E05-S05-4), else
- * null.
+ * null. [warehouses] are their own warehouses with what each holds (R29, like their ships' cargo), and [collect] is what
+ * they place at the start of Investment while they still have to (R47, E06-S03-1), else null: not in Investment,
+ * already confirmed, or no factories (S03-6).
  */
 data class YouResponseDto(
 	val money: Int,
@@ -332,21 +344,86 @@ data class YouResponseDto(
 	val offers: List<YourOfferResponseDto>,
 	val bid: Int?,
 	val tradeMax: Int?,
-	val wholesaleMax: WholesaleMaxResponseDto?
+	val wholesaleMax: WholesaleMaxResponseDto?,
+	val warehouses: List<YourWarehouseResponseDto>,
+	val collect: CollectResponseDto?
 ) {
 
 	/**
 	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
-	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for.
+	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
+	 * whether it's Investment and [player] hasn't confirmed their collect yet.
 	 */
-	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?, resolution: Resolution?) : this(
+	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?, resolution: Resolution?, collecting: Boolean) : this(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
 		offers.map { YourOfferResponseDto(it) },
 		bid?.amount,
 		resolution?.awaitingTrade()?.takeIf { it.offer.playerEmail == player.email }?.let { player.tradeMax(it.offer, it.marketMax) },
-		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) }
+		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
+		player.warehouses.map { YourWarehouseResponseDto(it) },
+		CollectResponseDto(player).takeIf { collecting && player.hasFactories() }
 	)
+}
+
+/** What one of the viewer's own warehouses holds (R29): [cargoUsed] counts POLY and ISO only (R42), like a ship's. */
+data class YourWarehouseResponseDto(
+	val system: String,
+	val systemName: String,
+	val blocks: Int,
+	val cargoSpaces: Int,
+	val cargo: Map<String, Int>,
+	val cargoUsed: Int
+) {
+
+	constructor(warehouse: Warehouse) : this(
+		warehouse.system.name,
+		warehouse.system.displayName,
+		warehouse.blocks,
+		warehouse.cargoSpaces(),
+		warehouse.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
+		warehouse.cargoSpacesUsed()
+	)
+}
+
+/**
+ * What the viewer's factories made this turn and where it can go (R47, E06-S03-1, S03-2): one entry per factory, with a
+ * destination for their warehouse there and each of their ships in port there. Private to the viewer, and only while they
+ * still have to confirm.
+ */
+data class CollectResponseDto(val factories: List<CollectFactoryResponseDto>) {
+
+	constructor(player: Player) : this(player.factories.map { CollectFactoryResponseDto(player, it) })
+}
+
+/** A factory's output of [units] of [goods] made at [system] (R46, R47), and the [destinations] it can go to there. */
+data class CollectFactoryResponseDto(
+	val system: String,
+	val systemName: String,
+	val goods: String,
+	val units: Int,
+	val destinations: List<CollectDestinationResponseDto>
+) {
+
+	constructor(player: Player, factory: Factory) : this(
+		factory.system.name,
+		factory.system.displayName,
+		factory.goods.name,
+		factory.size,
+		listOfNotNull(player.warehouseAt(factory.system)?.let { CollectDestinationResponseDto(it, factory.goods) }) +
+			player.shipsInPortAt(factory.system).map { CollectDestinationResponseDto(it, factory.goods) }
+	)
+}
+
+/**
+ * Where output can go: the viewer's ship called [ship], or their warehouse when [ship] is null. [freeSpaces] is the free
+ * cargo space for POLY and ISO, null for CHIPS and FOOD, which take none (R42, E06-S03-2).
+ */
+data class CollectDestinationResponseDto(val ship: String?, val freeSpaces: Int?) {
+
+	constructor(warehouse: Warehouse, goods: Goods) : this(null, warehouse.freeSpacesFor(goods))
+
+	constructor(ship: Ship, goods: Goods) : this(ship.name, ship.freeSpacesFor(goods))
 }
 
 /**
@@ -441,6 +518,32 @@ data class MarketGoodRequestDto(val system: String? = null, val goods: String? =
 		val system = StarSystem.entries.firstOrNull { it.name == system } ?: return null
 		val goods = Goods.entries.firstOrNull { it.name == goods } ?: return null
 		return MarketGood(system, goods)
+	}
+}
+
+/**
+ * Where the viewer's factories' output goes (R47, E06-S03-2). Names are checked here, so an unknown one is a `400` with a
+ * message rather than Jackson's; numbers are [BigDecimal] so 2.5 reaches a message instead of being rounded to 2.
+ */
+data class CollectRequestDto(val placements: List<OutputPlacementRequestDto>? = null) {
+
+	/** The placements, empty when absent (everything lost), or null when one has an unknown name or isn't a whole number. */
+	fun outputPlacements(): List<OutputPlacement>? = placements.orEmpty().map { it.outputPlacement() ?: return null }
+}
+
+/** One placement: [units] of the factory for [goods] at [system] go into [ship], or into the warehouse there when it's null. */
+data class OutputPlacementRequestDto(
+	val system: String? = null,
+	val goods: String? = null,
+	val ship: String? = null,
+	val units: BigDecimal? = null
+) {
+
+	fun outputPlacement(): OutputPlacement? {
+		val system = StarSystem.entries.firstOrNull { it.name == system } ?: return null
+		val goods = Goods.entries.firstOrNull { it.name == goods } ?: return null
+		val whole = units?.let { runCatching { it.intValueExact() }.getOrNull() } ?: return null
+		return OutputPlacement(system, goods, ship, whole)
 	}
 }
 

@@ -243,6 +243,8 @@
 		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
 		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
 		.trade-ships legend { padding: 0; }
+		.collect-factories { display: grid; gap: var(--space-between-groups); }
+		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
@@ -476,6 +478,18 @@
 							<button class="btn" id="jump-button" type="submit"></button>
 							<button class="text-action" id="finish-button" type="button"></button>
 						</div>
+					</form>
+				</section>
+				<!-- E06-S03: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
+				<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
+					<h2 id="collect-title" tabindex="-1">Collect your output</h2>
+					<p class="muted" id="collect-intro"></p>
+					<form class="offer-form" id="collect-form" novalidate>
+						<div class="collect-factories" id="collect-factories"></div>
+						<p class="message message--warn" id="collect-warning" role="status"></p>
+						<p class="message message--error field-error" id="collect-error" role="alert"></p>
+						<div><button class="btn" id="collect-button" type="submit"></button></div>
+						<p class="message" id="collect-message" role="status"></p>
 					</form>
 				</section>
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
@@ -823,13 +837,24 @@
 	} from './js/offers.js';
 	import { DONE_BUTTON, DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
+		COLLECT_BUTTON,
+		COLLECT_FIRST_TEXT,
+		COLLECT_INTRO,
 		DONE_INVESTING_BUTTON,
 		DONE_INVESTING_TEXT,
+		collectDefaults,
+		collectFactories,
+		collectHeading,
+		collectKey,
+		collectWarning,
+		destinationLabel,
 		doneInvestingAcceptedText,
 		doneInvestingRefusedText,
+		isCollecting,
 		isDoneInvesting,
 		isInvestmentClosedRefusal,
-		isInvesting
+		isInvesting,
+		validateCollect
 	} from './js/investment.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -1307,6 +1332,7 @@
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		updateBidForm(game);
+		updateCollectForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
 		showPanels('deck-panel');
@@ -2090,6 +2116,120 @@
 		}
 	}
 
+	// ── E06-S03: collecting the output of the player's factories at the start of Investment ──
+
+	/** The factories shown, with their key: the rows are drawn again only when the game, turn or factories change. */
+	let shownCollect = null;
+	let submittingCollect = false;
+
+	function collectInputs() {
+		return [...$('collect-factories').querySelectorAll('input')];
+	}
+
+	/** The typed text per factory and destination, in the order the rows were drawn. */
+	function collectValues(factories) {
+		return factories.map((factory, f) => factory.destinations.map((_, d) => $(`collect-${f}-${d}`).value));
+	}
+
+	function setCollectError(checked) {
+		$('collect-error').textContent = checked?.error ?? '';
+		collectInputs().forEach(input => input.removeAttribute('aria-invalid'));
+		const target = checked ? $(`collect-${checked.factory}-${checked.destination}`) ?? null : null;
+		target?.setAttribute('aria-invalid', 'true');
+		return target;
+	}
+
+	/** S03-3, S03-4: the loss warning follows what's typed, so it's read before the player confirms. */
+	function updateCollectWarning() {
+		const amounts = shownCollect.factories.map((_, f) => shownCollect.factories[f].destinations.map((_d, d) => {
+			const units = Number($(`collect-${f}-${d}`).value.trim());
+			return Number.isInteger(units) && units >= 0 ? units : 0;
+		}));
+		const text = collectWarning(shownCollect.factories, amounts);
+		if ($('collect-warning').textContent !== text) {
+			$('collect-warning').textContent = text;
+		}
+	}
+
+	function updateCollectForm(game) {
+		const panel = $('collect-panel');
+		panel.hidden = !isCollecting(game);
+		if (panel.hidden) {
+			shownCollect = null; // the next turn's output starts from its own defaults (lesson 2026-11-04)
+			return;
+		}
+		const factories = collectFactories(game);
+		const key = `${collectKey(game)}/${JSON.stringify(factories)}`;
+		if (shownCollect?.key !== key) {
+			shownCollect = { key, factories };
+			$('collect-intro').textContent = COLLECT_INTRO;
+			$('collect-button').textContent = COLLECT_BUTTON;
+			$('collect-factories').replaceChildren(...factories.map((factory, f) => {
+				const defaults = collectDefaults(factory);
+				const rows = factory.destinations.map((destination, d) => element('div', { class: 'trade-ship' },
+					element('label', { for: `collect-${f}-${d}` }, destinationLabel(destination)),
+					element('input', { class: 'control price-input', id: `collect-${f}-${d}`, inputmode: 'numeric', value: String(defaults[d]), 'aria-describedby': 'collect-error' })));
+				return element('fieldset', { class: 'trade-ships' },
+					element('legend', { class: 'field-label' }, collectHeading(factory)),
+					...(rows.length ? rows : [element('p', { class: 'muted' }, `You have no warehouse or ship in port at ${factory.systemName}, so this output will be lost.`)]));
+			}));
+			setCollectError(null);
+			$('collect-message').textContent = '';
+			updateCollectWarning();
+		}
+		$('collect-button').disabled = submittingCollect;
+	}
+
+	// Typing again clears a shown error: it was about what was there before.
+	$('collect-factories').addEventListener('input', () => {
+		setCollectError(null);
+		updateCollectWarning();
+	});
+
+	/** S03-5: the amounts are checked here first, then by the server; the answer redraws the Deck without the panel. */
+	$('collect-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const factories = shownCollect.factories;
+		const checked = validateCollect(factories, collectValues(factories));
+		const target = setCollectError(checked.error ? checked : null);
+		if (checked.error) {
+			target.focus();
+			return;
+		}
+		const gameId = currentGameId;
+		submittingCollect = true;
+		$('collect-button').disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/collect`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked.body) });
+		} catch {
+			response = null;
+		}
+		submittingCollect = false;
+		$('collect-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			$('collect-message').textContent = '';
+			render(await response.json());
+			// The panel is gone and the done button is in the top bar: keep focus there.
+			($('done-button').hidden ? $('done-text') : $('done-button')).focus();
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setCollectError({ error: message, factory: 0, destination: 0 }).focus();
+			return;
+		}
+		$('collect-message').textContent = message;
+		$('collect-message').className = 'message message--error';
+		if (response) {
+			repollNow(); // e.g. Investment closed, or the output was already collected: the Deck catches up
+		}
+	});
+
 	// ── E04-S04: other players' progress, announced as polls bring it in ──
 
 	// What the page has shown of the current game: raised by the player's own steps too, so they're never news.
@@ -2522,8 +2662,9 @@
 		if ($('done-button').textContent !== label) {
 			$('done-button').textContent = label;
 		}
-		$('done-button').hidden = !(bidding || investing) || done;
-		const text = done ? (investing ? DONE_INVESTING_TEXT : DONE_TEXT) : '';
+		const collecting = isCollecting(game); // E06-S03-5: nothing is done before the output is placed
+		$('done-button').hidden = !(bidding || investing) || done || collecting;
+		const text = collecting ? COLLECT_FIRST_TEXT : done ? (investing ? DONE_INVESTING_TEXT : DONE_TEXT) : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
