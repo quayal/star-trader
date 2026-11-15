@@ -84,11 +84,12 @@ export function placedText(offer, systemName) {
 }
 
 /**
- * Whether the Deck shows "Your offers this turn": not once the game is over (E05-S08-6). The last turn's offers have
- * all been resolved by then, so the list and its "Only you can see these until Trading resolves them" are stale.
+ * Whether the Deck shows "Your offers this turn": not once the game is over (E05-S08-6), and not during Investment
+ * (E06-S01). Every offer has been resolved by then, so the list and its "Only you can see these until Trading resolves
+ * them" are stale.
  */
 export function showsYourOffers(game) {
-	return game.status !== 'FINISHED';
+	return game.status !== 'FINISHED' && game.turn?.phase !== 'INVESTMENT';
 }
 
 /** "Your offers this turn" when it's empty: still open during Bidding, closed after. */

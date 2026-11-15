@@ -145,7 +145,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
  * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
  * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
- * now, or the last one resolved, and null before the first. Offers never go here except the disclosed ones of
+ * now, or the last one resolved, and null before the first. [doneInvesting] lists who has signalled done during
+ * Investment (R44), so everyone sees who the game waits for (D09). Offers never go here except the disclosed ones of
  * [resolution] (R17, E05-S02-1), and bids never do (R29).
  */
 data class TurnResponseDto(
@@ -159,7 +160,8 @@ data class TurnResponseDto(
 	val landingShip: String?,
 	val tradingQueue: List<MarketGoodResponseDto>,
 	val resolvedGoods: List<MarketGoodResponseDto>,
-	val resolution: ResolutionResponseDto?
+	val resolution: ResolutionResponseDto?,
+	val doneInvesting: List<String>
 ) {
 
 	constructor(turn: Turn) : this(
@@ -173,7 +175,8 @@ data class TurnResponseDto(
 		turn.landingShip,
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
-		turn.resolution?.let { ResolutionResponseDto(it) }
+		turn.resolution?.let { ResolutionResponseDto(it) },
+		turn.doneInvesting
 	)
 }
 

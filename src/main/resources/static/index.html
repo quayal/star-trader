@@ -800,7 +800,16 @@
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
-	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import { DONE_BUTTON, DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import {
+		DONE_INVESTING_BUTTON,
+		DONE_INVESTING_TEXT,
+		doneInvestingAcceptedText,
+		doneInvestingRefusedText,
+		isDoneInvesting,
+		isInvestmentClosedRefusal,
+		isInvesting
+	} from './js/investment.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
@@ -2474,7 +2483,10 @@
 		doneMessageKey = text ? 'pending' : null;
 	}
 
-	/** S04-1: the button until pressed, then the done text; the bar stays while a done message is about this phase. */
+	/**
+	 * S04-1, E06-S01-2: the button until pressed, then the done text, in Bidding and in Investment; the bar stays while a
+	 * done message is about this phase.
+	 */
 	function updateDoneBar(game) {
 		const key = `${game.id}/${game.turn.number}/${game.turn.phase}/${game.status}`;
 		if (doneMessageKey === 'pending') {
@@ -2483,23 +2495,29 @@
 			setDoneMessage('', false);
 		}
 		const bidding = isBidding(game);
-		const done = isDone(game, session.email);
-		$('done-button').hidden = !bidding || done;
-		const text = done ? DONE_TEXT : '';
+		const investing = isInvesting(game);
+		const done = bidding ? isDone(game, session.email) : isDoneInvesting(game, session.email);
+		const label = investing ? DONE_INVESTING_BUTTON : DONE_BUTTON;
+		if ($('done-button').textContent !== label) {
+			$('done-button').textContent = label;
+		}
+		$('done-button').hidden = !(bidding || investing) || done;
+		const text = done ? (investing ? DONE_INVESTING_TEXT : DONE_TEXT) : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
-		$('done-bar').hidden = !bidding && !$('done-message').textContent;
+		$('done-bar').hidden = !bidding && !investing && !$('done-message').textContent;
 	}
 
 	async function signalDone() {
 		const button = $('done-button');
 		const gameId = currentGameId;
+		const investing = lastGame !== null && isInvesting(lastGame); // the same button signals done in Investment (E06-S01-2)
 		setDoneMessage('', false);
 		button.disabled = true;
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/bidding/done`, { method: 'POST' });
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/${investing ? 'investment' : 'bidding'}/done`, { method: 'POST' });
 		} catch {
 			button.disabled = false;
 			setDoneMessage(UNREACHABLE, true);
@@ -2511,14 +2529,17 @@
 		}
 		if (response.ok) {
 			const game = await response.json();
-			setDoneMessage(doneAcceptedText(game), false);
+			setDoneMessage(investing ? doneInvestingAcceptedText(game) : doneAcceptedText(game), false);
 			render(game);
-			$(isBidding(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
+			$(isBidding(game) || isInvesting(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
 			return;
 		}
 		const message = await errorText(response, '');
-		setDoneMessage(doneRefusedText(response.status, message, "Couldn't signal done. Try again."), !isClosedRefusal(response.status, message));
-		if (isClosedRefusal(response.status, message)) {
+		const closed = investing ? isInvestmentClosedRefusal(response.status, message) : isClosedRefusal(response.status, message);
+		const fallback = "Couldn't signal done. Try again.";
+		const refusal = investing ? doneInvestingRefusedText(response.status, message, fallback) : doneRefusedText(response.status, message, fallback);
+		setDoneMessage(refusal, !closed);
+		if (closed) {
 			clearTimeout(pollTimer);
 			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
 			poll(); // the top bar catches up with the close

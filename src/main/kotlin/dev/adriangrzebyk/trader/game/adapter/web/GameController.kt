@@ -16,6 +16,7 @@ import dev.adriangrzebyk.trader.game.InvalidLandingException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
 import dev.adriangrzebyk.trader.game.InvalidPlaceException
 import dev.adriangrzebyk.trader.game.InvalidTradeException
+import dev.adriangrzebyk.trader.game.InvestmentService
 import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.NotYourTurnException
@@ -54,6 +55,7 @@ class GameController(
 	private val gamePollingService = GamePollingService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 	private val biddingService = BiddingService(gameStore, dice)
+	private val investmentService = InvestmentService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore)
 	private val tradingService = TradingService(gameStore, dice)
 
@@ -120,6 +122,26 @@ class GameController(
 		} catch (ex: GameNotFoundException) {
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotTheCreatorException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** Done is a readiness flag (R44); the last player's signal closes Investment for everyone and ends the turn (D09). */
+	@PostMapping("/games/{id}/investment/done")
+	fun signalDoneInvesting(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val game = try {
+			investmentService.signalDone(id, session.email)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)

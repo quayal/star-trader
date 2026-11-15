@@ -68,8 +68,9 @@ data class Game(
 	}
 
 	/**
-	 * Moves to the next phase (N06, R04): Bidding → Ship-jumps → Trading → the next turn's Bidding. Closing Bidding
-	 * charges the bids and rolls the initiative order with [dice] (R27); leaving Trading ends the turn ([endTurn]). No
+	 * Moves to the next phase (R44): Bidding → Ship-jumps → Trading → Investment → the next turn's Bidding. Closing
+	 * Bidding charges the bids and rolls the initiative order with [dice] (R27); leaving Trading starts Investment
+	 * ([endTrading]) and leaving Investment ends the turn ([endTurn]). No
 	 * clock calls this (D09): a phase ends only when its players are through, and the caller runs it inside
 	 * [GameStore.update] so it happens once.
 	 */
@@ -78,12 +79,16 @@ data class Game(
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
-			TurnPhase.TRADING -> endTurn(current)
+			TurnPhase.TRADING -> endTrading(current)
+			TurnPhase.INVESTMENT -> endTurn(current)
 		}
 	}
 
+	/** [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Investment starts (R44, E06-S01-1). */
+	private fun endTrading(current: Turn): Game = copy(turn = current.endTrading(), log = log + LogEntry(current.number, ALL_GOODS_RESOLVED))
+
 	/**
-	 * Ends [current], whose Trading is over (E05-S07, N06): logged "All goods resolved" in that turn. After the last
+	 * Ends [current], whose Investment is over (R44, E06-S01-2). After the last
 	 * turn the creator chose (R39, R41) the game is over, keeps its last turn, and the log ends with the winner
 	 * (E05-S08-1, S08-5); otherwise the next turn starts with
 	 * Bidding, with no offers, so offers that didn't trade expire (S07-2, proposed), and its first log line starts a new
@@ -91,14 +96,13 @@ data class Game(
 	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
 	 */
 	private fun endTurn(current: Turn): Game {
-		val ended = log + LogEntry(current.number, ALL_GOODS_RESOLVED)
 		if (current.number >= turns) {
-			return copy(status = GameStatus.FINISHED, log = ended + LogEntry(current.number, gameOverText()))
+			return copy(status = GameStatus.FINISHED, log = log + LogEntry(current.number, gameOverText()))
 		}
 		val next = current.next()
 		return copy(
 			turn = next,
-			log = ended + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
+			log = log + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
 		)
 	}
 
@@ -121,6 +125,17 @@ data class Game(
 		val who = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
 		val verb = if (names.size == 1) "wins" else "win"
 		return "Game over: $who $verb with ${String.format(Locale.US, "%,d", winners().first().money)} HT"
+	}
+
+	/**
+	 * Records that [email] is done investing (R44, E06-S01-2). Investment closes the moment the last player signals done
+	 * (D09), which ends the turn ([endTurn]); a signal after that is refused (A04).
+	 */
+	fun signalDoneInvesting(email: String): Game {
+		playerOf(email)
+		val signalled = copy(turn = runningTurn().signalDoneInvesting(email))
+		val current = signalled.runningTurn()
+		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
 	}
 
 	/**
@@ -392,7 +407,7 @@ data class Game(
 			prices = repriced?.let { prices.withPrice(resolution.good, it) } ?: prices,
 			log = log + events.map { LogEntry(after.number, it) } + resolutionLog(after.number, before, resolution)
 		)
-		return if (after.isEveryGoodResolved()) moved.endTurn(after) else moved
+		return if (after.isEveryGoodResolved()) moved.endTrading(after) else moved
 	}
 
 	/**
