@@ -14,6 +14,53 @@ class TurnTest {
 
 	private val shipJumps = Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("a", "b", "c"))
 
+	private val investment = Turn.bidding(1).copy(phase = TurnPhase.TRADING).endTrading()
+
+	@Test
+	fun shouldListThePhasesInTurnOrder() {
+		// E06-S01-5: the enum's order is the one place the phase list lives
+		assertThat(TurnPhase.entries).containsExactly(TurnPhase.BIDDING, TurnPhase.SHIP_JUMPS, TurnPhase.TRADING, TurnPhase.INVESTMENT)
+		assertThat(TurnPhase.TRADING.next()).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(TurnPhase.INVESTMENT.next()).isNull()
+	}
+
+	@Test
+	fun shouldMoveFromTradingToInvestmentWithNobodyDone() {
+		assertThat(investment.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(investment.doneInvesting).isEmpty()
+	}
+
+	@Test
+	fun shouldRecordAPlayerDoneInvestingOnlyOnce() {
+		val once = investment.signalDoneInvesting("a")
+
+		assertThat(once.doneInvesting).containsExactly("a")
+		assertThat(once.signalDoneInvesting("a")).isEqualTo(once)
+		assertThat(once.signalDoneInvesting("b").doneInvesting).containsExactly("a", "b")
+	}
+
+	@Test
+	fun shouldKnowWhenEveryoneIsDoneInvesting() {
+		val one = investment.signalDoneInvesting("a")
+
+		assertThat(one.everyoneDoneInvesting(listOf("a", "b"))).isFalse()
+		assertThat(one.signalDoneInvesting("b").everyoneDoneInvesting(listOf("a", "b"))).isTrue()
+	}
+
+	@Test
+	fun shouldRefuseDoneInvestingOutsideInvestment() {
+		listOf(Turn.bidding(1), shipJumps, shipJumps.toTrading()).forEach { turn ->
+			assertThatThrownBy { turn.signalDoneInvesting("a") }
+				.isInstanceOf(InvalidGameOperationException::class.java)
+				.hasMessage("Investment isn't open.")
+		}
+	}
+
+	@Test
+	fun shouldRefuseShipJumpsOnceInvestmentHasStarted() {
+		assertThatThrownBy { investment.requireShipJumps() }.isInstanceOf(PhaseClosedException::class.java)
+	}
+
 	@Test
 	fun shouldRefuseASecondOfferOnTheSameGoodAndSystem() {
 		// R33

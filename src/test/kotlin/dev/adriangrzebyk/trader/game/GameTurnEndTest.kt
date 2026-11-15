@@ -10,7 +10,7 @@ import dev.adriangrzebyk.trader.trading.SupplyDemand
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-// E05-S07: the turn ends once its last good has resolved, and the next starts with Bidding (N06, R39).
+// E05-S07, E06-S01: once its last good has resolved Investment starts, and the turn ends when everyone is done investing (R44, R39).
 class GameTurnEndTest {
 
 	private val gammaLeporisPoly = MarketGood(GAMMA_LEPORIS, Goods.POLY)
@@ -47,6 +47,13 @@ class GameTurnEndTest {
 	private fun lastGoodWaitingForGrace(turns: Int): Game =
 		withOneGoodLeft(trading(turns)).resolveNextGood("grace@example.com", FakeDice.twoD6(2))
 
+	/** [game] once Grace and Ada have both signalled done investing: the last signal ends the turn (R44). */
+	private fun afterInvesting(game: Game): Game = game.signalDoneInvesting("grace@example.com").signalDoneInvesting("ada@example.com")
+
+	/** Turn 1's Trading, finished: Grace's last trade has resolved the last good. */
+	private fun investing(turns: Int): Game =
+		lastGoodWaitingForGrace(turns).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+
 	@Test
 	fun shouldStayInTradingWhileTheLastGoodIsStillResolving() {
 		val game = lastGoodWaitingForGrace(3)
@@ -58,9 +65,30 @@ class GameTurnEndTest {
 	}
 
 	@Test
-	fun shouldStartTheNextTurnWithBiddingOnceTheLastGoodHasResolved() {
-		// S07-1, S07-2: the last trade finishes the last good, and the turn ends in the same step
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+	fun shouldStartInvestmentOnceTheLastGoodHasResolved() {
+		// E06-S01-1: the last trade finishes the last good, and Investment starts in the same step, with nobody done
+		val game = investing(3)
+
+		assertThat(game.status).isEqualTo(GameStatus.RUNNING)
+		assertThat(game.turn!!.number).isEqualTo(1)
+		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(game.turn!!.doneInvesting).isEmpty()
+		assertThat(game.log.last()).isEqualTo(LogEntry(1, "All goods resolved"))
+	}
+
+	@Test
+	fun shouldWaitInInvestmentUntilEveryoneIsDone() {
+		// E06-S01-2, D09
+		val oneDone = investing(3).signalDoneInvesting("grace@example.com")
+
+		assertThat(oneDone.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(oneDone.turn!!.doneInvesting).containsExactly("grace@example.com")
+	}
+
+	@Test
+	fun shouldStartTheNextTurnWithBiddingOnceEveryoneIsDoneInvesting() {
+		// S07-1, S07-2, E06-S01-2
+		val game = afterInvesting(investing(3))
 
 		assertThat(game.status).isEqualTo(GameStatus.RUNNING)
 		assertThat(game.turn).isEqualTo(Turn.bidding(2))
@@ -69,7 +97,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldLetOffersThatDidNotTradeExpire() {
 		// S07-2 (proposed): the next turn starts with no offers, whether they traded or not
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+		val game = afterInvesting(investing(3))
 
 		assertThat(game.turn!!.offers).isEmpty()
 		assertThat(game.turn!!.offersOf("grace@example.com")).isEmpty()
@@ -81,13 +109,14 @@ class GameTurnEndTest {
 		val game = withOneGoodLeft(trading(3, started(3)))
 			.resolveNextGood("grace@example.com", FakeDice.twoD6(7))
 
-		assertThat(game.turn).isEqualTo(Turn.bidding(2))
+		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(afterInvesting(game).turn).isEqualTo(Turn.bidding(2))
 	}
 
 	@Test
 	fun shouldLogTheEndOfTheTurnAndStartANewGroupForTheNextOne() {
 		// S07-3: the new turn's first line is logged under its own number, so the log starts a new group
-		val game = lastGoodWaitingForGrace(3).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+		val game = afterInvesting(investing(3))
 
 		assertThat(game.log.takeLast(2)).containsExactly(
 			LogEntry(1, "All goods resolved"),
@@ -105,8 +134,8 @@ class GameTurnEndTest {
 
 	@Test
 	fun shouldNotStartAnotherTurnAfterTheLastOne() {
-		// R39, R41: a one-turn game is over after its first Trading, and keeps its last turn
-		val game = lastGoodWaitingForGrace(1).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+		// R39, R41, R44: a one-turn game is over after its first Investment, and keeps its last turn
+		val game = afterInvesting(investing(1))
 
 		assertThat(game.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(game.turn!!.number).isEqualTo(1)

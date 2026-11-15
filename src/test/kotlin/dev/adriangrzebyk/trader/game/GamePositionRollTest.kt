@@ -77,6 +77,7 @@ class GamePositionRollTest {
 		val next = kimPromoted.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(3))
 			.passWholesale("ada@example.com")
 			.advancePhase(dice())
+			.advancePhase(dice())
 
 		assertThat(next.turn!!.number).isEqualTo(2)
 		assertThat(playerIn(next, "kim@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.DICTATOR)

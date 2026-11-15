@@ -9,6 +9,8 @@
 export const BEFORE_TRADING_TEXT = 'Trading starts after Ship-jumps. Results will appear here.';
 /** E05-S07-1: s03 once the last good has resolved and the next turn has started. */
 export const TURN_ENDED_TEXT = 'All goods resolved. The next turn starts with Bidding.';
+/** E06-S01: s03 once the last good has resolved and players are investing. */
+export const INVESTING_TEXT = 'All goods resolved. The next turn starts with Bidding once everyone is done investing.';
 /** E05-S08: s03 once the last turn's last good has resolved and the game is over. */
 export const GAME_OVER_TEXT = 'All goods resolved. The game is over.';
 export const QUEUE_TITLE = 'Remaining goods';
@@ -133,7 +135,8 @@ export function waitingText(game, email) {
 }
 
 /**
- * s03's status line: during Trading, whom the game waits for (S01-8); in the Bidding that follows a turn's Trading, that
+ * s03's status line: during Trading, whom the game waits for (S01-8); during the Investment that follows it, that every
+ * good resolved and the next turn waits for everyone's investing (E06-S01); in the Bidding that follows a turn's Trading, that
  * every good resolved and the new turn has started (E05-S07-1: the turn ends the moment its last good resolves); once
  * the game is over, that it is (E05-S08); before Trading otherwise, when it starts (S01-7).
  */
@@ -143,6 +146,9 @@ export function tradingStatus(game, email) {
 	}
 	if (game.status === 'FINISHED') {
 		return GAME_OVER_TEXT;
+	}
+	if (game.status === 'RUNNING' && game.turn?.phase === 'INVESTMENT') {
+		return INVESTING_TEXT;
 	}
 	if (game.status === 'RUNNING' && game.turn?.phase === 'BIDDING' && game.turn.number > 1) {
 		return TURN_ENDED_TEXT;

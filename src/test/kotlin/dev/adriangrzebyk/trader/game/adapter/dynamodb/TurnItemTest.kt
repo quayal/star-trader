@@ -36,6 +36,7 @@ class TurnItemTest {
 		landingShip = "Meridian",
 		tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), MarketGood(StarSystem.TAU_CETI, Goods.POLY)),
 		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY)),
+		doneInvesting = listOf("ada@example.com"),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -83,7 +84,8 @@ class TurnItemTest {
 					landingShip = null,
 					tradingQueue = emptyList(),
 					resolvedGoods = emptyList(),
-					resolution = null
+					resolution = null,
+					doneInvesting = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -148,6 +150,7 @@ class TurnItemTest {
 					listOf(AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("MU_HERCULIS"), "goods" to AttributeValue.fromS("ISO"))))
 				),
 				"resolvedGoods" to AttributeValue.fromL(emptyList()),
+				"doneInvesting" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
@@ -316,7 +319,8 @@ class TurnItemTest {
 				landingShip = null,
 				tradingQueue = emptyList(),
 				resolvedGoods = emptyList(),
-				resolution = null
+				resolution = null,
+				doneInvesting = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

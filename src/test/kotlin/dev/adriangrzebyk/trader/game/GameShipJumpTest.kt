@@ -120,7 +120,7 @@ class GameShipJumpTest {
 			.finishJumping("grace@example.com")
 			.finishJumping("ada@example.com").finishJumping("kim@example.com")
 
-		val next = trading.advancePhase(FakeDice()).turn!!
+		val next = trading.advancePhase(FakeDice()).advancePhase(FakeDice()).turn!!
 
 		assertThat(next.jumpedShips).isEmpty()
 		assertThat(next.doneJumping).isEmpty()

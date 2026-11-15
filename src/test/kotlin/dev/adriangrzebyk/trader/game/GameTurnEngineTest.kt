@@ -21,8 +21,8 @@ class GameTurnEngineTest {
 	}
 
 	@Test
-	fun shouldRunBiddingThenShipJumpsThenTradingThenTheNextTurnsBidding() {
-		val phases = generateSequence(started) { it.advancePhase(FakeDice(2, 1)) }.take(4).map { it.turn }.toList()
+	fun shouldRunBiddingThenShipJumpsThenTradingThenInvestmentThenTheNextTurnsBidding() {
+		val phases = generateSequence(started) { it.advancePhase(FakeDice(2, 1)) }.take(5).map { it.turn }.toList()
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
@@ -34,13 +34,20 @@ class GameTurnEngineTest {
 				tradingQueue = MarketGood.everyOnBoard(),
 				initiative = listOf("creator@example.com", "joiner@example.com")
 			),
+			Turn.bidding(
+				1
+			).copy(
+				phase = TurnPhase.INVESTMENT,
+				tradingQueue = MarketGood.everyOnBoard(),
+				initiative = listOf("creator@example.com", "joiner@example.com")
+			),
 			Turn.bidding(2)
 		)
 	}
 
 	@Test
-	fun shouldFinishTheGameAfterTheLastTurnsTrading() {
-		val lastTrading = (1..5).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	fun shouldFinishTheGameAfterTheLastTurnsInvestment() {
+		val lastTrading = (1..6).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 		assertThat(
 			lastTrading.turn
 		).isEqualTo(
@@ -53,7 +60,11 @@ class GameTurnEngineTest {
 			)
 		)
 
-		val finished = lastTrading.advancePhase(FakeDice(2, 1))
+		val lastInvestment = lastTrading.advancePhase(FakeDice(2, 1))
+		assertThat(lastInvestment.status).isEqualTo(GameStatus.RUNNING)
+		assertThat(lastInvestment.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+
+		val finished = lastInvestment.advancePhase(FakeDice(2, 1))
 
 		assertThat(finished.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(
@@ -62,7 +73,7 @@ class GameTurnEngineTest {
 			Turn.bidding(
 				2
 			).copy(
-				phase = TurnPhase.TRADING,
+				phase = TurnPhase.INVESTMENT,
 				tradingQueue = MarketGood.everyOnBoard(),
 				initiative = listOf("creator@example.com", "joiner@example.com")
 			)
@@ -78,7 +89,7 @@ class GameTurnEngineTest {
 
 	@Test
 	fun shouldNotAdvanceAFinishedGame() {
-		val finished = (1..6).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+		val finished = (1..8).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 		assertThatThrownBy { finished.advancePhase(FakeDice(2, 1)) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
