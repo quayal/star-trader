@@ -6,7 +6,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * A player's membership in one game; [email] is the membership key. [money] is private to its owner (R29);
- * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43).
+ * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43). [warehouses] and [factories]
+ * are public too (R50), and nobody starts with any (R40, R50).
  */
 data class Player(
 	val email: String,
@@ -14,7 +15,9 @@ data class Player(
 	val corporationName: String,
 	val money: Int,
 	val ships: List<Ship>,
-	val marketPositions: List<MarketPosition>
+	val marketPositions: List<MarketPosition>,
+	val warehouses: List<Warehouse>,
+	val factories: List<Factory>
 ) {
 
 	/** This player after paying [amount] HT. */
@@ -175,6 +178,7 @@ data class Player(
 
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */
-		fun newcomer(email: String, name: String, corporationName: String) = Player(email, name, corporationName, 0, emptyList(), emptyList())
+		fun newcomer(email: String, name: String, corporationName: String) =
+			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList())
 	}
 }

@@ -661,6 +661,26 @@
 				</div>
 				<p class="muted">Players without a position for a good aren't listed.</p>
 			</details>
+			<details class="panel section">
+				<summary>Warehouses and factories</summary>
+				<p id="system-producible"></p>
+				<h3 class="field-label">Factories</h3>
+				<div class="table-wrap">
+					<table class="data-table" id="system-factories-table" hidden>
+						<thead><tr><th scope="col">Corporation</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th></tr></thead>
+						<tbody id="system-factories"></tbody>
+					</table>
+				</div>
+				<p class="muted" id="system-factories-none" hidden>Nobody has a factory here.</p>
+				<h3 class="field-label">Warehouses</h3>
+				<div class="table-wrap">
+					<table class="data-table" id="system-warehouses-table" hidden>
+						<thead><tr><th scope="col">Corporation</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces</th></tr></thead>
+						<tbody id="system-warehouses"></tbody>
+					</table>
+				</div>
+				<p class="muted" id="system-warehouses-none" hidden>Nobody has a warehouse here.</p>
+			</details>
 			</div>
 			<section class="panel" id="system-offer-panel" aria-labelledby="system-offer-title" hidden>
 				<h2 id="system-offer-title">Place an offer</h2>
@@ -787,6 +807,7 @@
 		STALE_MESSAGE,
 		staleAgeText,
 		systemAccessibleName,
+		systemHoldings,
 	} from './js/board.js';
 	import {
 		NO_SHIP_WARNING,
@@ -2670,7 +2691,7 @@
 		$('map-legend').replaceChildren(...parts);
 	}
 
-	/** S02-7/8: locations with ships, the market, and who holds which market position. */
+	/** S02-7/8: locations with ships, the market, and who holds which market position; E06-S02: what is built here. */
 	function renderSystem(game, system) {
 		$('system-title').textContent = system.name;
 		$('system-back').href = deckLink(game.id);
@@ -2693,6 +2714,24 @@
 			...(row.nobody
 				? [element('td', { colspan: '3', class: 'muted' }, 'Nobody holds a position for this good yet')]
 				: row.tiers.map(tier => element('td', {}, tier.holders.join(', ') || '\u2014'))))));
+		const holdings = systemHoldings(game, system);
+		$('system-producible').replaceChildren(...(holdings.producible.length
+			? ['Factories here can produce: ', ...holdings.producible.flatMap((goods, index) => [
+				index ? ', ' : '',
+				element('span', { class: `good good--${goods.toLowerCase()}` }, goods)]), '.']
+			: ['No factories here.']));
+		$('system-factories').replaceChildren(...holdings.factories.map(factory => element('tr', {},
+			element('td', {}, factory.corporationName), // player-typed: text only, never innerHTML
+			element('td', {}, element('span', { class: `good good--${factory.goods.toLowerCase()}` }, factory.goods)),
+			element('td', { class: 'num' }, String(factory.size)))));
+		$('system-factories-table').hidden = holdings.factories.length === 0;
+		$('system-factories-none').hidden = holdings.factories.length > 0;
+		$('system-warehouses').replaceChildren(...holdings.warehouses.map(warehouse => element('tr', {},
+			element('td', {}, warehouse.corporationName),
+			element('td', { class: 'num' }, String(warehouse.blocks)),
+			element('td', { class: 'num' }, String(warehouse.cargoSpaces)))));
+		$('system-warehouses-table').hidden = holdings.warehouses.length === 0;
+		$('system-warehouses-none').hidden = holdings.warehouses.length > 0;
 	}
 
 	$('copy-link').addEventListener('click', async () => {

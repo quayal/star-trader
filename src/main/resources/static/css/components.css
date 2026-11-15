@@ -92,6 +92,9 @@ h1, h2, h3 {
 	font-size: var(--text-body);
 	font-weight: 600;
 }
+/* A second heading in a foldable section (System details: Warehouses after Factories) needs room above it. */
+.section .table-wrap + .field-label,
+.section .muted + .field-label { margin-top: var(--space-between-groups); }
 
 /* ── Choice (radio/checkbox styled as a tile) ── */
 .choice {

@@ -1,10 +1,12 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
@@ -36,6 +38,14 @@ class PlayerItemTest {
 		marketPositions = listOf(
 			MarketPosition(system = StarSystem.TAU_CETI, goods = Goods.POLY, tier = MarketTier.WHOLESALER),
 			MarketPosition(system = StarSystem.MU_HERCULIS, goods = Goods.ISO, tier = MarketTier.DICTATOR)
+		),
+		warehouses = listOf(
+			Warehouse(system = StarSystem.TAU_CETI, blocks = 2),
+			Warehouse(system = StarSystem.MU_HERCULIS, blocks = 1)
+		),
+		factories = listOf(
+			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 3),
+			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.ISO, size = 5)
 		)
 	)
 
@@ -57,7 +67,16 @@ class PlayerItemTest {
 
 		assertThat(
 			attributes.keys
-		).containsExactlyInAnyOrder("email", "name", "corporationName", "money", "ships", "marketPositions")
+		).containsExactlyInAnyOrder(
+			"email",
+			"name",
+			"corporationName",
+			"money",
+			"ships",
+			"marketPositions",
+			"warehouses",
+			"factories"
+		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
 	}
@@ -78,6 +97,22 @@ class PlayerItemTest {
 	@Test
 	fun shouldReadAPlayerStoredBeforeMarketPositionsExistedAsHoldingNone() {
 		assertThat(PlayerItem(PlayerItem(player).attributes - "marketPositions").toPlayer().marketPositions).isEmpty()
+	}
+
+	@Test
+	fun shouldStoreEachWarehouseAndFactoryAsItsOwnItem() {
+		val attributes = PlayerItem(player).attributes
+
+		assertThat(attributes.getValue("warehouses").l().map { it.m() }).isEqualTo(player.warehouses.map { WarehouseItem(it).attributes })
+		assertThat(attributes.getValue("factories").l().map { it.m() }).isEqualTo(player.factories.map { FactoryItem(it).attributes })
+	}
+
+	@Test
+	fun shouldReadAPlayerStoredBeforeWarehousesAndFactoriesExistedAsOwningNone() {
+		val older = PlayerItem(PlayerItem(player).attributes - "warehouses" - "factories").toPlayer()
+
+		assertThat(older.warehouses).isEmpty()
+		assertThat(older.factories).isEmpty()
 	}
 
 	@Test
