@@ -22,6 +22,7 @@ import {
 	staleAgeText,
 	staleText,
 	systemAccessibleName,
+	systemHoldings,
 } from '../../main/resources/static/js/board.js';
 
 const tauCeti = {
@@ -205,6 +206,32 @@ describe('Market positions (S02-7, S02-8)', () => {
 			['Wholesaler', ['Orion Freight']],
 			['Retailer', []],
 		]);
+	});
+});
+
+describe('Warehouses and factories (E06-S02)', () => {
+	const built = {
+		...game,
+		players: [
+			{ ...game.players[0], warehouses: [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20 }, { system: 'MU_HERCULIS', blocks: 1, cargoSpaces: 10 }], factories: [] },
+			{ ...game.players[1], warehouses: [], factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 3 }] },
+		],
+	};
+
+	it("lists every corporation's warehouses and factories at the system, to everyone, and none elsewhere", () => {
+		const holdings = systemHoldings(built, { ...tauCeti, producibleGoods: ['ISO'] });
+		assert.deepEqual(holdings.warehouses, [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20, corporationName: 'Orion Freight' }]);
+		assert.deepEqual(holdings.factories, [{ system: 'TAU_CETI', goods: 'ISO', size: 3, corporationName: 'Vega Lines' }]);
+	});
+
+	it('names the goods the system can produce, and none where no factory can stand', () => {
+		assert.deepEqual(systemHoldings(built, { ...tauCeti, producibleGoods: ['ISO'] }).producible, ['ISO']);
+		assert.deepEqual(systemHoldings(built, { ...tauCeti, producibleGoods: [] }).producible, []);
+	});
+
+	it('reads a response without warehouses, factories or producible goods as having none', () => {
+		const holdings = systemHoldings(game, tauCeti);
+		assert.deepEqual(holdings, { producible: [], warehouses: [], factories: [] });
 	});
 });
 

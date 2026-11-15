@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
+import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.InitiativeBid
@@ -17,6 +18,7 @@ import dev.adriangrzebyk.trader.game.ShipLoad
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Turn
+import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -81,13 +83,18 @@ data class StandingResponseDto(val email: String, val corporationName: String, v
 	constructor(player: Player) : this(player.email, player.corporationName, player.money)
 }
 
-/** Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28). */
+/**
+ * Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28), and so are warehouses and
+ * factories (R50, E06-S02-2).
+ */
 data class PlayerResponseDto(
 	val email: String,
 	val name: String,
 	val corporationName: String,
 	val ships: List<ShipResponseDto>,
-	val marketPositions: List<MarketPositionResponseDto>
+	val marketPositions: List<MarketPositionResponseDto>,
+	val warehouses: List<WarehouseResponseDto>,
+	val factories: List<FactoryResponseDto>
 ) {
 
 	constructor(player: Player) : this(
@@ -95,8 +102,22 @@ data class PlayerResponseDto(
 		player.name,
 		player.corporationName,
 		player.ships.map { ShipResponseDto(it) },
-		player.marketPositions.map { MarketPositionResponseDto(it) }
+		player.marketPositions.map { MarketPositionResponseDto(it) },
+		player.warehouses.map { WarehouseResponseDto(it) },
+		player.factories.map { FactoryResponseDto(it) }
 	)
+}
+
+/** A warehouse's system (a `StarSystem` constant) and its capacity in blocks and cargo spaces (R45). */
+data class WarehouseResponseDto(val system: String, val blocks: Int, val cargoSpaces: Int) {
+
+	constructor(warehouse: Warehouse) : this(warehouse.system.name, warehouse.blocks, warehouse.cargoSpaces())
+}
+
+/** A factory's system and good (constants) and its size, the units it produces a turn (R46). */
+data class FactoryResponseDto(val system: String, val goods: String, val size: Int) {
+
+	constructor(factory: Factory) : this(factory.system.name, factory.goods.name, factory.size)
 }
 
 /** Where a ship is, which every player may see; what it carries is only in [YourShipResponseDto]. */
@@ -110,7 +131,10 @@ data class MarketPositionResponseDto(val system: String, val goods: String, val 
 	constructor(position: MarketPosition) : this(position.system.name, position.goods.name, position.tier.name)
 }
 
-/** One system of the board: its R31 location statistics and its market at this game's [MarketPrices] (D07, D08, R35). */
+/**
+ * One system of the board: its R31 location statistics and its market at this game's [MarketPrices] (D07, D08, R35),
+ * and the goods a factory here can make, empty where none can (R46, E06-S02-3).
+ */
 data class SystemResponseDto(
 	val id: String,
 	val name: String,
@@ -118,7 +142,8 @@ data class SystemResponseDto(
 	val legalSystem: Int,
 	val police: Int,
 	val security: Int,
-	val market: List<MarketEntryResponseDto>
+	val market: List<MarketEntryResponseDto>,
+	val producibleGoods: List<String>
 ) {
 
 	constructor(system: StarSystem, prices: MarketPrices) : this(
@@ -128,7 +153,8 @@ data class SystemResponseDto(
 		system.locations.legalSystem,
 		system.locations.police,
 		system.locations.security,
-		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices) }
+		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices) },
+		system.producibleGoods.map { it.name }.sorted()
 	)
 }
 

@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
@@ -12,6 +13,7 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
+import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -43,9 +45,52 @@ class GameResponseDtoTest {
 				legalSystem = 2,
 				police = 3,
 				security = 4,
-				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10))
+				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
+				producibleGoods = listOf("ISO")
 			)
 		)
+	}
+
+	@Test
+	fun shouldSendTheGoodsEachSystemCanProduceAndNoneWhereNoFactoryCanStand() {
+		val board = GameResponseDto(started, "host@example.com").board.associate { it.id to it.producibleGoods }
+
+		assertThat(board).containsEntry("SIGMA_DRACONIS", listOf("FOOD", "ISO"))
+			.containsEntry("GAMMA_LEPORIS", listOf("POLY"))
+			.containsEntry("MU_HERCULIS", listOf("CHIPS"))
+			.containsEntry("BETA_HYDRI", emptyList())
+			.containsEntry("EPSILON_ERIDANI", emptyList())
+	}
+
+	@Test
+	fun shouldSendNobodyAnyWarehouseOrFactoryInANewGame() {
+		val players = GameResponseDto(started, "host@example.com").players
+
+		assertThat(players).allMatch { it.warehouses.isEmpty() && it.factories.isEmpty() }
+	}
+
+	@Test
+	fun shouldSendEachPlayersWarehousesAndFactoriesToEveryoneButNoMoney() {
+		val game = started.copy(
+			players = started.players.map {
+				if (it.email == "guest@example.com") {
+					it.copy(
+						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2)),
+						factories = listOf(Factory(StarSystem.SIGMA_DRACONIS, Goods.FOOD, 3))
+					)
+				} else {
+					it
+				}
+			}
+		)
+
+		val response = GameResponseDto(game, "host@example.com")
+		val guest = response.players.single { it.email == "guest@example.com" }
+
+		assertThat(guest.warehouses).containsExactly(WarehouseResponseDto("TAU_CETI", 2, 20))
+		assertThat(guest.factories).containsExactly(FactoryResponseDto("SIGMA_DRACONIS", "FOOD", 3))
+		assertThat(response.you?.money).isEqualTo(300)
+		assertThat(guest.toString()).doesNotContain("money")
 	}
 
 	@Test

@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.LogEntry
@@ -10,6 +11,7 @@ import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
@@ -36,7 +38,9 @@ class GameItemTest {
 					Ship(name = "Wayfarer", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap()),
 					Ship(name = "Lantern", system = StarSystem.BETA_HYDRI, location = ShipLocation.SPACE, cargo = emptyMap())
 				),
-				marketPositions = emptyList()
+				marketPositions = emptyList(),
+				warehouses = emptyList(),
+				factories = emptyList()
 			),
 			Player(
 				email = "guest@example.com",
@@ -47,7 +51,9 @@ class GameItemTest {
 					Ship(name = "Meridian", system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PLANET, cargo = emptyMap()),
 					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
 				),
-				marketPositions = emptyList()
+				marketPositions = emptyList(),
+				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2)),
+				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3))
 			)
 		),
 		turn = Turn(

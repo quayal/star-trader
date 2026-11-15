@@ -238,6 +238,22 @@ export function marketPositions(game, system) {
 	});
 }
 
+/**
+ * E06-S02-2, S02-3: what is built at [system], public (R50): every corporation's warehouse there (blocks and cargo
+ * spaces, R45) and factory there (good and units a turn, R46), and the goods the system can produce (R46), none at
+ * some systems. Older responses have no warehouses, factories or producible goods; they read as none.
+ */
+export function systemHoldings(game, system) {
+	const at = key => game.players.flatMap(player => (player[key] ?? [])
+		.filter(item => item.system === system.id)
+		.map(item => ({ ...item, corporationName: player.corporationName })));
+	return {
+		producible: system.producibleGoods ?? [],
+		warehouses: at('warehouses'),
+		factories: at('factories'),
+	};
+}
+
 /** S02-12: the notice over a stale board is this sentence, announced once, then the age, which isn't. */
 export const STALE_MESSAGE = "Couldn't refresh the game.";
 
