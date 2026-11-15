@@ -29,7 +29,10 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
 
 	/** This warehouse after storing [units] of [goods]: what fits ([unitsThatFit]); the rest is lost (R16, R47). */
-	fun load(goods: Goods, units: Int): Warehouse = copy(cargo = cargo + (goods to holding(goods) + unitsThatFit(goods, units)))
+	fun load(goods: Goods, units: Int): Warehouse {
+		val stored = holding(goods) + unitsThatFit(goods, units)
+		return copy(cargo = if (stored > 0) cargo + (goods to stored) else cargo - goods)
+	}
 
 	companion object {
 		/** R45: one block holds 10 cargo spaces, the same as one ship (R42). */

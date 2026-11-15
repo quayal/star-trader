@@ -37,4 +37,13 @@ class WarehouseTest {
 
 		assertThat(full.load(Goods.FOOD, 60).holding(Goods.FOOD)).isEqualTo(60)
 	}
+
+	@Test
+	fun shouldKeepNoEntryForAGoodThatNothingOfWasStored() {
+		// like a ship's cargo: a full warehouse that can't take any ISO, or an amount of 0, leaves no ISO=0 behind
+		val full = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.POLY to 10))
+
+		assertThat(full.load(Goods.ISO, 5)).isEqualTo(full)
+		assertThat(full.load(Goods.CHIPS, 0)).isEqualTo(full)
+	}
 }
