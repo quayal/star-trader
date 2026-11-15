@@ -20,6 +20,10 @@ data class Player(
 	val factories: List<Factory>
 ) {
 
+	init {
+		require(warehouses.map { it.system }.toSet().size == warehouses.size) { "A player has at most one warehouse per system." }
+	}
+
 	/** This player after paying [amount] HT. */
 	fun pay(amount: Int): Player = copy(money = money - amount)
 

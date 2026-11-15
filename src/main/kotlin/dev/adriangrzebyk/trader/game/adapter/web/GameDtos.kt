@@ -466,12 +466,15 @@ data class MarketGoodRequestDto(val system: String? = null, val goods: String? =
 data class TradeRequestDto(val amount: BigDecimal? = null, val ships: List<ShipLoadRequestDto>? = null, val warehouse: BigDecimal? = null) {
 
 	/** The warehouse's units as a whole number, 0 when absent, or null when they aren't whole. */
-	fun warehouseUnits(): Int? = warehouse?.let { runCatching { it.intValueExact() }.getOrNull() } ?: if (warehouse == null) 0 else null
+	fun warehouseUnits(): Int? {
+		val units = warehouse ?: return 0
+		return runCatching { units.intValueExact() }.getOrNull()
+	}
 
 	/** The amount as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
 	fun wholeAmount(): Int? = amount?.let { runCatching { it.intValueExact() }.getOrNull() }
 
-	/** The split, empty when absent (no ship in port there), or null when a ship's units aren't a whole number or its name is missing. */
+	/** The split, empty when absent (no ship in port there, or only a warehouse), or null when a ship's units aren't a whole number or its name is missing. */
 	fun loads(): List<ShipLoad>? = ships.orEmpty().map { it.shipLoad() ?: return null }
 }
 
@@ -484,7 +487,8 @@ data class ShipLoadRequestDto(val name: String? = null, val units: BigDecimal? =
 }
 
 /**
- * A wholesale (R37, E05-S05-4): Buy or Sell, the amount and how it splits across the player's ships in port there. The
+ * A wholesale (R37, E05-S05-4): Buy or Sell, the amount and how it splits across the player's ships in port there and their
+ * warehouse there ([warehouse], R49). The
  * type's name is checked here; numbers are [BigDecimal] so 2.5 reaches the domain's "whole number" message.
  */
 data class WholesaleRequestDto(

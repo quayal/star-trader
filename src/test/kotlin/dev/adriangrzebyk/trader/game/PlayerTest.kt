@@ -386,4 +386,13 @@ class PlayerTest {
 		assertThat(traded.warehouseAt(StarSystem.TAU_CETI)).isEqualTo(warehouseAtTau)
 		assertThat(traded.ships).containsExactly(wayfarer, lantern)
 	}
+
+	@Test
+	fun shouldHaveAtMostOneWarehousePerSystem() {
+		// R45
+		assertThatThrownBy { player.copy(warehouses = listOf(warehouseAtTau, warehouseAtTau.copy(blocks = 2))) }
+			.isInstanceOf(IllegalArgumentException::class.java)
+			.hasMessage("A player has at most one warehouse per system.")
+		assertThat(player.copy(warehouses = listOf(warehouseAtTau, warehouseAtMu)).warehouses).hasSize(2)
+	}
 }

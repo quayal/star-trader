@@ -353,7 +353,7 @@ data class Game(
 
 	/**
 	 * [email], whose offer the counter has reached, acknowledges that they can trade nothing (E05-S04-5): no money for a
-	 * unit (R12), or none of the good in their ships in port there (R10). Refused while they can trade a unit: then they
+	 * unit (R12), or none of the good in their ships in port or warehouse there (R10, R49). Refused while they can trade a unit: then they
 	 * trade 1 to their max (R34). Logged like any trade, without the reason (R29): "Orion Freight could buy up to 3 u:
 	 * bought nothing".
 	 */
@@ -372,7 +372,8 @@ data class Game(
 
 	/**
 	 * [email], asked in the wholesale step (R37, E05-S05-4), buys or sells ([type]) [amount] units at the good's new price,
-	 * split across their ships in port there as [loads]: settled like any trade ([Player.trade]), with at most 5 units,
+	 * split across their ships in port there as [loads] and their warehouse there as [warehouseUnits]: settled like any trade
+	 * ([Player.trade]), with at most 5 units,
 	 * capped by money and cargo (R12, R10, R42). It doesn't move the price. Logged (S05-5): "Kessler Cargo (Wholesaler)
 	 * bought 3 u at 10 HT each, paid 30 HT".
 	 */
