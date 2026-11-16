@@ -48,6 +48,9 @@ data class Ship(
 	/** R53: the modules that take module capacity (not Safe jump, R52). */
 	fun modulesUsed(): Int = modules.count { it.takesModuleCapacity }
 
+	/** Each different module fitted and how many of it, in the order they were first fitted (E07-S03-2). */
+	fun fittedModules(): Map<Module, Int> = modules.groupingBy { it }.eachCount()
+
 	/** R42, R54: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 

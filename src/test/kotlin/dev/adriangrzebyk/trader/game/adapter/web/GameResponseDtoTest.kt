@@ -5,9 +5,11 @@ import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
@@ -251,7 +253,61 @@ class GameResponseDtoTest {
 
 		val you = GameResponseDto(game, "host@example.com").you!!
 
-		assertThat(you.ships).containsExactly(YourShipResponseDto("Wayfarer", mapOf("CHIPS" to 12, "ISO" to 3, "POLY" to 4), 7, 8))
+		val wayfarer = you.ships.single()
+		assertThat(wayfarer.name).isEqualTo("Wayfarer")
+		assertThat(wayfarer.cargo).isEqualTo(mapOf("CHIPS" to 12, "ISO" to 3, "POLY" to 4))
+		assertThat(wayfarer.cargoUsed).isEqualTo(7)
+		assertThat(wayfarer.cargoSpaces).isEqualTo(8)
+	}
+
+	@Test
+	fun shouldGiveTheViewerTheirOwnShipsHullModulesAndStats() {
+		// E07-S03-2, R55: a starting ship is a Clarinet with 4 Cargo, 1 Light weapons and 1 Safe jump module
+		val wayfarer = GameResponseDto(started, "host@example.com").you!!.ships.first()
+
+		assertThat(wayfarer.hull).isEqualTo(HullResponseDto("Clarinet", military = false, aerodynamic = false))
+		assertThat(wayfarer.modules).containsExactly(
+			FittedModuleResponseDto("Cargo", 4, weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 2, passengers = 0, military = false),
+			FittedModuleResponseDto("Light weapons", 1, weapons = 3, rocketWeapons = 5, crew = 0, cargoSpaces = 0, passengers = 0, military = false),
+			FittedModuleResponseDto("Safe jump", 1, weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 0, passengers = 0, military = false)
+		)
+		assertThat(wayfarer.stats).isEqualTo(
+			ShipStatsResponseDto(
+				weapons = 6,
+				rocketWeapons = 5,
+				shields = 2,
+				intercept = 2,
+				crewNeeded = 1,
+				passengers = 0,
+				modulesUsed = 5,
+				moduleCapacity = 5
+			)
+		)
+	}
+
+	@Test
+	fun shouldFlagAMilitaryAndAerodynamicHullAndAMilitaryModule() {
+		// E07-S03-4, R56: nothing in the game gives a player one yet, but the flags are sent
+		val host = started.players.first()
+		val dagger = host.ships[0].copy(hull = Hull.DAGGER, modules = listOf(Module.ARSENAL))
+		val game = started.copy(players = listOf(host.copy(ships = listOf(dagger))) + started.players.drop(1))
+
+		val ship = GameResponseDto(game, "host@example.com").you!!.ships.single()
+
+		assertThat(ship.hull).isEqualTo(HullResponseDto("Dagger", military = true, aerodynamic = true))
+		assertThat(ship.modules.single().military).isTrue()
+		assertThat(ship.cargoSpaces).isZero()
+	}
+
+	@Test
+	fun shouldSendNobodyElsesHullModulesOrStats() {
+		// E07-S03-6, R57: other players' ships are a name and a position, nothing more
+		val guestShips = GameResponseDto(started, "host@example.com").players.first { it.email == "guest@example.com" }.ships
+
+		assertThat(guestShips).containsExactly(
+			ShipResponseDto("Meridian", "GAMMA_LEPORIS", "Gamma Leporis", "PORT"),
+			ShipResponseDto("Halcyon", "TAU_CETI", "Tau Ceti", "PORT")
+		)
 	}
 
 	@Test

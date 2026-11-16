@@ -13,6 +13,7 @@ import {
 	systemLink,
 	tradingLink,
 	gameOverLink,
+	fleetLink,
 	infrastructureLink,
 	turnText,
 	validateTurns,
@@ -54,6 +55,13 @@ describe('parseRoute', () => {
 	it('reads the Game log of a game (s04)', () => {
 		assert.deepEqual(parseRoute('#game/g-1/log'), { view: 'log', id: 'g-1' });
 		assert.deepEqual(parseRoute('#game/a%2Fb/log'), { view: 'log', id: 'a/b' });
+	});
+
+	it('reads the Fleet tab of a game (E07-S03)', () => {
+		assert.deepEqual(parseRoute('#game/g-1/fleet'), { view: 'fleet', id: 'g-1' });
+		assert.deepEqual(parseRoute(fleetLink('a/b')), { view: 'fleet', id: 'a/b' });
+		assert.equal(fleetLink('a/b'), '#game/a%2Fb/fleet');
+		assert.deepEqual(parseRoute('#game/g-1/fleet/2'), { view: 'unknown', id: 'g-1' });
 	});
 
 	it('reads Infrastructure of a game (s10, E06-S08)', () => {

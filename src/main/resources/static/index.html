@@ -251,6 +251,18 @@
 		.infrastructure p:empty { display: none; } /* the status, message and error lines are always in the tree */
 		.infrastructure[hidden], .infrastructure [hidden], .infrastructure .panel[hidden] { display: none; } /* after .panel, which sets display */
 		.collect-factories { display: grid; gap: var(--space-between-groups); }
+		/* Fleet (E07-S03): one panel per ship; the module table scrolls sideways on a phone instead of the page. */
+		.fleet { display: grid; gap: var(--space-panel); max-width: 960px; }
+		.fleet > h2, .fleet p { margin: 0; }
+		.fleet h2:focus { outline: none; }
+		.fleet__ships { display: grid; gap: var(--space-panel); }
+		.fleet-ship { display: grid; gap: var(--space-related); min-width: 0; }
+		.fleet-ship h3 { margin: 0; font-size: var(--text-title); }
+		.fleet-ship .facts { margin: 0; }
+		.fleet-ship__flags { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
+		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
+		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
+		.fleet[hidden] { display: none; }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
@@ -319,6 +331,8 @@
 	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
 	<!-- s10 (E06-S08, D12): only while a started game is open; its href is that game's Infrastructure screen. -->
 	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
+	<!-- E07-S03: only while a started game is open; its href is that game's Fleet tab. -->
+	<a class="nav-item" id="nav-fleet" href="/" hidden>Fleet</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
@@ -537,6 +551,13 @@
 			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
 			<div class="game-log__turns" id="log-turns"></div>
 			<p class="muted">Public events only: offers, bids and money are never logged.</p>
+		</div>
+
+		<!-- Fleet (E07-S03): the player's own ships, with hull, modules, stats, position and cargo (R57). -->
+		<div class="fleet" id="fleet-panel" hidden>
+			<h2 class="system__title" id="fleet-panel-title" tabindex="-1">Fleet</h2>
+			<div class="fleet__ships" id="fleet-ships"></div>
+			<p class="muted">Only you see what your ships are made of and what they carry.</p>
 		</div>
 
 		<!-- s09 (E05-S08): Game over, once the last turn's Trading has resolved its last good. -->
@@ -837,6 +858,7 @@
 		systemLink,
 		tradingLink,
 		gameOverLink,
+		fleetLink,
 		infrastructureLink,
 		validateTurns,
 	} from './js/game.js';
@@ -870,6 +892,7 @@
 		validateTrade,
 	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
+	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
 		FINISH_BUTTON,
@@ -974,7 +997,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'game-over-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
@@ -995,6 +1018,8 @@
 	let focusTradingTitle = false;
 	// Set when the player opens Infrastructure (s10), so its heading takes focus once.
 	let focusInfrastructureTitle = false;
+	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
+	let focusFleetTitle = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
 	const foldedTurns = new Set();
 
@@ -1040,16 +1065,18 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
 		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
+		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
+		$('nav-fleet').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
@@ -1067,11 +1094,12 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
 			focusInfrastructureTitle = view === 'infrastructure';
+			focusFleetTitle = view === 'fleet';
 			focusOverTitle = view === 'over';
 			openGame(id);
 		}
@@ -1085,6 +1113,7 @@
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
+		$('nav-fleet').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -1363,6 +1392,7 @@
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
+		$('nav-fleet').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, session.email);
@@ -1392,9 +1422,11 @@
 		$('nav-trading').hidden = false;
 		$('nav-infrastructure').href = infrastructureLink(game.id);
 		$('nav-infrastructure').hidden = false;
+		$('nav-fleet').href = fleetLink(game.id);
+		$('nav-fleet').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure') {
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1); Investment's is on s10 (E06-S08)
 		}
 		updateDecisionAlert(game, view);
@@ -1441,6 +1473,18 @@
 			return;
 		}
 		focusInfrastructureTitle = false;
+		if (view === 'fleet') {
+			if (changed) {
+				renderFleet(game); // S03-8: with the regular poll
+			}
+			showPanels('fleet-panel');
+			if (focusFleetTitle) {
+				focusFleetTitle = false;
+				$('fleet-panel-title').focus();
+			}
+			return;
+		}
+		focusFleetTitle = false;
 		if (view === 'over') {
 			renderGameOver(game);
 			showPanels('game-over-panel');
@@ -1511,6 +1555,52 @@
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		renderYourOffers(game);
+	}
+
+	// ── Fleet (E07-S03) ──
+
+	/** S03-4: a flag as a label that says what it means; the words carry it, not the colour. */
+	function flagBadges(flags) {
+		return flags.map(text => element('span', { class: text.startsWith('Military') ? 'badge badge--warn' : 'badge' }, text));
+	}
+
+	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
+	function renderFleet(game) {
+		const ships = fleetShips(game, session.email);
+		if (ships.length === 0) {
+			$('fleet-ships').replaceChildren(element('p', { class: 'empty' }, NO_SHIPS_TEXT));
+			return;
+		}
+		$('fleet-ships').replaceChildren(...ships.map((ship, index) => {
+			const titleId = `fleet-ship-${index}`;
+			const fill = element('span', { class: 'cargo-meter__fill' });
+			fill.style.setProperty('--fill', ship.cargo.fill);
+			const header = MODULE_COLUMNS.map((name, column) => element('th', column === 0 ? { scope: 'col' } : { scope: 'col', class: 'num' }, name));
+			const rows = ship.modules.map(module => element('tr', {},
+				element('td', {}, element('div', { class: 'fleet-ship__flags' }, element('strong', {}, module.name), ...flagBadges(module.flags))),
+				...module.cells.map(cell => element('td', { class: 'num' }, cell))));
+			return element('section', { class: 'panel fleet-ship', 'aria-labelledby': titleId },
+				element('h3', { id: titleId }, ship.name),
+				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
+				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
+				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, stat.value)))),
+				element('div', { class: 'cargo-meter' },
+					element('div', { class: 'cargo-meter__head' },
+						element('span', { class: 'cargo-meter__label' }, 'Cargo'),
+						element('span', { class: 'num' }, ship.cargo.text)),
+					element('div', { class: 'cargo-meter__bar' }, fill)),
+				...(ship.cargo.note ? [element('p', { class: 'muted' }, ship.cargo.note)] : []),
+				ship.cargo.goods.length
+					? element('ul', { class: 'fleet-ship__cargo' }, ...ship.cargo.goods.map(row => element('li', {},
+						element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods), ` ${row.units} u`)))
+					: element('p', { class: 'empty' }, 'Carrying nothing'),
+				rows.length
+					? element('div', { class: 'fleet-ship__modules', role: 'region', tabindex: '0', 'aria-label': `Modules of ${ship.name}` },
+						element('table', { class: 'data-table' },
+							element('thead', {}, element('tr', {}, ...header)),
+							element('tbody', {}, ...rows)))
+					: element('p', { class: 'empty' }, 'No modules fitted'));
+		}));
 	}
 
 	// ── s09 Game over (E05-S08) ──
