@@ -186,7 +186,8 @@ data class Game(
 		investing.requireInvesting()
 		requireCollected(player, investing)
 		val bought = player.buyFactoryUnits(system, goods, units, prices)
-		val line = "${player.corporationName} added $units ${if (units == 1) "unit" else "units"} of ${goods.name} production at ${system.displayName}"
+		val amount = if (units == 1) "1 unit" else "$units units"
+		val line = "${player.corporationName} added $amount of ${goods.name} production at ${system.displayName}"
 		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
 		return copy(players = replace(bought), turn = settled, log = log + LogEntry(investing.number, line))
 	}
