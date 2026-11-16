@@ -47,8 +47,8 @@ class PlayerCollectTest {
 
 	@Test
 	fun shouldLosePolyAndIsoBeyondTheFreeCargoSpace() {
-		// R16, E06-S03-3: the ship has 10 spaces and already holds 8 POLY, so only 2 of the 6 ISO fit
-		val loaded = player.copy(ships = listOf(wayfarer.copy(cargo = mapOf(Goods.POLY to 8)), lantern))
+		// R16, E06-S03-3: the ship has 8 spaces and already holds 6 POLY, so only 2 of the 6 ISO fit
+		val loaded = player.copy(ships = listOf(wayfarer.copy(cargo = mapOf(Goods.POLY to 6)), lantern))
 
 		val collected = loaded.collect(listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
 

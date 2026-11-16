@@ -56,7 +56,7 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 		/** R45: one block costs 20 HT. */
 		const val BLOCK_COST = 20
 
-		/** R45: one block holds 10 cargo spaces, the same as one ship (R42). */
-		const val CARGO_SPACES_PER_BLOCK = Ship.CARGO_SPACES
+		/** R45: one block holds 10 cargo spaces, as a ship of the legacy fit did (R42). */
+		const val CARGO_SPACES_PER_BLOCK = 10
 	}
 }

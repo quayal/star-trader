@@ -31,6 +31,27 @@ class GameStartTest {
 	}
 
 	@Test
+	fun shouldStartEveryShipAsAClarinetWithFourCargoALightWeaponsAndASafeJumpModule() {
+		// R55
+		val ships = lobby.start("creator@example.com", picker).players.flatMap { it.ships }
+
+		assertThat(ships).hasSize(4).allSatisfy { ship ->
+			assertThat(ship.hull).isEqualTo(Hull.CLARINET)
+			assertThat(ship.modules).containsExactlyInAnyOrder(
+				Module.CARGO,
+				Module.CARGO,
+				Module.CARGO,
+				Module.CARGO,
+				Module.LIGHT_WEAPONS,
+				Module.SAFE_JUMP
+			)
+			assertThat(ship.cargoSpaces()).isEqualTo(8)
+			assertThat(ship.crewNeeded()).isEqualTo(1)
+			assertThat(ship.modulesUsed()).isEqualTo(5)
+		}
+	}
+
+	@Test
 	fun shouldStartEveryPlayerWithEmptyShipsAndNoMarketPosition() {
 		val started = lobby.start("creator@example.com", picker)
 

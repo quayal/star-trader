@@ -11,8 +11,8 @@ class WarehouseTest {
 	private val warehouse = Warehouse(StarSystem.TAU_CETI, 1, emptyMap())
 
 	@Test
-	fun shouldHoldTheCargoSpacesOfAShipForEachBlock() {
-		assertThat(Warehouse(StarSystem.TAU_CETI, 1, emptyMap()).cargoSpaces()).isEqualTo(Ship.CARGO_SPACES)
+	fun shouldHoldTenCargoSpacesForEachBlock() {
+		assertThat(Warehouse(StarSystem.TAU_CETI, 1, emptyMap()).cargoSpaces()).isEqualTo(Warehouse.CARGO_SPACES_PER_BLOCK)
 		assertThat(Warehouse(StarSystem.TAU_CETI, 3, emptyMap()).cargoSpaces()).isEqualTo(30)
 	}
 

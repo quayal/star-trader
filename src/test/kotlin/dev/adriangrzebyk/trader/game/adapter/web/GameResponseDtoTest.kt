@@ -120,7 +120,7 @@ class GameResponseDtoTest {
 				"Tau Ceti",
 				"ISO",
 				6,
-				listOf(CollectDestinationResponseDto(null, 7), CollectDestinationResponseDto("Wayfarer", 10))
+				listOf(CollectDestinationResponseDto(null, 7), CollectDestinationResponseDto("Wayfarer", 8))
 			)
 		)
 	}
@@ -222,7 +222,7 @@ class GameResponseDtoTest {
 
 		val you = GameResponseDto(game, "host@example.com").you!!
 
-		assertThat(you.ships).containsExactly(YourShipResponseDto("Wayfarer", mapOf("CHIPS" to 12, "ISO" to 3, "POLY" to 4), 7, 10))
+		assertThat(you.ships).containsExactly(YourShipResponseDto("Wayfarer", mapOf("CHIPS" to 12, "ISO" to 3, "POLY" to 4), 7, 8))
 	}
 
 	@Test

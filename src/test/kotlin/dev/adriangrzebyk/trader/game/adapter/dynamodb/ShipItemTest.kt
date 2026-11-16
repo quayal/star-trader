@@ -64,7 +64,7 @@ class ShipItemTest {
 
 		assertThat(loaded.hull).isEqualTo(Hull.CLARINET)
 		assertThat(loaded.modules).containsExactly(Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO)
-		assertThat(loaded.cargoSpaces()).isEqualTo(Ship.CARGO_SPACES)
+		assertThat(loaded.cargoSpaces()).isEqualTo(10)
 		assertThat(loaded.cargo).isEqualTo(ship.cargo)
 	}
 
