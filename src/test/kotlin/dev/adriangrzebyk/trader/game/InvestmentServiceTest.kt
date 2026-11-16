@@ -154,6 +154,39 @@ class InvestmentServiceTest {
 			.hasMessage("Investment isn't open.")
 	}
 
+	@Test
+	fun shouldStoreBoughtFactoryUnitsInTheStore() {
+		// E06-S05
+		gameStore.create(investing)
+
+		val game = service.buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
+
+		assertThat(game.players.first { it.email == "creator@example.com" }.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldBuildAndChargeOnceEvenWhenTheStoreReplaysTheChange() {
+		gameStore.create(investing)
+		val price = investing.prices.priceOf(MarketGood(TAU_CETI, Goods.ISO))
+
+		InvestmentService(ReplayingGameStore(gameStore)).buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
+
+		val ada = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }
+		assertThat(ada.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(ada.money).isEqualTo(investing.players.first { it.email == "creator@example.com" }.money - 2 * (5 * price + 10))
+	}
+
+	@Test
+	fun shouldRefuseFactoryUnitsAfterInvestmentClosed() {
+		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		gameStore.create(closed)
+
+		assertThatThrownBy { service.buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 1) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
+	}
+
 	/** Runs every change twice against the same stored state, the way an optimistic retry re-runs it. */
 	private class ReplayingGameStore(private val delegate: FakeGameStore) : GameStore by delegate {
 

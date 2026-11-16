@@ -173,6 +173,25 @@ data class Game(
 	}
 
 	/**
+	 * [email] buys [units] of production of [goods] at [system] (R46, E06-S05): [Player.buyFactoryUnits] checks and applies
+	 * it at the game's current price for that good there, and the public log says who added how many of what where, without
+	 * the price (R50). Only in Investment and, for a player with factories, after they collected (S03-5); the new units first
+	 * produce at the next turn's Collect (R48). A player with no factory when Investment opened had nothing to collect, so
+	 * their first factory doesn't make them collect from it, which would block them and have it produce this turn: they are
+	 * recorded as collected. Done is a readiness flag (D09).
+	 */
+	fun buyFactoryUnits(email: String, system: StarSystem, goods: Goods, units: Int): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val bought = player.buyFactoryUnits(system, goods, units, prices)
+		val line = "${player.corporationName} added $units ${if (units == 1) "unit" else "units"} of ${goods.name} production at ${system.displayName}"
+		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
+		return copy(players = replace(bought), turn = settled, log = log + LogEntry(investing.number, line))
+	}
+
+	/**
 	 * Whether [email] may buy in this Investment now (R45, S03-5): the game is running in Investment and they have no
 	 * output left to place. False for anyone who isn't in the game.
 	 */
