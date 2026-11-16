@@ -10,7 +10,7 @@ Per `.ai/specs/product-brief.md`, there are no real players or external clients 
 
 ### 1. Game rules (highest protection)
 
-`StarSystem`, `Goods`, `OfferType`, and the resolution logic in `TradeDesk` / `BestOfferCalculator` / `SDCalculator` / `DiceRoller` encode the original board game's actual rules (business rule R03: six star systems, four tradable goods, dice-resolved trades). These are the closest thing this project has to a stable contract, because they're fixed by the board game itself, not by this codebase's current stage.
+`StarSystem`, `Goods`, `OfferType`, `SupplyDemand` (once `SDCalculator`), and the resolution logic in `game/Resolution` (with `Offer`, `Trade`, `Wholesale`, `PositionRoll`), which is what a game's Trading runs, encode the original board game's actual rules; so do `TradeDesk` / `BestOfferCalculator` / `DiceRoller`, the first attempt's resolution, which no game uses any more. Together they encode those rules (business rule R03: six star systems, four tradable goods, dice-resolved trades). These are the closest thing this project has to a stable contract, because they're fixed by the board game itself, not by this codebase's current stage.
 
 - **Breaking change**: altering a star system's name/goods, a good's identity, the dice mechanic, or the offer-matching/pricing logic in a way that changes a game outcome for the same inputs.
 - **Required path**: must come with a test proving the new behavior against the original game's rule, and a note in the PR body explaining why the rule changed (new house rule, bug fix against the original, etc.) — not silently "while I was in there."
@@ -129,11 +129,9 @@ Stored data outlives the code that wrote it, so the item shape is a contract wit
 - **Sessions** share the table, one item per login session (`login/adapter/dynamodb/SessionItem`): `id` is `session#` plus the SHA-256 (hex) of the session token, so the token itself is never stored; `playerName`, `corporationName` and `email` are S. Changing how the id is derived from the token signs every player out, so it needs the same care as changing the key.
 - **Required path**: change the type's item class (`GameItem`, `LogTurnItem`, `PlayerItem`, `ShipItem`, `WarehouseItem`, `FactoryItem`, `MarketPositionItem`, `TurnItem`, `OfferItem`, `InitiativeBidItem`, `TurnOrderPickItem`, `MarketGoodItem`, `LogEntryItem`, `SessionItem`) and its round-trip test together (engineering standards §12), and state the change in the PR body.
 
-## Not yet applicable (no contract exists)
+## Confidential-data authorization
 
-These will become protected surfaces once they exist, per the product brief's Scope/Now — call this file out for an update in the PR that first introduces each:
-
-- **Confidential-data authorization** — the session→player→game check from product-brief assumption A05 doesn't exist yet; once it does, loosening it is always a blocker-severity review finding (see `CODE_REVIEW.md`), never a plain compatibility note.
+The session→player→game check from product-brief assumption A05 exists: every game endpoint resolves the caller from their session, a caller who isn't in the game gets `403` with no game data (`GamePollingService`, and `Game.playerOf` on every action), and private state travels only under `you`, built for the caller (§6). Loosening any of it is always a blocker-severity review finding (see `CODE_REVIEW.md`), never a plain compatibility note.
 
 ## Required path for any breaking change, in general
 

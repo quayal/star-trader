@@ -19,6 +19,13 @@ object DynamoDbLocal {
 
 	private const val PORT = 8000
 
+	/**
+	 * The region of [client]. DynamoDB Local keeps a separate set of tables per access key and region, so a Spring test
+	 * must point the app's own client at the same one (`star-trader.dynamodb.region`); otherwise the app takes it from a
+	 * developer's `AWS_REGION` and the test's client looks at tables that don't exist (lesson 2026-11-16).
+	 */
+	const val REGION = "eu-central-1"
+
 	private val container: GenericContainer<*> by lazy {
 		GenericContainer("amazon/dynamodb-local:3.3.2")
 			.withExposedPorts(PORT)
@@ -39,7 +46,7 @@ object DynamoDbLocal {
 	// DynamoDB Local accepts any credentials; fixed dummy ones keep a developer's AWS config out of the tests.
 	fun client(): DynamoDbClient = DynamoDbClient.builder()
 		.endpointOverride(URI(endpoint))
-		.region(Region.EU_CENTRAL_1)
+		.region(Region.of(REGION))
 		.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("local", "local")))
 		.build()
 }

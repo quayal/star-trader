@@ -71,6 +71,7 @@ class GameControllerTest {
 		@Bean
 		fun useDynamoDbLocal() = DynamicPropertyRegistrar { registry ->
 			registry.add("star-trader.dynamodb.endpoint-override") { DynamoDbLocal.endpoint }
+			registry.add("star-trader.dynamodb.region") { DynamoDbLocal.REGION }
 			registry.add("star-trader.dynamodb.table-name") { "games-controller-test" }
 		}
 	}
