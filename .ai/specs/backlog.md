@@ -3,7 +3,9 @@
 ## .ai/specs/product-brief.md
 
 Backlog source: `.ai/specs/product-brief.md`
-Last filed: 2026-10-29 (E06 filed 2026-11-15)
+Last filed: 2026-10-29 (E06 filed 2026-11-15; E06-S08 planned 2026-11-16, not filed)
+
+2026-11-16: the creator moved the Investment phase to its own Infrastructure screen (D12). Added E06-S08 (the screen; moves Collect off the Deck) and made E06-S04 and E06-S05 depend on it; S04 and S05's wording changes in the spec. **Not filed yet:** E06-S08 needs an issue, and #102 and #103 need their dependency and acceptance criteria refreshed from the spec.
 
 2026-11-15 run: planned E06 (factories, warehouses, Investment phase) from the creator's answers; spec `2026-11-15-e06-factories-warehouses.md`. Filed as #98–#105. The parked "Later" row was renamed E99 so E06 could be used for this epic.
 
@@ -50,8 +52,9 @@ Earlier (2026-10-25): E03–E05 still had no stories/tasks filed — this run wa
 | E06-S01 | #99 | A turn also has an Investment phase | #98 | E05-S07 | no |
 | E06-S02 | #100 | A player can own warehouses and factories, and everyone sees them | #98 | E05 | no |
 | E06-S03 | #101 | Collecting output at the start of Investment | #98 | E06-S01, E06-S02 | no |
-| E06-S04 | #102 | Buying warehouse blocks | #98 | E06-S03 | no |
-| E06-S05 | #103 | Building or extending a factory | #98 | E06-S03 | no |
+| E06-S04 | #102 | Buying warehouse blocks | #98 | E06-S03, E06-S08 | no |
+| E06-S05 | #103 | Building or extending a factory | #98 | E06-S03, E06-S08 | no |
 | E06-S06 | #104 | A warehouse lets you trade without a ship | #98 | E06-S02, E05-S04 | no |
 | E06-S07 | #105 | The Game log shows builds and collected output | #98 | E06-S04, E06-S05 | no |
+| E06-S08 | — | An Infrastructure screen for the whole Investment phase | #98 | E06-S03 | not filed |
 | E99 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting); renamed from E06 on 2026-11-15 so E06 could be factories | — | — | not filed |
