@@ -1,8 +1,10 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Factory
+import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
@@ -31,9 +33,18 @@ class PlayerItemTest {
 				cargo = mapOf(
 					Goods.POLY to 4,
 					Goods.CHIPS to 12
-				)
+				),
+				hull = Hull.FLUTE,
+				modules = listOf(Module.ARSENAL, Module.PASSENGER)
 			),
-			Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
+			Ship(
+				name = "Halcyon",
+				system = StarSystem.TAU_CETI,
+				location = ShipLocation.PORT,
+				cargo = emptyMap(),
+				hull = Ship.LEGACY_HULL,
+				modules = Ship.LEGACY_MODULES
+			)
 		),
 		marketPositions = listOf(
 			MarketPosition(system = StarSystem.TAU_CETI, goods = Goods.POLY, tier = MarketTier.WHOLESALER),

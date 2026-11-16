@@ -4,10 +4,49 @@ import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
- * A player's ship. Its name and position are public, like the board; its [cargo] (units per good) is private
- * to its owner (S02-7). Trading fills and empties the cargo (E05).
+ * A player's ship: a [hull] with [modules] (R51, R52). Its name and position are public, like the board; its [cargo]
+ * (units per good) is private to its owner (S02-7), as are its hull and modules (R57). Trading fills and empties the
+ * cargo (E05). Its stats are derived from the hull and modules, never stored (R53).
  */
-data class Ship(val name: String, val system: StarSystem, val location: ShipLocation, val cargo: Map<Goods, Int>) {
+data class Ship(
+	val name: String,
+	val system: StarSystem,
+	val location: ShipLocation,
+	val cargo: Map<Goods, Int>,
+	val hull: Hull,
+	val modules: List<Module>
+) {
+
+	init {
+		hull.checkFits(modules)
+	}
+
+	/** R53: the hull's weapons plus every module's. */
+	fun weapons(): Int = hull.weapons + modules.sumOf { it.weapons }
+
+	/** R53: the rocket weapons of every module (the hull has none). */
+	fun rocketWeapons(): Int = modules.sumOf { it.rocketWeapons }
+
+	/** R53: the crew the hull and every module need. */
+	fun crewNeeded(): Int = hull.crew + modules.sumOf { it.crew }
+
+	/** R53: the hull's built-in cargo spaces plus every module's. */
+	fun cargoSpaces(): Int = hull.builtInCargo + modules.sumOf { it.cargoSpaces }
+
+	/** R53: the passengers every module takes. */
+	fun passengers(): Int = modules.sumOf { it.passengers }
+
+	/** R53: the hull's shields. */
+	fun shields(): Int = hull.shields
+
+	/** R53: the hull's intercept. */
+	fun intercept(): Int = hull.intercept
+
+	/** R53: how many modules the hull holds. */
+	fun moduleCapacity(): Int = hull.moduleCapacity
+
+	/** R53: the modules that take module capacity (not Safe jump, R52). */
+	fun modulesUsed(): Int = modules.count { it.takesModuleCapacity }
 
 	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
@@ -76,7 +115,15 @@ data class Ship(val name: String, val system: StarSystem, val location: ShipLoca
 			"Ironside", "Tallow", "Ostrava", "Kestrel", "Solace", "Pilgrim"
 		)
 
-		/** A ship carrying nothing (R40: every ship starts empty). */
-		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) = Ship(name, system, location, emptyMap())
+		/**
+		 * The hull and modules of every ship before E07: a Clarinet with 5 Cargo modules, so 10 cargo spaces (R42).
+		 * A ship saved without a hull loads as this one (BACKWARD_COMPATIBILITY.md §7).
+		 */
+		val LEGACY_HULL = Hull.CLARINET
+		val LEGACY_MODULES = List(5) { Module.CARGO }
+
+		/** A ship carrying nothing (R40: every ship starts empty), still the legacy hull and modules until E07-S02. */
+		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) =
+			Ship(name, system, location, emptyMap(), LEGACY_HULL, LEGACY_MODULES)
 	}
 }

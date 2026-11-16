@@ -45,7 +45,9 @@ class GameShipJumpTest {
 		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI)
 
 		// R19: instant; it has left its port, and S03 asks where it ends up.
-		assertThat(shipOf(game, "Meridian")).isEqualTo(Ship("Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap()))
+		assertThat(
+			shipOf(game, "Meridian")
+		).isEqualTo(Ship("Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.LEGACY_HULL, Ship.LEGACY_MODULES))
 		assertThat(game.turn!!.jumpedShips).containsExactly("Meridian")
 	}
 

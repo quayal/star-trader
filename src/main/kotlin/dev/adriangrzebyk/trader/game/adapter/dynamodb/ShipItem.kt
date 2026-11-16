@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Hull
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.trading.Goods
@@ -14,7 +16,9 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 			NAME to AttributeValue.fromS(ship.name),
 			SYSTEM to AttributeValue.fromS(ship.system.name),
 			LOCATION to AttributeValue.fromS(ship.location.name),
-			CARGO to AttributeValue.fromM(ship.cargo.entries.associate { (goods, units) -> goods.name to number(units) })
+			CARGO to AttributeValue.fromM(ship.cargo.entries.associate { (goods, units) -> goods.name to number(units) }),
+			HULL to AttributeValue.fromS(ship.hull.name),
+			MODULES to AttributeValue.fromL(ship.modules.map { AttributeValue.fromS(it.name) })
 		)
 	)
 
@@ -23,7 +27,10 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
 		location = ShipLocation.valueOf(attributes.attribute(LOCATION).s()),
 		// Items saved before E03-S02 have no cargo; every ship was empty then (BACKWARD_COMPATIBILITY.md §7).
-		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap()
+		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap(),
+		// Items saved before E07-S01 have no hull or modules; every ship was a Clarinet with 5 Cargo modules then.
+		hull = attributes[HULL]?.s()?.let { Hull.valueOf(it) } ?: Ship.LEGACY_HULL,
+		modules = attributes[MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: Ship.LEGACY_MODULES
 	)
 
 	private companion object {
@@ -31,5 +38,7 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		const val SYSTEM = "system"
 		const val LOCATION = "location"
 		const val CARGO = "cargo"
+		const val HULL = "hull"
+		const val MODULES = "modules"
 	}
 }
