@@ -42,18 +42,18 @@ export function dictatorText(goods) {
 }
 
 /**
- * What the offer form may offer at [systemId] for the player with [email]: the goods traded there in market order,
+ * What the offer form may offer at [systemId] for the player with [playerId]: the goods traded there in market order,
  * minus those they already have an offer on this turn (R33) and those they're Dictator of there (R38). `notes`
  * says why goods are missing when that matters: the Dictator line for each such good, and "every good" once the
  * player has an offer on all the others.
  */
-export function offerChoices(game, systemId, email) {
+export function offerChoices(game, systemId, playerId) {
 	const system = game.board.find(s => s.id === systemId);
 	if (!system) {
 		return { goods: [], notes: [] };
 	}
 	const offered = new Set((game.you?.offers ?? []).filter(o => o.system === systemId).map(o => o.goods));
-	const me = game.players.find(p => p.email === email);
+	const me = game.players.find(p => p.id === playerId);
 	const dictatorOf = new Set((me?.marketPositions ?? [])
 		.filter(position => position.system === systemId && position.tier === 'DICTATOR')
 		.map(position => position.goods));
@@ -67,9 +67,9 @@ export function offerChoices(game, systemId, email) {
 	return { goods, notes };
 }
 
-/** R23: whether the player with [email] has a ship at [systemId]; without one the form warns but still allows. */
-export function hasShipAt(game, systemId, email) {
-	const me = game.players.find(p => p.email === email);
+/** R23: whether the player with [playerId] has a ship at [systemId]; without one the form warns but still allows. */
+export function hasShipAt(game, systemId, playerId) {
+	const me = game.players.find(p => p.id === playerId);
 	return (me?.ships ?? []).some(ship => ship.system === systemId);
 }
 

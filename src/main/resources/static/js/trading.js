@@ -39,8 +39,8 @@ function resolved(game) {
 	return game.turn?.resolvedGoods ?? [];
 }
 
-function corporation(game, email) {
-	return game.players.find(p => p.email === email)?.corporationName ?? email;
+function corporation(game, playerId) {
+	return game.players.find(p => p.id === playerId)?.corporationName ?? playerId;
 }
 
 /** Who orders the queue (R25): the first player in initiative, during Trading; null otherwise. */
@@ -68,9 +68,9 @@ export function awaitingWholesaler(game) {
 	return resolution(game)?.awaitingWholesaler ?? null;
 }
 
-/** "Dictator" or "Wholesaler": why [email] is asked in the wholesale step of the current resolution (R37). */
-function wholesaleRole(game, email) {
-	return resolution(game)?.dictator === email ? 'Dictator' : 'Wholesaler';
+/** "Dictator" or "Wholesaler": why [playerId] is asked in the wholesale step of the current resolution (R37). */
+function wholesaleRole(game, playerId) {
+	return resolution(game)?.dictator === playerId ? 'Dictator' : 'Wholesaler';
 }
 
 /**
@@ -104,34 +104,34 @@ export function resolvedText(game) {
  * S01-8 (D09): whom the game waits for, named. "" outside Trading; once every good is resolved, says so (the turn's end
  * is E05-S07).
  */
-export function waitingText(game, email) {
+export function waitingText(game, playerId) {
 	if (!isTrading(game)) {
 		return '';
 	}
 	const dictator = awaitingDictator(game);
 	if (dictator !== null) {
-		return dictator === email
+		return dictator === playerId
 			? `You're Dictator of ${resolution(game).good.goods} here: place an offer before the roll, or pass.`
 			: `Waiting for ${corporation(game, dictator)} (Dictator) to decide.`;
 	}
 	const trade = awaitingTrade(game);
 	if (trade !== null) {
-		return trade.playerEmail === email
+		return trade.playerId === playerId
 			? `The market has reached your ${verb(trade.type)} at ${trade.price} HT: your decision.`
-			: `${corporation(game, trade.playerEmail)} can ${verb(trade.type)} up to ${trade.maxUnits} u — waiting for their decision.`;
+			: `${corporation(game, trade.playerId)} can ${verb(trade.type)} up to ${trade.maxUnits} u — waiting for their decision.`;
 	}
 	const wholesaler = awaitingWholesaler(game);
 	if (wholesaler !== null) {
 		const { newPrice } = resolution(game);
-		return wholesaler === email
-			? `As ${wholesaleRole(game, email)}, you may buy or sell up to 5 u at the new price, ${newPrice} HT, or pass: your decision.`
+		return wholesaler === playerId
+			? `As ${wholesaleRole(game, playerId)}, you may buy or sell up to 5 u at the new price, ${newPrice} HT, or pass: your decision.`
 			: `Waiting for ${corporation(game, wholesaler)} (${wholesaleRole(game, wholesaler)}) to trade up to 5 u at ${newPrice} HT, or pass.`;
 	}
 	const who = resolver(game);
 	if (who === null) {
 		return `All ${resolved(game).length} goods resolved.`;
 	}
-	return who === email ? 'You are first in initiative: resolve the next good.' : `Waiting for ${corporation(game, who)} to resolve the next good.`;
+	return who === playerId ? 'You are first in initiative: resolve the next good.' : `Waiting for ${corporation(game, who)} to resolve the next good.`;
 }
 
 /**
@@ -141,9 +141,9 @@ export function waitingText(game, email) {
  * resolves, and the turn once Investment has); once the game is over, that it is (E05-S08); before Trading otherwise,
  * when it starts (S01-7).
  */
-export function tradingStatus(game, email) {
+export function tradingStatus(game, playerId) {
 	if (isTrading(game)) {
-		return waitingText(game, email);
+		return waitingText(game, playerId);
 	}
 	if (game.status === 'FINISHED') {
 		return GAME_OVER_TEXT;
@@ -158,12 +158,12 @@ export function tradingStatus(game, email) {
 }
 
 /** S01-3: the read-only list's note for everyone but the first in initiative. */
-export function queueNote(game, email) {
+export function queueNote(game, playerId) {
 	const who = orderedBy(game);
 	if (who === null) {
 		return '';
 	}
-	return who === email ? YOUR_QUEUE_NOTE : `Order decided by ${corporation(game, who)} (first in initiative); it can change until each one resolves.`;
+	return who === playerId ? YOUR_QUEUE_NOTE : `Order decided by ${corporation(game, who)} (first in initiative); it can change until each one resolves.`;
 }
 
 /**
@@ -206,8 +206,8 @@ export function resolutionTitle(game) {
 export function disclosedOffers(game) {
 	const current = resolution(game);
 	return (current?.offers ?? []).map(offer => ({
-		corporation: corporation(game, offer.playerEmail),
-		dictator: offer.playerEmail === current.dictator,
+		corporation: corporation(game, offer.playerId),
+		dictator: offer.playerId === current.dictator,
 		type: offer.type,
 		typeName: TYPE_NAMES[offer.type] ?? offer.type,
 		price: offer.price,
@@ -224,7 +224,7 @@ export function dictatorLine(game) {
 	if (current.awaitingDictator) {
 		return `${who} \u2014 deciding before the roll`;
 	}
-	const offer = current.offers.find(o => o.playerEmail === current.dictator);
+	const offer = current.offers.find(o => o.playerId === current.dictator);
 	return offer ? `${who} \u2014 offered ${TYPE_NAMES[offer.type] ?? offer.type} at ${offer.price} HT` : `${who} \u2014 passed`;
 }
 
@@ -261,7 +261,7 @@ export function counterLines(game) {
 }
 
 function wholesaleLine(game, wholesale) {
-	const who = `${corporation(game, wholesale.playerEmail)} (${wholesale.role})`;
+	const who = `${corporation(game, wholesale.playerId)} (${wholesale.role})`;
 	if (!wholesale.type) {
 		return `${who} passed on wholesale`;
 	}
@@ -285,13 +285,13 @@ function positionRollLine(game, trade, good) {
 	const change = roll.promotedTo
 		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName}`
 		: 'no change';
-	const demoted = (roll.demoted ?? []).map(email => `; ${corporation(game, email)} is demoted to Wholesaler`).join('');
-	return `${corporation(game, trade.playerEmail)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
+	const demoted = (roll.demoted ?? []).map(playerId => `; ${corporation(game, playerId)} is demoted to Wholesaler`).join('');
+	return `${corporation(game, trade.playerId)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
 }
 
 function tradeLine(game, trade) {
 	const [action, done, total] = trade.type === 'SELL' ? ['sell', 'sold', 'received'] : ['buy', 'bought', 'paid'];
-	const allowed = `${corporation(game, trade.playerEmail)} could ${action} up to ${trade.marketMax ?? trade.units} u`;
+	const allowed = `${corporation(game, trade.playerId)} could ${action} up to ${trade.marketMax ?? trade.units} u`;
 	return trade.units === 0
 		? `${allowed}: ${done} nothing`
 		: `${allowed}: ${done} ${trade.units} u at ${trade.price} HT each, ${total} ${trade.units * trade.price} HT`;
@@ -323,12 +323,12 @@ function placesWord(form) {
 }
 
 /**
- * [email]'s ships in port at [good]'s system and their warehouse there, if any (trading happens from them, R23, R42,
+ * [playerId]'s ships in port at [good]'s system and their warehouse there, if any (trading happens from them, R23, R42,
  * R49), each with what it holds of the good and its free cargo space for it (unlimited for CHIPS and FOOD). The
  * warehouse comes last and is marked `warehouse: true`.
  */
-function shipsInPort(game, email, good) {
-	const here = (game.players.find(p => p.email === email)?.ships ?? [])
+function shipsInPort(game, playerId, good) {
+	const here = (game.players.find(p => p.id === playerId)?.ships ?? [])
 		.filter(ship => ship.system === good.system && ship.location === 'PORT')
 		.map(ship => ship.name);
 	const ships = (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
@@ -360,22 +360,22 @@ function shipsLegend(ships, good) {
 }
 
 /**
- * E05-S04: the amount form for [email] when the game waits for their amount, else null. [max] is their own max after
+ * E05-S04: the amount form for [playerId] when the game waits for their amount, else null. [max] is their own max after
  * money and cargo (R12, R10); [ships] are their ships in port at that system (trading happens in port, R23, R42), each
  * with what it holds of the good and its free cargo space for it (unlimited for CHIPS and FOOD). With a max of 0,
  * [cannot] says why, and the player acknowledges by trading nothing (S04-5); otherwise it's "".
  */
-export function tradeForm(game, email) {
+export function tradeForm(game, playerId) {
 	const trade = awaitingTrade(game);
 	const max = game.you?.tradeMax;
-	if (trade === null || trade.playerEmail !== email || max === null || max === undefined) {
+	if (trade === null || trade.playerId !== playerId || max === null || max === undefined) {
 		return null;
 	}
 	const { good } = resolution(game);
-	const ships = shipsInPort(game, email, good);
+	const ships = shipsInPort(game, playerId, good);
 	const action = verb(trade.type);
 	return {
-		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${email}`,
+		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${playerId}`,
 		type: trade.type,
 		goods: good.goods,
 		systemName: good.systemName,
@@ -394,14 +394,14 @@ export function tradeForm(game, email) {
 }
 
 /**
- * E05-S05-4: the wholesale form for [email] when the wholesale step waits for them, else null; shaped like [tradeForm]
+ * E05-S05-4: the wholesale form for [playerId] when the wholesale step waits for them, else null; shaped like [tradeForm]
  * so the same split, warning and checks apply. [type] is the Buy or Sell they chose; null picks one they can trade (Buy
  * first). [max] is theirs for that type, after money and cargo, at most 5 u (R37, R12, R10); with 0, [cannot] says why,
  * and they can still pass.
  */
-export function wholesaleForm(game, email, type) {
+export function wholesaleForm(game, playerId, type) {
 	const maxes = game.you?.wholesaleMax;
-	if (awaitingWholesaler(game) !== email || !maxes) {
+	if (awaitingWholesaler(game) !== playerId || !maxes) {
 		return null;
 	}
 	const chosen = type ?? (maxes.buy > 0 || maxes.sell === 0 ? 'BUY' : 'SELL');
@@ -409,9 +409,9 @@ export function wholesaleForm(game, email, type) {
 	const current = resolution(game);
 	const { good } = current;
 	const price = current.newPrice;
-	const ships = shipsInPort(game, email, good);
+	const ships = shipsInPort(game, playerId, good);
 	return {
-		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${email}/wholesale/${chosen}`,
+		key: `${game.id}/${game.turn.number}/${good.system}/${good.goods}/${playerId}/wholesale/${chosen}`,
 		wholesale: true,
 		type: chosen,
 		goods: good.goods,
@@ -419,7 +419,7 @@ export function wholesaleForm(game, email, type) {
 		price,
 		max,
 		ships,
-		heading: `As ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at the new price, ${price} HT?`,
+		heading: `As ${wholesaleRole(game, playerId)}, buy or sell up to 5 u of ${good.goods} at the new price, ${price} HT?`,
 		amountLabel: `Amount to ${verb(chosen)} (u)`,
 		help: `${chosen === 'SELL' ? 'You get' : 'You pay'} ${price} HT each, from 1 to ${max}. ${WHOLESALE_HELP}`,
 		shipsLegend: shipsLegend(ships, good),
@@ -505,8 +505,8 @@ export function validateTrade(form, amountText, splitTexts) {
 }
 
 /** S02-2: the Dictator form's question, for the Dictator asked; "" for everyone else. */
-export function dictatorQuestion(game, email) {
-	return awaitingDictator(game) === email ? `You're Dictator of ${resolution(game).good.goods} here. Place an offer before the roll?` : '';
+export function dictatorQuestion(game, playerId) {
+	return awaitingDictator(game) === playerId ? `You're Dictator of ${resolution(game).good.goods} here. Place an offer before the roll?` : '';
 }
 
 /** The good a Dictator form belongs to, so what was typed is dropped when another good (or game, or turn) asks. */
@@ -542,21 +542,21 @@ export function sameOrder(a, b) {
 }
 
 /**
- * S01-9: the decision the game waits on [email] for, as the alert's text, or "" when there's none: the Dictator's offer
+ * S01-9: the decision the game waits on [playerId] for, as the alert's text, or "" when there's none: the Dictator's offer
  * (E05-S02), their amount (E05-S04), the wholesale step (E05-S05) or resolving the next good.
  */
-export function decisionText(game, email) {
-	if (awaitingDictator(game) === email) {
+export function decisionText(game, playerId) {
+	if (awaitingDictator(game) === playerId) {
 		const { good } = resolution(game);
 		return `Your decision is needed: you're Dictator of ${good.goods} at ${good.systemName}. Place an offer or pass.`;
 	}
-	if (awaitingTrade(game)?.playerEmail === email) {
+	if (awaitingTrade(game)?.playerId === playerId) {
 		const { good } = resolution(game);
 		return `Your decision is needed: the market has reached your ${verb(awaitingTrade(game).type)} of ${good.goods} at ${good.systemName}.`;
 	}
-	if (awaitingWholesaler(game) === email) {
+	if (awaitingWholesaler(game) === playerId) {
 		const { good, newPrice } = resolution(game);
-		return `Your decision is needed: as ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at ${good.systemName} at ${newPrice} HT, or pass.`;
+		return `Your decision is needed: as ${wholesaleRole(game, playerId)}, buy or sell up to 5 u of ${good.goods} at ${good.systemName} at ${newPrice} HT, or pass.`;
 	}
-	return resolver(game) === email ? 'Your decision is needed: resolve the next good.' : '';
+	return resolver(game) === playerId ? 'Your decision is needed: resolve the next good.' : '';
 }

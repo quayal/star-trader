@@ -3,20 +3,20 @@ import { describe, it } from 'node:test';
 
 import { isOver, moneyText, standingRows, winnerText } from '../../main/resources/static/js/game-over.js';
 
-const VEGA = 'vega@example.com';
-const KESSLER = 'kessler@example.com';
-const ORION = 'orion@example.com';
+const VEGA = 'vega';
+const KESSLER = 'kessler';
+const ORION = 'orion';
 
 function game({ status = 'FINISHED', standings, winners } = {}) {
 	const finalMoney = standings ?? [
-		{ email: VEGA, corporationName: 'Vega Lines', money: 2310 },
-		{ email: KESSLER, corporationName: 'Kessler Cargo', money: 1900 },
-		{ email: ORION, corporationName: 'Orion Freight', money: 300 },
+		{ id: VEGA, corporationName: 'Vega Lines', money: 2310 },
+		{ id: KESSLER, corporationName: 'Kessler Cargo', money: 1900 },
+		{ id: ORION, corporationName: 'Orion Freight', money: 300 },
 	];
 	return {
 		id: 'g1',
 		status,
-		result: status === 'FINISHED' ? { standings: finalMoney, winners: winners ?? [finalMoney[0].email] } : null,
+		result: status === 'FINISHED' ? { standings: finalMoney, winners: winners ?? [finalMoney[0].id] } : null,
 	};
 }
 
@@ -39,9 +39,9 @@ describe('Game over (s09, E05-S08)', () => {
 	it('lets players tied on money share the win (S08-4)', () => {
 		const tied = game({
 			standings: [
-				{ email: VEGA, corporationName: 'Vega Lines', money: 2310 },
-				{ email: KESSLER, corporationName: 'Kessler Cargo', money: 2310 },
-				{ email: ORION, corporationName: 'Orion Freight', money: 300 },
+				{ id: VEGA, corporationName: 'Vega Lines', money: 2310 },
+				{ id: KESSLER, corporationName: 'Kessler Cargo', money: 2310 },
+				{ id: ORION, corporationName: 'Orion Freight', money: 300 },
 			],
 			winners: [VEGA, KESSLER],
 		});

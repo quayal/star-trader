@@ -24,16 +24,16 @@ function holdingText(cargo) {
 }
 
 /**
- * Where [email] can move goods (R58): each of their ships in port at a system where they have a warehouse, with that
+ * Where [playerId] can move goods (R58): each of their ships in port at a system where they have a warehouse, with that
  * warehouse. `ship` and `warehouse` are the viewer's own entries (cargo, cargoUsed, cargoSpaces); `label` is the ship's
  * option, "Wayfarer at Tau Ceti — ISO 3 · cargo 3 / 8 used", and `warehouseLabel` the line under it.
  */
-export function cargoPlaces(game, email) {
+export function cargoPlaces(game, playerId) {
 	if (!canMoveCargo(game)) {
 		return [];
 	}
 	const own = Object.fromEntries((game.you.ships ?? []).map(ship => [ship.name, ship]));
-	const mine = game.players.find(player => player.email === email)?.ships ?? [];
+	const mine = game.players.find(player => player.id === playerId)?.ships ?? [];
 	return mine.flatMap(position => {
 		const ship = own[position.name];
 		const warehouse = game.you.warehouses.find(candidate => candidate.system === position.system);

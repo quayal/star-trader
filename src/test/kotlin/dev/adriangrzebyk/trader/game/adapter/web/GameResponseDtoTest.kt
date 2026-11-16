@@ -87,7 +87,7 @@ class GameResponseDtoTest {
 		)
 
 		val response = GameResponseDto(game, "host@example.com")
-		val guest = response.players.single { it.email == "guest@example.com" }
+		val guest = response.players.single { it.id == "p2" }
 
 		assertThat(guest.warehouses).containsExactly(WarehouseResponseDto("TAU_CETI", 2, 20))
 		assertThat(guest.factories).containsExactly(FactoryResponseDto("SIGMA_DRACONIS", "FOOD", 3))
@@ -197,10 +197,10 @@ class GameResponseDtoTest {
 		assertThat(seenByGuest.you!!.warehouses).isEmpty()
 		assertThat(
 			seenByGuest.players.single {
-				it.email == "host@example.com"
+				it.id == "p1"
 			}.warehouses
 		).containsExactly(WarehouseResponseDto("TAU_CETI", 1, 10))
-		assertThat(seenByGuest.turn!!.collected).containsExactly("host@example.com")
+		assertThat(seenByGuest.turn!!.collected).containsExactly("p1")
 	}
 
 	@Test
@@ -218,7 +218,7 @@ class GameResponseDtoTest {
 			}
 		)
 
-		val guest = GameResponseDto(game, "host@example.com").players.single { it.email == "guest@example.com" }
+		val guest = GameResponseDto(game, "host@example.com").players.single { it.id == "p2" }
 
 		assertThat(guest.marketPositions).containsExactly(MarketPositionResponseDto("MU_HERCULIS", "ISO", "DICTATOR"))
 	}
@@ -238,7 +238,7 @@ class GameResponseDtoTest {
 			}
 		)
 
-		val guest = GameResponseDto(game, "host@example.com").players.single { it.email == "guest@example.com" }
+		val guest = GameResponseDto(game, "host@example.com").players.single { it.id == "p2" }
 
 		assertThat(guest.marketPositions).containsExactly(MarketPositionResponseDto("MU_HERCULIS", "ISO", "RETAILER"))
 	}
@@ -302,7 +302,7 @@ class GameResponseDtoTest {
 	@Test
 	fun shouldSendNobodyElsesHullModulesOrStats() {
 		// E07-S03-6, R57: other players' ships are a name and a position, nothing more
-		val guestShips = GameResponseDto(started, "host@example.com").players.first { it.email == "guest@example.com" }.ships
+		val guestShips = GameResponseDto(started, "host@example.com").players.first { it.id == "p2" }.ships
 
 		assertThat(guestShips).containsExactly(
 			ShipResponseDto("Meridian", "GAMMA_LEPORIS", "Gamma Leporis", "PORT"),
@@ -338,7 +338,7 @@ class GameResponseDtoTest {
 				7
 			)
 		)
-		assertThat(seenByHost.players.single { it.email == "guest@example.com" }.warehouses)
+		assertThat(seenByHost.players.single { it.id == "p2" }.warehouses)
 			.containsExactly(WarehouseResponseDto("TAU_CETI", 1, 10))
 		assertThat(seenByHost.players.map { it.warehouses }.toString()).doesNotContain("90").doesNotContain("ISO").doesNotContain("POLY")
 	}
@@ -369,7 +369,7 @@ class GameResponseDtoTest {
 	fun shouldSendTheInitiativeOrderToEveryoneOnceBiddingCloses() {
 		val closed = started.advancePhase(FakeDice(2, 1))
 
-		assertThat(GameResponseDto(closed, "guest@example.com").turn!!.initiative).containsExactly("host@example.com", "guest@example.com")
+		assertThat(GameResponseDto(closed, "guest@example.com").turn!!.initiative).containsExactly("p1", "p2")
 		assertThat(GameResponseDto(started, "guest@example.com").turn!!.initiative).isEmpty()
 	}
 
@@ -403,20 +403,24 @@ class GameResponseDtoTest {
 			emptyList()
 		)
 
-		val dto = ResolutionResponseDto(resolution)
+		// Vega, Orion and Kessler joined in that order, so they go by p1, p2 and p3: no email is sent
+		val dto = ResolutionResponseDto(resolution, PlayerIds(listOf("vega@example.com", "orion@example.com", "kessler@example.com")))
 
 		assertThat(dto.startingCounter).isEqualTo(3)
 		assertThat(dto.trades).containsExactly(
-			TradeResponseDto("vega@example.com", "BUY", 11, 4, 4, null),
-			TradeResponseDto("orion@example.com", "SELL", 10, 5, 0, null),
+			TradeResponseDto("p1", "BUY", 11, 4, 4, null),
+			TradeResponseDto("p2", "SELL", 10, 5, 0, null),
 			// E05-S06-4: the position roll is public too
-			TradeResponseDto("kessler@example.com", "SELL", 9, 8, 7, PositionRollResponseDto(5, "DICTATOR", listOf("vega@example.com")))
+			TradeResponseDto("p3", "SELL", 9, 8, 7, PositionRollResponseDto(5, "DICTATOR", listOf("p1")))
 		)
 		assertThat(dto.awaitingTrade).isNull()
 	}
 
 	// E05-S04: Grace (guest) buys ISO at 11 at Mu Herculis; the counter is at 3, so up to 4 u, and the game waits for her.
 	private val gracesBuy = Offer("guest@example.com", StarSystem.MU_HERCULIS, Goods.ISO, OfferType.BUY, 11)
+
+	/** Ada (host) is p1 and Grace (guest) p2, as in [started]; Kim, who the wholesale step also asks, would be p3. */
+	private val ids = PlayerIds(listOf("host@example.com", "guest@example.com", "kim@example.com"))
 	private val awaitingGrace =
 		Resolution(
 			MarketGood(
@@ -429,7 +433,7 @@ class GameResponseDtoTest {
 	@Test
 	fun shouldTellEveryoneWhoTheGameWaitsForAndWhatTheMarketAllows() {
 		// S01-8, D09
-		assertThat(ResolutionResponseDto(awaitingGrace).awaitingTrade).isEqualTo(AwaitingTradeResponseDto("guest@example.com", "BUY", 11, 4))
+		assertThat(ResolutionResponseDto(awaitingGrace, ids).awaitingTrade).isEqualTo(AwaitingTradeResponseDto("p2", "BUY", 11, 4))
 	}
 
 	@Test
@@ -477,15 +481,15 @@ class GameResponseDtoTest {
 	@Test
 	fun shouldSendThePriceChangeAndTheWholesaleStepToEveryone() {
 		// S05-1, S05-2, S05-4, S05-5: public, like the trades
-		val dto = ResolutionResponseDto(wholesaleStep)
+		val dto = ResolutionResponseDto(wholesaleStep, ids)
 
 		assertThat(dto.startPrice).isEqualTo(11)
 		assertThat(dto.newPrice).isEqualTo(11)
-		assertThat(dto.wholesalers).containsExactly("host@example.com", "kim@example.com")
-		assertThat(dto.awaitingWholesaler).isEqualTo("kim@example.com")
-		assertThat(dto.wholesales).containsExactly(WholesaleResponseDto("host@example.com", "Wholesaler", "SELL", 2, 11))
+		assertThat(dto.wholesalers).containsExactly("p1", "p3")
+		assertThat(dto.awaitingWholesaler).isEqualTo("p3")
+		assertThat(dto.wholesales).containsExactly(WholesaleResponseDto("p1", "Wholesaler", "SELL", 2, 11))
 		assertThat(dto.finished).isFalse()
-		assertThat(ResolutionResponseDto(awaitingGrace).newPrice).isNull()
+		assertThat(ResolutionResponseDto(awaitingGrace, ids).newPrice).isNull()
 	}
 
 	@Test
@@ -493,6 +497,7 @@ class GameResponseDtoTest {
 		// R37, R12, R10, R29: here the guest passed and the host is asked; with 300 HT at 11 HT and no ISO in port
 		// they may buy 5 and sell none. Nobody else gets it.
 		val askingHost = wholesaleStep.copy(
+			dictator = null, // Kim isn't in this two-player game
 			wholesalers = listOf("guest@example.com", "host@example.com"),
 			wholesales = listOf(Wholesale("guest@example.com", null, 0, 11))
 		)
@@ -514,10 +519,10 @@ class GameResponseDtoTest {
 			assertThat(GameResponseDto(finished, viewer).result).isEqualTo(
 				GameResultResponseDto(
 					listOf(
-						StandingResponseDto("guest@example.com", "Vega Lines", 2310),
-						StandingResponseDto("host@example.com", "Orion Freight", 300)
+						StandingResponseDto("p2", "Vega Lines", 2310),
+						StandingResponseDto("p1", "Orion Freight", 300)
 					),
-					listOf("guest@example.com")
+					listOf("p2")
 				)
 			)
 		}
@@ -528,6 +533,6 @@ class GameResponseDtoTest {
 		// S08-4 (proposed): both still have their 300 HT
 		val finished = started.copy(status = GameStatus.FINISHED)
 
-		assertThat(GameResponseDto(finished, "guest@example.com").result!!.winners).containsExactly("host@example.com", "guest@example.com")
+		assertThat(GameResponseDto(finished, "guest@example.com").result!!.winners).containsExactly("p1", "p2")
 	}
 }

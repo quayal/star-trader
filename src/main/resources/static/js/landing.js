@@ -13,15 +13,15 @@ export const DEFAULT_LOCATION = 'PORT';
 export const ESCAPE_LOCATION = 'SPACE';
 
 /**
- * The ship the player with [email] must land now, with its system from the board, or null. It stays non-null until
+ * The ship the player with [playerId] must land now, with its system from the board, or null. It stays non-null until
  * they confirm, so a reload or a later visit opens the dialog again (S03-6, D09).
  */
-export function landingFor(game, email) {
+export function landingFor(game, playerId) {
 	const name = game.turn?.landingShip;
-	if (!name || jumper(game) !== email) {
+	if (!name || jumper(game) !== playerId) {
 		return null;
 	}
-	const ship = game.players.find(p => p.email === email)?.ships.find(s => s.name === name);
+	const ship = game.players.find(p => p.id === playerId)?.ships.find(s => s.name === name);
 	const system = ship && game.board.find(s => s.id === ship.system);
 	return ship && system ? { ship, system } : null;
 }

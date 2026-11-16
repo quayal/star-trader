@@ -115,12 +115,12 @@ export function initials(corporationName) {
 }
 
 /** The game's ships at [systemId], yours first, each as { mine, name, label, corporationName, location }. */
-export function shipsAt(game, systemId, myEmail) {
+export function shipsAt(game, systemId, myId) {
 	const ships = [];
 	for (const player of game.players) {
 		for (const ship of player.ships) {
 			if (ship.system === systemId) {
-				const mine = player.email === myEmail;
+				const mine = player.id === myId;
 				ships.push({
 					mine,
 					name: ship.name,
@@ -135,8 +135,8 @@ export function shipsAt(game, systemId, myEmail) {
 }
 
 /** S02-4: the line under a system on the map. */
-export function shipsUnderText(game, systemId, myEmail) {
-	const ships = shipsAt(game, systemId, myEmail);
+export function shipsUnderText(game, systemId, myId) {
+	const ships = shipsAt(game, systemId, myId);
 	return ships.length ? ships.map(ship => ship.label).join('  ') : 'no ships';
 }
 
@@ -147,12 +147,12 @@ export function mapGood(entry) {
 }
 
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
-export function systemAccessibleName(game, system, myEmail) {
+export function systemAccessibleName(game, system, myId) {
 	const goods = system.market.map(entry => {
 		const level = marketLevel(entry.indicator);
 		return `${entry.goods} ${entry.price} HT, ${level.label}, ${level.hint}`;
 	}).join('; ');
-	const ships = shipsAt(game, system.id, myEmail);
+	const ships = shipsAt(game, system.id, myId);
 	const mine = ships.filter(ship => ship.mine).length;
 	const others = ships.length - mine;
 	return `${system.name}: ${goods}. ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}. Open system details.`;
@@ -177,8 +177,8 @@ export function cargoUsedText(ship) {
  * S02-5: each of your ships with where it is and what it carries. Position comes from the public players[],
  * cargo from `you.ships` (the only place it is sent).
  */
-export function fleet(game, myEmail) {
-	const me = game.players.find(player => player.email === myEmail);
+export function fleet(game, myId) {
+	const me = game.players.find(player => player.id === myId);
 	const cargoByName = Object.fromEntries((game.you?.ships ?? []).map(ship => [ship.name, ship]));
 	return (me?.ships ?? []).map(ship => {
 		const own = cargoByName[ship.name] ?? { cargo: {}, cargoUsed: 0, cargoSpaces: 10 };
@@ -210,9 +210,9 @@ export function locationStats(system, locationId) {
  * S02-7: the three locations of [system], each with its ships. Your ships carry their cargo line; another
  * player's ship shows its owner only (their cargo is never sent, let alone shown).
  */
-export function locations(game, system, myEmail) {
-	const ships = shipsAt(game, system.id, myEmail);
-	const yours = Object.fromEntries(fleet(game, myEmail).map(entry => [entry.name, entry]));
+export function locations(game, system, myId) {
+	const ships = shipsAt(game, system.id, myId);
+	const yours = Object.fromEntries(fleet(game, myId).map(entry => [entry.name, entry]));
 	return LOCATIONS.map(location => ({
 		id: location.id,
 		name: location.name,

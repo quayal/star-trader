@@ -3,8 +3,8 @@ import { describe, it } from 'node:test';
 
 import { landedText, landingFor, landingHeading, landingOptions } from '../../main/resources/static/js/landing.js';
 
-const ME = 'me@example.com';
-const VEGA = 'vega@example.com';
+const ME = 'me';
+const VEGA = 'vega';
 const TAU_CETI = { id: 'TAU_CETI', name: 'Tau Ceti', portClass: 3, legalSystem: 2, police: 4, security: 1 };
 
 function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'SHIP_JUMPS' } = {}) {
@@ -12,8 +12,8 @@ function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'SHIP_JUMPS'
 		status: 'RUNNING',
 		turn: { number: 2, phase, initiative: [ME, VEGA], turnOrder: [ME, VEGA], jumpedShips: ['Wayfarer'], doneJumping, landingShip },
 		players: [
-			{ email: ME, corporationName: 'Orion Freight', ships: [{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'SPACE' }] },
-			{ email: VEGA, corporationName: 'Vega Lines', ships: [] },
+			{ id: ME, corporationName: 'Orion Freight', ships: [{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'SPACE' }] },
+			{ id: VEGA, corporationName: 'Vega Lines', ships: [] },
 		],
 		board: [TAU_CETI],
 	};

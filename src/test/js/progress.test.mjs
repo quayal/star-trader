@@ -4,8 +4,8 @@ import { describe, it } from 'node:test';
 import { YOUR_JUMPS, YOUR_PICK, progressSnapshot, progressText } from '../../main/resources/static/js/progress.js';
 import { YOUR_DICTATOR_DECISION, YOUR_RESOLVE } from '../../main/resources/static/js/trading.js';
 
-const ME = 'me@example.com';
-const VEGA = 'vega@example.com';
+const ME = 'me';
+const VEGA = 'vega';
 
 function game({ id = 'g1', log = ['Game started'], turnOrder = [VEGA, ME], doneJumping = [], phase = 'SHIP_JUMPS' } = {}) {
 	return {
@@ -13,8 +13,8 @@ function game({ id = 'g1', log = ['Game started'], turnOrder = [VEGA, ME], doneJ
 		status: 'RUNNING',
 		turn: { number: 1, phase, initiative: [VEGA, ME], turnOrder, doneJumping, jumpedShips: [] },
 		players: [
-			{ email: VEGA, corporationName: 'Vega Lines', ships: [] },
-			{ email: ME, corporationName: 'Orion Freight', ships: [] },
+			{ id: VEGA, corporationName: 'Vega Lines', ships: [] },
+			{ id: ME, corporationName: 'Orion Freight', ships: [] },
 		],
 		log: log.map(text => ({ turn: 1, text })),
 	};

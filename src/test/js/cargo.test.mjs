@@ -12,7 +12,7 @@ import {
 	validateMove,
 } from '../../main/resources/static/js/cargo.js';
 
-const ME = 'me@example.com';
+const ME = 'me';
 
 // Wayfarer is in port at Tau Ceti with 3 ISO and 5 CHIPS (8 spaces, 3 used); the warehouse there holds 6 ISO and 2 FOOD.
 function game({
@@ -27,13 +27,13 @@ function game({
 		status,
 		players: [
 			{
-				email: ME,
+				id: ME,
 				ships: [
 					{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location },
 					{ name: 'Lantern', system: 'MU_HERCULIS', systemName: 'Mu Herculis', location: 'PORT' },
 				],
 			},
-			{ email: 'vega@example.com', ships: [{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' }] },
+			{ id: 'vega', ships: [{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' }] },
 		],
 		you: {
 			ships: [

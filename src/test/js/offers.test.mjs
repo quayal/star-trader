@@ -19,7 +19,7 @@ import {
 	validatePrice,
 } from '../../main/resources/static/js/offers.js';
 
-const ME = 'me@example.com';
+const ME = 'me';
 
 function game({ offers = [], positions = [], phase = 'BIDDING', ships = [] } = {}) {
 	return {
@@ -30,8 +30,8 @@ function game({ offers = [], positions = [], phase = 'BIDDING', ships = [] } = {
 			{ id: 'GAMMA_LEPORIS', name: 'Gamma Leporis', market: [{ goods: 'POLY' }] },
 		],
 		players: [
-			{ email: ME, ships, marketPositions: positions },
-			{ email: 'other@example.com', ships: [{ name: 'Corvid', system: 'GAMMA_LEPORIS' }], marketPositions: [] },
+			{ id: ME, ships, marketPositions: positions },
+			{ id: 'other', ships: [{ name: 'Corvid', system: 'GAMMA_LEPORIS' }], marketPositions: [] },
 		],
 		you: { money: 300, ships: [], offers },
 	};

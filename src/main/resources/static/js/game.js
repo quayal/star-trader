@@ -144,11 +144,11 @@ export function gameLink(origin, id) {
 	return `${origin}/#game/${encodeURIComponent(id)}`;
 }
 
-/** What the lobby shows to the player with [myEmail]. Corporation names only: emails stay off screen. */
-export function lobbyState(game, myEmail) {
-	const isCreator = game.creatorEmail === myEmail;
+/** What the lobby shows to the player with [myId]. Corporation names only: ids stay off screen. */
+export function lobbyState(game, myId) {
+	const isCreator = game.creatorId === myId;
 	const enoughPlayers = game.players.length >= MIN_PLAYERS_TO_START;
-	const creator = game.players.find(p => p.email === game.creatorEmail);
+	const creator = game.players.find(p => p.id === game.creatorId);
 	return {
 		isCreator,
 		corporationNames: game.players.map(p => p.corporationName),

@@ -1051,6 +1051,8 @@
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
 		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'game-over-panel'];
 	let session = null;
+	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
+	let viewerId = null;
 	let marketLoaded = false;
 	let pollTimer = null;
 	let currentGameId = null;
@@ -1426,6 +1428,7 @@
 		const screen = game.id === currentGameId ? screenForPhaseChange(lastGame, game) : null;
 		lastGame = game;
 		knownLog = { id: game.id, entries: game.log };
+		viewerId = game.you?.id ?? null;
 		if (screen !== null && screen !== parseRoute(location.hash).view) {
 			focusDeckHeading = screen === 'game';
 			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
@@ -1454,7 +1457,7 @@
 		$('nav-fleet').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
-		const state = lobbyState(game, session.email);
+		const state = lobbyState(game, viewerId);
 		setTitle('Lobby', 'Waiting for players to join.');
 		$('lobby-length').textContent = lengthText(game.turns);
 		const link = gameLink(location.origin, game.id);
@@ -1474,7 +1477,7 @@
 		const { view, systemId } = parseRoute(location.hash);
 		// The top bar (S01-1, R29, S04-3, S05-5): the initiative order joins the money once Bidding has closed.
 		const order = initiativeText(game);
-		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
+		setTitle(phaseText(game, viewerId), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
 		$('nav-log').href = logLink(game.id);
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
@@ -1618,7 +1621,7 @@
 
 	function renderDeck(game) {
 		renderMap(game);
-		$('fleet-list').replaceChildren(...fleet(game, session.email).map(ship => element('li', {},
+		$('fleet-list').replaceChildren(...fleet(game, viewerId).map(ship => element('li', {},
 			element('strong', {}, ship.name), ' \u2014 ',
 			element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.systemName),
 			` \u00b7 ${ship.location} \u2014 `,
@@ -1635,7 +1638,7 @@
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
 	function renderFleet(game) {
-		const ships = fleetShips(game, session.email);
+		const ships = fleetShips(game, viewerId);
 		if (ships.length === 0) {
 			$('fleet-ships').replaceChildren(element('p', { class: 'empty' }, NO_SHIPS_TEXT));
 			return;
@@ -1685,7 +1688,7 @@
 		$('game-over-note').textContent = over ? CASH_ONLY_TEXT : '';
 		$('game-over-note').hidden = !over;
 		$('game-over-log').href = logLink(game.id);
-		$('game-over-rows').replaceChildren(...standingRows(game, session.email).map(row => element('tr', {},
+		$('game-over-rows').replaceChildren(...standingRows(game, viewerId).map(row => element('tr', {},
 			element('td', { class: 'num' }, String(row.place)),
 			element('td', {}, row.corporation,
 				...(row.you ? [element('span', { class: 'muted' }, ' (you)')] : []),
@@ -1731,15 +1734,15 @@
 			queueDraft = null;
 		}
 		const trading = isTrading(game);
-		const status = tradingStatus(game, session.email); // S01-7, S01-8, E05-S07-1
+		const status = tradingStatus(game, viewerId); // S01-7, S01-8, E05-S07-1
 		if ($('trading-status').textContent !== status) {
 			$('trading-status').textContent = status;
 		}
 		renderResolution(game);
 		const goods = trading ? shownQueue(game) : [];
-		const editable = orderedBy(game) === session.email;
+		const editable = orderedBy(game) === viewerId;
 		$('queue-panel').hidden = goods.length === 0;
-		$('queue-note').textContent = queueNote(game, session.email);
+		$('queue-note').textContent = queueNote(game, viewerId);
 		$('queue-offers-note').textContent = queueOffersNote(game);
 		// E08-S01: the viewer's own offers mark their goods, so the list is drawn again when they change (a new turn's).
 		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? []]);
@@ -1750,7 +1753,7 @@
 		// S01-4: the first in initiative keeps the button while goods remain; it waits, disabled, for the Dictator, and
 		// the status line above it says whom for.
 		$('resolve-row').hidden = !(editable && (game.turn.tradingQueue ?? []).length > 0);
-		$('resolve-button').disabled = resolving || resolver(game) !== session.email;
+		$('resolve-button').disabled = resolving || resolver(game) !== viewerId;
 	}
 
 	// The good the Dictator form was last set up for (dictatorFormKey), so a poll keeps what was typed and a new good,
@@ -1790,7 +1793,7 @@
 			$('resolution-counter').dataset.key = linesKey;
 			$('resolution-counter').replaceChildren(...lines.map(line => element('li', {}, line)));
 		}
-		const question = dictatorQuestion(game, session.email);
+		const question = dictatorQuestion(game, viewerId);
 		const key = dictatorFormKey(game);
 		if (key !== dictatorKey) {
 			dictatorKey = key;
@@ -1816,7 +1819,7 @@
 	function renderTradeForm(game) {
 		const goodKey = dictatorFormKey(game);
 		const chosen = wholesaleChoice?.key === goodKey ? wholesaleChoice.type : null;
-		const form = tradeForm(game, session.email) ?? wholesaleForm(game, session.email, chosen);
+		const form = tradeForm(game, viewerId) ?? wholesaleForm(game, viewerId, chosen);
 		$('trade-form').hidden = form === null;
 		if (form === null) {
 			shownTrade = null;
@@ -2182,7 +2185,7 @@
 
 	/** S01-9: on any screen but Trading, a decision the game waits on you for says so, with a link to Trading. */
 	function updateDecisionAlert(game, view) {
-		const text = view === 'trading' ? '' : decisionText(game, session.email);
+		const text = view === 'trading' ? '' : decisionText(game, viewerId);
 		$('decision-link').href = tradingLink(game.id);
 		if (text) {
 			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
@@ -2336,7 +2339,7 @@
 			form.systemId = systemId;
 			form.message.textContent = ''; // a status about another system doesn't belong here
 		}
-		const { goods, notes } = offerChoices(game, systemId, session.email);
+		const { goods, notes } = offerChoices(game, systemId, viewerId);
 		// Only rebuilt when it changes: replacing the options on every poll would close an open dropdown.
 		if ([...form.goods.options].map(option => option.value).join() !== goods.join()) {
 			const selected = form.goods.value;
@@ -2351,7 +2354,7 @@
 		setControlsDisabled(form, false);
 		form.fields.hidden = goods.length === 0; // the notes say why
 		if (form.warning) {
-			form.warning.hidden = goods.length === 0 || hasShipAt(game, systemId, session.email);
+			form.warning.hidden = goods.length === 0 || hasShipAt(game, systemId, viewerId);
 		}
 	}
 
@@ -2541,7 +2544,7 @@
 		if (progressSeen?.gameId !== game.id) {
 			$('progress-announce').textContent = ''; // another game's news doesn't belong here (lesson 2026-11-04)
 		}
-		const text = announce ? progressText(progressSeen, game, session.email) : '';
+		const text = announce ? progressText(progressSeen, game, viewerId) : '';
 		progressSeen = progressSnapshot(game, progressSeen);
 		if (!text) {
 			return;
@@ -2598,7 +2601,7 @@
 			turnOrderShown = { gameTurn, texts: items.map(item => item.textContent) };
 			$('turn-order-list').replaceChildren(...items);
 		}
-		const free = freePlaces(game, session.email);
+		const free = freePlaces(game, viewerId);
 		$('pick-form').hidden = free.length === 0;
 		const choicesKey = JSON.stringify([game.id, game.turn?.number, free]);
 		if (free.length && choicesKey !== pickChoicesKey) {
@@ -2611,7 +2614,7 @@
 				return element('label', { class: 'choice' }, radio, ordinal(place));
 			}));
 		}
-		const youAct = youActText(game, session.email);
+		const youAct = youActText(game, viewerId);
 		if (youAct && !$('pick-message').classList.contains('message--error')) {
 			setPickMessage(youAct, false);
 		}
@@ -2691,7 +2694,7 @@
 			setJumpMessage('', false); // another game's or turn's message doesn't belong here
 			setJumpError('');
 		}
-		const ships = game.status === 'RUNNING' ? shipsToJump(game, session.email) : [];
+		const ships = game.status === 'RUNNING' ? shipsToJump(game, viewerId) : [];
 		$('jump-panel').hidden = ships.length === 0;
 		if (!ships.length) {
 			return;
@@ -2803,7 +2806,7 @@
 
 	/** S03-1/2/6: open the dialog for the ship you jumped until you confirm where it ends up; Port pre-selected. */
 	function updateLanding(game) {
-		const landing = game.status === 'RUNNING' ? landingFor(game, session.email) : null;
+		const landing = game.status === 'RUNNING' ? landingFor(game, viewerId) : null;
 		if (!landing) {
 			closeLanding(); // landed (here or in another tab), or nothing to land
 			return;
@@ -2958,8 +2961,8 @@
 		}
 		const bidding = isBidding(game);
 		const collecting = isCollecting(game);
-		$('done-button').hidden = !bidding || isDone(game, session.email);
-		const text = bidding && isDone(game, session.email) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
+		$('done-button').hidden = !bidding || isDone(game, viewerId);
+		const text = bidding && isDone(game, viewerId) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -3018,12 +3021,12 @@
 
 	/** S08-3, S08-4, S08-6: the status line, the done button, the Collect panel and the owned warehouses and factories. */
 	function renderInfrastructure(game, changed) {
-		const state = infrastructureState(game, session.email);
+		const state = infrastructureState(game, viewerId);
 		const turnKey = `${game.id}/${game.turn.number}`;
 		if (infraMessageKey !== null && infraMessageKey !== turnKey) {
 			setInfraMessage('', false, null);
 		}
-		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, session.email);
+		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, viewerId);
 		if ($('infrastructure-status').textContent !== status) {
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -3038,7 +3041,7 @@
 		updateCargoForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
-			const factories = ownFactoryRows(game, session.email);
+			const factories = ownFactoryRows(game, viewerId);
 			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', {},
 				element('th', { scope: 'row' }, row.systemName),
 				element('td', { class: 'num' }, String(row.blocks)),
@@ -3186,7 +3189,7 @@
 
 	/** The picked ship's place, or undefined when the list changed under the pick. */
 	function pickedPlace(game) {
-		return cargoPlaces(game, session.email).find(place => place.ship.name === $('cargo-ship').value);
+		return cargoPlaces(game, viewerId).find(place => place.ship.name === $('cargo-ship').value);
 	}
 
 	function setCargoError(text) {
@@ -3240,7 +3243,7 @@
 		}
 		$('cargo-intro').textContent = MOVE_INTRO;
 		$('cargo-button').textContent = MOVE_BUTTON;
-		const places = cargoPlaces(game, session.email);
+		const places = cargoPlaces(game, viewerId);
 		$('cargo-form').hidden = places.length === 0;
 		$('cargo-none').textContent = places.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
 		if (places.length === 0) {
@@ -3600,7 +3603,7 @@
 			const node = svgElement('a', {
 				href: systemLink(game.id, system.id),
 				class: 'map-node',
-				'aria-label': systemAccessibleName(game, system, session.email),
+				'aria-label': systemAccessibleName(game, system, viewerId),
 			});
 			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
 			node.append(svgElement('text', { x, y: y - NODE_RADIUS - 12, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
@@ -3619,7 +3622,7 @@
 				line.append(level);
 				node.append(line);
 			});
-			const labels = shipsAt(game, system.id, session.email).map(ship => ship.label);
+			const labels = shipsAt(game, system.id, viewerId).map(ship => ship.label);
 			const rows = [];
 			for (let i = 0; i < labels.length; i += 2) {
 				rows.push(labels.slice(i, i + 2).join('  '));
@@ -3646,7 +3649,7 @@
 	function renderSystem(game, system) {
 		$('system-title').textContent = system.name;
 		$('system-back').href = deckLink(game.id);
-		$('system-locations').replaceChildren(...locations(game, system, session.email).map(place => element('div', { class: 'place' },
+		$('system-locations').replaceChildren(...locations(game, system, viewerId).map(place => element('div', { class: 'place' },
 			element('h3', {}, place.name),
 			element('p', { class: 'muted' }, place.stats),
 			element('ul', {}, ...(place.ships.length

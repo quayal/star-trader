@@ -13,9 +13,9 @@ import {
 } from '../../main/resources/static/js/ship-jumps.js';
 import { phaseText } from '../../main/resources/static/js/bidding.js';
 
-const ME = 'me@example.com';
-const VEGA = 'vega@example.com';
-const KESSLER = 'kessler@example.com';
+const ME = 'me';
+const VEGA = 'vega';
+const KESSLER = 'kessler';
 const SET = [VEGA, ME, KESSLER];
 
 function game({ phase = 'SHIP_JUMPS', status = 'RUNNING', turnOrder = SET, jumpedShips = [], doneJumping = [] } = {}) {
@@ -24,16 +24,16 @@ function game({ phase = 'SHIP_JUMPS', status = 'RUNNING', turnOrder = SET, jumpe
 		turns: 20,
 		turn: { number: 4, phase, doneBidding: [], initiative: [KESSLER, ME, VEGA], turnOrder, jumpedShips, doneJumping },
 		players: [
-			{ email: VEGA, corporationName: 'Vega Lines', ships: [{ name: 'Meridian', system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' }] },
+			{ id: VEGA, corporationName: 'Vega Lines', ships: [{ name: 'Meridian', system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' }] },
 			{
-				email: ME,
+				id: ME,
 				corporationName: 'Orion Freight',
 				ships: [
 					{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti' },
 					{ name: 'Lantern', system: 'BETA_HYDRI', systemName: 'Beta Hydri' },
 				],
 			},
-			{ email: KESSLER, corporationName: 'Kessler Cargo', ships: [] },
+			{ id: KESSLER, corporationName: 'Kessler Cargo', ships: [] },
 		],
 	};
 }

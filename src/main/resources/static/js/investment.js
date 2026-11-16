@@ -1,7 +1,7 @@
 /*
  * Pure helpers for the Investment phase (E06-S01, R44), which happens on the Infrastructure screen (s10, E06-S08, D12).
  * They read `turn.phase` and `turn.doneInvesting` from GET /api/games/{id} (BACKWARD_COMPATIBILITY.md §6):
- * `turn.doneInvesting` is the public list of players' emails who signalled done (D09); nothing private is needed.
+ * `turn.doneInvesting` is the public list of players' ids who signalled done (D09); nothing private is needed.
  */
 
 export const DONE_INVESTING_BUTTON = "I'm done investing";
@@ -16,22 +16,22 @@ export function isInvesting(game) {
 	return game.status === 'RUNNING' && game.turn?.phase === 'INVESTMENT';
 }
 
-/** Whether the player with [email] has signalled done in this Investment. */
-export function isDoneInvesting(game, email) {
-	return isInvesting(game) && game.turn.doneInvesting.includes(email);
+/** Whether the player with [playerId] has signalled done in this Investment. */
+export function isDoneInvesting(game, playerId) {
+	return isInvesting(game) && game.turn.doneInvesting.includes(playerId);
 }
 
 /**
  * Who the game is still waiting for during Investment (S01-3, D09): "you" first while the viewer isn't done, then the
  * other players' corporation names in join order. Empty outside Investment.
  */
-export function waitingForInvesting(game, email) {
+export function waitingForInvesting(game, playerId) {
 	if (!isInvesting(game)) {
 		return [];
 	}
-	const pending = game.players.filter(p => !game.turn.doneInvesting.includes(p.email));
-	const you = pending.some(p => p.email === email) ? ['you'] : [];
-	return [...you, ...pending.filter(p => p.email !== email).map(p => p.corporationName)];
+	const pending = game.players.filter(p => !game.turn.doneInvesting.includes(p.id));
+	const you = pending.some(p => p.id === playerId) ? ['you'] : [];
+	return [...you, ...pending.filter(p => p.id !== playerId).map(p => p.corporationName)];
 }
 
 /** What to say once "done" was accepted: nothing while others still invest, or that this player's signal closed it. */
@@ -163,22 +163,22 @@ export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
 export const INFRASTRUCTURE_LINK_TEXT = 'Go to Infrastructure';
 
 /** What the Infrastructure screen is for the viewer: 'closed' outside Investment, 'collect', 'invest', or 'done' (S08-3, S08-4, S08-6). */
-export function infrastructureState(game, email) {
+export function infrastructureState(game, playerId) {
 	if (!isInvesting(game)) {
 		return 'closed';
 	}
 	if (isCollecting(game)) {
 		return 'collect';
 	}
-	return isDoneInvesting(game, email) ? 'done' : 'invest';
+	return isDoneInvesting(game, playerId) ? 'done' : 'invest';
 }
 
 /** S08-4: once the viewer is done, who the game still waits for ("Waiting for Vega Lines"), or that it's closing; else nothing. */
-export function infrastructureStatusText(game, email) {
-	if (infrastructureState(game, email) !== 'done') {
+export function infrastructureStatusText(game, playerId) {
+	if (infrastructureState(game, playerId) !== 'done') {
 		return '';
 	}
-	const others = waitingForInvesting(game, email);
+	const others = waitingForInvesting(game, playerId);
 	return others.length ? `${DONE_INVESTING_TEXT}. Waiting for ${others.join(', ')}.` : DONE_INVESTING_TEXT;
 }
 
@@ -196,9 +196,9 @@ export function ownWarehouseRows(game) {
 	});
 }
 
-/** The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by email. */
-export function ownFactoryRows(game, email) {
-	const me = game.players.find(player => player.email === email);
+/** The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by playerId. */
+export function ownFactoryRows(game, playerId) {
+	const me = game.players.find(player => player.id === playerId);
 	return (me?.factories ?? []).map(factory => ({
 		systemName: game.board.find(system => system.id === factory.system)?.name ?? factory.system,
 		goods: factory.goods,

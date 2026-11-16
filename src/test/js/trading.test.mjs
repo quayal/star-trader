@@ -40,13 +40,13 @@ import {
 	waitingText,
 } from '../../main/resources/static/js/trading.js';
 
-const ME = 'me@example.com';
-const VEGA = 'vega@example.com';
+const ME = 'me';
+const VEGA = 'vega';
 
 const ISO = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO' };
 const POLY = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'POLY' };
 const CHIPS = { system: 'BETA_HYDRI', systemName: 'Beta Hydri', goods: 'CHIPS' };
-const ALTAIR = 'altair@example.com';
+const ALTAIR = 'altair';
 
 function game({
 	id = 'g1', phase = 'TRADING', status = 'RUNNING', number = 1, initiative = [VEGA, ME], queue = [ISO, POLY], done = [], resolution = null,
@@ -56,17 +56,17 @@ function game({
 		status,
 		turn: { number, phase, initiative, tradingQueue: queue, resolvedGoods: done, resolution },
 		players: [
-			{ email: VEGA, corporationName: 'Vega Lines' },
-			{ email: ME, corporationName: 'Orion Freight' },
-			{ email: ALTAIR, corporationName: 'Altair Trade Co.' },
+			{ id: VEGA, corporationName: 'Vega Lines' },
+			{ id: ME, corporationName: 'Orion Freight' },
+			{ id: ALTAIR, corporationName: 'Altair Trade Co.' },
 		],
 	};
 }
 
 // E05-S02's worked example: Mu Herculis ISO, Vega buys at 11, Orion sells at 10, Altair is Dictator.
-const VEGA_BUYS = { playerEmail: VEGA, type: 'BUY', price: 11 };
-const ORION_SELLS = { playerEmail: ME, type: 'SELL', price: 10 };
-const ALTAIR_SELLS = { playerEmail: ALTAIR, type: 'SELL', price: 9 };
+const VEGA_BUYS = { playerId: VEGA, type: 'BUY', price: 11 };
+const ORION_SELLS = { playerId: ME, type: 'SELL', price: 10 };
+const ALTAIR_SELLS = { playerId: ALTAIR, type: 'SELL', price: 9 };
 
 function resolving({ offers = [VEGA_BUYS, ORION_SELLS], dictator = ALTAIR, awaiting = ALTAIR, startingCounter = null, trades = [] } = {}) {
 	return { good: ISO, offers, dictator, awaitingDictator: awaiting, finished: awaiting === null, startingCounter, trades };
@@ -271,7 +271,7 @@ describe('the counter (E05-S03)', () => {
 			dictator: null,
 			awaiting: null,
 			startingCounter: 3,
-			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }, { playerEmail: ME, type: 'SELL', price: 10, marketMax: 5, units: 5 }],
+			trades: [{ playerId: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }, { playerId: ME, type: 'SELL', price: 10, marketMax: 5, units: 5 }],
 		}),
 	});
 
@@ -292,10 +292,10 @@ describe('the counter (E05-S03)', () => {
 				awaiting: null,
 				startingCounter: 3,
 				trades: [
-					{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 9, units: 7, positionRoll: { roll: 5, promotedTo: 'WHOLESALER', demoted: [] } },
-					{ playerEmail: ME, type: 'SELL', price: 10, marketMax: 9, units: 6, positionRoll: { roll: 9, promotedTo: null, demoted: [] } },
-					{ playerEmail: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA] } },
-					{ playerEmail: VEGA, type: 'BUY', price: 12, marketMax: 2, units: 2, positionRoll: null },
+					{ playerId: VEGA, type: 'BUY', price: 11, marketMax: 9, units: 7, positionRoll: { roll: 5, promotedTo: 'WHOLESALER', demoted: [] } },
+					{ playerId: ME, type: 'SELL', price: 10, marketMax: 9, units: 6, positionRoll: { roll: 9, promotedTo: null, demoted: [] } },
+					{ playerId: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA] } },
+					{ playerId: VEGA, type: 'BUY', price: 12, marketMax: 2, units: 2, positionRoll: null },
 				],
 			}),
 		});
@@ -328,7 +328,7 @@ function awaitingMe({ type = 'SELL', price = 10, maxUnits = 5, trades = [] } = {
 	return {
 		...resolving({ dictator: null, awaiting: null, startingCounter: 3, trades }),
 		finished: false,
-		awaitingTrade: { playerEmail: ME, type, price, maxUnits },
+		awaitingTrade: { playerId: ME, type, price, maxUnits },
 	};
 }
 
@@ -337,7 +337,7 @@ function mine(base, { tradeMax = 5, wayfarer = { ISO: 3, CHIPS: 12 }, lantern = 
 	const used = cargo => (cargo.ISO ?? 0) + (cargo.POLY ?? 0);
 	return {
 		...base,
-		players: base.players.map(p => p.email !== ME ? p : {
+		players: base.players.map(p => p.id !== ME ? p : {
 			...p,
 			ships: [
 				{ name: 'Wayfarer', system: 'MU_HERCULIS', location: 'PORT' },
@@ -360,12 +360,12 @@ function mine(base, { tradeMax = 5, wayfarer = { ISO: 3, CHIPS: 12 }, lantern = 
 
 describe('a trader choosing an amount (E05-S04)', () => {
 	it('names whom the game waits for, with the counter\'s max, and holds Resolve next (S01-8, S01-4)', () => {
-		const waiting = game({ resolution: { ...awaitingMe(), awaitingTrade: { playerEmail: VEGA, type: 'BUY', price: 11, maxUnits: 4 } } });
+		const waiting = game({ resolution: { ...awaitingMe(), awaitingTrade: { playerId: VEGA, type: 'BUY', price: 11, maxUnits: 4 } } });
 
 		assert.equal(waitingText(waiting, ME), 'Vega Lines can buy up to 4 u \u2014 waiting for their decision.');
 		assert.equal(waitingText(game({ resolution: awaitingMe() }), ME), 'The market has reached your sell at 10 HT: your decision.');
 		assert.equal(resolver(waiting), null);
-		assert.equal(awaitingTrade(waiting).playerEmail, VEGA);
+		assert.equal(awaitingTrade(waiting).playerId, VEGA);
 		assert.equal(decisionText(waiting, VEGA), 'Your decision is needed: the market has reached your buy of ISO at Mu Herculis.');
 		assert.equal(decisionText(waiting, ME), '');
 	});
@@ -414,7 +414,7 @@ describe('a trader choosing an amount (E05-S04)', () => {
 	it('loses nothing of CHIPS or FOOD, which take no space (R42)', () => {
 		const chips = { ...game({ resolution: { ...awaitingMe({ type: 'BUY', price: 3 }), good: CHIPS } }) };
 		const seen = mine(chips, { tradeMax: 30 });
-		seen.players = seen.players.map(p => p.email !== ME ? p : { ...p, ships: [{ name: 'Wayfarer', system: 'BETA_HYDRI', location: 'PORT' }] });
+		seen.players = seen.players.map(p => p.id !== ME ? p : { ...p, ships: [{ name: 'Wayfarer', system: 'BETA_HYDRI', location: 'PORT' }] });
 		const form = tradeForm(seen, ME);
 
 		assert.deepEqual(defaultSplit(form, 30), [30]);
@@ -441,8 +441,8 @@ describe('a trader choosing an amount (E05-S04)', () => {
 			resolution: {
 				...resolving({ dictator: null, awaiting: null, startingCounter: 3 }),
 				trades: [
-					{ playerEmail: ME, type: 'SELL', price: 10, marketMax: 2, units: 0 },
-					{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 3, units: 0 },
+					{ playerId: ME, type: 'SELL', price: 10, marketMax: 2, units: 0 },
+					{ playerId: VEGA, type: 'BUY', price: 11, marketMax: 3, units: 0 },
 				],
 			},
 		});
@@ -481,7 +481,7 @@ function priceChanged({ wholesales = [], awaitingWholesaler = ME } = {}) {
 			dictator: ALTAIR,
 			awaiting: null,
 			startingCounter: 3,
-			trades: [{ playerEmail: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }],
+			trades: [{ playerId: VEGA, type: 'BUY', price: 11, marketMax: 4, units: 4 }],
 		}),
 		finished: awaitingWholesaler === null,
 		awaitingTrade: null,
@@ -499,8 +499,8 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 			resolution: priceChanged({
 				awaitingWholesaler: null,
 				wholesales: [
-					{ playerEmail: ME, role: 'Wholesaler', type: 'BUY', units: 3, price: 10 },
-					{ playerEmail: ALTAIR, role: 'Dictator', type: null, units: 0, price: 10 },
+					{ playerId: ME, role: 'Wholesaler', type: 'BUY', units: 3, price: 10 },
+					{ playerId: ALTAIR, role: 'Dictator', type: null, units: 0, price: 10 },
 				],
 			}),
 		});
@@ -568,7 +568,7 @@ describe('a trader with a warehouse there (E06-S06)', () => {
 	function withWarehouse(base, { noShips = false, ...options } = {}, held = warehouse()) {
 		const seen = mine(base, options);
 		const players = noShips
-			? seen.players.map(p => p.email !== ME ? p : { ...p, ships: p.ships.map(ship => ({ ...ship, location: 'SPACE' })) })
+			? seen.players.map(p => p.id !== ME ? p : { ...p, ships: p.ships.map(ship => ({ ...ship, location: 'SPACE' })) })
 			: seen.players;
 		return { ...seen, players, you: { ...seen.you, warehouses: [held] } };
 	}

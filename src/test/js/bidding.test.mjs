@@ -11,7 +11,7 @@ import {
 	waitingFor,
 } from '../../main/resources/static/js/bidding.js';
 
-const ME = 'me@example.com';
+const ME = 'me';
 
 function game({ phase = 'BIDDING', doneBidding = [], status = 'RUNNING' } = {}) {
 	return {
@@ -19,9 +19,9 @@ function game({ phase = 'BIDDING', doneBidding = [], status = 'RUNNING' } = {}) 
 		turns: 20,
 		turn: { number: 4, phase, doneBidding },
 		players: [
-			{ email: 'vega@example.com', corporationName: 'Vega Lines' },
-			{ email: ME, corporationName: 'Orion Freight' },
-			{ email: 'kessler@example.com', corporationName: 'Kessler Cargo' },
+			{ id: 'vega', corporationName: 'Vega Lines' },
+			{ id: ME, corporationName: 'Orion Freight' },
+			{ id: 'kessler', corporationName: 'Kessler Cargo' },
 		],
 	};
 }
@@ -32,7 +32,7 @@ describe('waitingFor', () => {
 	});
 
 	it('leaves out players who signalled done', () => {
-		assert.deepEqual(waitingFor(game({ doneBidding: ['vega@example.com'] }), ME), ['you', 'Kessler Cargo']);
+		assert.deepEqual(waitingFor(game({ doneBidding: ['vega'] }), ME), ['you', 'Kessler Cargo']);
 	});
 
 	it('leaves out you once you signalled done', () => {
@@ -49,7 +49,7 @@ describe('isDone', () => {
 	it('is true only for a player in the done list during Bidding', () => {
 		assert.equal(isDone(game(), ME), false);
 		assert.equal(isDone(game({ doneBidding: [ME] }), ME), true);
-		assert.equal(isDone(game({ doneBidding: ['vega@example.com'] }), ME), false);
+		assert.equal(isDone(game({ doneBidding: ['vega'] }), ME), false);
 	});
 
 	it('is false outside Bidding', () => {
@@ -69,12 +69,12 @@ describe('phaseText', () => {
 
 	it('names who is choosing their place in the turn order during Ship-jumps (E04-S01)', () => {
 		const picking = { ...game({ phase: 'SHIP_JUMPS' }) };
-		picking.turn = { ...picking.turn, initiative: ['vega@example.com', ME], turnOrder: [null, null] };
+		picking.turn = { ...picking.turn, initiative: ['vega', ME], turnOrder: [null, null] };
 
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is choosing their place in the turn order');
-		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', null] };
+		picking.turn = { ...picking.turn, turnOrder: ['vega', null] };
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — choose your place in the turn order');
-		picking.turn = { ...picking.turn, turnOrder: ['vega@example.com', ME], doneJumping: [] };
+		picking.turn = { ...picking.turn, turnOrder: ['vega', ME], doneJumping: [] };
 		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is jumping'); // E04-S02 takes over
 	});
 

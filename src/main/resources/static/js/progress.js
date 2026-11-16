@@ -33,25 +33,25 @@ export function progressSnapshot(game, previous) {
 
 /**
  * What to announce when a poll brings [game] after the page showed [previous] (a snapshot of the same game): the new
- * log lines, at most the last three, then a cue when it has just become [email]'s pick or jumps. "" when nothing is new,
+ * log lines, at most the last three, then a cue when it has just become [playerId]'s pick or jumps. "" when nothing is new,
  * on the game's first load, or for another game's snapshot.
  */
-export function progressText(previous, game, email) {
+export function progressText(previous, game, playerId) {
 	if (!previous || previous.gameId !== game.id) {
 		return '';
 	}
 	const events = game.log.slice(previous.logLength).slice(-MAX_ANNOUNCED_EVENTS).map(entry => `${entry.text}.`);
 	const cues = [];
-	if (picker(game) === email && previous.picker !== email) {
+	if (picker(game) === playerId && previous.picker !== playerId) {
 		cues.push(YOUR_PICK);
 	}
-	if (jumper(game) === email && previous.jumper !== email) {
+	if (jumper(game) === playerId && previous.jumper !== playerId) {
 		cues.push(YOUR_JUMPS);
 	}
-	if (resolver(game) === email && previous.resolver !== email) {
+	if (resolver(game) === playerId && previous.resolver !== playerId) {
 		cues.push(YOUR_RESOLVE); // E05-S01: Trading has started and you're first in initiative
 	}
-	if (awaitingDictator(game) === email && previous.dictator !== email) {
+	if (awaitingDictator(game) === playerId && previous.dictator !== playerId) {
 		cues.push(YOUR_DICTATOR_DECISION); // E05-S02: a good you're Dictator of has started resolving
 	}
 	return [...events, ...cues].join(' ');

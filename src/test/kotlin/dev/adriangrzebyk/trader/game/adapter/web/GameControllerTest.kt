@@ -86,15 +86,15 @@ class GameControllerTest {
 		assertThat(game.id).isNotBlank()
 		assertThat(game.turns).isEqualTo(20)
 		assertThat(game.status).isEqualTo("LOBBY")
-		assertThat(game.creatorEmail).isEqualTo("creator@example.com")
+		assertThat(game.creatorId).isEqualTo("p1")
 		assertThat(
 			game.players
 		).containsExactly(
-			PlayerResponseDto("creator@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList())
+			PlayerResponseDto("p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList())
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null, emptyList(), null, null))
+		assertThat(game.you).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null))
 	}
 
 	@Test
@@ -142,8 +142,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("host@example.com", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList()),
-			PlayerResponseDto("guest@example.com", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList())
+			PlayerResponseDto("p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList()),
+			PlayerResponseDto("p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList())
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
@@ -213,7 +213,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(seenByCreator).isEqualTo(GameResponseDto(gameStore.find(game.id)!!, "poll-host@example.com"))
-		assertThat(seenByCreator.players.map { it.email }).containsExactly("poll-host@example.com", "poll-guest@example.com")
+		assertThat(seenByCreator.players.map { it.id }).containsExactly("p1", "p2")
 		// Everything but `you` is shared; `you` is each viewer's own.
 		assertThat(seenByJoiner.copy(you = null)).isEqualTo(seenByCreator.copy(you = null))
 	}
@@ -304,7 +304,30 @@ class GameControllerTest {
 
 		// Exactly one money field on the wire: the caller's own, under "you" (R29).
 		assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1)
-		assertThat(raw).contains("\"you\":{\"money\":300,")
+		assertThat(raw).contains("\"you\":{\"id\":\"p2\",\"money\":300,")
+	}
+
+	@Test
+	fun shouldNeverSendAnyPlayersEmail() {
+		// A player is named by their place in join order; an email address is theirs alone
+		val creatorToken = signIn("no-email-host@example.com")
+		val joinerToken = signIn("no-email-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+		val lobby = pollGame(joinerToken, game.id).expectBody(String::class.java).returnResult().responseBody!!
+		startGame(creatorToken, game.id).expectStatus().isOk
+		signalDone(creatorToken, game.id).expectStatus().isOk
+		signalDone(joinerToken, game.id).expectStatus().isOk
+
+		val running = pollGame(joinerToken, game.id).expectStatus().isOk.expectBody(String::class.java).returnResult().responseBody!!
+		val seen = pollGame(joinerToken, game.id).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(lobby).doesNotContain("@")
+		assertThat(running).doesNotContain("@")
+		assertThat(seen.creatorId).isEqualTo("p1")
+		assertThat(seen.players.map { it.id }).containsExactly("p1", "p2")
+		assertThat(seen.you!!.id).isEqualTo("p2")
+		assertThat(seen.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 	}
 
 	@Test
@@ -421,7 +444,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				listOf(
-					"done-guest@example.com"
+					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList()
 			)
@@ -432,7 +455,7 @@ class GameControllerTest {
 		val polled = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(polled.turn!!.phase).isEqualTo("SHIP_JUMPS")
 		assertThat(polled.turn!!.doneBidding).isEmpty()
-		assertThat(polled.turn!!.initiative).containsExactlyInAnyOrder("done-host@example.com", "done-guest@example.com")
+		assertThat(polled.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 	}
 
 	@Test
@@ -617,7 +640,7 @@ class GameControllerTest {
 		assertThat(closed.you!!.money).isEqualTo(290)
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.money)
 			.isEqualTo(260)
-		assertThat(closed.turn!!.initiative).containsExactlyInAnyOrder("all-pay-host@example.com", "all-pay-guest@example.com")
+		assertThat(closed.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 		val logged = closed.log.last()
 		assertThat(logged.turn).isEqualTo(1)
 		assertThat(logged.text).startsWith("Initiative order (bid + d2): ")
@@ -694,18 +717,18 @@ class GameControllerTest {
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(closed.turn!!.turnOrder).containsExactly(null, null)
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 
 		// E04-S01: the first in initiative order may take last place; the other player gets the place left (S01-6).
 		val picked = pickPlace("token-$first", gameId, """{"place": 2}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(picked.turn!!.turnOrder).containsExactly(second, first)
+		assertThat(picked.turn!!.turnOrder).containsExactly(idOf(gameId, second), idOf(gameId, first))
 		assertThat(picked.turn!!.phase).isEqualTo("SHIP_JUMPS")
 		assertThat(picked.log.map { it.text }.last()).startsWith("Turn order (for this turn): ")
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.turnOrder)
-			.containsExactly(second, first)
+			.containsExactly(idOf(gameId, second), idOf(gameId, first))
 	}
 
 	@Test
@@ -716,7 +739,7 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		val firstName = if (first == "bad-pick-guest@example.com") "Grace Freight" else "Adrian Star Traders"
 
 		pickPlace("token-$second", gameId, """{"place": 1}""")
@@ -746,7 +769,7 @@ class GameControllerTest {
 	fun shouldLetPlayersJumpTheirShipsInTurnOrderThenMoveToTrading() {
 		val (first, second, gameId) = orderedGame("jump")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-			.players.first { it.email == first }.ships.first()
+			.players.first { it.id == idOf(gameId, first) }.ships.first()
 		val destination = StarSystem.entries.first { it.name != ship.system }
 
 		// E04-S02: the first place jumps one ship; it arrives at once, in space, and the jump is public.
@@ -755,7 +778,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val seenByOther = pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByOther.players.first { it.email == first }.ships.first())
+		assertThat(seenByOther.players.first { it.id == idOf(gameId, first) }.ships.first())
 			.isEqualTo(ShipResponseDto(ship.name, destination.name, destination.displayName, "SPACE"))
 		assertThat(seenByOther.turn!!.jumpedShips).containsExactly(ship.name)
 		assertThat(jumped.log.last().text).endsWith("— ${ship.name} → ${destination.displayName}")
@@ -768,7 +791,7 @@ class GameControllerTest {
 		val landed = landShip("token-$first", gameId, """{"location": "PLANET"}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(landed.players.first { it.email == first }.ships.first().location).isEqualTo("PLANET")
+		assertThat(landed.players.first { it.id == idOf(gameId, first) }.ships.first().location).isEqualTo("PLANET")
 		assertThat(landed.turn!!.landingShip).isNull()
 		assertThat(landed.log.last().text).endsWith("— ${ship.name} lands on the planet (${destination.displayName})")
 
@@ -778,14 +801,14 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(trading.turn!!.phase).isEqualTo("TRADING")
-		assertThat(trading.turn!!.doneJumping).containsExactly(first, second)
+		assertThat(trading.turn!!.doneJumping).containsExactly(idOf(gameId, first), idOf(gameId, second))
 	}
 
 	@Test
 	fun shouldNeverShowAnotherPlayersCargoAfterAJump() {
 		val (first, second, gameId) = orderedGame("jump-cargo")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-			.players.first { it.email == first }.ships.first()
+			.players.first { it.id == idOf(gameId, first) }.ships.first()
 		val destination = StarSystem.entries.first { it.name != ship.system }
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 
@@ -801,9 +824,9 @@ class GameControllerTest {
 		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""").expectStatus().isCreated
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val first = closed.turn!!.initiative.first()
+		val first = gameStore.find(gameId)!!.turn!!.initiative.first()
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
-		val ship = closed.players.first { it.email == first }.ships.first()
+		val ship = closed.players.first { it.id == idOf(gameId, first) }.ships.first()
 		val destination = StarSystem.entries.first { it.name != ship.system }
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 		landShip("token-$first", gameId, """{"location": "PORT"}""").expectStatus().isOk
@@ -823,14 +846,14 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		finishJumping("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("The turn order isn't set yet.")
 		val ordered = pickPlace("token-$first", gameId, """{"place": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val firstName = if (first == "bad-jump-guest@example.com") "Grace Freight" else "Adrian Star Traders"
-		val ship = ordered.players.first { it.email == first }.ships.first()
-		val otherShip = ordered.players.first { it.email == second }.ships.first()
+		val ship = ordered.players.first { it.id == idOf(gameId, first) }.ships.first()
+		val otherShip = ordered.players.first { it.id == idOf(gameId, second) }.ships.first()
 
 		finishJumping("token-$second", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
@@ -870,7 +893,7 @@ class GameControllerTest {
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No ship is waiting to land.")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-			.players.first { it.email == first }.ships.first()
+			.players.first { it.id == idOf(gameId, first) }.ships.first()
 		val destination = StarSystem.entries.first { it.name != ship.system }
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 
@@ -890,11 +913,11 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame("trade")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		val trading = finishJumping("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val firstCorporation = trading.players.first { it.email == first }.corporationName
+		val firstCorporation = trading.players.first { it.id == idOf(gameId, first) }.corporationName
 
 		// S01-2: every good at every system, by system in map order, then good; public, so the second player sees it too.
 		val queue = trading.turn!!.tradingQueue
@@ -1125,7 +1148,7 @@ class GameControllerTest {
 		assertThat(bought.log.last().text).isEqualTo("$corporation added 2 warehouse blocks at ${system.systemName}")
 		assertThat(bought.log.last().text).doesNotContain("HT")
 		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(seenByOwner.players.single { it.email == otherEmail }.warehouses.single().blocks).isEqualTo(2)
+		assertThat(seenByOwner.players.single { it.id == idOf(gameId, otherEmail) }.warehouses.single().blocks).isEqualTo(2)
 		assertThat(seenByOwner.you!!.invest).isNull() // still has to collect
 	}
 
@@ -1172,7 +1195,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(bought.you!!.invest!!.systems.single { it.system == "SIGMA_DRACONIS" }.blocks).isEqualTo(2)
-		assertThat(bought.players.single { it.email == otherEmail }.warehouses.single().blocks).isEqualTo(2)
+		assertThat(bought.players.single { it.id == idOf(gameId, otherEmail) }.warehouses.single().blocks).isEqualTo(2)
 	}
 
 	@Test
@@ -1226,7 +1249,7 @@ class GameControllerTest {
 
 		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 2 * gamma.unitCost)
 		assertThat(bought.you!!.invest!!.factories.single { it.goods == "POLY" }.size).isEqualTo(2)
-		val me = bought.players.single { it.email == other.removePrefix("token-") }
+		val me = bought.players.single { it.id == idOf(gameId, other.removePrefix("token-")) }
 		assertThat(me.factories).containsExactly(FactoryResponseDto("GAMMA_LEPORIS", "POLY", 2))
 		assertThat(bought.log.last().text).isEqualTo("${me.corporationName} added 2 units of POLY production at Gamma Leporis")
 		assertThat(bought.log.last().text).doesNotContain("HT")
@@ -1247,7 +1270,7 @@ class GameControllerTest {
 		assertThat(extended.you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }.size).isEqualTo(8)
 		assertThat(
 			extended.players.single {
-				it.email == owner.removePrefix("token-")
+				it.id == idOf(gameId, owner.removePrefix("token-"))
 			}.factories
 		).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 8))
 		assertThat(extended.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
@@ -1294,7 +1317,11 @@ class GameControllerTest {
 		val bought = buyUnits(other, gameId, """{"system": "MU_HERCULIS", "goods": "CHIPS", "units": 1}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(bought.players.single { it.email == otherEmail }.factories).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1))
+		assertThat(
+			bought.players.single {
+				it.id == idOf(gameId, otherEmail)
+			}.factories
+		).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1))
 	}
 
 	@Test
@@ -1359,7 +1386,7 @@ class GameControllerTest {
 		startGame(creatorToken, gameId).expectStatus().isOk
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		finishJumping("token-$second", gameId).expectStatus().isOk
@@ -1375,7 +1402,7 @@ class GameControllerTest {
 		assertThat(over.status).isEqualTo("FINISHED")
 		assertThat(over.turn!!.number).isEqualTo(1)
 		assertThat(over.result!!.standings.map { it.money }).containsExactly(300, 300)
-		assertThat(over.result!!.winners).containsExactlyInAnyOrder("game-over-host@example.com", "game-over-guest@example.com")
+		assertThat(over.result!!.winners).containsExactlyInAnyOrder("p1", "p2")
 		assertThat(pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.result)
 			.isEqualTo(over.result)
 		// S08-5
@@ -1431,12 +1458,13 @@ class GameControllerTest {
 		placeOffer(creatorToken, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "type": "BUY", "price": 11}""").expectStatus().isCreated
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		finishJumping("token-$second", gameId).expectStatus().isOk
 
 		// S02-1, S02-2: the host's offer is public now, and the guest is asked.
+		// The host created the game and the guest joined it, so the responses call them p1 and p2 (no email is sent).
 		val asking = resolveNext("token-$first", gameId).expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val good = MarketGoodResponseDto("GAMMA_LEPORIS", "Gamma Leporis", "POLY")
@@ -1444,16 +1472,16 @@ class GameControllerTest {
 			// R38: no roll while the Dictator decides
 			ResolutionResponseDto(
 				good,
-				listOf(DisclosedOfferResponseDto(host, "BUY", 11)),
-				guest,
-				guest,
+				listOf(DisclosedOfferResponseDto("p1", "BUY", 11)),
+				"p2",
+				"p2",
 				false,
 				null,
 				emptyList(),
 				null,
 				2,
 				null,
-				listOf(guest),
+				listOf("p2"),
 				null,
 				emptyList()
 			)
@@ -1486,20 +1514,20 @@ class GameControllerTest {
 		val resolution = offered.turn!!.resolution!!
 		val counter = resolution.startingCounter!!
 		assertThat(counter).isBetween(3, 13)
-		val offers = listOf(DisclosedOfferResponseDto(host, "BUY", 11), DisclosedOfferResponseDto(guest, "SELL", 9))
+		val offers = listOf(DisclosedOfferResponseDto("p1", "BUY", 11), DisclosedOfferResponseDto("p2", "SELL", 9))
 		assertThat(resolution).isEqualTo(
 			ResolutionResponseDto(
 				good,
 				offers,
-				guest,
+				"p2",
 				null,
 				false,
 				counter,
 				emptyList(),
-				AwaitingTradeResponseDto(host, "BUY", 11, counter + 18),
+				AwaitingTradeResponseDto("p1", "BUY", 11, counter + 18),
 				2,
 				null,
-				listOf(guest),
+				listOf("p2"),
 				null,
 				emptyList()
 			)
@@ -1538,7 +1566,7 @@ class GameControllerTest {
 		tradeNothing(joinerToken, gameId).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(waiting)
 
 		// S04-3, S04-6, S04-7: the host buys 1 u into a ship of theirs there, if any (else it's lost, S04-4).
-		val shipHere = hostView.players.first { it.email == host }.ships.firstOrNull { it.system == "GAMMA_LEPORIS" }
+		val shipHere = hostView.players.first { it.id == idOf(gameId, host) }.ships.firstOrNull { it.system == "GAMMA_LEPORIS" }
 		val ships = shipHere?.let { """[{"name": "${it.name}", "units": 1}]""" } ?: "[]"
 		val traded = trade(creatorToken, gameId, """{"amount": 1, "ships": $ships}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
@@ -1546,9 +1574,9 @@ class GameControllerTest {
 		shipHere?.let { ship -> assertThat(traded.you!!.ships.first { it.name == ship.name }.cargo).isEqualTo(mapOf("POLY" to 1)) }
 		// The guest's sell (target -18) still can't trade, so trading is over: the price moves (E05-S05-1) and the guest,
 		// as Dictator, is asked to trade wholesale (R37).
-		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto(host, "BUY", 11, counter + 18, 1, null))
+		assertThat(traded.turn!!.resolution!!.trades).containsExactly(TradeResponseDto("p1", "BUY", 11, counter + 18, 1, null))
 		val newPrice = traded.turn!!.resolution!!.newPrice!!
-		assertThat(traded.turn!!.resolution!!.awaitingWholesaler).isEqualTo(guest)
+		assertThat(traded.turn!!.resolution!!.awaitingWholesaler).isEqualTo(idOf(gameId, guest))
 		assertThat(traded.turn!!.resolution!!.finished).isFalse()
 		assertThat(traded.turn!!.resolvedGoods).isEmpty()
 		assertThat(traded.board.single { it.id == "GAMMA_LEPORIS" }.market.single().price).isEqualTo(newPrice)
@@ -1584,7 +1612,7 @@ class GameControllerTest {
 		// S05-5: the guest passes; it's public and logged, and the good has resolved.
 		val passed = passWholesale(joinerToken, gameId).expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(passed.turn!!.resolution!!.wholesales).containsExactly(WholesaleResponseDto(guest, "Dictator", null, 0, newPrice))
+		assertThat(passed.turn!!.resolution!!.wholesales).containsExactly(WholesaleResponseDto("p2", "Dictator", null, 0, newPrice))
 		assertThat(passed.turn!!.resolution!!.finished).isTrue()
 		assertThat(passed.turn!!.resolvedGoods).containsExactly(good)
 		assertThat(passed.log.last().text).isEqualTo("Grace Freight (Dictator) passed on wholesale")
@@ -1642,7 +1670,7 @@ class GameControllerTest {
 		placeOffer(creatorToken, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "type": "BUY", "price": 11}""").expectStatus().isCreated
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		finishJumping("token-$second", gameId).expectStatus().isOk
@@ -1781,7 +1809,7 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame(prefix)
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val (first, second) = closed.turn!!.initiative
+		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		return Triple(first, second, gameId)
 	}
@@ -1836,7 +1864,7 @@ class GameControllerTest {
 		assertThat(moved.you!!.ships.single { it.name == ship }.cargo).isEqualTo(mapOf("ISO" to 7))
 		assertThat(moved.you!!.ships.single { it.name == ship }.cargoUsed).isEqualTo(7)
 		assertThat(moved.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 2))
-		assertThat(GameResponseDto(gameStore.find(gameId)!!, moved.creatorEmail)).isEqualTo(moved)
+		assertThat(GameResponseDto(gameStore.find(gameId)!!, gameStore.find(gameId)!!.creatorEmail)).isEqualTo(moved)
 	}
 
 	@Test
@@ -2031,6 +2059,9 @@ class GameControllerTest {
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
 	}
+
+	/** The id [email]'s player goes by in the responses of game [gameId] ([PlayerIds]): no response carries an email. */
+	private fun idOf(gameId: String, email: String): String = PlayerIds(gameStore.find(gameId)!!).of(email)
 
 	private fun signIn(email: String, name: String = "Adrian", corporationName: String = "Adrian Star Traders"): String {
 		val token = "token-$email"

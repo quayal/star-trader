@@ -25,9 +25,9 @@ const lobby = {
 	id: 'g-1',
 	turns: 5,
 	status: 'LOBBY',
-	creatorEmail: 'ada@example.com',
+	creatorId: 'ada',
 	players: [
-		{ email: 'ada@example.com', name: 'Ada', corporationName: 'Orion Freight', ships: [] },
+		{ id: 'ada', name: 'Ada', corporationName: 'Orion Freight', ships: [] },
 	],
 	turn: null,
 	log: [],
@@ -36,7 +36,7 @@ const lobby = {
 
 const withGrace = {
 	...lobby,
-	players: [...lobby.players, { email: 'grace@example.com', name: 'Grace', corporationName: 'Vega Lines', ships: [] }],
+	players: [...lobby.players, { id: 'grace', name: 'Grace', corporationName: 'Vega Lines', ships: [] }],
 };
 
 describe('parseRoute', () => {
@@ -136,19 +136,19 @@ describe('gameLink', () => {
 
 describe('lobbyState', () => {
 	it('lets the creator start only with 2 or more players, saying why not', () => {
-		assert.deepEqual(lobbyState(lobby, 'ada@example.com'), {
+		assert.deepEqual(lobbyState(lobby, 'ada'), {
 			isCreator: true,
 			corporationNames: ['Orion Freight'],
 			canStart: false,
 			startBlockedReason: 'At least 2 players are needed to start',
 			waitingText: null,
 		});
-		assert.equal(lobbyState(withGrace, 'ada@example.com').canStart, true);
-		assert.equal(lobbyState(withGrace, 'ada@example.com').startBlockedReason, null);
+		assert.equal(lobbyState(withGrace, 'ada').canStart, true);
+		assert.equal(lobbyState(withGrace, 'ada').startBlockedReason, null);
 	});
 
 	it('tells everyone else who they are waiting for', () => {
-		const state = lobbyState(withGrace, 'grace@example.com');
+		const state = lobbyState(withGrace, 'grace');
 
 		assert.equal(state.isCreator, false);
 		assert.equal(state.canStart, false);
