@@ -67,6 +67,7 @@ Money still decides the winner (R39). Factories and warehouses are assets and do
 3. [R45] On confirm, the money is taken and the blocks are added to the existing warehouse or create it. The player's capacity there shows 10 cargo spaces per block.
 4. [R48] The new capacity isn't used until next turn's Collect (this turn's Collect has finished) but counts for Trading next turn.
 5. [R50] A public Game log line: "{corp} added {n} warehouse block(s) at {system}".
+6. [R44, D09] The Investment screen says "Everyone invests at the same time. The turn moves on once everyone is done." so a player knows they don't wait for anyone else to build. It shows the whole time Investment is open, including after the player has signalled done. Whichever of E06-S04 and E06-S05 lands first adds it; the other keeps it and doesn't repeat it.
 
 ### E06-S05 — Building or extending a factory
 
@@ -77,6 +78,7 @@ Money still decides the winner (R39). Factories and warehouses are assets and do
 5. [R46] Beta and Epsilon, and goods a system can't produce, offer nothing.
 6. [R48] The factory first produces at the start of next turn's Investment.
 7. [R50] A public Game log line: "{corp} added {n} unit(s) of {good} production at {system}".
+8. [R44, D09] The Investment screen says "Everyone invests at the same time. The turn moves on once everyone is done." so a player knows they don't wait for anyone else to build. It shows the whole time Investment is open, including after the player has signalled done. Whichever of E06-S04 and E06-S05 lands first adds it; the other keeps it and doesn't repeat it.
 
 ### E06-S06 — A warehouse lets you trade without a ship
 
