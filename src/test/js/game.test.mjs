@@ -13,6 +13,7 @@ import {
 	systemLink,
 	tradingLink,
 	gameOverLink,
+	infrastructureLink,
 	turnText,
 	validateTurns,
 } from '../../main/resources/static/js/game.js';
@@ -53,6 +54,13 @@ describe('parseRoute', () => {
 	it('reads the Game log of a game (s04)', () => {
 		assert.deepEqual(parseRoute('#game/g-1/log'), { view: 'log', id: 'g-1' });
 		assert.deepEqual(parseRoute('#game/a%2Fb/log'), { view: 'log', id: 'a/b' });
+	});
+
+	it('reads Infrastructure of a game (s10, E06-S08)', () => {
+		assert.deepEqual(parseRoute('#game/g-1/infrastructure'), { view: 'infrastructure', id: 'g-1' });
+		assert.deepEqual(parseRoute(infrastructureLink('a/b')), { view: 'infrastructure', id: 'a/b' });
+		assert.equal(infrastructureLink('a/b'), '#game/a%2Fb/infrastructure');
+		assert.deepEqual(parseRoute('#game/g-1/infrastructure/2'), { view: 'unknown', id: 'g-1' });
 	});
 
 	it('reads Trading of a game (s03)', () => {
