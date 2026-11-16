@@ -44,8 +44,8 @@ already persists).
 
 ### Phase 1: Domain
 
-- [ ] 1.1 `Warehouse.addBlocks` and `Player.buyWarehouseBlocks`, with tests
-- [ ] 1.2 `Game.buyWarehouseBlocks` (Investment only, after Collect, logged) and `InvestmentService`, with tests
+- [x] 1.1 `Warehouse.addBlocks` and `Player.buyWarehouseBlocks`, with tests — f6bd412
+- [x] 1.2 `Game.buyWarehouseBlocks` (Investment only, after Collect, logged) and `InvestmentService`, with tests — 317de4c
 
 ### Phase 2: Web
 
