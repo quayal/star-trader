@@ -135,9 +135,7 @@ data class Game(
 		val player = playerOf(email)
 		val investing = runningTurn()
 		investing.requireInvesting()
-		if (player.hasFactories() && !investing.hasCollected(email)) {
-			throw InvalidGameOperationException("Collect your output first.")
-		}
+		requireCollected(player, investing)
 		val signalled = copy(turn = runningTurn().signalDoneInvesting(email))
 		val current = signalled.runningTurn()
 		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
@@ -156,6 +154,39 @@ data class Game(
 			throw InvalidGameOperationException("You have no factories to collect from.")
 		}
 		return copy(players = replace(player.collect(placements)), turn = investing.collectedBy(email))
+	}
+
+	/**
+	 * [email] buys [blocks] warehouse blocks at [system] (R45, E06-S04): [Player.buyWarehouseBlocks] checks and applies it,
+	 * and the public log says who added how many where, without the price (R50). Only in Investment and, for a player with
+	 * factories, after they collected (S03-5), so the new blocks never catch this turn's output (R48). Done is a readiness
+	 * flag (D09): a player who signalled done may still invest until everyone has.
+	 */
+	fun buyWarehouseBlocks(email: String, system: StarSystem, blocks: Int): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val bought = player.buyWarehouseBlocks(system, blocks)
+		val line = "${player.corporationName} added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
+		return copy(players = replace(bought), log = log + LogEntry(investing.number, line))
+	}
+
+	/**
+	 * Whether [email] may buy in this Investment now (R45, S03-5): the game is running in Investment and they have no
+	 * output left to place. False for anyone who isn't in the game.
+	 */
+	fun canInvest(email: String): Boolean {
+		val current = turn ?: return false
+		val player = players.firstOrNull { it.email == email } ?: return false
+		return status == GameStatus.RUNNING && current.phase == TurnPhase.INVESTMENT && !(player.hasFactories() && !current.hasCollected(email))
+	}
+
+	/** Refuses [player] with factories who hasn't confirmed their collect in [investing]: nothing is done or built before (S03-5). */
+	private fun requireCollected(player: Player, investing: Turn) {
+		if (player.hasFactories() && !investing.hasCollected(player.email)) {
+			throw InvalidGameOperationException("Collect your output first.")
+		}
 	}
 
 	/**

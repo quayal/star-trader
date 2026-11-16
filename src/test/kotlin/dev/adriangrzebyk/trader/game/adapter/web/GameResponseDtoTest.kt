@@ -126,6 +126,27 @@ class GameResponseDtoTest {
 	}
 
 	@Test
+	fun shouldOfferWhatCanBeBoughtOnlyOnceTheViewerHasCollectedAndOnlyWhereTheyHaveAShip() {
+		// E06-S04-1, S04-2, S03-5: before collecting there is nothing to buy; then one entry per system with a ship, and what they own there
+		assertThat(GameResponseDto(investing, "host@example.com").you!!.invest).isNull()
+
+		val collected = investing.collectOutput("host@example.com", emptyList())
+		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
+
+		assertThat(invest.blockCost).isEqualTo(20)
+		assertThat(invest.systems).contains(InvestSystemResponseDto("TAU_CETI", "Tau Ceti", 1))
+		assertThat(invest.systems.map { it.system }).containsExactlyInAnyOrderElementsOf(
+			collected.players.first { it.email == "host@example.com" }.ships.map { it.system.name }.distinct()
+		)
+	}
+
+	@Test
+	fun shouldOfferABuyToAPlayerWithNoFactoriesAtOnceAndNobodyOutsideInvestment() {
+		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNotNull()
+		assertThat(GameResponseDto(started, "host@example.com").you!!.invest).isNull()
+	}
+
+	@Test
 	fun shouldOfferNoCollectToAPlayerWithoutFactoriesOnceTheyCollectedOrOutsideInvestment() {
 		assertThat(GameResponseDto(investing, "guest@example.com").you!!.collect).isNull()
 		assertThat(GameResponseDto(investing.collectOutput("host@example.com", emptyList()), "host@example.com").you!!.collect).isNull()

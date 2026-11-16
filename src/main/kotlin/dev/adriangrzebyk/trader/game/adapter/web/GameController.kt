@@ -12,6 +12,7 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.InvalidInvestmentException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
 import dev.adriangrzebyk.trader.game.InvalidLandingException
 import dev.adriangrzebyk.trader.game.InvalidOfferException
@@ -175,6 +176,39 @@ class GameController(
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidCollectException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player buys warehouse blocks at a system where they have a ship (R45, E06-S04): `{ system, blocks }`. `400` for an
+	 * unknown system, blocks that aren't a whole number, none, no ship there or too little money; `409` outside Investment or
+	 * before they have collected; `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/investment/warehouse-blocks")
+	fun buyWarehouseBlocks(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BuyBlocksRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val order = request ?: BuyBlocksRequestDto()
+		val system = order.starSystem()
+		val blocks = order.wholeBlocks()
+		if (system == null || blocks == null) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a system and a whole number of blocks, 1 or more.")
+		}
+		val game = try {
+			investmentService.buyWarehouseBlocks(id, session.email, system, blocks)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidInvestmentException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
