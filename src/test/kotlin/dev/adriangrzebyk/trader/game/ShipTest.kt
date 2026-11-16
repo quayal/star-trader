@@ -154,6 +154,13 @@ class ShipTest {
 	}
 
 	@Test
+	fun shouldGroupRepeatedModulesWithACountInTheOrderTheyWereFitted() {
+		// E07-S03-2
+		assertThat(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).fittedModules().toList())
+			.containsExactly(Module.CARGO to 4, Module.LIGHT_WEAPONS to 1, Module.SAFE_JUMP to 1)
+	}
+
+	@Test
 	fun shouldAddTheHullsBuiltInCargoToItsCargoModules() {
 		assertThat(ship(Hull.MONARCH, Module.CARGO, Module.CARGO).cargoSpaces()).isEqualTo(4 + 2 + 2)
 		assertThat(ship(Hull.CLARINET, Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO, Module.LIGHT_WEAPONS).cargoSpaces()).isEqualTo(8)

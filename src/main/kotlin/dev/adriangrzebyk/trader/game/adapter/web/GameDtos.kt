@@ -4,11 +4,13 @@ import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
@@ -579,14 +581,84 @@ data class LandShipRequestDto(val location: String? = null) {
 	fun location(): ShipLocation? = ShipLocation.entries.firstOrNull { it.name == location }
 }
 
-/** [cargo] is units per good (only goods it carries); [cargoUsed] counts POLY and ISO only (R42). */
-data class YourShipResponseDto(val name: String, val cargo: Map<String, Int>, val cargoUsed: Int, val cargoSpaces: Int) {
+/**
+ * One of the viewer's own ships, for them only (R29, R57): [cargo] is units per good (only goods it carries),
+ * [cargoUsed] counts POLY and ISO only (R42) and [cargoSpaces] comes from the hull and modules (R54). [hull], [modules]
+ * (one entry per different module, with how many) and [stats] are what the Fleet tab shows (E07-S03); nobody else's
+ * are ever sent (S03-6).
+ */
+data class YourShipResponseDto(
+	val name: String,
+	val cargo: Map<String, Int>,
+	val cargoUsed: Int,
+	val cargoSpaces: Int,
+	val hull: HullResponseDto,
+	val modules: List<FittedModuleResponseDto>,
+	val stats: ShipStatsResponseDto
+) {
 
 	constructor(ship: Ship) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
-		ship.cargoSpaces()
+		ship.cargoSpaces(),
+		HullResponseDto(ship.hull),
+		ship.fittedModules().map { (module, count) -> FittedModuleResponseDto(module, count) },
+		ShipStatsResponseDto(ship)
+	)
+}
+
+/** A ship's hull by name, with its flags (R51, R56); its numbers are part of the ship's [ShipStatsResponseDto]. */
+data class HullResponseDto(val name: String, val military: Boolean, val aerodynamic: Boolean) {
+
+	constructor(hull: Hull) : this(hull.displayName, hull.military, hull.aerodynamic)
+}
+
+/** A module a ship carries [count] of, with what one of them adds (R52): the figures are per module, not times [count]. */
+data class FittedModuleResponseDto(
+	val name: String,
+	val count: Int,
+	val weapons: Int,
+	val rocketWeapons: Int,
+	val crew: Int,
+	val cargoSpaces: Int,
+	val passengers: Int,
+	val military: Boolean
+) {
+
+	constructor(module: Module, count: Int) : this(
+		module.displayName,
+		count,
+		module.weapons,
+		module.rocketWeapons,
+		module.crew,
+		module.cargoSpaces,
+		module.passengers,
+		module.military
+	)
+}
+
+/** A ship's derived stats (R53); its cargo spaces are on [YourShipResponseDto], next to what it carries. */
+data class ShipStatsResponseDto(
+	val weapons: Int,
+	val rocketWeapons: Int,
+	val shields: Int,
+	val intercept: Int,
+	val crewNeeded: Int,
+	val passengers: Int,
+	val modulesUsed: Int,
+	val moduleCapacity: Int
+) {
+
+	constructor(ship: Ship) : this(
+		ship.weapons(),
+		ship.rocketWeapons(),
+		ship.shields(),
+		ship.intercept(),
+		ship.crewNeeded(),
+		ship.passengers(),
+		ship.modulesUsed(),
+		ship.moduleCapacity()
 	)
 }
 

@@ -4,9 +4,11 @@ import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
+import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
@@ -303,6 +305,40 @@ class GameControllerTest {
 		// Exactly one money field on the wire: the caller's own, under "you" (R29).
 		assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1)
 		assertThat(raw).contains("\"you\":{\"money\":300,")
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersHullsModulesOrStats() {
+		// E07-S03-6, R57, engineering standards §10: the joiner's first ship is a Flute with an Arsenal and a Passenger module
+		val (creatorToken, joinerToken, gameId) = startedGame("fleet")
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != "fleet-guest@example.com") {
+						player
+					} else {
+						val flute = player.ships[0].copy(hull = Hull.FLUTE, modules = listOf(Module.ARSENAL, Module.PASSENGER))
+						player.copy(ships = listOf(flute) + player.ships.drop(1))
+					}
+				}
+			)
+		}
+
+		val seenByCreator = pollGame(creatorToken, gameId).expectStatus().isOk
+			.expectBody(String::class.java).returnResult().responseBody!!
+		val seenByJoiner = pollGame(joinerToken, gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByCreator).doesNotContain("Flute").doesNotContain("Arsenal").doesNotContain("Passenger")
+		// the creator's own two ships, and nobody else's
+		assertThat(Regex("\"hull\"").findAll(seenByCreator).count()).isEqualTo(2)
+		assertThat(Regex("\"modules\"").findAll(seenByCreator).count()).isEqualTo(2)
+		assertThat(Regex("\"stats\"").findAll(seenByCreator).count()).isEqualTo(2)
+		val flute = seenByJoiner.you!!.ships.first()
+		assertThat(flute.hull).isEqualTo(HullResponseDto("Flute", military = false, aerodynamic = true))
+		assertThat(flute.modules.map { it.name to it.count }).containsExactly("Arsenal" to 1, "Passenger" to 1)
+		assertThat(flute.stats.crewNeeded).isEqualTo(3)
+		assertThat(flute.stats.passengers).isEqualTo(2)
 	}
 
 	@Test
