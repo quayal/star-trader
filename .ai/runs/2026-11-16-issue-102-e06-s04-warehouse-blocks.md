@@ -54,6 +54,6 @@ already persists).
 
 ### Phase 3: The panel
 
-- [ ] 3.1 Pure helpers and tests in `js/investment.js`
-- [ ] 3.2 "Add warehouse blocks" panel and the shared-Investment line on s10
+- [x] 3.1 Pure helpers and tests in `js/investment.js` — f4da1ea
+- [x] 3.2 "Add warehouse blocks" panel and the shared-Investment line on s10 — 0bb1695
 - [ ] 3.3 Browser walk (two players, 390 px) and run log
