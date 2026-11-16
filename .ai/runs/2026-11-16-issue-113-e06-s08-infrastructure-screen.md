@@ -44,8 +44,8 @@ lines (S07); any server change.
 
 ### Phase 1: Pure helpers and tests
 
-- [ ] 1.1 Route and link for the Infrastructure screen in `js/game.js`, with tests
-- [ ] 1.2 `investmentJustStarted`, owned warehouse and factory rows, and the collect-first line in `js/investment.js`, with tests
+- [x] 1.1 Route and link for the Infrastructure screen in `js/game.js`, with tests — 06a3bee
+- [x] 1.2 `investmentJustStarted`, owned warehouse and factory rows, and the collect-first line in `js/investment.js`, with tests — 49cc650
 
 ### Phase 2: The screen
 
