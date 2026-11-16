@@ -175,6 +175,17 @@ export function yourOffer(game, good) {
 	return offer ? { type: offer.type, typeName: TYPE_NAMES[offer.type] ?? offer.type, price: offer.price } : null;
 }
 
+export const DICTATOR_MARK = "You're Dictator here: you place your offer when it resolves";
+
+/**
+ * Whether [playerId] is Dictator of [good] at its system (R28, public), so they place their offer for it when it
+ * resolves and not during Bidding (R38): worth knowing when ordering the queue, as an offer is.
+ */
+export function isDictatorOf(game, good, playerId) {
+	const positions = game.players.find(p => p.id === playerId)?.marketPositions ?? [];
+	return positions.some(position => position.system === good.system && position.goods === good.goods && position.tier === 'DICTATOR');
+}
+
 export const YOUR_OFFERS_NOTE = 'Your own offers are marked. Only you see them until their good resolves.';
 export const NO_OFFERS_LEFT_NOTE = 'None of the remaining goods has an offer of yours.';
 export const NO_OFFERS_PLACED_NOTE = 'You placed no offers this turn.';

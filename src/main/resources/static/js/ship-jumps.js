@@ -47,6 +47,23 @@ export function jumpingText(game, playerId) {
 	return who === playerId ? 'your jumps' : `${corporation(game, who)} is jumping`;
 }
 
+export const GO_TO_DECK = 'Go to the Deck';
+
+/**
+ * The step on the Deck the game waits on [playerId] for, as the decision alert's text on other screens, or "" when there's
+ * none: their pick of a place in the turn order (E04-S01), or their jump slot (E04-S02). A ship waiting to land needs
+ * no alert: its dialog opens on every screen (E04-S03).
+ */
+export function deckDecisionText(game, playerId) {
+	if (!playerId) {
+		return '';
+	}
+	if (picker(game) === playerId) {
+		return 'Your decision is needed: choose your place in the turn order.';
+	}
+	return jumper(game) === playerId ? "Your decision is needed: it's your turn to jump your ships, or to finish jumping." : '';
+}
+
 /** S02-1: per turn-order place, "jumping now", "done" or "" (also "" for every place before the order is set). */
 export function slotStatuses(game) {
 	if (!orderIsSet(game)) {

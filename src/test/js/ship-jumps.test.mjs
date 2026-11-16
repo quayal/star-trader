@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
 	JUMPING_NOW,
+	deckDecisionText,
 	SLOT_DONE,
 	jumper,
 	jumpingText,
@@ -100,5 +101,24 @@ describe('validateJump', () => {
 
 		assert.equal(validateJump(ship, 'TAU_CETI'), 'Wayfarer is already at Tau Ceti. Pick another destination.');
 		assert.equal(validateJump(ship, 'BETA_HYDRI'), '');
+	});
+});
+
+describe('deckDecisionText: a step on the Deck the game waits on you for', () => {
+	it('says it is your pick while you are the next to choose a place', () => {
+		// initiative Kessler, Me, Vega; Kessler has picked
+		assert.equal(deckDecisionText(game({ turnOrder: [KESSLER, null, null] }), ME), 'Your decision is needed: choose your place in the turn order.');
+		assert.equal(deckDecisionText(game({ turnOrder: [KESSLER, null, null] }), VEGA), '');
+	});
+
+	it('says it is your jump slot once the order is set and the players before you are done', () => {
+		assert.equal(deckDecisionText(game({ doneJumping: [VEGA] }), ME), "Your decision is needed: it's your turn to jump your ships, or to finish jumping.");
+		assert.equal(deckDecisionText(game(), ME), ''); // Vega is jumping
+	});
+
+	it('says nothing outside Ship-jumps, after the last slot, or for no viewer', () => {
+		assert.equal(deckDecisionText(game({ phase: 'TRADING' }), ME), '');
+		assert.equal(deckDecisionText(game({ doneJumping: SET }), ME), '');
+		assert.equal(deckDecisionText(game({ turnOrder: [null, null, null] }), null), '');
 	});
 });

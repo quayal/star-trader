@@ -32,6 +32,7 @@ import {
 	resolver,
 	sameOrder,
 	queueOffersNote,
+	isDictatorOf,
 	yourOffer,
 	YOUR_OFFERS_NOTE,
 	NO_OFFERS_LEFT_NOTE,
@@ -257,6 +258,19 @@ describe("the viewer's own offers on the goods still to resolve (E08-S01)", () =
 		assert.equal(queueOffersNote(withOffers([BUY_ISO], { queue: [POLY] })), NO_OFFERS_LEFT_NOTE);
 		assert.equal(queueOffersNote(withOffers([])), NO_OFFERS_PLACED_NOTE);
 		assert.equal(queueOffersNote(game()), NO_OFFERS_PLACED_NOTE);
+	});
+
+	it('knows the goods the viewer is Dictator of, who has no offer there until they resolve (R38)', () => {
+		const seen = game();
+		seen.players[1].marketPositions = [
+			{ system: 'MU_HERCULIS', goods: 'ISO', tier: 'DICTATOR' },
+			{ system: 'TAU_CETI', goods: 'POLY', tier: 'WHOLESALER' },
+		];
+		assert.equal(isDictatorOf(seen, ISO, ME), true);
+		assert.equal(isDictatorOf(seen, POLY, ME), false); // a Wholesaler isn't asked before the roll
+		assert.equal(isDictatorOf(seen, CHIPS, ME), false);
+		assert.equal(isDictatorOf(seen, ISO, VEGA), false);
+		assert.equal(isDictatorOf(seen, ISO, null), false);
 	});
 
 	it('says nothing outside Trading', () => {

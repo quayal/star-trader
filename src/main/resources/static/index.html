@@ -936,6 +936,9 @@
 		queueNote,
 		queueOffersNote,
 		yourOffer,
+		isDictatorOf,
+		DICTATOR_MARK,
+		GO_TO_TRADING,
 		resolutionTitle,
 		resolver,
 		sameOrder,
@@ -949,6 +952,8 @@
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
 		FINISH_BUTTON,
+		GO_TO_DECK,
+		deckDecisionText,
 		JUMP_BUTTON,
 		JUMP_TITLE,
 		JUMPING_NOW,
@@ -1745,7 +1750,8 @@
 		$('queue-note').textContent = queueNote(game, viewerId);
 		$('queue-offers-note').textContent = queueOffersNote(game);
 		// E08-S01: the viewer's own offers mark their goods, so the list is drawn again when they change (a new turn's).
-		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? []]);
+		const positions = game.players.find(player => player.id === viewerId)?.marketPositions ?? [];
+		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? [], positions]);
 		if (listKey !== queueListKey) {
 			queueListKey = listKey;
 			drawQueue(game, goods, editable);
@@ -2041,7 +2047,9 @@
 			// E08-S01-1: the viewer's own offer on this good, theirs alone until it resolves (R17).
 			const offer = yourOffer(game, good);
 			const mark = offer ? [element('span', { class: 'queue__offer' }, 'Your offer: ',
-				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`)] : [];
+				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`)]
+				// A Dictator has no offer yet: they place it when the good resolves (R38), which matters for the order too.
+				: isDictatorOf(game, good, viewerId) ? [element('span', { class: 'queue__offer' }, DICTATOR_MARK)] : [];
 			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
 				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ...mark);
 			if (!editable) {
@@ -2183,10 +2191,16 @@
 		poll();
 	}
 
-	/** S01-9: on any screen but Trading, a decision the game waits on you for says so, with a link to Trading. */
+	/**
+	 * S01-9: a decision the game waits on you for says so on every screen but the one it's made on, with a link there:
+	 * Trading for a Trading decision, the Deck for your pick of a place or your jump slot.
+	 */
 	function updateDecisionAlert(game, view) {
-		const text = view === 'trading' ? '' : decisionText(game, viewerId);
-		$('decision-link').href = tradingLink(game.id);
+		const trading = view === 'trading' ? '' : decisionText(game, viewerId);
+		const deck = view === 'game' ? '' : deckDecisionText(game, viewerId);
+		const text = trading || deck;
+		$('decision-link').href = trading ? tradingLink(game.id) : deckLink(game.id);
+		$('decision-link').textContent = trading ? GO_TO_TRADING : GO_TO_DECK;
 		if (text) {
 			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
 		}

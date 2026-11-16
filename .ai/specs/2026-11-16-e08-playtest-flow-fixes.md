@@ -61,7 +61,15 @@ Why a move during Trading is safe: a trade is capped by what the player holds at
 - **Ship to ship is out.** The request was ship ↔ warehouse; two ships in port at one system can still swap through the warehouse there.
 - **The phase pulls from every screen**, including the Game log and Fleet, as Trading already did.
 
-## Not in this spec
+## Added on 2026-11-17 (were "not in this spec")
 
-- Marking the goods the viewer is Dictator of in the queue (they place that offer when it resolves, R38).
-- A decision alert for "it's your pick" or "it's your jump slot" on screens other than the Deck.
+### E08-S04 — The queue also marks the goods I'm Dictator of
+
+1. [R38, R28] A good in "Remaining goods" that the viewer is Dictator of at that system, and so has no offer on yet, says "You're Dictator here: you place your offer when it resolves". It matters for the order as an offer does. Market positions are public, so nothing new is sent.
+2. A good with an offer of the viewer's shows the offer, as before.
+
+### E08-S05 — A step of mine on the Deck is announced on the other screens
+
+1. [E05-S01-9] The decision alert, which already says "Your decision is needed" for Trading decisions on every screen but Trading, also says so on every screen but the Deck when it is the viewer's pick of a place in the turn order, or their jump slot, with a link to the Deck.
+2. A ship waiting to land needs no alert: its dialog already opens on every screen (E04-S03).
+3. Bidding and Investment get none: "done" is a readiness flag, and the top bar already says who the game waits for.
