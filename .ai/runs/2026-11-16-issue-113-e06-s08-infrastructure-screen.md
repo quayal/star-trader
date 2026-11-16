@@ -49,9 +49,9 @@ lines (S07); any server change.
 
 ### Phase 2: The screen
 
-- [ ] 2.1 Nav item, panel markup and routing for s10; the Collect panel moves into it
-- [ ] 2.2 The done controls move into s10; the top bar keeps Bidding's and links to s10 while collecting
-- [ ] 2.3 Redirect when Investment starts; read-only view outside Investment; own warehouses and factories
+- [x] 2.1 Nav item, panel markup and routing for s10; the Collect panel moves into it — 5d79e6b
+- [x] 2.2 The done controls move into s10; the top bar keeps Bidding's and links to s10 while collecting — 5d79e6b
+- [x] 2.3 Redirect when Investment starts; read-only view outside Investment; own warehouses and factories — 5d79e6b
 
 ### Phase 3: Verify and document
 
