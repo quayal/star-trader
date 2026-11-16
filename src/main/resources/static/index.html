@@ -243,6 +243,12 @@
 		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
 		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
 		.trade-ships legend { padding: 0; }
+		/* s10 (E06-S08): the whole Investment phase, one column of panels. */
+		.infrastructure { display: grid; gap: var(--space-panel); max-width: 720px; }
+		.infrastructure[hidden], .infrastructure [hidden] { display: none; }
+		.infrastructure > h2, .infrastructure p { margin: 0; }
+		.infrastructure h2:focus, .infrastructure h3:focus { outline: none; }
+		.infrastructure .panel { display: grid; gap: var(--space-related); }
 		.collect-factories { display: grid; gap: var(--space-between-groups); }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
@@ -310,6 +316,8 @@
 	<a class="nav-item" id="nav-home" href="/">Deck</a>
 	<!-- s03 (E05-S01): only while a started game is open; its href is that game's Trading screen. -->
 	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
+	<!-- s10 (E06-S08, D12): only while a started game is open; its href is that game's Infrastructure screen. -->
+	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
@@ -327,6 +335,8 @@
 		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
 		<!-- A live region that stays in the tree: its text appears when the player is done, so it's announced. -->
 		<p id="done-text" role="status" tabindex="-1"></p>
+		<!-- E06-S08-4: while the player still has to collect, on the screens that aren't Infrastructure. -->
+		<a class="link" id="collect-link" href="/" hidden>Go to Infrastructure</a>
 		<p class="message" id="done-message" role="status" tabindex="-1"></p>
 	</div>
 	<!-- E04-S04: other players' progress as polls bring it in, for screen readers (the screen shows it already). -->
@@ -480,18 +490,6 @@
 						</div>
 					</form>
 				</section>
-				<!-- E06-S03: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
-				<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
-					<h2 id="collect-title" tabindex="-1">Collect your output</h2>
-					<p class="muted" id="collect-intro"></p>
-					<form class="offer-form" id="collect-form" novalidate>
-						<div class="collect-factories" id="collect-factories"></div>
-						<p class="message message--warn" id="collect-warning" role="status"></p>
-						<p class="message message--error field-error" id="collect-error" role="alert"></p>
-						<div><button class="btn" id="collect-button" type="submit"></button></div>
-						<p class="message" id="collect-message" role="status"></p>
-					</form>
-				</section>
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
 				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
 					<h2 id="bid-title">Bid for initiative</h2>
@@ -556,6 +554,50 @@
 				<p class="muted" id="game-over-note"></p>
 			</section>
 			<p><a class="link" id="game-over-log" href="/">See how it happened in the Game log</a></p>
+		</div>
+
+		<!-- s10 Infrastructure (E06-S08, D12): the whole Investment phase. -->
+		<div class="infrastructure" id="infrastructure-panel" hidden>
+			<h2 class="system__title" id="infrastructure-title" tabindex="-1">Infrastructure</h2>
+			<section class="panel" aria-label="Investment">
+				<p id="infrastructure-status" role="status" tabindex="-1"></p>
+				<!-- Static markup, shown when the player can signal done; the top bar keeps Bidding's button only. -->
+				<div id="infra-done-row" hidden>
+					<button class="btn" id="infra-done-button" type="button">I'm done investing</button>
+				</div>
+				<p class="message" id="infra-done-message" role="status" tabindex="-1"></p>
+			</section>
+			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
+			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
+				<h2 id="collect-title" tabindex="-1">Collect your output</h2>
+				<p class="muted" id="collect-intro"></p>
+				<form class="offer-form" id="collect-form" novalidate>
+					<div class="collect-factories" id="collect-factories"></div>
+					<p class="message message--warn" id="collect-warning" role="status"></p>
+					<p class="message message--error field-error" id="collect-error" role="alert"></p>
+					<div><button class="btn" id="collect-button" type="submit"></button></div>
+					<p class="message" id="collect-message" role="status"></p>
+				</form>
+			</section>
+			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
+				<h3 class="field-label" id="own-warehouses-title">Your warehouses</h3>
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead><tr><th scope="col">System</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces used</th><th scope="col">Holding</th></tr></thead>
+						<tbody id="own-warehouses"></tbody>
+					</table>
+				</div>
+			</section>
+			<section class="panel" aria-labelledby="own-factories-title" id="own-factories-panel" hidden>
+				<h3 class="field-label" id="own-factories-title">Your factories</h3>
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead><tr><th scope="col">System</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th></tr></thead>
+						<tbody id="own-factories"></tbody>
+					</table>
+				</div>
+			</section>
+			<p class="muted" id="own-assets-none" hidden>You own no warehouses or factories yet.</p>
 		</div>
 
 		<!-- s02: System details -->
@@ -750,6 +792,7 @@
 		systemLink,
 		tradingLink,
 		gameOverLink,
+		infrastructureLink,
 		validateTurns,
 	} from './js/game.js';
 	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, gameJustEnded, isOver, standingRows, winnerText } from './js/game-over.js';
@@ -835,13 +878,14 @@
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
-	import { DONE_BUTTON, DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
 		COLLECT_BUTTON,
+		COLLECT_ELSEWHERE_TEXT,
 		COLLECT_FIRST_TEXT,
 		COLLECT_INTRO,
-		DONE_INVESTING_BUTTON,
-		DONE_INVESTING_TEXT,
+		INFRASTRUCTURE_LINK_TEXT,
+		NOT_INVESTING_TEXT,
 		collectDefaults,
 		collectFactories,
 		collectHeading,
@@ -850,10 +894,14 @@
 		destinationLabel,
 		doneInvestingAcceptedText,
 		doneInvestingRefusedText,
+		infrastructureState,
+		infrastructureStatusText,
+		investmentJustStarted,
 		isCollecting,
-		isDoneInvesting,
 		isInvestmentClosedRefusal,
 		isInvesting,
+		ownFactoryRows,
+		ownWarehouseRows,
 		validateCollect
 	} from './js/investment.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
@@ -863,7 +911,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'game-over-panel'];
 	let session = null;
 	let marketLoaded = false;
 	let pollTimer = null;
@@ -882,6 +930,8 @@
 	let focusOverTitle = false;
 	// Set when the player opens Trading (s03), so its heading takes focus once, as on the Game log.
 	let focusTradingTitle = false;
+	// Set when the player opens Infrastructure (s10), so its heading takes focus once.
+	let focusInfrastructureTitle = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
 	const foldedTurns = new Set();
 
@@ -927,14 +977,16 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
+		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
+		$('nav-infrastructure').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
@@ -952,10 +1004,11 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
+			focusInfrastructureTitle = view === 'infrastructure';
 			focusOverTitle = view === 'over';
 			openGame(id);
 		}
@@ -968,6 +1021,7 @@
 		showView('unknown');
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-infrastructure').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -1212,11 +1266,16 @@
 		noteProgress(game, fromPoll);
 		// S01-1: every player is taken to Trading when it starts, whether a poll or their own last landing brought it.
 		const openTrading = tradingJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'trading';
+		// E06-S08-2: every player is taken to Infrastructure when Investment starts, once; going back to another screen sticks.
+		const openInfrastructure = investmentJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'infrastructure';
 		// S08-2: every player is taken to Game over when the game ends, by a poll or by their own last answer.
 		const openGameOver = gameJustEnded(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'over';
 		lastGame = game;
 		if (openTrading) {
 			location.hash = tradingLink(game.id); // route() redraws on hashchange
+		}
+		if (openInfrastructure) {
+			location.hash = infrastructureLink(game.id);
 		}
 		if (openGameOver) {
 			location.hash = gameOverLink(game.id);
@@ -1236,9 +1295,11 @@
 		focusSystemTitle = false; // a System details link to a game that hasn't started shows the lobby
 		focusLogTitle = false;
 		focusTradingTitle = false;
+		focusInfrastructureTitle = false;
 		focusOverTitle = false;
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-infrastructure').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, session.email);
@@ -1266,10 +1327,12 @@
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
 		$('nav-trading').hidden = false;
+		$('nav-infrastructure').href = infrastructureLink(game.id);
+		$('nav-infrastructure').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading') {
-			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1)
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure') {
+			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1); Investment's is on s10 (E06-S08)
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
@@ -1305,6 +1368,16 @@
 			return;
 		}
 		focusTradingTitle = false;
+		if (view === 'infrastructure') {
+			renderInfrastructure(game, changed);
+			showPanels('infrastructure-panel');
+			if (focusInfrastructureTitle) {
+				focusInfrastructureTitle = false;
+				$('infrastructure-title').focus();
+			}
+			return;
+		}
+		focusInfrastructureTitle = false;
 		if (view === 'over') {
 			renderGameOver(game);
 			showPanels('game-over-panel');
@@ -1332,7 +1405,6 @@
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		updateBidForm(game);
-		updateCollectForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
 		showPanels('deck-panel');
@@ -2186,7 +2258,7 @@
 		updateCollectWarning();
 	});
 
-	/** S03-5: the amounts are checked here first, then by the server; the answer redraws the Deck without the panel. */
+	/** S03-5: the amounts are checked here first, then by the server; the answer redraws the screen without the panel. */
 	$('collect-form').addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const factories = shownCollect.factories;
@@ -2214,8 +2286,8 @@
 		if (response?.ok) {
 			$('collect-message').textContent = '';
 			render(await response.json());
-			// The panel is gone and the done button is in the top bar: keep focus there.
-			($('done-button').hidden ? $('done-text') : $('done-button')).focus();
+			// The panel is gone and the done button is on this screen: keep focus there.
+			($('infra-done-button').hidden ? $('infrastructure-status') : $('infra-done-button')).focus();
 			return;
 		}
 		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
@@ -2226,7 +2298,7 @@
 		$('collect-message').textContent = message;
 		$('collect-message').className = 'message message--error';
 		if (response) {
-			repollNow(); // e.g. Investment closed, or the output was already collected: the Deck catches up
+			repollNow(); // e.g. Investment closed, or the output was already collected: the screen catches up
 		}
 	});
 
@@ -2645,8 +2717,9 @@
 	}
 
 	/**
-	 * S04-1, E06-S01-2: the button until pressed, then the done text, in Bidding and in Investment; the bar stays while a
-	 * done message is about this phase.
+	 * S04-1: "I'm done bidding" until pressed, then the done text; the bar stays while a done message is about this phase.
+	 * Investment's done button is on the Infrastructure screen (E06-S08-4); here, on the screens that aren't it, a player
+	 * who still has to collect is told so, with a link there.
 	 */
 	function updateDoneBar(game) {
 		const key = `${game.id}/${game.turn.number}/${game.turn.phase}/${game.status}`;
@@ -2656,30 +2729,28 @@
 			setDoneMessage('', false);
 		}
 		const bidding = isBidding(game);
-		const investing = isInvesting(game);
-		const done = bidding ? isDone(game, session.email) : isDoneInvesting(game, session.email);
-		const label = investing ? DONE_INVESTING_BUTTON : DONE_BUTTON;
-		if ($('done-button').textContent !== label) {
-			$('done-button').textContent = label;
-		}
-		const collecting = isCollecting(game); // E06-S03-5: nothing is done before the output is placed
-		$('done-button').hidden = !(bidding || investing) || done || collecting;
-		const text = collecting ? COLLECT_FIRST_TEXT : done ? (investing ? DONE_INVESTING_TEXT : DONE_TEXT) : '';
+		const collecting = isCollecting(game);
+		$('done-button').hidden = !bidding || isDone(game, session.email);
+		const text = bidding && isDone(game, session.email) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
-		$('done-bar').hidden = !bidding && !investing && !$('done-message').textContent;
+		$('collect-link').hidden = !collecting;
+		$('collect-link').href = infrastructureLink(game.id);
+		if ($('collect-link').textContent !== INFRASTRUCTURE_LINK_TEXT) {
+			$('collect-link').textContent = INFRASTRUCTURE_LINK_TEXT;
+		}
+		$('done-bar').hidden = !bidding && !collecting && !$('done-message').textContent;
 	}
 
 	async function signalDone() {
 		const button = $('done-button');
 		const gameId = currentGameId;
-		const investing = lastGame !== null && isInvesting(lastGame); // the same button signals done in Investment (E06-S01-2)
 		setDoneMessage('', false);
 		button.disabled = true;
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/${investing ? 'investment' : 'bidding'}/done`, { method: 'POST' });
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/bidding/done`, { method: 'POST' });
 		} catch {
 			button.disabled = false;
 			setDoneMessage(UNREACHABLE, true);
@@ -2691,16 +2762,14 @@
 		}
 		if (response.ok) {
 			const game = await response.json();
-			setDoneMessage(investing ? doneInvestingAcceptedText(game) : doneAcceptedText(game), false);
+			setDoneMessage(doneAcceptedText(game), false);
 			render(game);
-			$(isBidding(game) || isInvesting(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
+			$(isBidding(game) ? 'done-text' : 'done-message').focus(); // the button is gone; keep focus in the top bar
 			return;
 		}
 		const message = await errorText(response, '');
-		const closed = investing ? isInvestmentClosedRefusal(response.status, message) : isClosedRefusal(response.status, message);
-		const fallback = "Couldn't signal done. Try again.";
-		const refusal = investing ? doneInvestingRefusedText(response.status, message, fallback) : doneRefusedText(response.status, message, fallback);
-		setDoneMessage(refusal, !closed);
+		const closed = isClosedRefusal(response.status, message);
+		setDoneMessage(doneRefusedText(response.status, message, "Couldn't signal done. Try again."), !closed);
 		if (closed) {
 			clearTimeout(pollTimer);
 			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
@@ -2708,7 +2777,85 @@
 		}
 	}
 
+	// ── s10 Infrastructure (E06-S08): done investing, and what the player owns ──
+
+	/** The turn the Infrastructure message is about; a message about an earlier Investment is cleared (lesson 2026-11-04). */
+	let infraMessageKey = null;
+
+	function setInfraMessage(text, error, key) {
+		$('infra-done-message').textContent = text;
+		$('infra-done-message').className = error ? 'message message--error' : 'message';
+		infraMessageKey = text ? key : null;
+	}
+
+	/** S08-3, S08-4, S08-6: the status line, the done button, the Collect panel and the owned warehouses and factories. */
+	function renderInfrastructure(game, changed) {
+		const state = infrastructureState(game, session.email);
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (infraMessageKey !== null && infraMessageKey !== turnKey) {
+			setInfraMessage('', false, null);
+		}
+		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, session.email);
+		if ($('infrastructure-status').textContent !== status) {
+			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
+		}
+		$('infra-done-row').hidden = state !== 'invest';
+		updateCollectForm(game);
+		if (changed) {
+			const warehouses = ownWarehouseRows(game);
+			const factories = ownFactoryRows(game, session.email);
+			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', {},
+				element('th', { scope: 'row' }, row.systemName),
+				element('td', { class: 'num' }, String(row.blocks)),
+				element('td', { class: 'num' }, `${row.cargoUsed} / ${row.cargoSpaces}`),
+				element('td', {}, row.held))));
+			$('own-factories').replaceChildren(...factories.map(row => element('tr', {},
+				element('th', { scope: 'row' }, row.systemName),
+				element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
+				element('td', { class: 'num' }, String(row.size)))));
+			$('own-warehouses-panel').hidden = warehouses.length === 0;
+			$('own-factories-panel').hidden = factories.length === 0;
+			$('own-assets-none').hidden = warehouses.length > 0 || factories.length > 0;
+		}
+	}
+
+	async function signalDoneInvesting() {
+		const button = $('infra-done-button');
+		const gameId = currentGameId;
+		const turnKey = `${gameId}/${lastGame.turn.number}`;
+		setInfraMessage('', false, null);
+		button.disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/done`, { method: 'POST' });
+		} catch {
+			button.disabled = false;
+			setInfraMessage(UNREACHABLE, true, turnKey);
+			return;
+		}
+		button.disabled = false; // static markup shared by every game, so re-enabled even if the player has left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response.ok) {
+			const game = await response.json();
+			setInfraMessage(doneInvestingAcceptedText(game), false, turnKey);
+			render(game);
+			$('infrastructure-status').focus(); // the button is gone; keep focus on the status that replaced it
+			return;
+		}
+		const message = await errorText(response, '');
+		const closed = isInvestmentClosedRefusal(response.status, message);
+		setInfraMessage(doneInvestingRefusedText(response.status, message, "Couldn't signal done. Try again."), !closed, turnKey);
+		if (closed) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the screen catches up with the close
+		}
+	}
+
 	$('done-button').addEventListener('click', signalDone);
+	$('infra-done-button').addEventListener('click', signalDoneInvesting);
 
 	function setOfferMessage(form, text, error) {
 		form.message.textContent = text;
