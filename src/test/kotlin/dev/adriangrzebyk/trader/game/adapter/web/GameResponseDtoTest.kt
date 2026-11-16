@@ -205,6 +205,39 @@ class GameResponseDtoTest {
 	}
 
 	@Test
+	fun shouldGiveTheViewerTheirOwnWarehousesCargoAndNobodyElses() {
+		// E06-S06, S02-7: a warehouse is public, what it holds is its owner's (R49)
+		val game = started.copy(
+			players = started.players.map {
+				if (it.email == "guest@example.com") {
+					it.copy(warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.ISO to 90, Goods.POLY to 4, Goods.CHIPS to 0))))
+				} else {
+					it.copy(warehouses = listOf(Warehouse(StarSystem.MU_HERCULIS, 2, mapOf(Goods.POLY to 7, Goods.CHIPS to 12))))
+				}
+			}
+		)
+
+		val seenByHost = GameResponseDto(game, "host@example.com")
+
+		assertThat(seenByHost.you!!.warehouses).containsExactly(
+			YourWarehouseResponseDto(
+				"MU_HERCULIS",
+				"Mu Herculis",
+				2,
+				20,
+				mapOf(
+					"CHIPS" to 12,
+					"POLY" to 7
+				),
+				7
+			)
+		)
+		assertThat(seenByHost.players.single { it.email == "guest@example.com" }.warehouses)
+			.containsExactly(WarehouseResponseDto("TAU_CETI", 1, 10))
+		assertThat(seenByHost.players.map { it.warehouses }.toString()).doesNotContain("90").doesNotContain("ISO").doesNotContain("POLY")
+	}
+
+	@Test
 	fun shouldSendTheViewerTheirOwnOffersOnly() {
 		val game = started
 			.placeOffer("guest@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.SELL, 19)

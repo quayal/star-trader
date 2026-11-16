@@ -20,40 +20,51 @@ data class Player(
 	val factories: List<Factory>
 ) {
 
+	init {
+		require(warehouses.map { it.system }.toSet().size == warehouses.size) { "A player has at most one warehouse per system." }
+	}
+
 	/** This player after paying [amount] HT. */
 	fun pay(amount: Int): Player = copy(money = money - amount)
 
 	/** This player after being paid [amount] HT. */
 	fun receive(amount: Int): Player = copy(money = money + amount)
 
-	/** This player's ships in port at [system]: only they trade there (R23, R42; trading happens in port). */
+	/** This player's ships in port at [system]: with their warehouse there, the only places they trade from (R23, R42, R49). */
 	fun shipsInPortAt(system: StarSystem): List<Ship> = ships.filter { it.isInPortAt(system) }
+
+	/** This player's warehouse at [system], or null when they have none there (R45). */
+	fun warehouseAt(system: StarSystem): Warehouse? = warehouses.firstOrNull { it.system == system }
 
 	/**
 	 * The most units this player can trade on [offer] when the counter allows [counterMax] (R34): a buy also capped by
-	 * what they can afford at its price (R12), a sell by what their ships at that system hold (R10, R42). Never below 0.
+	 * what they can afford at its price (R12), a sell by what their ships in port at that system and their warehouse
+	 * there hold (R10, R42, R49). Never below 0.
 	 */
 	fun tradeMax(offer: Offer, counterMax: Int): Int {
 		val cap = when (offer.type) {
 			OfferType.BUY -> money / offer.price
-			OfferType.SELL -> shipsInPortAt(offer.system).sumOf { it.holding(offer.goods) }
+			OfferType.SELL -> shipsInPortAt(offer.system).sumOf { it.holding(offer.goods) } + (warehouseAt(offer.system)?.holding(offer.goods) ?: 0)
 		}
 		return minOf(counterMax, cap).coerceAtLeast(0)
 	}
 
 	/**
 	 * This player after trading [amount] units on their [offer] (E05-S04), the counter allowing [counterMax]. [amount] is
-	 * a whole number from 1 to [tradeMax] (S04-1). [loads] split it across their ships in port there, adding up to it;
-	 * with no ship in port they're empty, and a buy's goods are all lost (S04-4, R23). A buy pays the offer's price per
-	 * unit and loads what fits; a sell unloads and is paid (R34: at the offer's own price).
+	 * a whole number from 1 to [tradeMax] (S04-1). [loads] and [warehouseUnits] split it across their ships in port there
+	 * and their warehouse there, adding up to it (R49); with neither a ship in port nor a warehouse there they're empty,
+	 * and a buy's goods are all lost (S04-4, R23). A buy pays the offer's price per unit and loads what fits; a sell
+	 * unloads and is paid (R34: at the offer's own price).
 	 */
-	fun trade(offer: Offer, counterMax: Int, amount: Int?, loads: List<ShipLoad>): Player {
+	fun trade(offer: Offer, counterMax: Int, amount: Int?, loads: List<ShipLoad>, warehouseUnits: Int = 0): Player {
 		val max = tradeMax(offer, counterMax)
 		if (max == 0) {
 			throw InvalidTradeException(
 				when (offer.type) {
 					OfferType.BUY -> "You can't afford any units at ${offer.price} HT."
-					OfferType.SELL -> "You have no ${offer.goods.name} in your ships in port at ${offer.system.displayName}, so you can't sell any."
+					OfferType.SELL -> "You have no ${offer.goods.name} in your ${holdingPlaces(
+						offer.system
+					)} at ${offer.system.displayName}, so you can't sell any."
 				}
 			)
 		}
@@ -64,11 +75,17 @@ data class Player(
 		if (loads.any { load -> here.none { it.name == load.shipName } }) {
 			throw InvalidTradeException("Choose your ships in port at ${offer.system.displayName}.")
 		}
-		if (loads.map { it.shipName }.toSet().size != loads.size || loads.any { it.units < 0 }) {
-			throw InvalidTradeException("Enter a whole number of units, 0 or more, for each ship.")
+		val warehouse = warehouseAt(offer.system)
+		if (warehouseUnits > 0 && warehouse == null) {
+			throw InvalidTradeException("You have no warehouse at ${offer.system.displayName}.")
 		}
-		if (here.isNotEmpty() && loads.sumOf { it.units } != amount) {
-			throw InvalidTradeException("Your ships' units must add up to $amount.")
+		if (loads.map { it.shipName }.toSet().size != loads.size || loads.any { it.units < 0 } || warehouseUnits < 0) {
+			throw InvalidTradeException(
+				"Enter a whole number of units, 0 or more, for each ${if (warehouse == null) "ship" else "ship and your warehouse"}."
+			)
+		}
+		if ((here.isNotEmpty() || warehouse != null) && loads.sumOf { it.units } + warehouseUnits != amount) {
+			throw InvalidTradeException("Your ${if (warehouse == null) "ships'" else "ships' and warehouse's"} units must add up to $amount.")
 		}
 		val moved = loads.fold(this) { player, load ->
 			val ship = checkNotNull(player.ship(load.shipName))
@@ -79,17 +96,24 @@ data class Player(
 				}
 			)
 		}
+		val stocked = if (warehouse == null) {
+			moved
+		} else {
+			moved.withWarehouse(
+				when (offer.type) {
+					OfferType.BUY -> warehouse.load(offer.goods, warehouseUnits)
+					OfferType.SELL -> warehouse.unload(offer.goods, warehouseUnits)
+				}
+			)
+		}
 		return when (offer.type) {
-			OfferType.BUY -> moved.pay(amount * offer.price)
-			OfferType.SELL -> moved.receive(amount * offer.price)
+			OfferType.BUY -> stocked.pay(amount * offer.price)
+			OfferType.SELL -> stocked.receive(amount * offer.price)
 		}
 	}
 
 	/** Whether this player has a factory, so they collect output at the start of Investment (R47, E06-S03-6). */
 	fun hasFactories(): Boolean = factories.isNotEmpty()
-
-	/** This player's warehouse at [system], or null when they have none there (R45). */
-	fun warehouseAt(system: StarSystem): Warehouse? = warehouses.firstOrNull { it.system == system }
 
 	/**
 	 * This player after collecting this turn's output into [placements] (R47, E06-S03-5). Each factory makes its [Factory.size]
@@ -212,6 +236,9 @@ data class Player(
 		val good = MarketGood(position.system, position.goods)
 		return copy(marketPositions = marketPositions.filterNot { it.isFor(good) } + position)
 	}
+
+	/** Where this player trades from at [system], for a message: "ships in port", or "ships in port or warehouse" with a warehouse there (R49). */
+	private fun holdingPlaces(system: StarSystem): String = if (warehouseAt(system) == null) "ships in port" else "ships in port or warehouse"
 
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 

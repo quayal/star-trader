@@ -68,7 +68,7 @@ data class Resolution(
 
 	/**
 	 * The awaited wholesaler's trade as an offer of [type] at the new price (R37), so it settles like any trade: capped
-	 * by money and by what their ships in port hold, split across them (R12, R10, R42).
+	 * by money and by what their ships in port and their warehouse there hold, split across them (R12, R10, R42, R49).
 	 */
 	fun wholesaleOffer(type: OfferType): Offer {
 		val email = awaitingWholesaler() ?: throw InvalidGameOperationException("No wholesale decision is pending.")

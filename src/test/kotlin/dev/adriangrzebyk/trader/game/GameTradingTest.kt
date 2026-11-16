@@ -312,4 +312,87 @@ class GameTradingTest {
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(TAU_CETI, Goods.POLY))
 		assertThat(game.log.map { it.text }).contains("Offers for Tau Ceti POLY: Altair Trade Co. — sell at 9 HT")
 	}
+
+	// E06-S06 (R49): a warehouse at a system is presence there for Trading.
+	private fun withMeridianInSpaceAndAWarehouseAtGamma(game: Game): Game = game.copy(
+		players = game.players.map { player ->
+			if (player.email == "grace@example.com") {
+				player.copy(
+					ships = player.ships.map { it.copy(location = ShipLocation.SPACE) },
+					warehouses = listOf(Warehouse(GAMMA_LEPORIS, 1, emptyMap()))
+				)
+			} else {
+				player
+			}
+		}
+	)
+
+	@Test
+	fun shouldLetATraderWithOnlyAWarehouseThereBuyIntoItAndLoseWhatDoesNotFit() {
+		// R49, R16: Grace's ships are all away; her warehouse at Gamma Leporis (10 spaces) takes 10 of the 12 POLY, all 12 are paid for
+		val game = withMeridianInSpaceAndAWarehouseAtGamma(gracesTurnToTrade)
+			.trade("grace@example.com", 12, emptyList(), FakeDice.twoD6(7), 12)
+
+		val grace = game.players.first { it.email == "grace@example.com" }
+		assertThat(grace.money).isEqualTo(168)
+		assertThat(grace.warehouseAt(GAMMA_LEPORIS)!!.holding(Goods.POLY)).isEqualTo(10)
+		assertThat(grace.ships.sumOf { it.holding(Goods.POLY) }).isZero()
+		assertThat(game.log.drop(gracesTurnToTrade.log.size).first().text)
+			.isEqualTo("Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT")
+	}
+
+	@Test
+	fun shouldRefuseWarehouseUnitsFromAPlayerWithNoWarehouseThere() {
+		assertThatThrownBy { gracesTurnToTrade.trade("grace@example.com", 12, listOf(ShipLoad("Meridian", 10)), FakeDice.twoD6(7), 2) }
+			.isInstanceOf(InvalidTradeException::class.java)
+			.hasMessage("You have no warehouse at Gamma Leporis.")
+	}
+
+	@Test
+	fun shouldLoseEverythingBoughtWithNeitherAShipNorAWarehouseThere() {
+		// R23: Grace's ships are away and her only warehouse is elsewhere
+		val away = withMeridianInSpaceAndAWarehouseAtGamma(gracesTurnToTrade).let { game ->
+			game.copy(
+				players = game.players.map {
+					if (it.email ==
+						"grace@example.com"
+					) {
+						it.copy(warehouses = listOf(Warehouse(TAU_CETI, 1, emptyMap())))
+					} else {
+						it
+					}
+				}
+			)
+		}
+
+		val game = away.trade("grace@example.com", 12, emptyList(), FakeDice.twoD6(7))
+
+		val grace = game.players.first { it.email == "grace@example.com" }
+		assertThat(grace.money).isEqualTo(168)
+		assertThat(grace.warehouseAt(TAU_CETI)!!.cargo).isEmpty()
+		assertThat(grace.ships.sumOf { it.holding(Goods.POLY) }).isZero()
+	}
+
+	@Test
+	fun shouldLetAPlayerWithOnlyAWarehouseThereBidForAGoodThere() {
+		// R49: offers don't need a ship at the system; with a warehouse there the offer can be traded when it wins
+		val started = Game.lobby("game-4", 3, ada)
+			.addPlayer(grace)
+			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		val stocked = started.copy(
+			players = started.players.map {
+				if (it.email ==
+					"ada@example.com"
+				) {
+					it.copy(warehouses = listOf(Warehouse(GAMMA_LEPORIS, 1, emptyMap())))
+				} else {
+					it
+				}
+			}
+		)
+
+		val game = stocked.placeOffer("ada@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 5)
+
+		assertThat(game.turn!!.offersOf("ada@example.com")).hasSize(1)
+	}
 }

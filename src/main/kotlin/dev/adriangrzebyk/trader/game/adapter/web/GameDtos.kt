@@ -330,7 +330,7 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
 }
 
 /**
- * Only for the viewer: their money (R29), what their own ships carry (S02-5), their own offers this turn (R17), their
+ * Only for the viewer: their money (R29), what their own ships and warehouses carry (S02-5, R49), their own offers this turn (R17), their
  * own initiative bid this turn, or null if they haven't placed one (R29), and [tradeMax], the most they may trade now
  * when the game waits for their amount (E05-S04-1), after their money and cargo (R12, R10), 0 when that leaves nothing
  * (S04-5), else null. [wholesaleMax] is the same for the wholesale step when it waits for them (R37, E05-S05-4), else
@@ -428,7 +428,8 @@ data class CollectDestinationResponseDto(val ship: String?, val freeSpaces: Int?
 
 /**
  * The most the viewer may [buy] and [sell] in the wholesale step at the new price (R37): at most 5 u, a buy capped by
- * their money (R12), a sell by what their ships in port there hold (R10); 0 when they can't. Private (R29).
+ * their money (R12), a sell by what their ships in port there and their warehouse there hold (R10, R49); 0 when they can't.
+ * Private (R29).
  */
 data class WholesaleMaxResponseDto(val buy: Int, val sell: Int) {
 
@@ -548,15 +549,22 @@ data class OutputPlacementRequestDto(
 }
 
 /**
- * The awaited trader's amount and how it splits across their ships in port there (E05-S04-1, S04-3). Numbers are
- * [BigDecimal] so 2.5 reaches the domain's "whole number" message instead of being rounded to 2.
+ * The awaited trader's amount and how it splits across their ships in port there and their warehouse there ([warehouse]
+ * units, absent for none) (E05-S04-1, S04-3, R49). Numbers are [BigDecimal] so 2.5 reaches the domain's "whole number"
+ * message instead of being rounded to 2.
  */
-data class TradeRequestDto(val amount: BigDecimal? = null, val ships: List<ShipLoadRequestDto>? = null) {
+data class TradeRequestDto(val amount: BigDecimal? = null, val ships: List<ShipLoadRequestDto>? = null, val warehouse: BigDecimal? = null) {
+
+	/** The warehouse's units as a whole number, 0 when absent, or null when they aren't whole. */
+	fun warehouseUnits(): Int? {
+		val units = warehouse ?: return 0
+		return runCatching { units.intValueExact() }.getOrNull()
+	}
 
 	/** The amount as a whole number, or null when it isn't one, so the domain rejects it with its own message. */
 	fun wholeAmount(): Int? = amount?.let { runCatching { it.intValueExact() }.getOrNull() }
 
-	/** The split, empty when absent (no ship in port there), or null when a ship's units aren't a whole number or its name is missing. */
+	/** The split, empty when absent (no ship in port there, or only a warehouse), or null when a ship's units aren't a whole number or its name is missing. */
 	fun loads(): List<ShipLoad>? = ships.orEmpty().map { it.shipLoad() ?: return null }
 }
 
@@ -569,15 +577,21 @@ data class ShipLoadRequestDto(val name: String? = null, val units: BigDecimal? =
 }
 
 /**
- * A wholesale (R37, E05-S05-4): Buy or Sell, the amount and how it splits across the player's ships in port there. The
+ * A wholesale (R37, E05-S05-4): Buy or Sell, the amount and how it splits across the player's ships in port there and their
+ * warehouse there ([warehouse], R49). The
  * type's name is checked here; numbers are [BigDecimal] so 2.5 reaches the domain's "whole number" message.
  */
-data class WholesaleRequestDto(val type: String? = null, val amount: BigDecimal? = null, val ships: List<ShipLoadRequestDto>? = null) {
+data class WholesaleRequestDto(
+	val type: String? = null,
+	val amount: BigDecimal? = null,
+	val ships: List<ShipLoadRequestDto>? = null,
+	val warehouse: BigDecimal? = null
+) {
 
 	fun type(): OfferType? = OfferType.entries.firstOrNull { it.name == type }
 
 	/** The amount and split, read as a trade's are. */
-	fun trade(): TradeRequestDto = TradeRequestDto(amount, ships)
+	fun trade(): TradeRequestDto = TradeRequestDto(amount, ships, warehouse)
 }
 
 /**

@@ -282,20 +282,57 @@ export function shipLabel(ship) {
 	return `${ship.name} — ${carried || 'empty'} · cargo ${ship.cargoUsed} / ${ship.cargoSpaces} used`;
 }
 
+/** "Warehouse — POLY 4, CHIPS 12 · cargo 4 / 10 used" (R49): a warehouse of the viewer, shown like a ship. */
+export function warehouseLabel(warehouse) {
+	const held = Object.entries(warehouse.cargo ?? {}).map(([goods, units]) => `${goods} ${units}`).join(', ');
+	return `Warehouse \u2014 ${held || 'empty'} \u00b7 cargo ${warehouse.cargoUsed} / ${warehouse.cargoSpaces} used`;
+}
+
+/** Whether [form] also offers the player's warehouse at its system, beside their ships (R49). */
+function hasWarehouse(form) {
+	return form.ships.some(place => place.warehouse);
+}
+
+/** "ships", or "ships and warehouse" when [form] offers a warehouse too, for the form's wording (R49). */
+function placesWord(form) {
+	return hasWarehouse(form) ? 'ships and warehouse' : 'ships';
+}
+
 /**
- * [email]'s ships in port at [good]'s system (trading happens in port, R23, R42), each with what it holds of the good and
- * its free cargo space for it (unlimited for CHIPS and FOOD).
+ * [email]'s ships in port at [good]'s system and their warehouse there, if any (trading happens from them, R23, R42,
+ * R49), each with what it holds of the good and its free cargo space for it (unlimited for CHIPS and FOOD). The
+ * warehouse comes last and is marked `warehouse: true`.
  */
 function shipsInPort(game, email, good) {
 	const here = (game.players.find(p => p.email === email)?.ships ?? [])
 		.filter(ship => ship.system === good.system && ship.location === 'PORT')
 		.map(ship => ship.name);
-	return (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
+	const ships = (game.you.ships ?? []).filter(ship => here.includes(ship.name)).map(ship => ({
 		name: ship.name,
 		label: shipLabel(ship),
 		holding: ship.cargo?.[good.goods] ?? 0,
 		free: TAKES_CARGO_SPACE.has(good.goods) ? Math.max(0, ship.cargoSpaces - ship.cargoUsed) : Infinity,
 	}));
+	const warehouse = (game.you.warehouses ?? []).find(candidate => candidate.system === good.system);
+	return warehouse === undefined ? ships : [...ships, {
+		name: 'Warehouse',
+		warehouse: true,
+		label: warehouseLabel(warehouse),
+		holding: warehouse.cargo?.[good.goods] ?? 0,
+		free: TAKES_CARGO_SPACE.has(good.goods) ? Math.max(0, warehouse.cargoSpaces - warehouse.cargoUsed) : Infinity,
+	}];
+}
+
+/** What the form calls the places a sell is capped by, in its "nothing to sell" message (R10, R49). */
+function sellSources(ships) {
+	return ships.some(place => place.warehouse) ? 'ships in port or warehouse' : 'ships in port';
+}
+
+/** The legend over the places the amount splits across: "Your ships in port at Tau Ceti", plus "and warehouse" (R49). */
+function shipsLegend(ships, good) {
+	return ships.some(place => place.warehouse)
+		? `Your ships in port and warehouse at ${good.systemName}`
+		: `Your ships in port at ${good.systemName}`;
 }
 
 /**
@@ -324,10 +361,10 @@ export function tradeForm(game, email) {
 		heading: max > 0 ? `Your ${action} at ${trade.price} HT can trade now` : `The market has reached your ${action} at ${trade.price} HT`,
 		amountLabel: `Amount to ${action} (u)`,
 		help: `${trade.type === 'SELL' ? 'You get' : 'You pay'} your offer price, ${trade.price} HT each. Trading more leaves less for others.`,
-		shipsLegend: `Your ships in port at ${good.systemName}`,
+		shipsLegend: shipsLegend(ships, good),
 		noShip: ships.length === 0 ? `You have no ship in port at ${good.systemName}.` : '',
 		cannot: max > 0 ? '' : trade.type === 'SELL'
-			? `You have no ${good.goods} in your ships in port at ${good.systemName}, so you can't sell any.`
+			? `You have no ${good.goods} in your ${sellSources(ships)} at ${good.systemName}, so you can't sell any.`
 			: `You can't afford any units at ${trade.price} HT.`,
 	};
 }
@@ -361,10 +398,10 @@ export function wholesaleForm(game, email, type) {
 		heading: `As ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at the new price, ${price} HT?`,
 		amountLabel: `Amount to ${verb(chosen)} (u)`,
 		help: `${chosen === 'SELL' ? 'You get' : 'You pay'} ${price} HT each, from 1 to ${max}. ${WHOLESALE_HELP}`,
-		shipsLegend: `Your ships in port at ${good.systemName}`,
+		shipsLegend: shipsLegend(ships, good),
 		noShip: ships.length === 0 ? `You have no ship in port at ${good.systemName}.` : '',
 		cannot: max > 0 ? '' : chosen === 'SELL'
-			? `You have no ${good.goods} in your ships in port at ${good.systemName}, so you can't sell any.`
+			? `You have no ${good.goods} in your ${sellSources(ships)} at ${good.systemName}, so you can't sell any.`
 			: `You can't afford any units at ${price} HT.`,
 	};
 }
@@ -405,7 +442,7 @@ export function lossWarning(form, amount, split) {
 	}
 	return form.ships.length === 0
 		? `You have no ship in port at ${form.systemName}, so everything you buy will be lost.`
-		: `Only ${amount - lost} u fit in the ships you chose; the rest will be lost.`;
+		: `Only ${amount - lost} u fit in the ${placesWord(form)} you chose; the rest will be lost.`;
 }
 
 function wholeNumber(text) {
@@ -425,17 +462,22 @@ export function validateTrade(form, amountText, splitTexts) {
 	const split = splitTexts.map(wholeNumber);
 	const bad = split.findIndex(units => units === null);
 	if (bad >= 0) {
-		return { error: 'Enter a whole number of units, 0 or more, for each ship.', field: bad };
+		return { error: `Enter a whole number of units, 0 or more, for each ${hasWarehouse(form) ? 'ship and your warehouse' : 'ship'}.`, field: bad };
 	}
 	const short = form.type === 'SELL' ? form.ships.findIndex((ship, index) => split[index] > ship.holding) : -1;
 	if (short >= 0) {
-		const ship = form.ships[short];
-		return { error: `${ship.name} has only ${ship.holding} ${form.goods}.`, field: short };
+		const place = form.ships[short];
+		return { error: `${place.warehouse ? 'Your warehouse' : place.name} has only ${place.holding} ${form.goods}.`, field: short };
 	}
 	if (form.ships.length > 0 && split.reduce((sum, units) => sum + units, 0) !== amount) {
-		return { error: `Your ships' units must add up to ${amount}.`, field: 0 };
+		return { error: `Your ${hasWarehouse(form) ? "ships' and warehouse's" : "ships'"} units must add up to ${amount}.`, field: 0 };
 	}
-	return { body: { amount, ships: form.ships.map((ship, index) => ({ name: ship.name, units: split[index] })) } };
+	const body = {
+		amount,
+		ships: form.ships.flatMap((place, index) => place.warehouse ? [] : [{ name: place.name, units: split[index] }]),
+	};
+	const warehouse = form.ships.findIndex(place => place.warehouse);
+	return { body: warehouse < 0 ? body : { ...body, warehouse: split[warehouse] } };
 }
 
 /** S02-2: the Dictator form's question, for the Dictator asked; "" for everyone else. */

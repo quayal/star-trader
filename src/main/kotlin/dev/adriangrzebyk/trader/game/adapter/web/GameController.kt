@@ -486,8 +486,10 @@ class GameController(
 		val session = sessionFor(authorization)
 		val loads = (request ?: TradeRequestDto()).loads()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for each ship.")
+		val warehouseUnits = (request ?: TradeRequestDto()).warehouseUnits()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for your warehouse.")
 		val game = try {
-			tradingService.trade(id, session.email, request?.wholeAmount(), loads)
+			tradingService.trade(id, session.email, request?.wholeAmount(), loads, warehouseUnits)
 		} catch (ex: GameNotFoundException) {
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {
@@ -520,8 +522,10 @@ class GameController(
 		val wholesale = request ?: WholesaleRequestDto()
 		val loads = wholesale.trade().loads()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for each ship.")
+		val warehouseUnits = wholesale.trade().warehouseUnits()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for your warehouse.")
 		val game = try {
-			tradingService.wholesale(id, session.email, wholesale.type(), wholesale.trade().wholeAmount(), loads)
+			tradingService.wholesale(id, session.email, wholesale.type(), wholesale.trade().wholeAmount(), loads, warehouseUnits)
 		} catch (ex: GameNotFoundException) {
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {

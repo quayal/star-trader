@@ -9,6 +9,8 @@ import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
+import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
@@ -1320,6 +1322,94 @@ class GameControllerTest {
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("No wholesale decision is pending.")
 		resolveNext("token-$first", gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldNeverSendAnotherPlayersWarehouseCargo() {
+		// E06-S06, S02-7, A05: a warehouse is public, what it holds is only its owner's
+		val (creatorToken, joinerToken, gameId) = startedGame("warehouse-cargo")
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != "warehouse-cargo-guest@example.com") {
+						player
+					} else {
+						player.copy(warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2, mapOf(Goods.ISO to 17, Goods.CHIPS to 23))))
+					}
+				}
+			)
+		}
+
+		val seenByCreator = pollGame(creatorToken, gameId).expectStatus().isOk
+			.expectBody(String::class.java).returnResult().responseBody!!
+		val seenByJoiner = pollGame(joinerToken, gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByCreator).doesNotContain("\"ISO\":17").doesNotContain("\"CHIPS\":23")
+		assertThat(seenByJoiner.you!!.warehouses)
+			.containsExactly(YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 2, 20, mapOf("CHIPS" to 23, "ISO" to 17), 17))
+	}
+
+	@Test
+	fun shouldLetATraderWithOnlyAWarehouseThereBuyIntoItOverHttp() {
+		// E06-S06, R49: the host's ships are away and their warehouse at Gamma Leporis, the first good to resolve, takes the buy
+		val (creatorToken, joinerToken, gameId) = startedGame("warehouse-trade")
+		val host = "warehouse-trade-host@example.com"
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != host) {
+						player
+					} else {
+						player.copy(
+							ships = player.ships.map { it.copy(location = ShipLocation.SPACE) },
+							warehouses = listOf(Warehouse(StarSystem.GAMMA_LEPORIS, 1, emptyMap()))
+						)
+					}
+				}
+			)
+		}
+		placeOffer(creatorToken, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "type": "BUY", "price": 11}""").expectStatus().isCreated
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val (first, second) = closed.turn!!.initiative
+		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		resolveNext("token-$first", gameId).expectStatus().isOk
+
+		// the split must add up, and the warehouse can't be overfilled past what's paid for
+		trade(creatorToken, gameId, """{"amount": 5, "warehouse": 4}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Your ships' and warehouse's units must add up to 5.")
+		trade(joinerToken, gameId, """{"amount": 5, "warehouse": 5}""").expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		val traded = trade(creatorToken, gameId, """{"amount": 5, "warehouse": 5}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(traded.you!!.money).isEqualTo(245)
+		assertThat(
+			traded.you!!.warehouses
+		).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", "Gamma Leporis", 1, 10, mapOf("POLY" to 5), 5))
+		assertThat(
+			traded.log.map {
+				it.text
+			}
+		).contains(
+			"Adrian Star Traders could buy up to ${traded.turn!!.resolution!!.trades.single().marketMax} u: bought 5 u at 11 HT each, paid 55 HT"
+		)
+	}
+
+	@Test
+	fun shouldRefuseWarehouseUnitsThatAreNotAWholeNumber() {
+		// E06-S06, R49: the request's warehouse field is checked like a ship's units
+		val (first, _, gameId) = orderedGame("trade-warehouse-units")
+
+		trade("token-$first", gameId, """{"amount": 1, "warehouse": 0.5}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 0 or more, for your warehouse.")
+		wholesale("token-$first", gameId, """{"type": "BUY", "amount": 1, "warehouse": 1.5}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 0 or more, for your warehouse.")
 	}
 
 	@Test
