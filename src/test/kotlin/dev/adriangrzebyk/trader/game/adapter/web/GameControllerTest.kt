@@ -92,7 +92,7 @@ class GameControllerTest {
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null, emptyList(), null))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null, emptyList(), null, null))
 	}
 
 	@Test
@@ -1068,6 +1068,84 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldBuyWarehouseBlocksAndShowTheLogLineButNotThePrice() {
+		// E06-S04-1, S04-3, S04-5, R50: a player with no factories goes straight to buying
+		val (owner, other, gameId, _) = investingWithAFactory("blocks")
+		val otherEmail = other.removePrefix("token-")
+		val corporation = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.corporationName
+		val before = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(before.you!!.invest!!.blockCost).isEqualTo(20)
+		val system = before.you!!.invest!!.systems.first()
+		assertThat(system.blocks).isZero()
+
+		val bought = buyBlocks(other, gameId, """{"system": "${system.system}", "blocks": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 40)
+		assertThat(bought.you!!.warehouses.single { it.system == system.system }.blocks).isEqualTo(2)
+		assertThat(bought.you!!.invest!!.systems.first { it.system == system.system }.blocks).isEqualTo(2)
+		assertThat(bought.log.last().text).isEqualTo("$corporation added 2 warehouse blocks at ${system.systemName}")
+		assertThat(bought.log.last().text).doesNotContain("HT")
+		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(seenByOwner.players.single { it.email == otherEmail }.warehouses.single().blocks).isEqualTo(2)
+		assertThat(seenByOwner.you!!.invest).isNull() // still has to collect
+	}
+
+	@Test
+	fun shouldOfferNothingToBuyBeforeTheFactoryOwnerCollects() {
+		// E06-S04-1, S03-5
+		val (owner, _, gameId, ship) = investingWithAFactory("blocks-collect-first")
+
+		buyBlocks(owner, gameId, """{"system": "${ship.system.name}", "blocks": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Collect your output first.")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		val after = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(after.you!!.invest!!.systems.map { it.system }).contains(ship.system.name)
+		buyBlocks(owner, gameId, """{"system": "${ship.system.name}", "blocks": 1}""").expectStatus().isOk
+	}
+
+	@Test
+	fun shouldRefuseABuyTheRulesRefuse() {
+		// E06-S04-2: no ship there, too little money, a missing or fractional amount, an unknown system
+		val (_, other, gameId, ship) = investingWithAFactory("blocks-refused")
+		val otherEmail = other.removePrefix("token-")
+		val away = StarSystem.entries.first { s ->
+			s != ship.system &&
+				gameStore.find(gameId)!!.players.all { p -> p.ships.none { it.system == s } }
+		}
+
+		buyBlocks(other, gameId, """{"system": "${away.name}", "blocks": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You need a ship at ${away.displayName} to build there.")
+		val home = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.ships.first().system
+		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 16}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("16 blocks cost 320 HT; you have 300 HT.")
+		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 0}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of blocks, 1 or more.")
+		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 1.5}""").expectStatus().isBadRequest
+		buyBlocks(other, gameId, """{"system": "${home.name}"}""").expectStatus().isBadRequest
+		buyBlocks(other, gameId, """{"system": "NOWHERE", "blocks": 1}""").expectStatus().isBadRequest
+		buyBlocks(other, gameId, "{}").expectStatus().isBadRequest
+		assertThat(gameStore.find(gameId)!!.players.first { it.email == otherEmail }.money).isEqualTo(300)
+	}
+
+	@Test
+	fun shouldRefuseABuyFromOutsidersOrOutsideInvestment() {
+		val (first, _, gameId) = orderedGame("blocks-outside")
+		val system = gameStore.find(gameId)!!.players.first { it.email == first }.ships.first().system.name
+
+		buyBlocks("token-$first", gameId, """{"system": "$system", "blocks": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		buyBlocks(null, gameId, "{}").expectStatus().isUnauthorized
+		buyBlocks(signIn("blocks-stranger@example.com"), gameId, """{"system": "$system", "blocks": 1}""").expectStatus().isForbidden
+		buyBlocks("token-$first", "no-such-game", """{"system": "$system", "blocks": 1}""").expectStatus().isNotFound
+	}
+
+	@Test
 	fun shouldRefuseACollectFromOutsidersOrOutsideInvestment() {
 		val (first, _, gameId) = orderedGame("collect-outside")
 
@@ -1552,6 +1630,12 @@ class GameControllerTest {
 
 	private fun collectOutput(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/collect", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun buyBlocks(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/warehouse-blocks", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

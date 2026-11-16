@@ -172,6 +172,16 @@ data class Game(
 		return copy(players = replace(bought), log = log + LogEntry(investing.number, line))
 	}
 
+	/**
+	 * Whether [email] may buy in this Investment now (R45, S03-5): the game is running in Investment and they have no
+	 * output left to place. False for anyone who isn't in the game.
+	 */
+	fun canInvest(email: String): Boolean {
+		val current = turn ?: return false
+		val player = players.firstOrNull { it.email == email } ?: return false
+		return status == GameStatus.RUNNING && current.phase == TurnPhase.INVESTMENT && !(player.hasFactories() && !current.hasCollected(email))
+	}
+
 	/** Refuses [player] with factories who hasn't confirmed their collect in [investing]: nothing is done or built before (S03-5). */
 	private fun requireCollected(player: Player, investing: Turn) {
 		if (player.hasFactories() && !investing.hasCollected(player.email)) {
