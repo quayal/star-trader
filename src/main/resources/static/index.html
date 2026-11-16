@@ -601,6 +601,29 @@
 					<p class="message" id="blocks-message" role="status"></p>
 				</form>
 			</section>
+			<!-- E06-S05: static markup, so the typed number and focus survive the poll. -->
+			<section class="panel" id="units-panel" aria-labelledby="units-title" hidden>
+				<h2 id="units-title">Add factory units</h2>
+				<p class="muted" id="units-intro"></p>
+				<form class="offer-form" id="units-form" novalidate>
+					<div>
+						<label class="field-label" for="units-system">System</label>
+						<select class="control" id="units-system"></select>
+					</div>
+					<div>
+						<label class="field-label" for="units-good">Goods</label>
+						<select class="control" id="units-good"></select>
+					</div>
+					<div>
+						<label class="field-label" for="units-count">Units</label>
+						<input class="control price-input" id="units-count" inputmode="numeric" value="1" aria-describedby="units-cost units-error">
+						<p class="message muted" id="units-cost" role="status"></p>
+						<p class="message message--error field-error" id="units-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
+					<p class="message" id="units-message" role="status"></p>
+				</form>
+			</section>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
 				<h3 class="field-label" id="own-warehouses-title">Your warehouses</h3>
 				<div class="table-wrap">
@@ -910,9 +933,11 @@
 		COLLECT_INTRO,
 		INFRASTRUCTURE_LINK_TEXT,
 		INVEST_NOTE,
+		UNITS_BUTTON,
 		NOT_INVESTING_TEXT,
 		blocksCostText,
 		blocksText,
+		canBuildFactory,
 		canBuy,
 		collectDefaults,
 		collectFactories,
@@ -924,6 +949,10 @@
 		doneInvestingRefusedText,
 		infrastructureState,
 		infrastructureStatusText,
+		factoriesAt,
+		factorySystems,
+		goodsOptionLabel,
+		investFactories,
 		investSystems,
 		investmentJustStarted,
 		isCollecting,
@@ -932,8 +961,11 @@
 		ownFactoryRows,
 		ownWarehouseRows,
 		systemOptionLabel,
+		unitsCostText,
+		unitsText,
 		validateBlocks,
-		validateCollect
+		validateCollect,
+		validateUnits
 	} from './js/investment.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -2837,6 +2869,7 @@
 		}
 		updateCollectForm(game);
 		updateBlocksForm(game);
+		updateUnitsForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, session.email);
@@ -2967,6 +3000,157 @@
 			return;
 		}
 		setBlocksMessage(message, true, turnKey);
+		if (response) {
+			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E06-S05: building or extending a factory ──
+
+	/** What the picker was drawn from; it's drawn again only when the goods or the sizes change, so a pick survives the poll. */
+	let shownUnitsKey = null;
+	let unitsMessageKey = null;
+	let submittingUnits = false;
+
+	/** The picked system and good's entry, or undefined when the list changed under the pick. */
+	function pickedFactory(game) {
+		return investFactories(game).find(entry => entry.system === $('units-system').value && entry.goods === $('units-good').value);
+	}
+
+	/** The Goods dropdown for the picked system, keeping the pick when that system still makes it. */
+	function fillGoods(game) {
+		const chosen = $('units-good').value;
+		const goods = factoriesAt(game, $('units-system').value);
+		$('units-good').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, goodsOptionLabel(entry))));
+		if (goods.some(entry => entry.goods === chosen)) {
+			$('units-good').value = chosen;
+		}
+	}
+
+	function setUnitsError(text) {
+		$('units-error').textContent = text;
+		if (text) {
+			$('units-count').setAttribute('aria-invalid', 'true');
+		} else {
+			$('units-count').removeAttribute('aria-invalid');
+		}
+	}
+
+	function setUnitsMessage(text, error, key) {
+		$('units-message').textContent = text;
+		$('units-message').className = error ? 'message message--error' : 'message message--success';
+		unitsMessageKey = text ? key : null;
+	}
+
+	function updateUnitsCost(game) {
+		const factory = pickedFactory(game);
+		const text = factory ? unitsCostText($('units-count').value, factory) : '';
+		if ($('units-cost').textContent !== text) {
+			$('units-cost').textContent = text;
+		}
+	}
+
+	function updateUnitsForm(game) {
+		const panel = $('units-panel');
+		panel.hidden = !canBuildFactory(game);
+		if (panel.hidden) {
+			shownUnitsKey = null;
+			return;
+		}
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (unitsMessageKey !== null && unitsMessageKey !== turnKey) {
+			setUnitsMessage('', false, null);
+		}
+		const key = `${turnKey}/${JSON.stringify(investFactories(game))}`;
+		if (shownUnitsKey !== key) {
+			const chosen = $('units-system').value;
+			const systems = factorySystems(game);
+			$('units-system').replaceChildren(...systems.map(entry => element('option', { value: entry.system }, entry.systemName)));
+			if (systems.some(entry => entry.system === chosen)) {
+				$('units-system').value = chosen;
+			}
+			fillGoods(game);
+			if (shownUnitsKey === null || !shownUnitsKey.startsWith(`${turnKey}/`)) {
+				$('units-count').value = '1'; // a new turn starts from one unit
+			}
+			shownUnitsKey = key;
+			$('units-intro').textContent = 'Each unit adds one unit of output a turn, for 5 \u00d7 the good\u2019s price + 10 HT. No ship needed. New units first produce next turn.';
+			$('units-button').textContent = UNITS_BUTTON;
+		}
+		updateUnitsCost(game);
+		$('units-button').disabled = submittingUnits;
+	}
+
+	// A new system lists its own goods, as the offer form does.
+	$('units-system').addEventListener('change', () => {
+		setUnitsError('');
+		if (lastGame?.you?.invest) {
+			fillGoods(lastGame);
+			updateUnitsCost(lastGame);
+		}
+	});
+
+	$('units-good').addEventListener('change', () => {
+		setUnitsError('');
+		if (lastGame?.you?.invest) {
+			updateUnitsCost(lastGame);
+		}
+	});
+
+	// Typing again clears a shown error: it was about what was there before.
+	$('units-count').addEventListener('input', () => {
+		setUnitsError('');
+		if (lastGame?.you?.invest) {
+			updateUnitsCost(lastGame);
+		}
+	});
+
+	/** S05-3, S05-4: checked here first, then by the server; the answer redraws the screen with the new size and balance. */
+	$('units-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		const factory = game?.you?.invest ? pickedFactory(game) : undefined;
+		if (!factory) {
+			return;
+		}
+		const checked = validateUnits($('units-count').value, factory, game.you.money);
+		setUnitsError(checked.error ?? '');
+		if (checked.error) {
+			$('units-count').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		submittingUnits = true;
+		$('units-button').disabled = true;
+		setUnitsMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/factory-units`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ system: factory.system, goods: factory.goods, units: checked.units }),
+			});
+		} catch {
+			response = null;
+		}
+		submittingUnits = false;
+		$('units-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			setUnitsMessage(`Added ${unitsText(checked.units)} of ${factory.goods} production at ${factory.systemName}.`, false, turnKey);
+			render(await response.json());
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setUnitsError(message);
+			$('units-count').focus();
+			return;
+		}
+		setUnitsMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
 		}

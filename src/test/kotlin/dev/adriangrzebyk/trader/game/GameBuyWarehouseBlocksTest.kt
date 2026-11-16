@@ -102,7 +102,7 @@ class GameBuyWarehouseBlocksTest {
 
 	@Test
 	fun shouldPassTheRulesOfThePlayerThrough() {
-		assertThatThrownBy { investing.buyWarehouseBlocks("ada@example.com", GAMMA_LEPORIS, 1) }
+		assertThatThrownBy { investing.buyWarehouseBlocks("ada@example.com", GAMMA_LEPORIS, 0) }
 			.isInstanceOf(InvalidInvestmentException::class.java)
 	}
 }

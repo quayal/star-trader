@@ -126,18 +126,47 @@ class GameResponseDtoTest {
 	}
 
 	@Test
-	fun shouldOfferWhatCanBeBoughtOnlyOnceTheViewerHasCollectedAndOnlyWhereTheyHaveAShip() {
-		// E06-S04-1, S04-2, S03-5: before collecting there is nothing to buy; then one entry per system with a ship, and what they own there
+	fun shouldOfferWhatCanBeBoughtOnlyOnceTheViewerHasCollectedAndInEverySystem() {
+		// E06-S04-1, S04-2, S03-5, creator 2026-11-16: before collecting there is nothing to buy; then all six systems, ships or not
 		assertThat(GameResponseDto(investing, "host@example.com").you!!.invest).isNull()
 
 		val collected = investing.collectOutput("host@example.com", emptyList())
 		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
 
 		assertThat(invest.blockCost).isEqualTo(20)
+		assertThat(invest.systems.map { it.system }).containsExactlyInAnyOrderElementsOf(StarSystem.entries.map { it.name })
 		assertThat(invest.systems).contains(InvestSystemResponseDto("TAU_CETI", "Tau Ceti", 1))
-		assertThat(invest.systems.map { it.system }).containsExactlyInAnyOrderElementsOf(
-			collected.players.first { it.email == "host@example.com" }.ships.map { it.system.name }.distinct()
+		assertThat(invest.systems.single { it.system == "BETA_HYDRI" }.blocks).isZero()
+	}
+
+	@Test
+	fun shouldOfferEveryGoodAnySystemCanProduceWhateverTheViewerHasThere() {
+		// E06-S05-1, S05-5: Gamma POLY; Tau ISO; Mu CHIPS; Sigma FOOD and ISO (map order); nothing at Beta or Epsilon; no ship or factory needed
+		val collected = investing.collectOutput("host@example.com", emptyList())
+		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
+		val price = collected.prices.priceOf(MarketGood(StarSystem.TAU_CETI, Goods.ISO))
+
+		assertThat(invest.factories.map { it.system to it.goods }).containsExactly(
+			"GAMMA_LEPORIS" to "POLY",
+			"TAU_CETI" to "ISO",
+			"MU_HERCULIS" to "CHIPS",
+			"SIGMA_DRACONIS" to "FOOD",
+			"SIGMA_DRACONIS" to "ISO"
 		)
+		assertThat(invest.factories).contains(InvestFactoryResponseDto("TAU_CETI", "Tau Ceti", "ISO", 6, price, 5 * price + 10))
+		assertThat(invest.factories.single { it.system == "SIGMA_DRACONIS" && it.goods == "FOOD" }.size).isZero()
+	}
+
+	@Test
+	fun shouldCostWhatTheTradingPriceNowIs() {
+		// S05-2: the price is the game's current one, which Trading moved
+		val moved = investing.copy(prices = investing.prices.withPrice(MarketGood(StarSystem.TAU_CETI, Goods.ISO), 20))
+		val collected = moved.collectOutput("host@example.com", emptyList())
+
+		val iso = GameResponseDto(collected, "host@example.com").you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }
+
+		assertThat(iso.price).isEqualTo(20)
+		assertThat(iso.unitCost).isEqualTo(110)
 	}
 
 	@Test

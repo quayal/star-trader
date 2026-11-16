@@ -1107,17 +1107,9 @@ class GameControllerTest {
 
 	@Test
 	fun shouldRefuseABuyTheRulesRefuse() {
-		// E06-S04-2: no ship there, too little money, a missing or fractional amount, an unknown system
-		val (_, other, gameId, ship) = investingWithAFactory("blocks-refused")
+		// E06-S04-2: too little money, a missing or fractional amount, an unknown system (no ship is needed)
+		val (_, other, gameId, _) = investingWithAFactory("blocks-refused")
 		val otherEmail = other.removePrefix("token-")
-		val away = StarSystem.entries.first { s ->
-			s != ship.system &&
-				gameStore.find(gameId)!!.players.all { p -> p.ships.none { it.system == s } }
-		}
-
-		buyBlocks(other, gameId, """{"system": "${away.name}", "blocks": 1}""")
-			.expectStatus().isBadRequest
-			.expectBody(String::class.java).isEqualTo("You need a ship at ${away.displayName} to build there.")
 		val home = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.ships.first().system
 		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 16}""")
 			.expectStatus().isBadRequest
@@ -1133,6 +1125,19 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldBuyWarehouseBlocksAtASystemWhereThePlayerHasNoShip() {
+		// creator, 2026-11-16: investing needs no ship
+		val (_, other, gameId) = investingAtTau("blocks-noship")
+		val otherEmail = other.removePrefix("token-")
+
+		val bought = buyBlocks(other, gameId, """{"system": "SIGMA_DRACONIS", "blocks": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.you!!.invest!!.systems.single { it.system == "SIGMA_DRACONIS" }.blocks).isEqualTo(2)
+		assertThat(bought.players.single { it.email == otherEmail }.warehouses.single().blocks).isEqualTo(2)
+	}
+
+	@Test
 	fun shouldRefuseABuyFromOutsidersOrOutsideInvestment() {
 		val (first, _, gameId) = orderedGame("blocks-outside")
 		val system = gameStore.find(gameId)!!.players.first { it.email == first }.ships.first().system.name
@@ -1143,6 +1148,155 @@ class GameControllerTest {
 		buyBlocks(null, gameId, "{}").expectStatus().isUnauthorized
 		buyBlocks(signIn("blocks-stranger@example.com"), gameId, """{"system": "$system", "blocks": 1}""").expectStatus().isForbidden
 		buyBlocks("token-$first", "no-such-game", """{"system": "$system", "blocks": 1}""").expectStatus().isNotFound
+	}
+
+	/**
+	 * A two-player game at the start of turn 1's Investment where the first in initiative has a ship at Tau Ceti and an ISO
+	 * factory of 6 there, and the other has a ship at Gamma Leporis and no factory (the test moves the ships, whose
+	 * start is random). Returns the owner's token, the other's token and the game id.
+	 */
+	private fun investingAtTau(prefix: String): Triple<String, String, String> {
+		val (first, second, gameId) = orderedGame(prefix)
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		repeat(18) { resolveNext("token-$first", gameId).expectStatus().isOk }
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					val at = if (player.email == first) StarSystem.TAU_CETI else StarSystem.GAMMA_LEPORIS
+					val moved = player.copy(ships = listOf(player.ships[0].copy(system = at)) + player.ships.drop(1))
+					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6))) else moved
+				}
+			)
+		}
+		return Triple("token-$first", "token-$second", gameId)
+	}
+
+	@Test
+	fun shouldBuildAFactoryAtTheDeckPriceAndShowTheLogLineButNotThePrice() {
+		// E06-S05-1, S05-2, S05-3, S05-7, R50
+		val (_, other, gameId) = investingAtTau("units")
+		val before = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val gamma = before.you!!.invest!!.factories.single { it.goods == "POLY" }
+		assertThat(gamma.system).isEqualTo("GAMMA_LEPORIS")
+		assertThat(gamma.size).isZero()
+		assertThat(gamma.unitCost).isEqualTo(5 * gamma.price + 10)
+		assertThat(before.board.single { it.id == "GAMMA_LEPORIS" }.market.single { it.goods == "POLY" }.price).isEqualTo(gamma.price)
+
+		val bought = buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 2 * gamma.unitCost)
+		assertThat(bought.you!!.invest!!.factories.single { it.goods == "POLY" }.size).isEqualTo(2)
+		val me = bought.players.single { it.email == other.removePrefix("token-") }
+		assertThat(me.factories).containsExactly(FactoryResponseDto("GAMMA_LEPORIS", "POLY", 2))
+		assertThat(bought.log.last().text).isEqualTo("${me.corporationName} added 2 units of POLY production at Gamma Leporis")
+		assertThat(bought.log.last().text).doesNotContain("HT")
+	}
+
+	@Test
+	fun shouldExtendAnExistingFactoryAfterTheOwnerCollects() {
+		// E06-S05-3, S03-5, R48: one factory per good per system, so the size grows; nothing is produced for it this turn
+		val (owner, _, gameId) = investingAtTau("units-extend")
+
+		buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Collect your output first.")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		val extended = buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(extended.you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }.size).isEqualTo(8)
+		assertThat(
+			extended.players.single {
+				it.email == owner.removePrefix("token-")
+			}.factories
+		).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 8))
+		assertThat(extended.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
+	}
+
+	@Test
+	fun shouldLetAPlayerWithNoFactoryBuildTheirFirstAndStillSignalDone() {
+		// R48: building a first factory this turn doesn't make them collect from it
+		val (_, other, gameId) = investingAtTau("units-first")
+
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1}""").expectStatus().isOk
+		val after = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(after.you!!.collect).isNull()
+		assertThat(after.you!!.invest).isNotNull()
+		signalDoneInvesting(other, gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldOfferEverySystemThatCanProduceAndNeedNoShipThere() {
+		// E06-S05-1, S05-5, creator 2026-11-16: the owner has a ship only at Tau Ceti, the other only at Gamma Leporis
+		val (owner, other, gameId) = investingAtTau("units-offer")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+
+		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val seenByOther = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		for (seen in listOf(seenByOwner, seenByOther)) {
+			assertThat(seen.you!!.invest!!.factories.map { it.system to it.goods }).containsExactly(
+				"GAMMA_LEPORIS" to "POLY",
+				"TAU_CETI" to "ISO",
+				"MU_HERCULIS" to "CHIPS",
+				"SIGMA_DRACONIS" to "FOOD",
+				"SIGMA_DRACONIS" to "ISO"
+			)
+		}
+	}
+
+	@Test
+	fun shouldBuildAFactoryWhereThePlayerHasNoShip() {
+		// creator, 2026-11-16: Mu Herculis makes CHIPS; neither player has a ship or a factory there
+		val (_, other, gameId) = investingAtTau("units-noship")
+		val otherEmail = other.removePrefix("token-")
+
+		val bought = buyUnits(other, gameId, """{"system": "MU_HERCULIS", "goods": "CHIPS", "units": 1}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.players.single { it.email == otherEmail }.factories).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1))
+	}
+
+	@Test
+	fun shouldRefuseFactoryUnitsTheRulesRefuse() {
+		// E06-S05-4, S05-5: a good the system can't make, a system that makes nothing, too little money, a bad amount, an unknown name
+		val (_, other, gameId) = investingAtTau("units-refused")
+
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "ISO", "units": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Gamma Leporis can't produce ISO.")
+		buyUnits(other, gameId, """{"system": "BETA_HYDRI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Beta Hydri can't produce ISO.")
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1000}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 0}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 1 or more.")
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1.5}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY"}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "GOLD", "units": 1}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "NOWHERE", "goods": "POLY", "units": 1}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, "{}").expectStatus().isBadRequest
+		val otherEmail = other.removePrefix("token-")
+		assertThat(gameStore.find(gameId)!!.players.first { it.email == otherEmail }.factories).isEmpty()
+	}
+
+	@Test
+	fun shouldRefuseFactoryUnitsFromOutsidersOrOutsideInvestment() {
+		val (first, _, gameId) = orderedGame("units-outside")
+
+		buyUnits("token-$first", gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		buyUnits(null, gameId, "{}").expectStatus().isUnauthorized
+		buyUnits(
+			signIn("units-stranger@example.com"),
+			gameId,
+			"""{"system": "TAU_CETI", "goods": "ISO", "units": 1}"""
+		).expectStatus().isForbidden
+		buyUnits("token-$first", "no-such-game", """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""").expectStatus().isNotFound
 	}
 
 	@Test
@@ -1636,6 +1790,12 @@ class GameControllerTest {
 
 	private fun buyBlocks(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/warehouse-blocks", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun buyUnits(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/factory-units", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

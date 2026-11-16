@@ -4,9 +4,11 @@ import { describe, it } from 'node:test';
 import {
 	ALREADY_CLOSED_INVESTING,
 	BLOCKS_WHOLE_NUMBER,
+	UNITS_WHOLE_NUMBER,
 	COLLECT_WHOLE_NUMBER,
 	blocksCostText,
 	blocksText,
+	canBuildFactory,
 	canBuy,
 	collectDefaults,
 	collectFactories,
@@ -22,6 +24,10 @@ import {
 	doneInvestingRefusedText,
 	isDoneInvesting,
 	infrastructureState,
+	factoriesAt,
+	factorySystems,
+	goodsOptionLabel,
+	investFactories,
 	investSystems,
 	infrastructureStatusText,
 	investmentJustStarted,
@@ -30,8 +36,12 @@ import {
 	ownFactoryRows,
 	ownWarehouseRows,
 	parseBlocks,
+	parseUnits,
 	systemOptionLabel,
+	unitsCostText,
+	unitsText,
 	validateBlocks,
+	validateUnits,
 	warehouseText,
 	waitingForInvesting,
 } from '../../main/resources/static/js/investment.js';
@@ -411,6 +421,99 @@ describe('buying warehouse blocks (E06-S04)', () => {
 		it('says what it costs and what they have when it is too much', () => {
 			assert.deepEqual(validateBlocks('16', 20, 300), { error: '16 blocks cost 320 HT; you have 300 HT.' });
 			assert.deepEqual(validateBlocks('1', 20, 10), { error: '1 block costs 20 HT; you have 10 HT.' });
+		});
+	});
+});
+
+describe('building or extending a factory (E06-S05)', () => {
+	const iso = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', size: 6, price: 12, unitCost: 70 };
+	const poly = { system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis', goods: 'POLY', size: 0, price: 2, unitCost: 20 };
+	const withInvest = (factories, options) => ({
+		id: 'g-1', ...game(options),
+		you: { money: 300, invest: factories === null ? null : { blockCost: 20, systems: [], factories } },
+	});
+
+	describe('canBuildFactory and investFactories (S05-1, S05-5)', () => {
+		it('is true in Investment with a good to build somewhere', () => {
+			assert.equal(canBuildFactory(withInvest([iso, poly])), true);
+			assert.deepEqual(investFactories(withInvest([iso, poly])).map(f => f.goods), ['ISO', 'POLY']);
+		});
+
+		it('is false with nothing to build (ships only at Beta Hydri or Epsilon Eridani), while collecting and outside Investment', () => {
+			assert.equal(canBuildFactory(withInvest([])), false);
+			assert.equal(canBuildFactory(withInvest(null)), false);
+			assert.equal(canBuildFactory(withInvest([iso], { phase: 'TRADING' })), false);
+			assert.deepEqual(investFactories(withInvest(null)), []);
+		});
+	});
+
+	describe('the System and Goods dropdowns (S05-1)', () => {
+		const sigmaIso = { system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis', goods: 'ISO', size: 0, price: 10, unitCost: 60 };
+		const sigmaFood = { system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis', goods: 'FOOD', size: 2, price: 15, unitCost: 85 };
+		const all = withInvest([poly, iso, sigmaFood, sigmaIso]);
+
+		it('lists each system that can produce something once, in the order given', () => {
+			assert.deepEqual(factorySystems(all), [
+				{ system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' },
+				{ system: 'TAU_CETI', systemName: 'Tau Ceti' },
+				{ system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis' },
+			]);
+			assert.deepEqual(factorySystems(withInvest([])), []);
+			assert.deepEqual(factorySystems(withInvest(null)), []);
+		});
+
+		it('lists what a system can produce', () => {
+			assert.deepEqual(factoriesAt(all, 'SIGMA_DRACONIS').map(f => f.goods), ['FOOD', 'ISO']);
+			assert.deepEqual(factoriesAt(all, 'TAU_CETI').map(f => f.goods), ['ISO']);
+			assert.deepEqual(factoriesAt(all, 'BETA_HYDRI'), []);
+		});
+
+		it('says what the viewer makes of a good now, or that there is no factory yet', () => {
+			assert.equal(goodsOptionLabel(iso), 'ISO \u2014 makes 6 a turn');
+			assert.equal(goodsOptionLabel(poly), 'POLY \u2014 no factory yet');
+		});
+	});
+
+	describe('parseUnits and unitsText', () => {
+		it('accepts a whole number of 1 or more and refuses anything else', () => {
+			assert.equal(parseUnits(' 4 '), 4);
+			for (const text of ['', '0', '-2', '1.5', 'x', null]) {
+				assert.equal(parseUnits(text), null, String(text));
+			}
+		});
+
+		it('says unit in the singular', () => {
+			assert.equal(unitsText(1), '1 unit');
+			assert.equal(unitsText(3), '3 units');
+		});
+	});
+
+	describe('unitsCostText (S05-1, S05-2)', () => {
+		it('shows the total, the unit cost and the price it comes from', () => {
+			assert.equal(unitsCostText('3', iso), '3 units cost 210 HT (70 HT a unit; ISO is at 12 HT)');
+			assert.equal(unitsCostText('1', poly), '1 unit costs 20 HT (20 HT a unit; POLY is at 2 HT)');
+		});
+
+		it('is empty while the number is not valid', () => {
+			assert.equal(unitsCostText('', iso), '');
+			assert.equal(unitsCostText('0', iso), '');
+		});
+	});
+
+	describe('validateUnits (S05-4)', () => {
+		it('returns the units when whole and affordable, up to all the money', () => {
+			assert.deepEqual(validateUnits('2', iso, 300), { units: 2 });
+			assert.deepEqual(validateUnits('4', iso, 300), { units: 4 });
+		});
+
+		it('gives the whole-number message for anything else', () => {
+			assert.deepEqual(validateUnits('0', iso, 300), { error: UNITS_WHOLE_NUMBER });
+			assert.deepEqual(validateUnits('2.5', iso, 300), { error: UNITS_WHOLE_NUMBER });
+		});
+
+		it('says what it costs and what they have when it is too much, as the server does', () => {
+			assert.deepEqual(validateUnits('5', iso, 300), { error: '5 units cost 350 HT; you have 300 HT.' });
+			assert.deepEqual(validateUnits('1', iso, 10), { error: '1 unit costs 70 HT; you have 10 HT.' });
 		});
 	});
 });

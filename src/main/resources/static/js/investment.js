@@ -220,8 +220,8 @@ export function ownFactoryRows(game, email) {
 // ── Buying warehouse blocks (E06-S04, R45) ──
 //
 // `game.you.invest` (private to the viewer, BACKWARD_COMPATIBILITY.md §6) is `{ blockCost, systems: [{ system, systemName,
-// blocks }] }`: what a block costs, and the systems where the viewer has a ship (the only places they can build) with the
-// blocks they already own there. It's null outside Investment and while they still have to collect.
+// blocks }], factories }`: what a block costs, every system with the blocks the viewer already owns there (a ship isn't
+// needed to buy anywhere), and the factories (below). It's null outside Investment and while they still have to collect.
 
 export const INVEST_NOTE = 'Everyone invests at the same time. The turn moves on once everyone is done.';
 export const BLOCKS_BUTTON = 'Add blocks';
@@ -234,7 +234,7 @@ export function canBuy(game) {
 	return isInvesting(game) && Boolean(game.you?.invest);
 }
 
-/** The systems the viewer may build in (S04-2): where they have a ship. */
+/** The systems the viewer may buy warehouse blocks in (S04-1): all six; a ship isn't needed. */
 export function investSystems(game) {
 	return game.you?.invest?.systems ?? [];
 }
@@ -281,4 +281,72 @@ export function validateBlocks(text, blockCost, money) {
 		return { error: `${blocksCostText(text, blockCost)}; you have ${money} HT.` };
 	}
 	return { blocks };
+}
+
+// ── Building or extending a factory (E06-S05, R46) ──
+//
+// `game.you.invest.factories` is `[{ system, systemName, goods, size, price, unitCost }]`: for each system, each good it can
+// produce, whether or not the viewer has a ship or a factory there, with the units they make there now (0 for no factory),
+// the good's market price and the cost of one unit of size, 5 × price + 10 HT. Beta Hydri and Epsilon Eridani produce nothing.
+
+export const UNITS_BUTTON = 'Add units';
+export const UNITS_WHOLE_NUMBER = 'Enter a whole number of units, 1 or more.';
+
+/** The goods the viewer can add units to now (S05-1, S05-5). */
+export function investFactories(game) {
+	return game.you?.invest?.factories ?? [];
+}
+
+/** Whether to show the panel: the viewer may buy and something can be produced (no ship needed, E06-S05). */
+export function canBuildFactory(game) {
+	return canBuy(game) && investFactories(game).length > 0;
+}
+
+/** The systems that can produce something, in the order of the list (map order): `[{ system, systemName }]` for the System dropdown. */
+export function factorySystems(game) {
+	const seen = new Set();
+	return investFactories(game).filter(entry => !seen.has(entry.system) && seen.add(entry.system))
+		.map(entry => ({ system: entry.system, systemName: entry.systemName }));
+}
+
+/** What [systemId] can produce, for the Goods dropdown. */
+export function factoriesAt(game, systemId) {
+	return investFactories(game).filter(entry => entry.system === systemId);
+}
+
+/** A goods option: "ISO \u2014 makes 6 a turn", or "\u2014 no factory yet". */
+export function goodsOptionLabel(factory) {
+	return `${factory.goods} \u2014 ${factory.size === 0 ? 'no factory yet' : `makes ${factory.size} a turn`}`;
+}
+
+/** "1 unit", "3 units". */
+export function unitsText(units) {
+	return `${units} ${units === 1 ? 'unit' : 'units'}`;
+}
+
+/** The number of units typed, or null when it isn't a whole number, 1 or more. */
+export function parseUnits(text) {
+	return parseBlocks(text);
+}
+
+/** S05-1, S05-2: the total for what was typed, with the unit cost and the good's price it comes from; "" while it isn't valid. */
+export function unitsCostText(text, factory) {
+	const units = parseUnits(text);
+	if (units === null) {
+		return '';
+	}
+	return `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${units * factory.unitCost} HT (${factory.unitCost} HT a unit; ${factory.goods} is at ${factory.price} HT)`;
+}
+
+/** S05-4: the units to buy, or the error the server would give: not whole, or more than [money] pays for. */
+export function validateUnits(text, factory, money) {
+	const units = parseUnits(text);
+	if (units === null) {
+		return { error: UNITS_WHOLE_NUMBER };
+	}
+	const cost = units * factory.unitCost;
+	if (cost > money) {
+		return { error: `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${cost} HT; you have ${money} HT.` };
+	}
+	return { units };
 }

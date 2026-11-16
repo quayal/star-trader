@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 
 class InvestmentService(private val gameStore: GameStore) {
@@ -24,4 +25,11 @@ class InvestmentService(private val gameStore: GameStore) {
 	 */
 	fun buyWarehouseBlocks(gameId: String, callerEmail: String, system: StarSystem, blocks: Int): Game =
 		gameStore.update(gameId) { it.buyWarehouseBlocks(callerEmail, system, blocks) }
+
+	/**
+	 * [callerEmail] buys [units] of production of [goods] at [system] inside [GameStore.update], so the cost is checked
+	 * against the saved balance and the saved prices, and a replayed change builds and charges once (A04, R46).
+	 */
+	fun buyFactoryUnits(gameId: String, callerEmail: String, system: StarSystem, goods: Goods, units: Int): Game =
+		gameStore.update(gameId) { it.buyFactoryUnits(callerEmail, system, goods, units) }
 }

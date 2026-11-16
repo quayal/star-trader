@@ -8,7 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-// R45, E06-S04: buying warehouse blocks where the player has a ship, at 20 HT a block.
+// R45, E06-S04: buying warehouse blocks at any system, at 20 HT a block, with no ship needed.
 class PlayerBuyWarehouseBlocksTest {
 
 	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
@@ -44,16 +44,17 @@ class PlayerBuyWarehouseBlocksTest {
 	}
 
 	@Test
-	fun shouldAllowAShipInAnyLocationAtTheSystem() {
-		// the spec says "a ship at that system", not "in port": Lantern is in Space at Mu Herculis
-		assertThat(player.buyWarehouseBlocks(MU_HERCULIS, 1).warehouseAt(MU_HERCULIS)).isNotNull()
+	fun shouldNeedNoShipAtTheSystem() {
+		// creator, 2026-11-16: Gamma Leporis is a system where this player has no ship
+		val bought = player.buyWarehouseBlocks(GAMMA_LEPORIS, 2)
+
+		assertThat(bought.warehouseAt(GAMMA_LEPORIS)).isEqualTo(Warehouse(GAMMA_LEPORIS, 2, emptyMap()))
+		assertThat(bought.money).isEqualTo(300 - 2 * 20)
 	}
 
 	@Test
-	fun shouldRefuseAPlayerWithNoShipAtTheSystem() {
-		assertThatThrownBy { player.buyWarehouseBlocks(GAMMA_LEPORIS, 1) }
-			.isInstanceOf(InvalidInvestmentException::class.java)
-			.hasMessage("You need a ship at Gamma Leporis to build there.")
+	fun shouldBuyForAPlayerWithNoShipsAtAll() {
+		assertThat(player.copy(ships = emptyList()).buyWarehouseBlocks(TAU_CETI, 1).warehouseAt(TAU_CETI)).isNotNull()
 	}
 
 	@Test
