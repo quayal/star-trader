@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Hull
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.trading.Goods
@@ -16,7 +18,9 @@ class ShipItemTest {
 		name = "Lantern",
 		system = StarSystem.BETA_HYDRI,
 		location = ShipLocation.SPACE,
-		cargo = mapOf(Goods.ISO to 3, Goods.FOOD to 9)
+		cargo = mapOf(Goods.ISO to 3, Goods.FOOD to 9),
+		hull = Hull.MONARCH,
+		modules = listOf(Module.CARGO, Module.LIGHT_WEAPONS, Module.CARGO, Module.SAFE_JUMP)
 	)
 
 	@Test
@@ -38,7 +42,11 @@ class ShipItemTest {
 				"name" to AttributeValue.fromS("Lantern"),
 				"system" to AttributeValue.fromS("BETA_HYDRI"),
 				"location" to AttributeValue.fromS("SPACE"),
-				"cargo" to AttributeValue.fromM(mapOf("ISO" to AttributeValue.fromN("3"), "FOOD" to AttributeValue.fromN("9")))
+				"cargo" to AttributeValue.fromM(mapOf("ISO" to AttributeValue.fromN("3"), "FOOD" to AttributeValue.fromN("9"))),
+				"hull" to AttributeValue.fromS("MONARCH"),
+				"modules" to AttributeValue.fromL(
+					listOf("CARGO", "LIGHT_WEAPONS", "CARGO", "SAFE_JUMP").map { AttributeValue.fromS(it) }
+				)
 			)
 		)
 	}
@@ -46,6 +54,25 @@ class ShipItemTest {
 	@Test
 	fun shouldReadAShipStoredBeforeCargoExistedAsEmpty() {
 		assertThat(ShipItem(ShipItem(ship).attributes - "cargo").toShip().cargo).isEmpty()
+	}
+
+	@Test
+	fun shouldReadAShipStoredBeforeHullsExistedAsAClarinetWithFiveCargoModules() {
+		val stored = ShipItem(ship).attributes - "hull" - "modules"
+
+		val loaded = ShipItem(stored).toShip()
+
+		assertThat(loaded.hull).isEqualTo(Hull.CLARINET)
+		assertThat(loaded.modules).containsExactly(Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO)
+		assertThat(loaded.cargoSpaces()).isEqualTo(Ship.CARGO_SPACES)
+		assertThat(loaded.cargo).isEqualTo(ship.cargo)
+	}
+
+	@Test
+	fun shouldKeepTheOrderOfItsModules() {
+		val loaded = ShipItem(ShipItem(ship).attributes).toShip()
+
+		assertThat(loaded.modules).containsExactly(Module.CARGO, Module.LIGHT_WEAPONS, Module.CARGO, Module.SAFE_JUMP)
 	}
 
 	@Test
