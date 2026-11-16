@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.StarSystem
+
 class InvestmentService(private val gameStore: GameStore) {
 
 	/**
@@ -15,4 +17,11 @@ class InvestmentService(private val gameStore: GameStore) {
 	 */
 	fun collect(gameId: String, callerEmail: String, placements: List<OutputPlacement>): Game =
 		gameStore.update(gameId) { it.collectOutput(callerEmail, placements) }
+
+	/**
+	 * [callerEmail] buys [blocks] warehouse blocks at [system] inside [GameStore.update], so the money is checked against the
+	 * saved balance and two purchases at once can't spend the same HT (A04, R45).
+	 */
+	fun buyWarehouseBlocks(gameId: String, callerEmail: String, system: StarSystem, blocks: Int): Game =
+		gameStore.update(gameId) { it.buyWarehouseBlocks(callerEmail, system, blocks) }
 }

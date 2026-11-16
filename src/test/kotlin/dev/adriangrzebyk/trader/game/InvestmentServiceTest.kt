@@ -121,6 +121,39 @@ class InvestmentServiceTest {
 			.hasMessage("Investment isn't open.")
 	}
 
+	@Test
+	fun shouldStoreBoughtBlocksInTheStore() {
+		// E06-S04
+		gameStore.create(investing)
+
+		val game = service.buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 2)
+
+		assertThat(game.players.first { it.email == "creator@example.com" }.warehouseAt(TAU_CETI)!!.blocks).isEqualTo(2)
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldTakeTheMoneyOnceEvenWhenTheStoreReplaysTheChange() {
+		// the purchase is checked against the saved balance, so a replayed change charges and builds once
+		gameStore.create(investing)
+
+		InvestmentService(ReplayingGameStore(gameStore)).buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 2)
+
+		val ada = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }
+		assertThat(ada.warehouseAt(TAU_CETI)!!.blocks).isEqualTo(2)
+		assertThat(ada.money).isEqualTo(investing.players.first { it.email == "creator@example.com" }.money - 40)
+	}
+
+	@Test
+	fun shouldRefuseBlocksAfterInvestmentClosed() {
+		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		gameStore.create(closed)
+
+		assertThatThrownBy { service.buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 1) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
+	}
+
 	/** Runs every change twice against the same stored state, the way an optimistic retry re-runs it. */
 	private class ReplayingGameStore(private val delegate: FakeGameStore) : GameStore by delegate {
 
