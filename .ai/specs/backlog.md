@@ -7,6 +7,8 @@ Last filed: 2026-10-29 (E06 filed 2026-11-15; E06-S08 filed 2026-11-16 as #113)
 
 2026-11-16: the creator moved the Investment phase to its own Infrastructure screen (D12). Added E06-S08 (the screen; moves Collect off the Deck) and made E06-S04 and E06-S05 depend on it; S04 and S05's wording changes in the spec. Filed as #113; #102 and #103 refreshed from the spec (new dependency, "Infrastructure screen" wording).
 
+2026-11-16 run: planned E07 (ships from hulls and modules, Fleet tab) from the creator's vault note and answers; spec `2026-11-16-e07-hulls-modules-fleet.md`. Filed as #116–#119. Shipyards, crews, repair and battle are not filed (listed as Later in the spec).
+
 2026-11-15 run: planned E06 (factories, warehouses, Investment phase) from the creator's answers; spec `2026-11-15-e06-factories-warehouses.md`. Filed as #98–#105. The parked "Later" row was renamed E99 so E06 could be used for this epic.
 
 2026-10-29 run: filed E01-S03, E02-S05 and the E03–E05 stories from the playtest specs (`2026-10-29-*.md`, each story's design authority); acceptance criteria are the specs' numbered criteria, verbatim. Epic bodies #8–#11 were refreshed to the current rule ids (R40–R43, R25–R27, R34–R38, D09) with the user's yes.
@@ -57,4 +59,8 @@ Earlier (2026-10-25): E03–E05 still had no stories/tasks filed — this run wa
 | E06-S06 | #104 | A warehouse lets you trade without a ship | #98 | E06-S02, E05-S04 | no |
 | E06-S07 | #105 | The Game log shows builds and collected output | #98 | E06-S04, E06-S05 | no |
 | E06-S08 | #113 | An Infrastructure screen for the whole Investment phase | #98 | E06-S03 | no |
+| E07 | #116 | Ships from hulls and modules, and the Fleet tab | — | E06 | no |
+| E07-S01 | #117 | Hulls and modules exist as game data, and a ship is made of them | #116 | E06 | no |
+| E07-S02 | #118 | Cargo space comes from the ship's modules, and new games start with the new ships | #116 | E07-S01 | no |
+| E07-S03 | #119 | A Fleet tab shows my ships with all their stats | #116 | E07-S02 | no |
 | E99 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting); renamed from E06 on 2026-11-15 so E06 could be factories | — | — | not filed |
