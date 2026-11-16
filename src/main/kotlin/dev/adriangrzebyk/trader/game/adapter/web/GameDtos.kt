@@ -69,7 +69,8 @@ data class GameResponseDto(
 				game.turn?.offersOf(it.email).orEmpty(),
 				game.turn?.bidOf(it.email),
 				game.turn?.resolution,
-				game.turn?.isCollecting(it.email) == true
+				game.turn?.isCollecting(it.email) == true,
+				game.canInvest(it.email)
 			)
 		}
 	)
@@ -336,7 +337,7 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
  * (S04-5), else null. [wholesaleMax] is the same for the wholesale step when it waits for them (R37, E05-S05-4), else
  * null. [warehouses] are their own warehouses with what each holds (R29, like their ships' cargo), and [collect] is what
  * they place at the start of Investment while they still have to (R47, E06-S03-1), else null: not in Investment,
- * already confirmed, or no factories (S03-6).
+ * already confirmed, or no factories (S03-6). [invest] is what they may buy while they can (E06-S04), else null.
  */
 data class YouResponseDto(
 	val money: Int,
@@ -346,15 +347,24 @@ data class YouResponseDto(
 	val tradeMax: Int?,
 	val wholesaleMax: WholesaleMaxResponseDto?,
 	val warehouses: List<YourWarehouseResponseDto>,
-	val collect: CollectResponseDto?
+	val collect: CollectResponseDto?,
+	val invest: InvestResponseDto?
 ) {
 
 	/**
 	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
 	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
-	 * whether it's Investment and [player] hasn't confirmed their collect yet.
+	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
+	 * ([Game.canInvest]).
 	 */
-	constructor(player: Player, offers: List<Offer>, bid: InitiativeBid?, resolution: Resolution?, collecting: Boolean) : this(
+	constructor(
+		player: Player,
+		offers: List<Offer>,
+		bid: InitiativeBid?,
+		resolution: Resolution?,
+		collecting: Boolean,
+		investing: Boolean
+	) : this(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
 		offers.map { YourOfferResponseDto(it) },
@@ -362,7 +372,8 @@ data class YouResponseDto(
 		resolution?.awaitingTrade()?.takeIf { it.offer.playerEmail == player.email }?.let { player.tradeMax(it.offer, it.marketMax) },
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
-		CollectResponseDto(player).takeIf { collecting && player.hasFactories() }
+		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
+		InvestResponseDto(player).takeIf { investing }
 	)
 }
 
@@ -384,6 +395,35 @@ data class YourWarehouseResponseDto(
 		warehouse.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		warehouse.cargoSpacesUsed()
 	)
+}
+
+/**
+ * What the viewer may buy in Investment once they have collected (R45, E06-S04): [blockCost] HT a warehouse block, and the
+ * [systems] where they have a ship (the only places they can build, in the order of their ships) with how many blocks
+ * they own there. Private to the viewer, and null outside Investment and while they still have to collect.
+ */
+data class InvestResponseDto(val blockCost: Int, val systems: List<InvestSystemResponseDto>) {
+
+	constructor(player: Player) : this(
+		Warehouse.BLOCK_COST,
+		player.ships.map { it.system }.distinct().map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) }
+	)
+}
+
+/** A system where the viewer has a ship, and the [blocks] of warehouse they already own there (0 for none). */
+data class InvestSystemResponseDto(val system: String, val systemName: String, val blocks: Int) {
+
+	constructor(system: StarSystem, blocks: Int) : this(system.name, system.displayName, blocks)
+}
+
+/** The blocks to buy and where (R45, E06-S04). Names are checked here; [blocks] is a [BigDecimal] so 2.5 reaches a message instead of being rounded. */
+data class BuyBlocksRequestDto(val system: String? = null, val blocks: BigDecimal? = null) {
+
+	/** The system, or null when it's missing or isn't one. */
+	fun starSystem(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+
+	/** The blocks as a whole number, or null when missing or not whole. */
+	fun wholeBlocks(): Int? = blocks?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
 /**

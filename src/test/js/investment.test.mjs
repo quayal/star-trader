@@ -3,7 +3,11 @@ import { describe, it } from 'node:test';
 
 import {
 	ALREADY_CLOSED_INVESTING,
+	BLOCKS_WHOLE_NUMBER,
 	COLLECT_WHOLE_NUMBER,
+	blocksCostText,
+	blocksText,
+	canBuy,
 	collectDefaults,
 	collectFactories,
 	collectHeading,
@@ -18,12 +22,17 @@ import {
 	doneInvestingRefusedText,
 	isDoneInvesting,
 	infrastructureState,
+	investSystems,
 	infrastructureStatusText,
 	investmentJustStarted,
 	isInvesting,
 	isInvestmentClosedRefusal,
 	ownFactoryRows,
 	ownWarehouseRows,
+	parseBlocks,
+	systemOptionLabel,
+	validateBlocks,
+	warehouseText,
 	waitingForInvesting,
 } from '../../main/resources/static/js/investment.js';
 import { phaseText } from '../../main/resources/static/js/bidding.js';
@@ -326,6 +335,82 @@ describe('the Infrastructure screen (E06-S08)', () => {
 
 		it('is empty for a viewer with none', () => {
 			assert.deepEqual(ownFactoryRows({ ...game(), board, players: [{ email: ME, factories: [] }] }, ME), []);
+		});
+	});
+});
+
+describe('buying warehouse blocks (E06-S04)', () => {
+	const invest = { blockCost: 20, systems: [{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2 }, { system: 'MU_HERCULIS', systemName: 'Mu Herculis', blocks: 0 }] };
+	const withInvest = (value, options) => ({ id: 'g-1', ...game(options), you: { money: 300, invest: value } });
+
+	describe('canBuy and investSystems (S04-1, S04-2)', () => {
+		it('is true in Investment once the viewer has something to buy from', () => {
+			assert.equal(canBuy(withInvest(invest)), true);
+			assert.deepEqual(investSystems(withInvest(invest)).map(s => s.system), ['TAU_CETI', 'MU_HERCULIS']);
+		});
+
+		it('is false while they still have to collect, outside Investment and for a finished game', () => {
+			assert.equal(canBuy(withInvest(null)), false);
+			assert.equal(canBuy(withInvest(invest, { phase: 'TRADING' })), false);
+			assert.equal(canBuy(withInvest(invest, { status: 'FINISHED' })), false);
+			assert.deepEqual(investSystems(withInvest(null)), []);
+		});
+	});
+
+	describe('what they own (S04-3)', () => {
+		it('says "no warehouse yet", or the blocks with 10 cargo spaces each', () => {
+			assert.equal(warehouseText(0), 'no warehouse yet');
+			assert.equal(warehouseText(1), '1 block, 10 cargo spaces');
+			assert.equal(warehouseText(3), '3 blocks, 30 cargo spaces');
+			assert.equal(blocksText(1), '1 block');
+			assert.equal(blocksText(2), '2 blocks');
+		});
+
+		it('names a system in the picker with what is there', () => {
+			assert.equal(systemOptionLabel(invest.systems[0]), 'Tau Ceti \u2014 2 blocks, 20 cargo spaces');
+			assert.equal(systemOptionLabel(invest.systems[1]), 'Mu Herculis \u2014 no warehouse yet');
+		});
+	});
+
+	describe('parseBlocks', () => {
+		it('accepts a whole number of 1 or more, trimmed', () => {
+			assert.equal(parseBlocks('3'), 3);
+			assert.equal(parseBlocks(' 12 '), 12);
+		});
+
+		it('refuses anything else', () => {
+			for (const text of ['', '0', '-1', '1.5', 'abc', '2x', null, undefined]) {
+				assert.equal(parseBlocks(text), null, String(text));
+			}
+		});
+	});
+
+	describe('blocksCostText (S04-1)', () => {
+		it('shows the total at the block price, in the singular for one', () => {
+			assert.equal(blocksCostText('3', 20), '3 blocks cost 60 HT');
+			assert.equal(blocksCostText('1', 20), '1 block costs 20 HT');
+		});
+
+		it('is empty while the number is not valid', () => {
+			assert.equal(blocksCostText('', 20), '');
+			assert.equal(blocksCostText('x', 20), '');
+		});
+	});
+
+	describe('validateBlocks (S04-2)', () => {
+		it('returns the blocks when they are whole and affordable, up to all the money', () => {
+			assert.deepEqual(validateBlocks('2', 20, 300), { blocks: 2 });
+			assert.deepEqual(validateBlocks('15', 20, 300), { blocks: 15 });
+		});
+
+		it('gives the server\'s own message for a number that is not whole, 1 or more', () => {
+			assert.deepEqual(validateBlocks('0', 20, 300), { error: BLOCKS_WHOLE_NUMBER });
+			assert.deepEqual(validateBlocks('1.5', 20, 300), { error: BLOCKS_WHOLE_NUMBER });
+		});
+
+		it('says what it costs and what they have when it is too much', () => {
+			assert.deepEqual(validateBlocks('16', 20, 300), { error: '16 blocks cost 320 HT; you have 300 HT.' });
+			assert.deepEqual(validateBlocks('1', 20, 10), { error: '1 block costs 20 HT; you have 10 HT.' });
 		});
 	});
 });
