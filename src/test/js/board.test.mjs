@@ -111,10 +111,10 @@ describe('the map', () => {
 	it('places all six systems as a flat-topped hexagon ring, in rows of two', () => {
 		assert.equal(Object.keys(NODE_POSITIONS).length, 6);
 		assert.equal(NODE_POSITIONS.GAMMA_LEPORIS[1], NODE_POSITIONS.BETA_HYDRI[1]);
-		assert.equal(NODE_POSITIONS.SIGMA_DRACONIS[1], NODE_POSITIONS.MU_HERCULIS[1]);
-		assert.equal(NODE_POSITIONS.TAU_CETI[1], NODE_POSITIONS.EPSILON_ERIDANI[1]);
-		assert.ok(NODE_POSITIONS.SIGMA_DRACONIS[0] < NODE_POSITIONS.GAMMA_LEPORIS[0]);
-		assert.ok(NODE_POSITIONS.MU_HERCULIS[0] > NODE_POSITIONS.BETA_HYDRI[0]);
+		assert.equal(NODE_POSITIONS.EPSILON_ERIDANI[1], NODE_POSITIONS.SIGMA_DRACONIS[1]);
+		assert.equal(NODE_POSITIONS.TAU_CETI[1], NODE_POSITIONS.MU_HERCULIS[1]);
+		assert.ok(NODE_POSITIONS.EPSILON_ERIDANI[0] < NODE_POSITIONS.GAMMA_LEPORIS[0]);
+		assert.ok(NODE_POSITIONS.SIGMA_DRACONIS[0] > NODE_POSITIONS.BETA_HYDRI[0]);
 		assert.match(MAP_VIEW_BOX, /^-?\d+ \d+ \d+ \d+$/);
 	});
 

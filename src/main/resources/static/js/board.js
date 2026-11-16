@@ -48,17 +48,17 @@ export const TIERS = [
 
 /**
  * The map is a flat-topped hexagon ring, rows 2 : 2 : 2 with the middle pair wider (D07):
- * Gamma, Beta / Sigma, Mu / Tau, Epsilon. Coordinates are in MAP_VIEW_BOX units.
+ * Gamma, Beta / Epsilon, Sigma / Tau, Mu. Coordinates are in MAP_VIEW_BOX units.
  */
 export const MAP_VIEW_BOX = '-20 0 800 670';
 export const NODE_RADIUS = 64;
 export const NODE_POSITIONS = {
 	GAMMA_LEPORIS: [245, 101],
 	BETA_HYDRI: [515, 101],
-	SIGMA_DRACONIS: [110, 335],
-	MU_HERCULIS: [650, 335],
+	EPSILON_ERIDANI: [110, 335],
+	SIGMA_DRACONIS: [650, 335],
 	TAU_CETI: [245, 569],
-	EPSILON_ERIDANI: [515, 569],
+	MU_HERCULIS: [515, 569],
 };
 
 /** P(2d6 + indicator ≥ 0), as a fraction of the 36 outcomes. */

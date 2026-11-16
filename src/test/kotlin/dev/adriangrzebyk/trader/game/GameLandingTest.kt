@@ -40,7 +40,7 @@ class GameLandingTest {
 		ShipLocation.entries.forEach { location ->
 			val game = arrived.landShip("grace@example.com", location)
 
-			assertThat(shipOf(game, "Meridian")).isEqualTo(Ship("Meridian", TAU_CETI, location, emptyMap()))
+			assertThat(shipOf(game, "Meridian")).isEqualTo(Ship("Meridian", TAU_CETI, location, emptyMap(), Ship.LEGACY_HULL, Ship.LEGACY_MODULES))
 			assertThat(game.turn!!.landingShip).isNull()
 		}
 	}
