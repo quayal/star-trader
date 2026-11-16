@@ -245,10 +245,11 @@
 		.trade-ships legend { padding: 0; }
 		/* s10 (E06-S08): the whole Investment phase, one column of panels. */
 		.infrastructure { display: grid; gap: var(--space-panel); max-width: 720px; }
-		.infrastructure[hidden], .infrastructure [hidden] { display: none; }
 		.infrastructure > h2, .infrastructure p { margin: 0; }
 		.infrastructure h2:focus, .infrastructure h3:focus { outline: none; }
 		.infrastructure .panel { display: grid; gap: var(--space-related); }
+		.infrastructure p:empty { display: none; } /* the status, message and error lines are always in the tree */
+		.infrastructure[hidden], .infrastructure [hidden], .infrastructure .panel[hidden] { display: none; } /* after .panel, which sets display */
 		.collect-factories { display: grid; gap: var(--space-between-groups); }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }

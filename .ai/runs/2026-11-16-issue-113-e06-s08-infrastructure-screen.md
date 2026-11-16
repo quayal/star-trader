@@ -56,3 +56,28 @@ lines (S07); any server change.
 ### Phase 3: Verify and document
 
 - [ ] 3.1 Browser walk (two players, seeded factories, 390 px) and run log
+
+## Outcome (run log)
+
+Status: complete, pending review and CI.
+
+### What it did
+
+- **Routing and helpers**: `#game/{id}/infrastructure` (s10) and `infrastructureLink` in `js/game.js`; `investmentJustStarted`, `infrastructureState`, `infrastructureStatusText`, `ownWarehouseRows` and `ownFactoryRows` in `js/investment.js`, all with unit tests.
+- **Screen**: a nav item "Infrastructure" beside Trading, and one panel holding the Collect panel (moved off the Deck, same behaviour), a status line, the "I'm done investing" button (moved off the top bar), and the viewer's own warehouses and factories. Outside Investment it says "Investment opens after Trading." and shows no controls.
+- **Redirect**: every player is taken to s10 when Investment starts (once; going back to the Deck sticks).
+- **Top bar**: keeps Bidding's button; on the Deck and System details a player who still has to collect sees "Collect your output first." with a link to s10.
+- No server change, no new endpoint or stored field: `you.warehouses`, `you.collect`, `players[].factories` and `turn.doneInvesting` carry everything.
+
+### Decisions
+
+- The Investment done button, its message and focus handling are a separate small path (`signalDoneInvesting`) instead of one shared `signalDone` with a switch: the two have different elements, messages and focus targets now.
+- After Investment closes the next turn is in Bidding and the player **stays on s10** (read-only, "Investment opens after Trading."); nothing in the spec asks for a redirect to the Deck, and Trading/Game log behave the same. A follow-up could take players back to the Deck when Bidding opens.
+- The viewer's own factories are read from the public `players[]` entry by email; system names come from `board`.
+
+### Validation
+
+- `./gradlew build`: passes, 637 Kotlin tests (0 skipped) and 258 JS tests.
+- Browser walk (headless Chrome over the DevTools protocol, since agent-browser isn't installed; the jar on port 3141 with its own DynamoDB Local; two players, Ada's factory and warehouse seeded in DynamoDB Local with `UpdateItem`, the phase moved to Investment the same way): taken to s10 when Investment starts with the heading focused; Collect panel on s10 and absent from the Deck; "Collect your output first." with the link on the Deck; Deck stays put across polls; Confirm stores 2 ISO beside 8 POLY and the done button appears with focus; the other player (no factories) sees the button at once and none of Ada's warehouse; done names who is awaited; closed state is read-only with the assets listed; Bidding's button still on the Deck; no horizontal overflow at 390 px.
+- The walk's first run showed a real bug: a container rule `display: grid` beat `[hidden]` so the Collect panel stayed visible after Confirm while `.hidden` was true. Fixed (`.panel[hidden]`), and the walk now asserts `offsetParent`. Lesson added.
+- Not seen: a screen reader, a real mouse or touch.
