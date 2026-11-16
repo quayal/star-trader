@@ -567,6 +567,8 @@
 					<button class="btn" id="infra-done-button" type="button">I'm done investing</button>
 				</div>
 				<p class="message" id="infra-done-message" role="status" tabindex="-1"></p>
+				<!-- E06-S04-6: all the time Investment is open, so nobody thinks they wait for a builder. -->
+				<p class="muted" id="invest-note"></p>
 			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
@@ -578,6 +580,25 @@
 					<p class="message message--error field-error" id="collect-error" role="alert"></p>
 					<div><button class="btn" id="collect-button" type="submit"></button></div>
 					<p class="message" id="collect-message" role="status"></p>
+				</form>
+			</section>
+			<!-- E06-S04: static markup, so the typed number and focus survive the poll. -->
+			<section class="panel" id="blocks-panel" aria-labelledby="blocks-title" hidden>
+				<h2 id="blocks-title">Add warehouse blocks</h2>
+				<p class="muted" id="blocks-intro"></p>
+				<form class="offer-form" id="blocks-form" novalidate>
+					<div>
+						<label class="field-label" for="blocks-system">System</label>
+						<select class="control" id="blocks-system"></select>
+					</div>
+					<div>
+						<label class="field-label" for="blocks-count">Blocks</label>
+						<input class="control price-input" id="blocks-count" inputmode="numeric" value="1" aria-describedby="blocks-cost blocks-error">
+						<p class="message muted" id="blocks-cost" role="status"></p>
+						<p class="message message--error field-error" id="blocks-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="blocks-button" type="submit">Add blocks</button></div>
+					<p class="message" id="blocks-message" role="status"></p>
 				</form>
 			</section>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
@@ -881,12 +902,18 @@
 	} from './js/offers.js';
 	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
+		BLOCKS_BUTTON,
+		CARGO_SPACES_PER_BLOCK,
 		COLLECT_BUTTON,
 		COLLECT_ELSEWHERE_TEXT,
 		COLLECT_FIRST_TEXT,
 		COLLECT_INTRO,
 		INFRASTRUCTURE_LINK_TEXT,
+		INVEST_NOTE,
 		NOT_INVESTING_TEXT,
+		blocksCostText,
+		blocksText,
+		canBuy,
 		collectDefaults,
 		collectFactories,
 		collectHeading,
@@ -897,12 +924,15 @@
 		doneInvestingRefusedText,
 		infrastructureState,
 		infrastructureStatusText,
+		investSystems,
 		investmentJustStarted,
 		isCollecting,
 		isInvestmentClosedRefusal,
 		isInvesting,
 		ownFactoryRows,
 		ownWarehouseRows,
+		systemOptionLabel,
+		validateBlocks,
 		validateCollect
 	} from './js/investment.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
@@ -2801,7 +2831,12 @@
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
 		$('infra-done-row').hidden = state !== 'invest';
+		const note = isInvesting(game) ? INVEST_NOTE : '';
+		if ($('invest-note').textContent !== note) {
+			$('invest-note').textContent = note;
+		}
 		updateCollectForm(game);
+		updateBlocksForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, session.email);
@@ -2819,6 +2854,123 @@
 			$('own-assets-none').hidden = warehouses.length > 0 || factories.length > 0;
 		}
 	}
+
+	// ── E06-S04: buying warehouse blocks ──
+
+	/** What the picker was drawn from; it's drawn again only when the systems or what is owned there change, so a pick survives the poll. */
+	let shownBlocksKey = null;
+	let blocksMessageKey = null;
+	let submittingBlocks = false;
+
+	function setBlocksError(text) {
+		$('blocks-error').textContent = text;
+		if (text) {
+			$('blocks-count').setAttribute('aria-invalid', 'true');
+		} else {
+			$('blocks-count').removeAttribute('aria-invalid');
+		}
+	}
+
+	function setBlocksMessage(text, error, key) {
+		$('blocks-message').textContent = text;
+		$('blocks-message').className = error ? 'message message--error' : 'message message--success';
+		blocksMessageKey = text ? key : null;
+	}
+
+	function updateBlocksCost(game) {
+		const text = blocksCostText($('blocks-count').value, game.you.invest.blockCost);
+		if ($('blocks-cost').textContent !== text) {
+			$('blocks-cost').textContent = text;
+		}
+	}
+
+	function updateBlocksForm(game) {
+		const panel = $('blocks-panel');
+		panel.hidden = !canBuy(game);
+		if (panel.hidden) {
+			shownBlocksKey = null;
+			return;
+		}
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (blocksMessageKey !== null && blocksMessageKey !== turnKey) {
+			setBlocksMessage('', false, null);
+		}
+		const { blockCost } = game.you.invest;
+		const systems = investSystems(game);
+		const key = `${turnKey}/${JSON.stringify(game.you.invest)}`;
+		if (shownBlocksKey !== key) {
+			const chosen = $('blocks-system').value;
+			$('blocks-system').replaceChildren(...systems.map(system => element('option', { value: system.system }, systemOptionLabel(system))));
+			if (systems.some(system => system.system === chosen)) {
+				$('blocks-system').value = chosen;
+			}
+			if (shownBlocksKey === null || !shownBlocksKey.startsWith(`${turnKey}/`)) {
+				$('blocks-count').value = '1'; // a new turn starts from one block
+			}
+			shownBlocksKey = key;
+			$('blocks-intro').textContent = `${blockCost} HT a block, ${CARGO_SPACES_PER_BLOCK} cargo spaces each. New blocks first count next turn.`;
+			$('blocks-button').textContent = BLOCKS_BUTTON;
+		}
+		updateBlocksCost(game);
+		$('blocks-button').disabled = submittingBlocks;
+	}
+
+	// Typing again clears a shown error: it was about what was there before.
+	$('blocks-count').addEventListener('input', () => {
+		setBlocksError('');
+		if (lastGame?.you?.invest) {
+			updateBlocksCost(lastGame);
+		}
+	});
+
+	/** S04-2, S04-3: checked here first, then by the server; the answer redraws the screen with the new blocks and balance. */
+	$('blocks-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		if (!game?.you?.invest) {
+			return;
+		}
+		const checked = validateBlocks($('blocks-count').value, game.you.invest.blockCost, game.you.money);
+		setBlocksError(checked.error ?? '');
+		if (checked.error) {
+			$('blocks-count').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		const system = $('blocks-system').value;
+		const systemName = game.you.invest.systems.find(entry => entry.system === system)?.systemName ?? system;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		submittingBlocks = true;
+		$('blocks-button').disabled = true;
+		setBlocksMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/warehouse-blocks`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system, blocks: checked.blocks }) });
+		} catch {
+			response = null;
+		}
+		submittingBlocks = false;
+		$('blocks-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			setBlocksMessage(`Added ${blocksText(checked.blocks)} at ${systemName}.`, false, turnKey);
+			render(await response.json());
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setBlocksError(message);
+			$('blocks-count').focus();
+			return;
+		}
+		setBlocksMessage(message, true, turnKey);
+		if (response) {
+			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
 
 	async function signalDoneInvesting() {
 		const button = $('infra-done-button');
