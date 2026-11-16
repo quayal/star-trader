@@ -44,8 +44,8 @@ persists).
 
 ### Phase 1: Domain
 
-- [ ] 1.1 `ProductionCost`, `Factory.addUnits` and `Player.buyFactoryUnits`, with tests
-- [ ] 1.2 `Game.buyFactoryUnits` (Investment, after Collect, logged) and `InvestmentService`, with tests
+- [x] 1.1 `ProductionCost`, `Factory.addUnits` and `Player.buyFactoryUnits`, with tests — 976beac
+- [x] 1.2 `Game.buyFactoryUnits` (Investment, after Collect, logged) and `InvestmentService`, with tests — 367c73a
 
 ### Phase 2: Web
 
