@@ -55,7 +55,7 @@ lines (S07); any server change.
 
 ### Phase 3: Verify and document
 
-- [ ] 3.1 Browser walk (two players, seeded factories, 390 px) and run log
+- [x] 3.1 Browser walk (two players, seeded factories, 390 px) and run log — 71b7d06
 
 ## Outcome (run log)
 
