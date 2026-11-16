@@ -57,3 +57,26 @@ persists).
 - [x] 3.1 Pure helpers and tests in `js/investment.js` — 33ea33e
 - [x] 3.2 "Add factory units" panel on s10 — 7a89b4c
 - [ ] 3.3 Browser walk (two players, 390 px) and run log
+
+## Outcome (run log)
+
+Status: complete, pending review and CI.
+
+### What it did
+
+- **Domain**: `ProductionCost` (a unit costs 5 × the good's price + 10 HT, totals as `Long`), `Factory.addUnits`, `Player.buyFactoryUnits(system, goods, units, prices)` owning the rules (1 or more units; the system can produce the good; a ship of theirs there; enough money; adds to the factory or creates it, no cap), `Game.buyFactoryUnits` (Investment only, after Collect, the price read from the game's prices, a public log line without the price), `InvestmentService.buyFactoryUnits` in `GameStore.update` (A04).
+- **Web**: `POST /api/games/{id}/investment/factory-units` with `{ system, goods, units }`; `you.invest.factories` = `[{ system, systemName, goods, size, price, unitCost }]` next to `systems`. BACKWARD_COMPATIBILITY.md §6. No stored-field change (`Factory.size` already persists).
+- **Frontend** (Infrastructure screen): an "Add factory units" panel after "Add warehouse blocks": a picker of the goods the viewer's systems can produce (with what they make now), a number of units, the total with the unit cost and the good's price as they type, the server's messages. S04's "Everyone invests at the same time…" line is kept, not repeated.
+
+### Decisions
+
+- **A first factory built this turn must not block the builder (R48).** A player with no factory when Investment opened had nothing to collect. If building one made them "have factories" without having collected, `signalDoneInvesting` would refuse them ("Collect your output first.") and `canInvest` would turn false, and collecting would make the new factory produce this turn. `Game.buyFactoryUnits` therefore records them in `turn.collected`, so they can go on, keep buying and are not asked to collect. Tested in the game, service and endpoint tests and in the browser walk. `turn.collected` thus also lists a player who built their first factory this turn.
+- `Player.buyFactoryUnits` takes the game's `MarketPrices` and reads the price after the producibility check: prices exist only for goods a system trades, so asking first would fail for a good it doesn't.
+- Same defaults as S04: a ship in any location at the system counts; buying after "done" is allowed (D09).
+
+### Validation
+
+- `./gradlew build`: passes, 705 Kotlin tests (0 skipped) and 279 JS tests.
+- Tests added: cost, player rules (create, extend, any location, can't produce, no ship, money, no cap, overflow, bad amounts), game flow (current price, log without the price, before and after Collect, the first-factory case, after "done", outside Investment, non-member), service (stored, once under a replaying store, after close), DTO shape and prices, endpoint statuses, JS helpers.
+- Browser walk (headless Chrome over DevTools; the jar on its own port with its own DynamoDB Local; two players, ships and Ada's factory seeded with `UpdateItem`, the phase moved to Investment the same way): the panel is absent for Ada before Collect and present at once for Bob; only POLY at Gamma Leporis is offered (Beta Hydri makes nothing); the unit cost is 5 × the price + 10 and the price equals the Deck's; too many units and a fraction show the right errors with focus; 3 units take their cost and the picker says "makes 3 a turn"; Bob gets no collect panel and can still be done; the log line has no price; other players see the factory (public) and no money; Ada extends 6 → 8 after Confirm with no extra cargo this turn; the panel stays after "done" and she can still build; the shared line appears once; no overflow at 390 px; the panel goes when Investment closes. Assertions use `offsetParent`.
+- Not seen: a screen reader, a real mouse or touch. The next turn's Collect with the larger factory is covered by the domain rules, not walked.
