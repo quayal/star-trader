@@ -282,3 +282,59 @@ export function validateBlocks(text, blockCost, money) {
 	}
 	return { blocks };
 }
+
+// ── Building or extending a factory (E06-S05, R46) ──
+//
+// `game.you.invest.factories` is `[{ system, systemName, goods, size, price, unitCost }]`: for each system where the viewer
+// has a ship, each good it can produce, with the units they make there now (0 for no factory), the good's market price
+// and the cost of one unit of size, 5 × price + 10 HT. Empty for Beta Hydri and Epsilon Eridani, which produce nothing.
+
+export const UNITS_BUTTON = 'Add units';
+export const UNITS_WHOLE_NUMBER = 'Enter a whole number of units, 1 or more.';
+
+/** The goods the viewer can add units to now (S05-1, S05-5). */
+export function investFactories(game) {
+	return game.you?.invest?.factories ?? [];
+}
+
+/** Whether to show the panel: the viewer may buy and has a ship where something can be produced. */
+export function canBuildFactory(game) {
+	return canBuy(game) && investFactories(game).length > 0;
+}
+
+/** "ISO at Tau Ceti \u2014 makes 6 a turn", or "\u2014 no factory yet". */
+export function factoryOptionLabel(factory) {
+	return `${factory.goods} at ${factory.systemName} \u2014 ${factory.size === 0 ? 'no factory yet' : `makes ${factory.size} a turn`}`;
+}
+
+/** "1 unit", "3 units". */
+export function unitsText(units) {
+	return `${units} ${units === 1 ? 'unit' : 'units'}`;
+}
+
+/** The number of units typed, or null when it isn't a whole number, 1 or more. */
+export function parseUnits(text) {
+	return parseBlocks(text);
+}
+
+/** S05-1, S05-2: the total for what was typed, with the unit cost and the good's price it comes from; "" while it isn't valid. */
+export function unitsCostText(text, factory) {
+	const units = parseUnits(text);
+	if (units === null) {
+		return '';
+	}
+	return `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${units * factory.unitCost} HT (${factory.unitCost} HT a unit; ${factory.goods} is at ${factory.price} HT)`;
+}
+
+/** S05-4: the units to buy, or the error the server would give: not whole, or more than [money] pays for. */
+export function validateUnits(text, factory, money) {
+	const units = parseUnits(text);
+	if (units === null) {
+		return { error: UNITS_WHOLE_NUMBER };
+	}
+	const cost = units * factory.unitCost;
+	if (cost > money) {
+		return { error: `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${cost} HT; you have ${money} HT.` };
+	}
+	return { units };
+}
