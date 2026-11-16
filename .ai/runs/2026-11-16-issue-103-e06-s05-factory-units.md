@@ -80,3 +80,23 @@ Status: complete, pending review and CI.
 - Tests added: cost, player rules (create, extend, any location, can't produce, no ship, money, no cap, overflow, bad amounts), game flow (current price, log without the price, before and after Collect, the first-factory case, after "done", outside Investment, non-member), service (stored, once under a replaying store, after close), DTO shape and prices, endpoint statuses, JS helpers.
 - Browser walk (headless Chrome over DevTools; the jar on its own port with its own DynamoDB Local; two players, ships and Ada's factory seeded with `UpdateItem`, the phase moved to Investment the same way): the panel is absent for Ada before Collect and present at once for Bob; only POLY at Gamma Leporis is offered (Beta Hydri makes nothing); the unit cost is 5 × the price + 10 and the price equals the Deck's; too many units and a fraction show the right errors with focus; 3 units take their cost and the picker says "makes 3 a turn"; Bob gets no collect panel and can still be done; the log line has no price; other players see the factory (public) and no money; Ada extends 6 → 8 after Confirm with no extra cargo this turn; the panel stays after "done" and she can still build; the shared line appears once; no overflow at 390 px; the panel goes when Investment closes. Assertions use `offsetParent`.
 - Not seen: a screen reader, a real mouse or touch. The next turn's Collect with the larger factory is covered by the domain rules, not walked.
+
+## Revision: investing needs no ship (creator, 2026-11-16, after the first push)
+
+The first version required a ship at the system for both factory units and, from E06-S04, warehouse blocks. The creator
+ruled that investing needs no ship, and no existing factory for factory units, and that a factory is bought from System
+and Goods dropdowns like an offer. Changed on this branch, in this order:
+
+- **Spec and brief**: R45 and R46, S04-1/2, S05-1/5, the states checklist, the "Invest" step and the open-questions
+  default now say so; the brief's R45 and R46 rows and its 2026-11-16 note too; BACKWARD_COMPATIBILITY.md §6.
+- **Domain and web**: the ship check is gone from `Player.buyFactoryUnits` and `Player.buyWarehouseBlocks`;
+  `you.invest.systems` lists all six systems and `you.invest.factories` every producible system and good pair, whatever
+  the viewer has there (map order: Gamma POLY, Tau ISO, Mu CHIPS, Sigma FOOD, Sigma ISO).
+- **Frontend**: the factory panel has a System dropdown (the four systems that produce something) and a Goods dropdown
+  that follows it, each good showing what the viewer makes now. Helpers `factorySystems`, `factoriesAt`,
+  `goodsOptionLabel`. The warehouse panel's System dropdown now lists all six.
+- Tests rewritten where they encoded the ship rule (the "no ship" refusals became "no ship needed" successes).
+- Browser walk repeated with Bob having ships only at Beta Hydri and Epsilon Eridani: he built ISO at Sigma Draconis
+  and a warehouse at Gamma Leporis with no ship at either; dropdown behaviour, errors, picks surviving polls and
+  no overflow at 390 px all pass. `./gradlew build`: 707 Kotlin tests (0 skipped), 281 JS tests.
+- E06-S04 (#120, merged) had the ship rule; this PR corrects it. #102 is closed, so its change is noted there by comment.
