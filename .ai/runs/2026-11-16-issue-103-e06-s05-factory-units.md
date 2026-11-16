@@ -49,8 +49,8 @@ persists).
 
 ### Phase 2: Web
 
-- [ ] 2.1 `POST /investment/factory-units` and `you.invest.factories`, with tests
-- [ ] 2.2 BACKWARD_COMPATIBILITY.md §6
+- [x] 2.1 `POST /investment/factory-units` and `you.invest.factories`, with tests — 1b0ecb8
+- [x] 2.2 BACKWARD_COMPATIBILITY.md §6 — 1c41cc0
 
 ### Phase 3: The panel
 
