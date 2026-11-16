@@ -47,7 +47,7 @@ class GameShipJumpTest {
 		// R19: instant; it has left its port, and S03 asks where it ends up.
 		assertThat(
 			shipOf(game, "Meridian")
-		).isEqualTo(Ship("Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.LEGACY_HULL, Ship.LEGACY_MODULES))
+		).isEqualTo(Ship("Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES))
 		assertThat(game.turn!!.jumpedShips).containsExactly("Meridian")
 	}
 
