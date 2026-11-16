@@ -21,6 +21,9 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
+	/** This warehouse with [count] more blocks (R45): what it holds stays. */
+	fun addBlocks(count: Int): Warehouse = copy(blocks = blocks + count)
+
 	/** How many units of [goods] this warehouse holds. */
 	fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
@@ -50,6 +53,9 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	}
 
 	companion object {
+		/** R45: one block costs 20 HT. */
+		const val BLOCK_COST = 20
+
 		/** R45: one block holds 10 cargo spaces, the same as one ship (R42). */
 		const val CARGO_SPACES_PER_BLOCK = Ship.CARGO_SPACES
 	}

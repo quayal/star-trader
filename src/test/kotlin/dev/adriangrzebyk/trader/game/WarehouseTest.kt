@@ -100,4 +100,14 @@ class WarehouseTest {
 		assertThat(full.load(Goods.ISO, 5)).isEqualTo(full)
 		assertThat(full.load(Goods.CHIPS, 0)).isEqualTo(full)
 	}
+
+	@Test
+	fun shouldCostTwentyHtABlockAndGrowByTheBlocksAdded() {
+		// R45
+		val stocked = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.ISO to 3))
+
+		assertThat(Warehouse.BLOCK_COST).isEqualTo(20)
+		assertThat(stocked.addBlocks(2)).isEqualTo(Warehouse(StarSystem.TAU_CETI, 3, mapOf(Goods.ISO to 3)))
+		assertThat(stocked.addBlocks(2).cargoSpaces()).isEqualTo(30)
+	}
 }

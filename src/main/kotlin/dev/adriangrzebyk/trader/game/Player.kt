@@ -148,6 +148,25 @@ data class Player(
 		return withShip(ship.load(placement.goods, placement.units))
 	}
 
+	/**
+	 * This player after buying [blocks] warehouse blocks at [system] (R45, E06-S04): added to their warehouse there, or
+	 * creating it, for [Warehouse.BLOCK_COST] HT each. Needs a ship of theirs at that system (in any location) and enough money.
+	 */
+	fun buyWarehouseBlocks(system: StarSystem, blocks: Int): Player {
+		if (blocks < 1) {
+			throw InvalidInvestmentException("Enter a whole number of blocks, 1 or more.")
+		}
+		if (ships.none { it.system == system }) {
+			throw InvalidInvestmentException("You need a ship at ${system.displayName} to build there.")
+		}
+		val cost = blocks.toLong() * Warehouse.BLOCK_COST
+		if (cost > money) {
+			throw InvalidInvestmentException("$blocks ${if (blocks == 1) "block costs" else "blocks cost"} $cost HT; you have $money HT.")
+		}
+		val warehouse = warehouseAt(system)?.addBlocks(blocks) ?: Warehouse(system, blocks, emptyMap())
+		return pay(cost.toInt()).withWarehouse(warehouse)
+	}
+
 	/** This player set up for the first turn (R40): [money] HT and [ships]. */
 	fun startWith(money: Int, ships: List<Ship>): Player = copy(money = money, ships = ships)
 
@@ -242,8 +261,10 @@ data class Player(
 
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 
+	/** This player with [warehouse] in place of the one at its system, or added when they had none there. */
 	private fun withWarehouse(warehouse: Warehouse): Player =
-		copy(warehouses = warehouses.map { if (it.system == warehouse.system) warehouse else it })
+		if (warehouseAt(warehouse.system) == null) copy(warehouses = warehouses + warehouse)
+		else copy(warehouses = warehouses.map { if (it.system == warehouse.system) warehouse else it })
 
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */
