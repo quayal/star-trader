@@ -262,9 +262,11 @@ data class Player(
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 
 	/** This player with [warehouse] in place of the one at its system, or added when they had none there. */
-	private fun withWarehouse(warehouse: Warehouse): Player =
-		if (warehouseAt(warehouse.system) == null) copy(warehouses = warehouses + warehouse)
-		else copy(warehouses = warehouses.map { if (it.system == warehouse.system) warehouse else it })
+	private fun withWarehouse(warehouse: Warehouse): Player {
+		val others = warehouses.filterNot { it.system == warehouse.system }
+		val kept = warehouses.map { if (it.system == warehouse.system) warehouse else it }
+		return copy(warehouses = if (others.size == warehouses.size) others + warehouse else kept)
+	}
 
 	companion object {
 		/** A player in the lobby: money and ships arrive when the game starts (R40). */
