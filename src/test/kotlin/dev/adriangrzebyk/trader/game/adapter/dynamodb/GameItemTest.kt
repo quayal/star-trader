@@ -52,7 +52,7 @@ class GameItemTest {
 					Ship(name = "Halcyon", system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = emptyMap())
 				),
 				marketPositions = emptyList(),
-				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.FOOD to 9))),
+				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.POLY to 4))),
 				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3))
 			)
 		),
@@ -70,7 +70,8 @@ class GameItemTest {
 			tradingQueue = emptyList(),
 			resolvedGoods = emptyList(),
 			resolution = null,
-			doneInvesting = emptyList()
+			doneInvesting = emptyList(),
+			collected = listOf("ada@example.com")
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(

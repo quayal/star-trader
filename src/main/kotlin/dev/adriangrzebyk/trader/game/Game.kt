@@ -132,10 +132,30 @@ data class Game(
 	 * (D09), which ends the turn ([endTurn]); a signal after that is refused (A04).
 	 */
 	fun signalDoneInvesting(email: String): Game {
-		playerOf(email)
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		if (player.hasFactories() && !investing.hasCollected(email)) {
+			throw InvalidGameOperationException("Collect your output first.")
+		}
 		val signalled = copy(turn = runningTurn().signalDoneInvesting(email))
 		val current = signalled.runningTurn()
 		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
+	}
+
+	/**
+	 * [email] confirms where the output of their factories goes (R47, E06-S03-5): stored by [Player.collect], the rest lost,
+	 * and from then on they may signal done. Only in Investment, only for a player with factories, and once; a player with
+	 * none has nothing to collect (S03-6).
+	 */
+	fun collectOutput(email: String, placements: List<OutputPlacement>): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		if (!player.hasFactories()) {
+			throw InvalidGameOperationException("You have no factories to collect from.")
+		}
+		return copy(players = replace(player.collect(placements)), turn = investing.collectedBy(email))
 	}
 
 	/**

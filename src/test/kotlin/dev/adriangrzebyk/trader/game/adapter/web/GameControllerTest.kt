@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
@@ -7,6 +8,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
@@ -90,7 +92,7 @@ class GameControllerTest {
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), emptyList(), null, null, null))
+		assertThat(game.you).isEqualTo(YouResponseDto(0, emptyList(), emptyList(), null, null, null, emptyList(), null))
 	}
 
 	@Test
@@ -264,7 +266,7 @@ class GameControllerTest {
 		).isEqualTo(
 			TurnResponseDto(
 				1, "BIDDING",
-				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList()
+				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList()
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -385,7 +387,7 @@ class GameControllerTest {
 				listOf(
 					"done-guest@example.com"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList()
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList()
 			)
 		)
 
@@ -955,6 +957,128 @@ class GameControllerTest {
 		signalDoneInvesting("token-$first", "no-such-game").expectStatus().isNotFound
 	}
 
+	/**
+	 * A two-player game at the start of turn 1's Investment where the first in initiative owns a 6-unit ISO factory where
+	 * their first ship is in port (nothing can build one yet, E06-S04, S05), so the test seeds it. Returns their token,
+	 * the other player's token, the game id and that system's constant name.
+	 */
+	private fun investingWithAFactory(prefix: String): InvestingGame {
+		val (first, second, gameId) = orderedGame(prefix)
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		repeat(18) { resolveNext("token-$first", gameId).expectStatus().isOk }
+		val updated = gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != first) {
+						player
+					} else {
+						player.copy(factories = listOf(Factory(player.ships[0].system, Goods.ISO, 6)))
+					}
+				}
+			)
+		}
+		return InvestingGame("token-$first", "token-$second", gameId, updated.players.first { it.email == first }.ships[0])
+	}
+
+	private data class InvestingGame(val owner: String, val other: String, val gameId: String, val ship: Ship)
+
+	@Test
+	fun shouldCollectOutputIntoAShipAndShowTheCargoOnlyToItsPlayer() {
+		// E06-S03-1, S03-5, A05: the owner's cargo is private; everyone sees only that they collected
+		val (owner, other, gameId, ship) = investingWithAFactory("collect")
+		val before = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(before.you!!.collect!!.factories).hasSize(1)
+		assertThat(before.you!!.collect!!.factories[0].destinations).containsExactly(CollectDestinationResponseDto(ship.name, 10))
+
+		val body = """{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "ship": "${ship.name}", "units": 4}]}"""
+		val collected = collectOutput(owner, gameId, body).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(collected.turn!!.collected).hasSize(1)
+		assertThat(collected.you!!.collect).isNull()
+		assertThat(collected.you!!.ships.first { it.name == ship.name }.cargo).containsEntry("ISO", 4)
+		val seenByOther = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(seenByOther.turn!!.collected).isEqualTo(collected.turn!!.collected)
+		assertThat(seenByOther.you!!.collect).isNull()
+		assertThat(seenByOther.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
+		val raw = pollGame(other, gameId).expectBody(String::class.java).returnResult().responseBody!!
+		assertThat(raw).doesNotContain("\"ISO\":4")
+	}
+
+	@Test
+	fun shouldOfferTheCollectToTheFactoryOwnerOnly() {
+		// E06-S03-6: a player with no factories has nothing to collect and goes straight on
+		val (owner, other, gameId, _) = investingWithAFactory("collect-offer")
+
+		assertThat(pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.collect).isNull()
+		assertThat(pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.collect).isNotNull()
+		collectOutput(other, gameId, "{}")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You have no factories to collect from.")
+		signalDoneInvesting(other, gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldNotLetTheOwnerSignalDoneBeforeTheyCollect() {
+		// E06-S03-5, S03-8
+		val (owner, _, gameId, _) = investingWithAFactory("collect-first")
+
+		signalDoneInvesting(owner, gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Collect your output first.")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		signalDoneInvesting(owner, gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldRefuseACollectTheRulesRefuseAndOneThatIsRepeated() {
+		val (owner, _, gameId, ship) = investingWithAFactory("collect-refused")
+
+		collectOutput(
+			owner,
+			gameId,
+			"""{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "ship": "${ship.name}", "units": 7}]}"""
+		)
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Your ISO factory at ${ship.system.displayName} makes 6 units.")
+		collectOutput(
+			owner,
+			gameId,
+			"""{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "ship": "No Such Ship", "units": 1}]}"""
+		)
+			.expectStatus().isBadRequest
+		collectOutput(owner, gameId, """{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "units": 1}]}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You have no warehouse at ${ship.system.displayName}.")
+		collectOutput(owner, gameId, """{"placements": [{"system": "NOWHERE", "goods": "ISO", "ship": "${ship.name}", "units": 1}]}""")
+			.expectStatus().isBadRequest
+		collectOutput(
+			owner,
+			gameId,
+			"""{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "ship": "${ship.name}", "units": 2.5}]}"""
+		)
+			.expectStatus().isBadRequest
+		assertThat(gameStore.find(gameId)!!.turn!!.collected).isEmpty()
+
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		collectOutput(owner, gameId, "{}")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You have already collected your output.")
+	}
+
+	@Test
+	fun shouldRefuseACollectFromOutsidersOrOutsideInvestment() {
+		val (first, _, gameId) = orderedGame("collect-outside")
+
+		collectOutput("token-$first", gameId, "{}")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		collectOutput(null, gameId, "{}").expectStatus().isUnauthorized
+		collectOutput(signIn("collect-stranger@example.com"), gameId, "{}").expectStatus().isForbidden
+		collectOutput("token-$first", "no-such-game", "{}").expectStatus().isNotFound
+	}
+
 	@Test
 	fun shouldEndAOneTurnGameAfterItsInvestmentAndShowEveryonesFinalMoney() {
 		// E05-S08, E06-S01-2: a one-turn game; with no offers and no positions, each good resolves on Resolve next, then Investment.
@@ -1223,7 +1347,7 @@ class GameControllerTest {
 
 		assertThat(seenByCreator).doesNotContain("\"ISO\":17").doesNotContain("\"CHIPS\":23")
 		assertThat(seenByJoiner.you!!.warehouses)
-			.containsExactly(YourWarehouseResponseDto("TAU_CETI", mapOf("CHIPS" to 23, "ISO" to 17), 17, 20))
+			.containsExactly(YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 2, 20, mapOf("CHIPS" to 23, "ISO" to 17), 17))
 	}
 
 	@Test
@@ -1263,7 +1387,9 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(traded.you!!.money).isEqualTo(245)
-		assertThat(traded.you!!.warehouses).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", mapOf("POLY" to 5), 5, 10))
+		assertThat(
+			traded.you!!.warehouses
+		).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", "Gamma Leporis", 1, 10, mapOf("POLY" to 5), 5))
 		assertThat(
 			traded.log.map {
 				it.text
@@ -1422,6 +1548,12 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/bidding/done", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
+	}
+
+	private fun collectOutput(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/collect", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	private fun signalDoneInvesting(token: String?, gameId: String): RestTestClient.ResponseSpec {

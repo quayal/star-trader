@@ -6,8 +6,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 /**
  * A player's warehouse at [system] (R45): at most one per player per system, and its capacity is [blocks] blocks (at
  * least one), each holding as many cargo spaces as a ship (R42). What it holds, [cargo] (units per good), is private to
- * its owner like a ship's (S02-7); the warehouse itself is public, like the board (R50). It counts as presence for
- * Trading, and loads and unloads like a ship does (R49).
+ * its owner like a ship's (R29); the owner's collected output goes into it (R47). The warehouse itself is public, like
+ * the board (R50). It counts as presence for Trading, and loads and unloads like a ship does (R49).
  */
 data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goods, Int>) {
 
@@ -24,13 +24,16 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	/** How many units of [goods] this warehouse holds. */
 	fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
-	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
-	fun unitsThatFit(goods: Goods, units: Int): Int = if (goods.takesCargoSpace) minOf(units, freeCargoSpaces()) else units
-
-	/** Free cargo spaces (R42), never below 0. */
+	/** Free cargo spaces, never below 0. */
 	private fun freeCargoSpaces(): Int = (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
 
-	/** This warehouse after loading [units] of [goods] it bought: what fits ([unitsThatFit]); the rest is lost (R16, R49). */
+	/** The free cargo spaces that matter for [goods] (R42): the free space for POLY and ISO, null for CHIPS and FOOD, which take none. */
+	fun freeSpacesFor(goods: Goods): Int? = if (goods.takesCargoSpace) freeCargoSpaces() else null
+
+	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
+	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
+
+	/** This warehouse after storing or loading [units] of [goods]: what fits ([unitsThatFit]); the rest is lost (R16, R47, R49). */
 	fun load(goods: Goods, units: Int): Warehouse = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
 
 	/** This warehouse after unloading [units] of [goods] it sold (R10), refused when it holds fewer. */

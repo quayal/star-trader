@@ -19,7 +19,7 @@ internal class WarehouseItem(val attributes: Map<String, AttributeValue>) {
 	fun toWarehouse(): Warehouse = Warehouse(
 		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
 		blocks = attributes.attribute(BLOCKS).n().toInt(),
-		// Items saved before E06-S06 have no cargo; every warehouse was empty then (BACKWARD_COMPATIBILITY.md §7).
+		// Items saved before E06-S03 have no cargo; nothing could be stored in a warehouse then (BACKWARD_COMPATIBILITY.md §7).
 		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap()
 	)
 

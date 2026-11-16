@@ -21,7 +21,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			DONE_JUMPING to AttributeValue.fromL(turn.doneJumping.map { AttributeValue.fromS(it) }),
 			TRADING_QUEUE to AttributeValue.fromL(turn.tradingQueue.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
 			RESOLVED_GOODS to AttributeValue.fromL(turn.resolvedGoods.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
-			DONE_INVESTING to AttributeValue.fromL(turn.doneInvesting.map { AttributeValue.fromS(it) })
+			DONE_INVESTING to AttributeValue.fromL(turn.doneInvesting.map { AttributeValue.fromS(it) }),
+			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) })
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) }
@@ -56,7 +57,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// finished as it started then, so none is waiting for anyone (BACKWARD_COMPATIBILITY.md §7).
 			resolution = attributes[RESOLUTION]?.m()?.let { ResolutionItem(it).toResolution() },
 			// Items saved before E06-S01 have no Investment; nobody could signal done there (BACKWARD_COMPATIBILITY.md §7).
-			doneInvesting = attributes[DONE_INVESTING]?.l()?.map { it.s() } ?: emptyList()
+			doneInvesting = attributes[DONE_INVESTING]?.l()?.map { it.s() } ?: emptyList(),
+			// Items saved before E06-S03 have no collects; nobody had factories to collect from then (BACKWARD_COMPATIBILITY.md §7).
+			collected = attributes[COLLECTED]?.l()?.map { it.s() } ?: emptyList()
 		)
 	}
 
@@ -71,6 +74,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val JUMPED_SHIPS = "jumpedShips"
 		const val DONE_JUMPING = "doneJumping"
 		const val DONE_INVESTING = "doneInvesting"
+		const val COLLECTED = "collected"
 		const val LANDING_SHIP = "landingShip"
 		const val TRADING_QUEUE = "tradingQueue"
 		const val RESOLVED_GOODS = "resolvedGoods"

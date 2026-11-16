@@ -48,3 +48,109 @@ export function isInvestmentClosedRefusal(status, message) {
 export function doneInvestingRefusedText(status, message, fallback) {
 	return isInvestmentClosedRefusal(status, message) ? ALREADY_CLOSED_INVESTING : message || fallback;
 }
+
+// ── Collect (E06-S03, R47) ──
+//
+// At the start of Investment a player with factories places each factory's output. `game.you.collect` (private to the
+// viewer, BACKWARD_COMPATIBILITY.md §6) lists their factories: `{ system, systemName, goods, units, destinations }`, each
+// destination being their warehouse there (`ship` null) or one of their ships in port there, with `freeSpaces` (null for
+// CHIPS and FOOD, which take no space). It's null once they confirmed, outside Investment, and for a player with none.
+
+export const COLLECT_TITLE = 'Collect your output';
+export const COLLECT_INTRO = 'Your factories have made their goods. Choose where each goes. Whatever you leave out, or can\'t fit, is lost.';
+export const COLLECT_BUTTON = 'Confirm output';
+/** S03-5: shown in the top bar in place of "done" until the player has confirmed. */
+export const COLLECT_FIRST_TEXT = 'Place your factories\' output first.';
+export const COLLECT_WHOLE_NUMBER = 'Enter a whole number of units, 0 or more.';
+
+/** Whether [game] is in Investment and the viewer still has to place their factories' output (S03-1). */
+export function isCollecting(game) {
+	return isInvesting(game) && Boolean(game.you?.collect);
+}
+
+/** What the viewer's collect is keyed by: their typed amounts belong to one game and turn only (lesson 2026-11-04). */
+export function collectKey(game) {
+	return `${game.id}/${game.turn.number}`;
+}
+
+/** The viewer's factories to place, or none. */
+export function collectFactories(game) {
+	return game.you?.collect?.factories ?? [];
+}
+
+/** A factory's heading: "ISO at Tau Ceti — 6 units". */
+export function collectHeading(factory) {
+	return `${factory.goods} at ${factory.systemName} — ${factory.units} ${factory.units === 1 ? 'unit' : 'units'}`;
+}
+
+/** S03-2: a destination's name and what it has room for. CHIPS and FOOD need no space, so only POLY and ISO show it. */
+export function destinationLabel(destination) {
+	const name = destination.ship ?? 'Warehouse';
+	return destination.freeSpaces === null ? name : `${name} (${destination.freeSpaces} free)`;
+}
+
+/**
+ * The amounts a factory starts with: its units filled into its destinations in order, each up to its free space (all of
+ * it for CHIPS and FOOD), so the usual case needs no typing. Whatever doesn't fit stays unplaced, and the warning says so.
+ */
+export function collectDefaults(factory) {
+	let left = factory.units;
+	return factory.destinations.map(destination => {
+		const placed = destination.freeSpaces === null ? left : Math.min(left, destination.freeSpaces);
+		left -= placed;
+		return placed;
+	});
+}
+
+/** How many units of [factory] are lost for [amounts] (a number per destination): the ones not placed, and the ones over a destination's free space (S03-3). */
+export function collectLoss(factory, amounts) {
+	const placed = amounts.reduce((sum, units) => sum + units, 0);
+	const overflow = factory.destinations.reduce(
+		(sum, destination, index) => sum + (destination.freeSpaces === null ? 0 : Math.max(0, amounts[index] - destination.freeSpaces)), 0);
+	return { unplaced: Math.max(0, factory.units - placed), overflow };
+}
+
+/**
+ * S03-3, S03-4: the consequence of the amounts, before the player confirms, as one line per factory that loses
+ * something, or "" when nothing is lost. A factory with nowhere to keep its goods loses all of them.
+ */
+export function collectWarning(factories, amounts) {
+	return factories.map((factory, index) => {
+		if (factory.destinations.length === 0) {
+			return `All ${factory.units} ${factory.goods} at ${factory.systemName} will be lost: you have no warehouse or ship there to keep it.`;
+		}
+		const { unplaced, overflow } = collectLoss(factory, amounts[index]);
+		if (unplaced + overflow === 0) {
+			return '';
+		}
+		const reasons = [overflow > 0 ? `${overflow} won't fit` : '', unplaced > 0 ? `${unplaced} not placed` : ''].filter(Boolean).join(', ');
+		return `${unplaced + overflow} ${factory.goods} at ${factory.systemName} will be lost (${reasons}).`;
+	}).filter(Boolean).join(' ');
+}
+
+/**
+ * The request for what the player typed: [values] is, per factory, the text in each destination's input. Each is a whole
+ * number, 0 or more, and a factory's amounts can't add up to more than it makes. On a problem: `{ error, factory,
+ * destination }`, pointing at the input to focus; else `{ body }`.
+ */
+export function validateCollect(factories, values) {
+	const placements = [];
+	for (const [f, factory] of factories.entries()) {
+		let total = 0;
+		for (const [d, destination] of factory.destinations.entries()) {
+			const text = String(values[f][d] ?? '').trim();
+			const units = text === '' ? 0 : Number(text);
+			if (!Number.isInteger(units) || units < 0) {
+				return { error: COLLECT_WHOLE_NUMBER, factory: f, destination: d };
+			}
+			total += units;
+			if (units > 0) {
+				placements.push({ system: factory.system, goods: factory.goods, ship: destination.ship, units });
+			}
+		}
+		if (total > factory.units) {
+			return { error: `${factory.goods} at ${factory.systemName}: ${total} placed, but the factory makes ${factory.units}.`, factory: f, destination: 0 };
+		}
+	}
+	return { body: { placements } };
+}

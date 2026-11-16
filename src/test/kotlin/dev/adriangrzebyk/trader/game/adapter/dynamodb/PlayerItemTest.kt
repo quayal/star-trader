@@ -40,7 +40,7 @@ class PlayerItemTest {
 			MarketPosition(system = StarSystem.MU_HERCULIS, goods = Goods.ISO, tier = MarketTier.DICTATOR)
 		),
 		warehouses = listOf(
-			Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.ISO to 7, Goods.CHIPS to 30)),
+			Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.ISO to 3, Goods.CHIPS to 40)),
 			Warehouse(system = StarSystem.MU_HERCULIS, blocks = 1, cargo = emptyMap())
 		),
 		factories = listOf(

@@ -66,4 +66,38 @@ class WarehouseTest {
 			.isInstanceOf(InvalidTradeException::class.java)
 			.hasMessage("Your warehouse at Tau Ceti has only 3 POLY.")
 	}
+
+	@Test
+	fun shouldCountOneSpacePerUnitOfPolyAndIsoOnly() {
+		// R42, the same as a ship
+		val warehouse = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.POLY to 4, Goods.ISO to 3, Goods.CHIPS to 40))
+
+		assertThat(warehouse.cargoSpacesUsed()).isEqualTo(7)
+		assertThat(warehouse.freeSpacesFor(Goods.POLY)).isEqualTo(3)
+		assertThat(warehouse.freeSpacesFor(Goods.CHIPS)).isNull()
+	}
+
+	@Test
+	fun shouldStorePolyAndIsoUpToItsFreeSpaceAndLoseTheRest() {
+		val warehouse = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.POLY to 8))
+
+		assertThat(warehouse.load(Goods.ISO, 5).holding(Goods.ISO)).isEqualTo(2)
+		assertThat(warehouse.load(Goods.POLY, 5).holding(Goods.POLY)).isEqualTo(10)
+	}
+
+	@Test
+	fun shouldStoreAnyAmountOfChipsAndFood() {
+		val full = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.POLY to 10))
+
+		assertThat(full.load(Goods.FOOD, 60).holding(Goods.FOOD)).isEqualTo(60)
+	}
+
+	@Test
+	fun shouldKeepNoEntryForAGoodThatNothingOfWasStored() {
+		// like a ship's cargo: a full warehouse that can't take any ISO, or an amount of 0, leaves no ISO=0 behind
+		val full = Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.POLY to 10))
+
+		assertThat(full.load(Goods.ISO, 5)).isEqualTo(full)
+		assertThat(full.load(Goods.CHIPS, 0)).isEqualTo(full)
+	}
 }
