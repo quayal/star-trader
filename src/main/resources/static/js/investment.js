@@ -216,3 +216,69 @@ export function ownFactoryRows(game, email) {
 		size: factory.size,
 	}));
 }
+
+// ── Buying warehouse blocks (E06-S04, R45) ──
+//
+// `game.you.invest` (private to the viewer, BACKWARD_COMPATIBILITY.md §6) is `{ blockCost, systems: [{ system, systemName,
+// blocks }] }`: what a block costs, and the systems where the viewer has a ship (the only places they can build) with the
+// blocks they already own there. It's null outside Investment and while they still have to collect.
+
+export const INVEST_NOTE = 'Everyone invests at the same time. The turn moves on once everyone is done.';
+export const BLOCKS_BUTTON = 'Add blocks';
+export const BLOCKS_WHOLE_NUMBER = 'Enter a whole number of blocks, 1 or more.';
+/** R45: one block holds as many cargo spaces as a ship (R42). */
+export const CARGO_SPACES_PER_BLOCK = 10;
+
+/** Whether the viewer may buy now (S04-1): in Investment, with nothing left to collect. */
+export function canBuy(game) {
+	return isInvesting(game) && Boolean(game.you?.invest);
+}
+
+/** The systems the viewer may build in (S04-2): where they have a ship. */
+export function investSystems(game) {
+	return game.you?.invest?.systems ?? [];
+}
+
+/** What the viewer owns in a system, with its capacity at 10 cargo spaces a block (S04-3): "2 blocks, 20 cargo spaces". */
+export function warehouseText(blocks) {
+	return blocks === 0 ? 'no warehouse yet' : `${blocksText(blocks)}, ${blocks * CARGO_SPACES_PER_BLOCK} cargo spaces`;
+}
+
+/** "1 block", "3 blocks". */
+export function blocksText(blocks) {
+	return `${blocks} ${blocks === 1 ? 'block' : 'blocks'}`;
+}
+
+/** A system's option in the picker: "Tau Ceti — 2 blocks, 20 cargo spaces". */
+export function systemOptionLabel(system) {
+	return `${system.systemName} \u2014 ${warehouseText(system.blocks)}`;
+}
+
+/** The number of blocks typed, or null when it isn't a whole number, 1 or more. */
+export function parseBlocks(text) {
+	const trimmed = String(text ?? '').trim();
+	if (!/^\d+$/.test(trimmed)) {
+		return null;
+	}
+	const blocks = Number(trimmed);
+	return blocks >= 1 ? blocks : null;
+}
+
+/** The total for what was typed, "3 blocks cost 60 HT", or "" while it isn't a valid number (S04-1). */
+export function blocksCostText(text, blockCost) {
+	const blocks = parseBlocks(text);
+	return blocks === null ? '' : `${blocksText(blocks)} ${blocks === 1 ? 'costs' : 'cost'} ${blocks * blockCost} HT`;
+}
+
+/** S04-2: the blocks to buy, or the error the server would give: not a whole number, or more than [money] pays for. */
+export function validateBlocks(text, blockCost, money) {
+	const blocks = parseBlocks(text);
+	if (blocks === null) {
+		return { error: BLOCKS_WHOLE_NUMBER };
+	}
+	const cost = blocks * blockCost;
+	if (cost > money) {
+		return { error: `${blocksCostText(text, blockCost)}; you have ${money} HT.` };
+	}
+	return { blocks };
+}
