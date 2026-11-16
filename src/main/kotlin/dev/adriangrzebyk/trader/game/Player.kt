@@ -36,6 +36,10 @@ data class Player(
 	/** This player's warehouse at [system], or null when they have none there (R45). */
 	fun warehouseAt(system: StarSystem): Warehouse? = warehouses.firstOrNull { it.system == system }
 
+	/** How many units of [goods] this player holds at [system]: in their ships in port there and their warehouse there (R42, R49). */
+	fun holdingAt(system: StarSystem, goods: Goods): Int =
+		shipsInPortAt(system).sumOf { it.holding(goods) } + (warehouseAt(system)?.holding(goods) ?: 0)
+
 	/**
 	 * The most units this player can trade on [offer] when the counter allows [counterMax] (R34): a buy also capped by
 	 * what they can afford at its price (R12), a sell by what their ships in port at that system and their warehouse
@@ -44,7 +48,7 @@ data class Player(
 	fun tradeMax(offer: Offer, counterMax: Int): Int {
 		val cap = when (offer.type) {
 			OfferType.BUY -> money / offer.price
-			OfferType.SELL -> shipsInPortAt(offer.system).sumOf { it.holding(offer.goods) } + (warehouseAt(offer.system)?.holding(offer.goods) ?: 0)
+			OfferType.SELL -> holdingAt(offer.system, offer.goods)
 		}
 		return minOf(counterMax, cap).coerceAtLeast(0)
 	}
@@ -134,6 +138,14 @@ data class Player(
 			}
 		}
 		return placements.fold(this) { player, placement -> player.stored(placement) }
+	}
+
+	/**
+	 * The public log lines of the collect that turned [before] into this player (R50, E06-S07-1), one per factory: what
+	 * was stored is what they now hold more of at the factory's system, and the rest of its output was lost.
+	 */
+	fun collectLog(before: Player): List<String> = factories.map { factory ->
+		factory.collectLog(corporationName, holdingAt(factory.system, factory.goods) - before.holdingAt(factory.system, factory.goods))
 	}
 
 	/** This player after one [placement] of their output: into the named ship in port there, or their warehouse at that system. */

@@ -33,6 +33,11 @@ class GameCollectTest {
 
 	private val wayfarerShip = "Wayfarer"
 
+	/** [withFactory] where Ada owns [factories] instead. */
+	private fun withFactories(vararg factories: Factory): Game = withFactory.copy(
+		players = withFactory.players.map { if (it.email == "ada@example.com") it.copy(factories = factories.toList()) else it }
+	)
+
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
 	@Test
@@ -53,6 +58,47 @@ class GameCollectTest {
 
 		assertThat(playerOf(game, "ada@example.com").ship(wayfarerShip)!!.holding(Goods.ISO)).isZero()
 		assertThat(game.turn!!.collected).containsExactly("ada@example.com")
+	}
+
+	@Test
+	fun shouldLogWhatEachFactoryCollectedInTheTurnOfTheCollect() {
+		// E06-S07-1
+		val game = withFactory.collectOutput(
+			"ada@example.com",
+			listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 4), OutputPlacement(TAU_CETI, Goods.ISO, null, 2))
+		)
+
+		assertThat(game.log.drop(withFactory.log.size)).containsExactly(LogEntry(1, "Orion Freight collected 6 u of ISO at Tau Ceti"))
+	}
+
+	@Test
+	fun shouldLogWhatWasLostWhenNotEverythingWasPlaced() {
+		// E06-S07-1: "(m lost)"
+		val game = withFactory.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 4)))
+
+		assertThat(game.log.last().text).isEqualTo("Orion Freight collected 4 u of ISO at Tau Ceti (2 lost)")
+	}
+
+	@Test
+	fun shouldCountOutputThatDidNotFitAsLost() {
+		// R16: the Wayfarer has 8 cargo spaces (R55), so 2 of 10 placed units don't fit
+		val big = withFactories(Factory(TAU_CETI, Goods.ISO, 10))
+
+		val game = big.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 10)))
+
+		assertThat(game.log.last().text).isEqualTo("Orion Freight collected 8 u of ISO at Tau Ceti (2 lost)")
+	}
+
+	@Test
+	fun shouldLogOneLinePerFactoryEvenWhenAllOfItWasLost() {
+		val two = withFactories(isoAtTau, Factory(GAMMA_LEPORIS, Goods.POLY, 3))
+
+		val game = two.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 6)))
+
+		assertThat(game.log.drop(two.log.size).map { it.text }).containsExactly(
+			"Orion Freight collected 6 u of ISO at Tau Ceti",
+			"Orion Freight collected 0 u of POLY at Gamma Leporis (3 lost)"
+		)
 	}
 
 	@Test
