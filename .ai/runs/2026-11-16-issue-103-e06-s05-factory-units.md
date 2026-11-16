@@ -56,7 +56,7 @@ persists).
 
 - [x] 3.1 Pure helpers and tests in `js/investment.js` — 33ea33e
 - [x] 3.2 "Add factory units" panel on s10 — 7a89b4c
-- [ ] 3.3 Browser walk (two players, 390 px) and run log
+- [x] 3.3 Browser walk (two players, 390 px) and run log — 934e437
 
 ## Outcome (run log)
 
