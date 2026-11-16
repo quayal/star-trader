@@ -48,7 +48,7 @@ data class Ship(
 	/** R53: the modules that take module capacity (not Safe jump, R52). */
 	fun modulesUsed(): Int = modules.count { it.takesModuleCapacity }
 
-	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
+	/** R42, R54: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
@@ -64,7 +64,7 @@ data class Ship(
 	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
 
 	/** Free cargo spaces (R42), never below 0, even for a ship that somehow carries more than it holds. */
-	private fun freeCargoSpaces(): Int = (CARGO_SPACES - cargoSpacesUsed()).coerceAtLeast(0)
+	private fun freeCargoSpaces(): Int = (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
 
 	/** This ship after loading [units] of [goods] it bought: what fits ([unitsThatFit]); the rest is lost (R16, R42). */
 	fun load(goods: Goods, units: Int): Ship = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
@@ -106,9 +106,6 @@ data class Ship(
 	fun landingLog(): String = "$name ${location.landingLog} (${system.displayName})"
 
 	companion object {
-		/** R42: every ship has 10 cargo spaces. */
-		const val CARGO_SPACES = 10
-
 		/** Two names per player in join order; enough for a full game of 6. */
 		val NAMES = listOf(
 			"Wayfarer", "Lantern", "Meridian", "Halcyon", "Bright Reach", "Corvid",
@@ -122,8 +119,15 @@ data class Ship(
 		val LEGACY_HULL = Hull.CLARINET
 		val LEGACY_MODULES = List(5) { Module.CARGO }
 
-		/** A ship carrying nothing (R40: every ship starts empty), still the legacy hull and modules until E07-S02. */
+		/**
+		 * The hull and modules of a starting ship (R55): a Clarinet with 4 Cargo, 1 Light weapons and 1 Safe jump module,
+		 * 8 cargo spaces. Safe jump takes no module capacity, so the hull's 5 are used.
+		 */
+		val STARTING_HULL = Hull.CLARINET
+		val STARTING_MODULES = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
+
+		/** A starting ship carrying nothing (R40, R55: every ship starts empty). */
 		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) =
-			Ship(name, system, location, emptyMap(), LEGACY_HULL, LEGACY_MODULES)
+			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES)
 	}
 }

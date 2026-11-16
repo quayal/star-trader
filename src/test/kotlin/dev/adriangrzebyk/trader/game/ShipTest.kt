@@ -166,8 +166,37 @@ class ShipTest {
 
 	@Test
 	fun shouldKeepTenCargoSpacesForTheLegacyHullAndModules() {
-		assertThat(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).cargoSpaces()).isEqualTo(Ship.CARGO_SPACES)
+		assertThat(legacy().cargoSpaces()).isEqualTo(10)
 	}
+
+	@Test
+	fun shouldLoadNoPolyOrIsoOntoAShipWithoutCargoSpaces() {
+		// R54: a Flute with no Cargo module holds nothing that takes space
+		val flute = ship(Hull.FLUTE, Module.LIGHT_WEAPONS)
+
+		assertThat(flute.load(Goods.POLY, 5).holding(Goods.POLY)).isZero()
+		assertThat(flute.load(Goods.ISO, 5).cargo).isEmpty()
+		assertThat(flute.freeSpacesFor(Goods.POLY)).isZero()
+	}
+
+	@Test
+	fun shouldLoadChipsAndFoodOntoAShipWithoutCargoSpaces() {
+		val flute = ship(Hull.FLUTE)
+
+		assertThat(flute.load(Goods.CHIPS, 30).holding(Goods.CHIPS)).isEqualTo(30)
+		assertThat(flute.load(Goods.FOOD, 7).holding(Goods.FOOD)).isEqualTo(7)
+		assertThat(flute.freeSpacesFor(Goods.CHIPS)).isNull()
+	}
+
+	@Test
+	fun shouldFillTheCargoSpacesItsModulesGiveAndLoseTheRest() {
+		// R54, R16: a Monarch has 4 built in plus 2 for its Cargo module
+		val monarch = ship(Hull.MONARCH, Module.CARGO)
+
+		assertThat(monarch.load(Goods.POLY, 9).holding(Goods.POLY)).isEqualTo(6)
+	}
+
+	private fun legacy() = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
 
 	private fun ship(hull: Hull, vararg modules: Module) =
 		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList())

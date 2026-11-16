@@ -171,7 +171,7 @@ class GameTradingTest {
 
 	@Test
 	fun shouldLetTheTraderChooseAnAmountAndShipsThenLogTheTrade() {
-		// S04-1, S04-3, S04-4, S04-6, S04-7: 12 POLY at 11 HT costs 132; Meridian has 10 free spaces, so 2 are lost. Then
+		// S04-1, S04-3, S04-4, S04-6, S04-7: 12 POLY at 11 HT costs 132; Meridian has 8 free spaces, so 4 are lost. Then
 		// the counter is -9 and Altair's sell at 10 (target -18) allows nothing, so trading is over: the price moves from
 		// 2 by modifier(-9) = +4 to 6 HT (E05-S05-1), and Ada, the Dictator, is asked to trade wholesale (R37). Trading 12 u
 		// rolls for a position (E05-S06): 7 is at most 12, so Grace is Retailer at once.
@@ -179,7 +179,7 @@ class GameTradingTest {
 
 		val grace = game.players.first { it.email == "grace@example.com" }
 		assertThat(grace.money).isEqualTo(168)
-		assertThat(grace.ship("Meridian")!!.holding(Goods.POLY)).isEqualTo(10)
+		assertThat(grace.ship("Meridian")!!.holding(Goods.POLY)).isEqualTo(8)
 		assertThat(
 			game.turn!!.resolution!!.trades
 		).containsExactly(

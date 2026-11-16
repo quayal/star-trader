@@ -270,7 +270,7 @@ class GameControllerTest {
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
-		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 10 }
+		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 8 }
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
 			"GAMMA_LEPORIS",
 			"TAU_CETI",
@@ -989,7 +989,7 @@ class GameControllerTest {
 		val (owner, other, gameId, ship) = investingWithAFactory("collect")
 		val before = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(before.you!!.collect!!.factories).hasSize(1)
-		assertThat(before.you!!.collect!!.factories[0].destinations).containsExactly(CollectDestinationResponseDto(ship.name, 10))
+		assertThat(before.you!!.collect!!.factories[0].destinations).containsExactly(CollectDestinationResponseDto(ship.name, 8))
 
 		val body = """{"placements": [{"system": "${ship.system.name}", "goods": "ISO", "ship": "${ship.name}", "units": 4}]}"""
 		val collected = collectOutput(owner, gameId, body).expectStatus().isOk

@@ -586,7 +586,7 @@ data class YourShipResponseDto(val name: String, val cargo: Map<String, Int>, va
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
-		Ship.CARGO_SPACES
+		ship.cargoSpaces()
 	)
 }
 
