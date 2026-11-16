@@ -54,6 +54,9 @@ data class Ship(
 	/** R42, R54: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
 
+	/** Whether this ship is in port, at whatever system: the only place it loads from or unloads into a warehouse (R58). */
+	fun isInPort(): Boolean = location == ShipLocation.PORT
+
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
 	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
 

@@ -5,6 +5,8 @@
 Backlog source: `.ai/specs/product-brief.md`
 Last filed: 2026-10-29 (E06 filed 2026-11-15; E06-S08 filed 2026-11-16 as #113)
 
+2026-11-16: the creator asked for three playtest flow fixes (own offers in the Trading queue, moving goods between a ship in port and a warehouse, the screen following the phase); spec `2026-11-16-e08-playtest-flow-fixes.md` (E08-S01 to S03, R58, D15). Built in an interactive session from the spec; not filed as issues.
+
 2026-11-16: the creator moved the Investment phase to its own Infrastructure screen (D12). Added E06-S08 (the screen; moves Collect off the Deck) and made E06-S04 and E06-S05 depend on it; S04 and S05's wording changes in the spec. Filed as #113; #102 and #103 refreshed from the spec (new dependency, "Infrastructure screen" wording).
 
 2026-11-16 run: planned E07 (ships from hulls and modules, Fleet tab) from the creator's vault note and answers; spec `2026-11-16-e07-hulls-modules-fleet.md`. Filed as #116–#119. Shipyards, crews, repair and battle are not filed (listed as Later in the spec).

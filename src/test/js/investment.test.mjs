@@ -30,7 +30,6 @@ import {
 	investFactories,
 	investSystems,
 	infrastructureStatusText,
-	investmentJustStarted,
 	isInvesting,
 	isInvestmentClosedRefusal,
 	ownFactoryRows,
@@ -252,25 +251,6 @@ describe('validateCollect (S03-5)', () => {
 
 describe('the Infrastructure screen (E06-S08)', () => {
 	const withYou = (extra, options) => ({ id: 'g-1', ...game(options), ...extra });
-
-	describe('investmentJustStarted (S08-2)', () => {
-		it('is true when the turn moves from Trading into Investment', () => {
-			assert.equal(investmentJustStarted(withYou({}, { phase: 'TRADING' }), withYou({})), true);
-		});
-
-		it('is true for the same phase of a later turn', () => {
-			const next = withYou({});
-			next.turn = { ...next.turn, number: 5 };
-			assert.equal(investmentJustStarted(withYou({}), next), true);
-		});
-
-		it('is false while Investment goes on, for the first state seen, for another game and outside Investment', () => {
-			assert.equal(investmentJustStarted(withYou({}), withYou({})), false);
-			assert.equal(investmentJustStarted(null, withYou({})), false);
-			assert.equal(investmentJustStarted({ ...withYou({}, { phase: 'TRADING' }), id: 'g-2' }, withYou({})), false);
-			assert.equal(investmentJustStarted(withYou({}, { phase: 'BIDDING' }), withYou({}, { phase: 'TRADING' })), false);
-		});
-	});
 
 	describe('infrastructureState (S08-3, S08-4, S08-6)', () => {
 		it('is closed outside Investment, whatever the viewer has', () => {

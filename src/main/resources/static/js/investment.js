@@ -162,17 +162,6 @@ export const NOT_INVESTING_TEXT = 'Investment opens after Trading.';
 export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
 export const INFRASTRUCTURE_LINK_TEXT = 'Go to Infrastructure';
 
-/**
- * S08-2: whether this game has just moved into Investment, which takes every player to the Infrastructure screen, as
- * Trading does. False for the first state seen (a reload mid-phase doesn't pull the player away from where they opened).
- */
-export function investmentJustStarted(previous, game) {
-	if (!previous || previous.id !== game.id || !isInvesting(game)) {
-		return false;
-	}
-	return previous.turn?.number !== game.turn.number || previous.turn?.phase !== 'INVESTMENT';
-}
-
 /** What the Infrastructure screen is for the viewer: 'closed' outside Investment, 'collect', 'invest', or 'done' (S08-3, S08-4, S08-6). */
 export function infrastructureState(game, email) {
 	if (!isInvesting(game)) {

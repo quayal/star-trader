@@ -56,11 +56,3 @@ export function standingRows(game, email) {
 		you: standing.email === email,
 	}));
 }
-
-/**
- * S08-2: whether [game] has just ended, as seen after [previous] (the last state this page drew of the same game), so
- * every player is taken to Game over. A first load (no previous, or another game's) never counts.
- */
-export function gameJustEnded(previous, game) {
-	return Boolean(previous) && previous.id === game.id && !isOver(previous) && isOver(game);
-}

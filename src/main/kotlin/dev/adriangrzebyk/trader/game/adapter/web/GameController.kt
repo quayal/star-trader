@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.BiddingService
+import dev.adriangrzebyk.trader.game.CargoService
 import dev.adriangrzebyk.trader.game.Dice
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
@@ -10,6 +11,7 @@ import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
+import dev.adriangrzebyk.trader.game.InvalidCargoMoveException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidInvestmentException
@@ -57,6 +59,7 @@ class GameController(
 	private val gamePollingService = GamePollingService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
 	private val biddingService = BiddingService(gameStore, dice)
+	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore)
 	private val tradingService = TradingService(gameStore, dice)
@@ -244,6 +247,41 @@ class GameController(
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
 		} catch (ex: InvalidInvestmentException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player moves goods between one of their ships in port and their warehouse there (R58, E08-S02): `{ ship, goods,
+	 * units, to }`, in any phase of a running game. `400` for an unknown good or destination, units that aren't a whole
+	 * number, and a move the rules refuse (not their ship, not in port, no warehouse there, more than the source holds or
+	 * than fits); `409` before the game starts and once it's over; `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/cargo/moves")
+	fun moveCargo(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: MoveCargoRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val move = request ?: MoveCargoRequestDto()
+		val goods = move.goodsConstant()
+		val units = move.wholeUnits()
+		val to = move.destination()
+		if (goods == null || units == null || to == null) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a ship, a good, where it goes and a whole number of units, 1 or more.")
+		}
+		val game = try {
+			cargoService.move(id, session.email, move.ship, goods, units, to)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidCargoMoveException) {
 			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)

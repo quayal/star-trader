@@ -31,7 +31,11 @@ import {
 	resolvedText,
 	resolver,
 	sameOrder,
-	tradingJustStarted,
+	queueOffersNote,
+	yourOffer,
+	YOUR_OFFERS_NOTE,
+	NO_OFFERS_LEFT_NOTE,
+	NO_OFFERS_PLACED_NOTE,
 	tradingStatus,
 	waitingText,
 } from '../../main/resources/static/js/trading.js';
@@ -222,14 +226,41 @@ describe('the decision alert (S01-9)', () => {
 	});
 });
 
-describe('opening Trading when it starts (S01-1)', () => {
-	it('only on the step into Trading, for the same game', () => {
-		assert.equal(tradingJustStarted(game({ phase: 'SHIP_JUMPS' }), game()), true);
-		assert.equal(tradingJustStarted(game({ number: 1 }), game({ number: 2 })), true);
-		assert.equal(tradingJustStarted(game(), game()), false);
-		assert.equal(tradingJustStarted(null, game()), false);
-		assert.equal(tradingJustStarted(game({ id: 'other', phase: 'SHIP_JUMPS' }), game()), false);
-		assert.equal(tradingJustStarted(game({ phase: 'SHIP_JUMPS' }), game({ phase: 'SHIP_JUMPS' })), false);
+describe("the viewer's own offers on the goods still to resolve (E08-S01)", () => {
+	const BUY_ISO = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO', type: 'BUY', price: 11 };
+	const SELL_CHIPS = { system: 'BETA_HYDRI', systemName: 'Beta Hydri', goods: 'CHIPS', type: 'SELL', price: 7 };
+	const withOffers = (offers, options) => ({ ...game(options), you: { offers } });
+
+	it('marks a good with the offer the viewer placed on it (S01-1)', () => {
+		const seen = withOffers([BUY_ISO, SELL_CHIPS]);
+		assert.deepEqual(yourOffer(seen, ISO), { type: 'BUY', typeName: 'Buy', price: 11 });
+		assert.deepEqual(yourOffer(seen, CHIPS), { type: 'SELL', typeName: 'Sell', price: 7 });
+	});
+
+	it('marks nothing on a good without one, matching both the system and the good', () => {
+		const seen = withOffers([BUY_ISO]);
+		assert.equal(yourOffer(seen, POLY), null);
+		assert.equal(yourOffer(seen, { ...ISO, system: 'TAU_CETI', systemName: 'Tau Ceti' }), null);
+		assert.equal(yourOffer(seen, { ...ISO, goods: 'POLY' }), null);
+	});
+
+	it('marks nothing when no offers of the viewer were sent', () => {
+		assert.equal(yourOffer(game(), ISO), null);
+		assert.equal(yourOffer({ ...game(), you: null }, ISO), null);
+	});
+
+	it('says what the marks are while one is in the queue (S01-4)', () => {
+		assert.equal(queueOffersNote(withOffers([BUY_ISO])), YOUR_OFFERS_NOTE);
+	});
+
+	it('says so when the viewer has no offer among the goods left, or placed none', () => {
+		assert.equal(queueOffersNote(withOffers([BUY_ISO], { queue: [POLY] })), NO_OFFERS_LEFT_NOTE);
+		assert.equal(queueOffersNote(withOffers([])), NO_OFFERS_PLACED_NOTE);
+		assert.equal(queueOffersNote(game()), NO_OFFERS_PLACED_NOTE);
+	});
+
+	it('says nothing outside Trading', () => {
+		assert.equal(queueOffersNote(withOffers([BUY_ISO], { phase: 'BIDDING' })), '');
 	});
 });
 

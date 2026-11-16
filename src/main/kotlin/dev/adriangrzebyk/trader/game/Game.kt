@@ -215,6 +215,18 @@ data class Game(
 	}
 
 	/**
+	 * [email] moves [units] of [goods] between their ship [shipName] in port and their warehouse there, into [to] (R58):
+	 * [Player.moveCargo] checks and applies it. In any phase of a running game and whoever's turn it is, since a move
+	 * changes nothing anyone else decides on: what the player holds at that system stays the same (R49). Cargo is private
+	 * (R29), so nothing is logged.
+	 */
+	fun moveCargo(email: String, shipName: String?, goods: Goods, units: Int, to: CargoDestination): Game {
+		val player = playerOf(email)
+		runningTurn()
+		return copy(players = replace(player.moveCargo(shipName, goods, units, to)))
+	}
+
+	/**
 	 * Records that [email] is done bidding (R17). Bidding closes the moment the last player signals done (D09), rolling
 	 * the initiative order with [dice]; a signal after that is refused (A04).
 	 */

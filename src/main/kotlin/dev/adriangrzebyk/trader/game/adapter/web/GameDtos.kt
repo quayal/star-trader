@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
+import dev.adriangrzebyk.trader.game.CargoDestination
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -473,6 +474,23 @@ data class BuyUnitsRequestDto(val system: String? = null, val goods: String? = n
 
 	/** The units as a whole number, or null when missing or not whole. */
 	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+/**
+ * A move of goods between one of the caller's ships in port and their warehouse there (R58, E08-S02): [units] of [goods]
+ * out of or into [ship], [to] the `WAREHOUSE` or the `SHIP`. Names are checked here; [units] is a [BigDecimal] so 2.5
+ * reaches a message instead of being rounded.
+ */
+data class MoveCargoRequestDto(val ship: String? = null, val goods: String? = null, val units: BigDecimal? = null, val to: String? = null) {
+
+	/** The good, or null when it's missing or isn't one. */
+	fun goodsConstant(): Goods? = Goods.entries.firstOrNull { it.name == goods }
+
+	/** The units as a whole number, or null when missing or not whole. */
+	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
+
+	/** Where the goods go, or null when it's missing or isn't `WAREHOUSE` or `SHIP`. */
+	fun destination(): CargoDestination? = CargoDestination.entries.firstOrNull { it.name == to }
 }
 
 /**

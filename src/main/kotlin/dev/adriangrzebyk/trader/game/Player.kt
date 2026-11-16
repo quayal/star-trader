@@ -116,6 +116,43 @@ data class Player(
 		}
 	}
 
+	/**
+	 * This player after moving [units] of [goods] between their ship [shipName] and their warehouse at that ship's system,
+	 * into [to] (R58). The ship must be theirs and in port, and they need a warehouse there. Unlike a buy, a move never
+	 * loses goods: it is refused when the source holds fewer than [units], or when the destination has too little free
+	 * cargo space for them (POLY and ISO; CHIPS and FOOD always fit, R42).
+	 */
+	fun moveCargo(shipName: String?, goods: Goods, units: Int, to: CargoDestination): Player {
+		val ship = ship(shipName) ?: throw InvalidCargoMoveException("Choose one of your ships.")
+		if (!ship.isInPort()) {
+			throw InvalidCargoMoveException("${ship.name} isn't in port. Goods move only between a ship in port and your warehouse there.")
+		}
+		val warehouse = warehouseAt(ship.system)
+			?: throw InvalidCargoMoveException("You have no warehouse at ${ship.system.displayName}.")
+		if (units < 1) {
+			throw InvalidCargoMoveException("Enter a whole number of units, 1 or more.")
+		}
+		val warehouseName = "Your warehouse at ${ship.system.displayName}"
+		val (source, held) = when (to) {
+			CargoDestination.WAREHOUSE -> ship.name to ship.holding(goods)
+			CargoDestination.SHIP -> warehouseName to warehouse.holding(goods)
+		}
+		if (units > held) {
+			throw InvalidCargoMoveException("$source has only $held ${goods.name}.")
+		}
+		val (destination, room) = when (to) {
+			CargoDestination.WAREHOUSE -> warehouseName to warehouse.unitsThatFit(goods, units)
+			CargoDestination.SHIP -> ship.name to ship.unitsThatFit(goods, units)
+		}
+		if (room < units) {
+			throw InvalidCargoMoveException("$destination has room for only $room more ${goods.name}.")
+		}
+		return when (to) {
+			CargoDestination.WAREHOUSE -> withShip(ship.unload(goods, units)).withWarehouse(warehouse.load(goods, units))
+			CargoDestination.SHIP -> withWarehouse(warehouse.unload(goods, units)).withShip(ship.load(goods, units))
+		}
+	}
+
 	/** Whether this player has a factory, so they collect output at the start of Investment (R47, E06-S03-6). */
 	fun hasFactories(): Boolean = factories.isNotEmpty()
 

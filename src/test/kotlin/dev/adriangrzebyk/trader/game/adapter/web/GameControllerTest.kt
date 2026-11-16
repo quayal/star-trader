@@ -1798,6 +1798,136 @@ class GameControllerTest {
 		return request.body(body).exchange()
 	}
 
+	/**
+	 * A started two-player game in turn 1's Bidding where the creator's first ship is in port at Tau Ceti carrying 3 ISO, and
+	 * they have a one-block warehouse there holding 6 ISO (the test places both, since the start is random and gives none).
+	 * Returns the creator's token, the joiner's token and the game id.
+	 */
+	private fun gameWithAWarehouse(prefix: String): Triple<String, String, String> {
+		val (creator, joiner, gameId) = startedGame(prefix)
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email != game.creatorEmail) {
+						player
+					} else {
+						val docked = player.ships[0].copy(system = StarSystem.TAU_CETI, location = ShipLocation.PORT, cargo = mapOf(Goods.ISO to 3))
+						player.copy(
+							ships = listOf(docked) + player.ships.drop(1),
+							warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.ISO to 6)))
+						)
+					}
+				}
+			)
+		}
+		return Triple(creator, joiner, gameId)
+	}
+
+	@Test
+	fun shouldMoveGoodsFromTheWarehouseOntoAShipInPortDuringBidding() {
+		// E08-S02-1, R58: in any phase, here Bidding, where nothing else touches cargo
+		val (creator, _, gameId) = gameWithAWarehouse("cargo-load")
+		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
+
+		val moved = moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 4, "to": "SHIP"}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(moved.turn!!.phase).isEqualTo("BIDDING")
+		assertThat(moved.you!!.ships.single { it.name == ship }.cargo).isEqualTo(mapOf("ISO" to 7))
+		assertThat(moved.you!!.ships.single { it.name == ship }.cargoUsed).isEqualTo(7)
+		assertThat(moved.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 2))
+		assertThat(GameResponseDto(gameStore.find(gameId)!!, moved.creatorEmail)).isEqualTo(moved)
+	}
+
+	@Test
+	fun shouldMoveGoodsFromAShipIntoTheWarehouse() {
+		val (creator, _, gameId) = gameWithAWarehouse("cargo-unload")
+		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
+
+		val moved = moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 3, "to": "WAREHOUSE"}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(moved.you!!.ships.single { it.name == ship }.cargo).isEmpty()
+		assertThat(moved.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 9))
+	}
+
+	@Test
+	fun shouldKeepACargoMovePrivate() {
+		// E08-S02-6, R29: no log line, and the other player's view is what it was
+		val (creator, joiner, gameId) = gameWithAWarehouse("cargo-private")
+		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
+		val before = pollGame(joiner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 4, "to": "SHIP"}""").expectStatus().isOk
+
+		val after = pollGame(joiner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(after).isEqualTo(before)
+	}
+
+	@Test
+	fun shouldRefuseACargoMoveTheRulesRefuseAndLoseNothing() {
+		// E08-S02-2: more than the source holds, more than fits, a ship that isn't the caller's
+		val (creator, joiner, gameId) = gameWithAWarehouse("cargo-refused")
+		val stored = gameStore.find(gameId)!!
+		val ship = stored.players.first().ships[0].name
+
+		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 7, "to": "SHIP"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Your warehouse at Tau Ceti has only 6 ISO.")
+		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 6, "to": "SHIP"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("$ship has room for only 5 more ISO.")
+		moveCargo(joiner, gameId, """{"ship": "$ship", "goods": "ISO", "units": 1, "to": "WAREHOUSE"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose one of your ships.")
+
+		assertThat(gameStore.find(gameId)).isEqualTo(stored)
+	}
+
+	@Test
+	fun shouldRefuseACargoMoveThatIsNotWellFormed() {
+		val (creator, _, gameId) = gameWithAWarehouse("cargo-malformed")
+		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
+		val message = "Choose a ship, a good, where it goes and a whole number of units, 1 or more."
+
+		for (
+		body in listOf(
+			"""{"ship": "$ship", "goods": "ISO", "units": 2.5, "to": "SHIP"}""",
+			"""{"ship": "$ship", "goods": "GOLD", "units": 1, "to": "SHIP"}""",
+			"""{"ship": "$ship", "goods": "ISO", "units": 1, "to": "PLANET"}""",
+			"""{"ship": "$ship", "goods": "ISO", "to": "SHIP"}""",
+			"{}"
+		)
+		) {
+			moveCargo(creator, gameId, body).expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo(message)
+		}
+		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 0, "to": "SHIP"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 1 or more.")
+	}
+
+	@Test
+	fun shouldRefuseACargoMoveFromAnyoneButAPlayerOfARunningGame() {
+		// E08-S02-4
+		val (_, _, gameId) = gameWithAWarehouse("cargo-access")
+		val body = """{"ship": "Wayfarer", "goods": "ISO", "units": 1, "to": "SHIP"}"""
+		val outsider = signIn("cargo-outsider@example.com")
+		val lobby = createdGame(outsider)
+
+		moveCargo(null, gameId, body).expectStatus().isUnauthorized
+		moveCargo(outsider, gameId, body).expectStatus().isForbidden
+		moveCargo(outsider, "no-such-game", body).expectStatus().isNotFound
+		moveCargo(outsider, lobby.id, body)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("This game hasn't started")
+	}
+
+	private fun moveCargo(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/cargo/moves", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
 	private fun finishJumping(token: String?, gameId: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/finish", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }

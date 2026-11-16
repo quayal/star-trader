@@ -2,7 +2,7 @@
  * Pure helpers for the Trading screen (s03, E05-S01 to S05) and the Trading parts of the top bar and the decision alert.
  * They read `turn.initiative`, `turn.tradingQueue`, `turn.resolvedGoods` and `turn.resolution` from GET /api/games/{id}
  * (BACKWARD_COMPATIBILITY.md §6). Those are public (R25, R36): the only offers are those a resolution has disclosed
- * (E05-S02-1). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get,
+ * (E05-S02-1), and the viewer's own `you.offers`, which mark the goods still to resolve for them alone (E08-S01, R17). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get,
  * and the wholesale form (E05-S05) their `you.wholesaleMax`.
  */
 
@@ -164,6 +164,30 @@ export function queueNote(game, email) {
 		return '';
 	}
 	return who === email ? YOUR_QUEUE_NOTE : `Order decided by ${corporation(game, who)} (first in initiative); it can change until each one resolves.`;
+}
+
+/**
+ * E08-S01-1: the viewer's own offer on [good] this turn, as its mark in the queue, or null when they have none there.
+ * Only ever their own: nobody else's offers are sent before a good resolves (R17).
+ */
+export function yourOffer(game, good) {
+	const offer = (game.you?.offers ?? []).find(candidate => candidate.system === good.system && candidate.goods === good.goods);
+	return offer ? { type: offer.type, typeName: TYPE_NAMES[offer.type] ?? offer.type, price: offer.price } : null;
+}
+
+export const YOUR_OFFERS_NOTE = 'Your own offers are marked. Only you see them until their good resolves.';
+export const NO_OFFERS_LEFT_NOTE = 'None of the remaining goods has an offer of yours.';
+export const NO_OFFERS_PLACED_NOTE = 'You placed no offers this turn.';
+
+/** E08-S01-4: the line under the queue: what the marks are, or that the viewer has no offer among the goods left. "" outside Trading. */
+export function queueOffersNote(game) {
+	if (!isTrading(game)) {
+		return '';
+	}
+	if (queue(game).some(good => yourOffer(game, good) !== null)) {
+		return YOUR_OFFERS_NOTE;
+	}
+	return (game.you?.offers ?? []).length > 0 ? NO_OFFERS_LEFT_NOTE : NO_OFFERS_PLACED_NOTE;
 }
 
 /** The resolution panel's heading: "Now resolving: Mu Herculis · ISO", or "Resolved: …" once finished; "" with none. */
@@ -535,15 +559,4 @@ export function decisionText(game, email) {
 		return `Your decision is needed: as ${wholesaleRole(game, email)}, buy or sell up to 5 u of ${good.goods} at ${good.systemName} at ${newPrice} HT, or pass.`;
 	}
 	return resolver(game) === email ? 'Your decision is needed: resolve the next good.' : '';
-}
-
-/**
- * S01-1: whether [game] has just entered Trading, as seen after [previous] (the last state this page drew): the same
- * game, a moment ago not yet in this turn's Trading. A first load (no previous, or another game's) never counts.
- */
-export function tradingJustStarted(previous, game) {
-	if (!previous || previous.id !== game.id || !isTrading(game)) {
-		return false;
-	}
-	return previous.turn?.number !== game.turn.number || previous.turn?.phase !== 'TRADING';
 }

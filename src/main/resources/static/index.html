@@ -295,6 +295,8 @@
 		.queue li.is-over { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
 		.queue__grip { color: var(--text-muted); }
 		.queue__label { flex: 1; }
+		/* E08-S01: the viewer's own offer on a good, under its name. */
+		.queue__offer { display: block; font-size: var(--text-caption); color: var(--text-muted); }
 		.queue__move {
 			min-width: 32px;
 			min-height: 32px;
@@ -465,7 +467,7 @@
 				</section>
 				<!-- E04-S01: from Ship-jumps on. Static markup, updated on render, so the chosen place and focus survive the poll. -->
 				<section class="panel" id="turn-order-panel" aria-labelledby="turn-order-title" hidden>
-					<h2 id="turn-order-title">Turn order</h2>
+					<h2 id="turn-order-title" tabindex="-1">Turn order</h2>
 					<p class="muted" id="turn-order-note"></p>
 					<ol class="player-list" id="turn-order-list"></ol>
 					<form class="offer-form pick-form" id="pick-form" novalidate hidden>
@@ -507,7 +509,7 @@
 				</section>
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
 				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
-					<h2 id="bid-title">Bid for initiative</h2>
+					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
 					<form class="offer-form" id="bid-form" novalidate>
 						<div>
 							<label class="field-label" for="bid-amount">Your bid (HT)</label>
@@ -558,6 +560,8 @@
 			<h2 class="system__title" id="fleet-panel-title" tabindex="-1">Fleet</h2>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
+			<!-- E08-S02-9: for a player with a warehouse; the form is on Infrastructure. -->
+			<p id="fleet-cargo" hidden><a class="link" id="fleet-cargo-link" href="/"></a></p>
 		</div>
 
 		<!-- s09 (E05-S08): Game over, once the last turn's Trading has resolved its last good. -->
@@ -643,6 +647,38 @@
 					</div>
 					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
 					<p class="message" id="units-message" role="status"></p>
+				</form>
+			</section>
+			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
+			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
+				<h2 id="cargo-title">Move goods</h2>
+				<p class="muted" id="cargo-intro"></p>
+				<p id="cargo-none"></p>
+				<form class="offer-form" id="cargo-form" novalidate>
+					<div>
+						<label class="field-label" for="cargo-ship">Ship in port</label>
+						<select class="control" id="cargo-ship" aria-describedby="cargo-warehouse"></select>
+						<p class="message muted" id="cargo-warehouse"></p>
+					</div>
+					<fieldset class="offer-type">
+						<legend class="field-label">Direction</legend>
+						<div class="choices">
+							<label class="choice"><input type="radio" name="cargo-to" value="SHIP" checked>Warehouse to ship</label>
+							<label class="choice"><input type="radio" name="cargo-to" value="WAREHOUSE">Ship to warehouse</label>
+						</div>
+					</fieldset>
+					<div>
+						<label class="field-label" for="cargo-goods">Goods</label>
+						<select class="control" id="cargo-goods"></select>
+					</div>
+					<div>
+						<label class="field-label" for="cargo-units">Units</label>
+						<input class="control price-input" id="cargo-units" inputmode="numeric" aria-describedby="cargo-hint cargo-error">
+						<p class="message muted" id="cargo-hint" role="status"></p>
+						<p class="message message--error field-error" id="cargo-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="cargo-button" type="submit"></button></div>
+					<p class="message" id="cargo-message" role="status"></p>
 				</form>
 			</section>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
@@ -750,6 +786,8 @@
 					<h2 id="queue-title">Remaining goods</h2>
 					<p class="muted" id="queue-note"></p>
 					<ol class="queue" id="queue-list"></ol>
+					<!-- E08-S01-4: what the marks on the goods are, and who sees them (R17). -->
+					<p class="muted" id="queue-offers-note"></p>
 					<p class="visually-hidden" id="queue-announce" role="status"></p>
 				</section>
 			</div>
@@ -861,8 +899,22 @@
 		fleetLink,
 		infrastructureLink,
 		validateTurns,
+		screenForPhaseChange,
+		deckHeadingFor,
 	} from './js/game.js';
-	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, gameJustEnded, isOver, standingRows, winnerText } from './js/game-over.js';
+	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
+	import {
+		FLEET_MOVE_LINK,
+		MOVE_BUTTON,
+		MOVE_INTRO,
+		NO_SHIP_IN_PORT_TEXT,
+		canMoveCargo,
+		cargoPlaces,
+		movableGoods,
+		moveHint,
+		movedText as cargoMovedText,
+		validateMove,
+	} from './js/cargo.js';
 	import {
 		DICTATOR_HELP,
 		awaitingDictator,
@@ -882,12 +934,13 @@
 		orderedBy,
 		queueBody,
 		queueNote,
+		queueOffersNote,
+		yourOffer,
 		resolutionTitle,
 		resolver,
 		sameOrder,
 		tradeForm,
 		wholesaleForm,
-		tradingJustStarted,
 		tradingStatus,
 		validateTrade,
 	} from './js/trading.js';
@@ -977,7 +1030,6 @@
 		goodsOptionLabel,
 		investFactories,
 		investSystems,
-		investmentJustStarted,
 		isCollecting,
 		isInvestmentClosedRefusal,
 		isInvesting,
@@ -1020,6 +1072,8 @@
 	let focusInfrastructureTitle = false;
 	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
 	let focusFleetTitle = false;
+	// Set when a phase change opens the Deck (E08-S03-4), so the heading of the panel that phase needs takes focus once.
+	let focusDeckHeading = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
 	const foldedTurns = new Set();
 
@@ -1356,21 +1410,15 @@
 	 */
 	function render(game, fresh = true, fromPoll = false) {
 		noteProgress(game, fromPoll);
-		// S01-1: every player is taken to Trading when it starts, whether a poll or their own last landing brought it.
-		const openTrading = tradingJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'trading';
-		// E06-S08-2: every player is taken to Infrastructure when Investment starts, once; going back to another screen sticks.
-		const openInfrastructure = investmentJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'infrastructure';
-		// S08-2: every player is taken to Game over when the game ends, by a poll or by their own last answer.
-		const openGameOver = gameJustEnded(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'over';
+		// D15 (E08-S03): when the phase or the turn changes, by a poll or the player's own action, every player is taken to
+		// the screen it's played on, once: the Deck for Bidding and Ship-jumps, Trading (E05-S01-1), Infrastructure for
+		// Investment (E06-S08-2), Game over (E05-S08-2). Going to another screen afterwards sticks until the next change.
+		const screen = game.id === currentGameId ? screenForPhaseChange(lastGame, game) : null;
 		lastGame = game;
-		if (openTrading) {
-			location.hash = tradingLink(game.id); // route() redraws on hashchange
-		}
-		if (openInfrastructure) {
-			location.hash = infrastructureLink(game.id);
-		}
-		if (openGameOver) {
-			location.hash = gameOverLink(game.id);
+		if (screen !== null && screen !== parseRoute(location.hash).view) {
+			focusDeckHeading = screen === 'game';
+			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
+			location.hash = link(game.id); // read at once by renderRunning below; route() redraws on hashchange
 		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -1476,6 +1524,9 @@
 		if (view === 'fleet') {
 			if (changed) {
 				renderFleet(game); // S03-8: with the regular poll
+				$('fleet-cargo').hidden = !canMoveCargo(game); // E08-S02-9
+				$('fleet-cargo-link').href = infrastructureLink(game.id);
+				$('fleet-cargo-link').textContent = FLEET_MOVE_LINK;
 			}
 			showPanels('fleet-panel');
 			if (focusFleetTitle) {
@@ -1515,6 +1566,13 @@
 		updateTurnOrder(game);
 		updateJumpForm(game);
 		showPanels('deck-panel');
+		if (focusDeckHeading) {
+			focusDeckHeading = false;
+			const heading = $(deckHeadingFor(game) ?? '');
+			if (heading && !heading.closest('[hidden]')) {
+				heading.focus(); // E08-S03-4: the panel this phase needs
+			}
+		}
 	}
 
 	function element(tag, attributes = {}, ...children) {
@@ -1671,7 +1729,9 @@
 		const editable = orderedBy(game) === session.email;
 		$('queue-panel').hidden = goods.length === 0;
 		$('queue-note').textContent = queueNote(game, session.email);
-		const listKey = JSON.stringify([game.id, editable, goods]);
+		$('queue-offers-note').textContent = queueOffersNote(game);
+		// E08-S01: the viewer's own offers mark their goods, so the list is drawn again when they change (a new turn's).
+		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? []]);
 		if (listKey !== queueListKey) {
 			queueListKey = listKey;
 			drawQueue(game, goods, editable);
@@ -1964,8 +2024,12 @@
 		$('queue-list').setAttribute('aria-label', editable ? 'Remaining goods, in order. Drag to reorder, or use the arrows.' : 'Remaining goods, in order');
 		$('queue-list').replaceChildren(...goods.map((good, index) => {
 			const label = goodLabel(good);
+			// E08-S01-1: the viewer's own offer on this good, theirs alone until it resolves (R17).
+			const offer = yourOffer(game, good);
+			const mark = offer ? [element('span', { class: 'queue__offer' }, 'Your offer: ',
+				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`)] : [];
 			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
-				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods));
+				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ...mark);
 			if (!editable) {
 				return element('li', {}, name);
 			}
@@ -2960,6 +3024,7 @@
 		updateCollectForm(game);
 		updateBlocksForm(game);
 		updateUnitsForm(game);
+		updateCargoForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, session.email);
@@ -3092,6 +3157,166 @@
 		setBlocksMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E08-S02: moving goods between a ship in port and a warehouse (R58) ──
+
+	// What the pickers were drawn from, and for which game: they're drawn again only when a ship or a warehouse changes,
+	// so a pick survives the poll, and a new game starts afresh (lesson 2026-11-04: a select's kept choice is keyed by game).
+	let shownCargoKey = null;
+	let shownCargoGame = null;
+	let cargoMessageKey = null;
+	let submittingCargo = false;
+
+	function cargoTo() {
+		return document.querySelector('input[name="cargo-to"]:checked').value;
+	}
+
+	/** The picked ship's place, or undefined when the list changed under the pick. */
+	function pickedPlace(game) {
+		return cargoPlaces(game, session.email).find(place => place.ship.name === $('cargo-ship').value);
+	}
+
+	function setCargoError(text) {
+		$('cargo-error').textContent = text;
+		if (text) {
+			$('cargo-units').setAttribute('aria-invalid', 'true');
+		} else {
+			$('cargo-units').removeAttribute('aria-invalid');
+		}
+	}
+
+	function setCargoMessage(text, error, key) {
+		$('cargo-message').textContent = text;
+		$('cargo-message').className = error ? 'message message--error' : 'message message--success';
+		cargoMessageKey = text ? key : null;
+	}
+
+	/** How many units can move, under the Units field; with nothing to move the button waits. */
+	function updateCargoHint(game) {
+		const place = pickedPlace(game);
+		const text = place ? moveHint(place, $('cargo-goods').value, cargoTo()) : '';
+		if ($('cargo-hint').textContent !== text) {
+			$('cargo-hint').textContent = text; // only on a change, so the live region isn't re-announced every poll
+		}
+		$('cargo-button').disabled = submittingCargo || !place || $('cargo-goods').options.length === 0;
+	}
+
+	/** The goods the source holds, for the picked ship and direction; the picked good is kept while it's still there. */
+	function fillCargoGoods(game) {
+		const place = pickedPlace(game);
+		const chosen = $('cargo-goods').value;
+		const goods = place ? movableGoods(place, cargoTo()) : [];
+		$('cargo-goods').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, `${entry.goods} \u2014 ${entry.units} u`)));
+		if (goods.some(entry => entry.goods === chosen)) {
+			$('cargo-goods').value = chosen;
+		}
+		$('cargo-warehouse').textContent = place?.warehouseLabel ?? '';
+		updateCargoHint(game);
+	}
+
+	/** S02-7, S02-8: the panel for a player with a warehouse, in every phase; the form while a ship of theirs is in port there. */
+	function updateCargoForm(game) {
+		const panel = $('cargo-panel');
+		panel.hidden = !canMoveCargo(game);
+		if (cargoMessageKey !== null && cargoMessageKey !== game.id) {
+			setCargoMessage('', false, null);
+		}
+		if (panel.hidden) {
+			shownCargoKey = null;
+			return;
+		}
+		$('cargo-intro').textContent = MOVE_INTRO;
+		$('cargo-button').textContent = MOVE_BUTTON;
+		const places = cargoPlaces(game, session.email);
+		$('cargo-form').hidden = places.length === 0;
+		$('cargo-none').textContent = places.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
+		if (places.length === 0) {
+			shownCargoKey = null;
+			return;
+		}
+		const key = JSON.stringify([game.id, places]);
+		if (key !== shownCargoKey) {
+			const sameGame = shownCargoKey !== null && shownCargoGame === game.id;
+			const chosen = sameGame ? $('cargo-ship').value : null;
+			$('cargo-ship').replaceChildren(...places.map(place => element('option', { value: place.ship.name }, place.label)));
+			if (places.some(place => place.ship.name === chosen)) {
+				$('cargo-ship').value = chosen;
+			}
+			if (!sameGame) {
+				$('cargo-units').value = ''; // another game's, or the form was away: nothing typed carries over
+				setCargoError('');
+			}
+			shownCargoKey = key;
+			shownCargoGame = game.id;
+			fillCargoGoods(game);
+		}
+		updateCargoHint(game);
+	}
+
+	// Another ship or direction changes what can move; typing again clears a shown error, which was about what was there before.
+	$('cargo-ship').addEventListener('change', () => {
+		setCargoError('');
+		fillCargoGoods(lastGame);
+	});
+	document.querySelectorAll('input[name="cargo-to"]').forEach(radio => radio.addEventListener('change', () => {
+		setCargoError('');
+		fillCargoGoods(lastGame);
+	}));
+	$('cargo-goods').addEventListener('change', () => {
+		setCargoError('');
+		updateCargoHint(lastGame);
+	});
+	$('cargo-units').addEventListener('input', () => setCargoError(''));
+
+	/** S02-2: checked here first, then by the server; the answer redraws the screen with what each now holds. */
+	$('cargo-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		const place = game ? pickedPlace(game) : undefined;
+		if (!place) {
+			return;
+		}
+		const goods = $('cargo-goods').value;
+		const to = cargoTo();
+		const checked = validateMove(place, goods, to, $('cargo-units').value);
+		setCargoError(checked.error ?? '');
+		if (checked.error) {
+			$('cargo-units').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		submittingCargo = true;
+		$('cargo-button').disabled = true;
+		setCargoMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/cargo/moves`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked.body) });
+		} catch {
+			response = null;
+		}
+		submittingCargo = false;
+		$('cargo-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			setCargoMessage(cargoMovedText(place, goods, checked.body.units, to), false, gameId);
+			$('cargo-units').value = '';
+			render(await response.json());
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setCargoError(message);
+			$('cargo-units').focus();
+			return;
+		}
+		setCargoMessage(message, true, gameId);
+		if (response) {
+			repollNow(); // e.g. the ship has left port, or the game is over: the screen catches up
 		}
 	});
 

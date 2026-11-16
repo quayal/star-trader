@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { gameJustEnded, isOver, moneyText, standingRows, winnerText } from '../../main/resources/static/js/game-over.js';
+import { isOver, moneyText, standingRows, winnerText } from '../../main/resources/static/js/game-over.js';
 
 const VEGA = 'vega@example.com';
 const KESSLER = 'kessler@example.com';
@@ -56,12 +56,5 @@ describe('Game over (s09, E05-S08)', () => {
 			{ place: 3, corporation: 'Orion Freight', money: '300 HT', winner: false, you: false },
 		]);
 		assert.deepEqual(standingRows(game({ status: 'RUNNING' }), VEGA), []);
-	});
-
-	it('has just ended only when the same game was running a moment ago', () => {
-		assert.equal(gameJustEnded(game({ status: 'RUNNING' }), game()), true);
-		assert.equal(gameJustEnded(game(), game()), false);
-		assert.equal(gameJustEnded(null, game()), false);
-		assert.equal(gameJustEnded({ ...game({ status: 'RUNNING' }), id: 'other' }, game()), false);
 	});
 });
