@@ -26,3 +26,30 @@ export function logTurns(log) {
 export function foldKey(gameId, turn) {
 	return `${gameId}/${turn}`;
 }
+
+// ── The poll asks only for the log entries it doesn't have ──
+//
+// GET /api/games/{id}?logAfter={n} answers with the entries after the first n and `logOffset: n`; without it, or when n
+// isn't a number of entries the log has, with the whole log and `logOffset: 0` (BACKWARD_COMPATIBILITY.md §6). [known] is
+// what the page last drew: `{ id, entries }`, or null.
+
+/** The poll's query for game [gameId]: the entries after the ones [known] holds for that game, or "" to get the whole log. */
+export function logAfterQuery(known, gameId) {
+	return known?.id === gameId && known.entries.length > 0 ? `?logAfter=${known.entries.length}` : '';
+}
+
+/**
+ * The whole log of [game] as a poll answered it, joined to what [known] held when the poll was sent; null when the
+ * answer doesn't follow on from it (another game's, or fewer entries than its offset), so the caller asks again for all.
+ */
+export function mergeLog(known, game) {
+	const offset = game.logOffset ?? 0;
+	const newer = game.log ?? [];
+	if (offset === 0) {
+		return newer;
+	}
+	if (known?.id !== game.id || known.entries.length < offset) {
+		return null;
+	}
+	return [...known.entries.slice(0, offset), ...newer];
+}

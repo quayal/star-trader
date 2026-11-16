@@ -944,7 +944,7 @@
 		tradingStatus,
 		validateTrade,
 	} from './js/trading.js';
-	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
+	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
@@ -1059,6 +1059,8 @@
 	// The last state a poll returned, and when: kept on screen when a poll fails (S02-12, D01).
 	let lastGame = null;
 	let lastLoadedAt = 0;
+	// The log of the game last drawn, { id, entries }: the poll asks only for the entries after these (log.js).
+	let knownLog = null;
 	// What the board was last drawn from; an unchanged poll doesn't redraw, so focus stays where the player put it.
 	let renderedKey = null;
 	// Set when the player opens System details, so its heading takes focus once (S02-6).
@@ -1312,9 +1314,10 @@
 	async function poll() {
 		const id = currentGameId;
 		const generation = pollGeneration;
+		const known = knownLog; // as it was when the poll was sent: the answer follows on from this
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(id)}`);
+			response = await api(`/api/games/${encodeURIComponent(id)}${logAfterQuery(known, id)}`);
 		} catch {
 			response = null;
 		}
@@ -1351,6 +1354,13 @@
 			pollFailed(id);
 			return;
 		}
+		const log = mergeLog(known, game);
+		if (log === null) {
+			knownLog = null; // out of step with the server: ask again for the whole log
+			poll();
+			return;
+		}
+		game = { ...game, log, logOffset: 0 }; // every screen sees a whole log
 		rememberGame(id);
 		hideStale();
 		render(game, true, true);
@@ -1415,6 +1425,7 @@
 		// Investment (E06-S08-2), Game over (E05-S08-2). Going to another screen afterwards sticks until the next change.
 		const screen = game.id === currentGameId ? screenForPhaseChange(lastGame, game) : null;
 		lastGame = game;
+		knownLog = { id: game.id, entries: game.log };
 		if (screen !== null && screen !== parseRoute(location.hash).view) {
 			focusDeckHeading = screen === 'game';
 			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
@@ -1480,7 +1491,7 @@
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		views.game.classList.add('view--wide');
-		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
+		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
 		const changed = key !== renderedKey;
 		renderedKey = key;
 		if (view === 'system') {

@@ -36,6 +36,12 @@ data class Game(
 	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
 
 	/**
+	 * The log entries after the first [count], for a reader who already has those: the log only ever grows at its end. The
+	 * whole log when [count] isn't a number of entries this log has, so a reader who is out of step starts over.
+	 */
+	fun logAfter(count: Int): List<LogEntry> = if (count in 0..log.size) log.drop(count) else log
+
+	/**
 	 * Closes joining and sets every player up (R40, R41): 300 HT and two empty ships at the Ports of two
 	 * different systems from [picker], then turn 1 Bidding. Only the creator may start, once, with 2+ players.
 	 */

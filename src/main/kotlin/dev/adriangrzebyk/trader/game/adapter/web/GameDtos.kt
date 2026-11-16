@@ -41,7 +41,8 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
  * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, their
  * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems with this game's prices, which Trading
  * moves (E05-S05, R35). [result] is null until the game is over, then every player's final money and the winners for
- * everyone (E05-S08, R39: the one exception to R29).
+ * everyone (E05-S08, R39: the one exception to R29). [log] is the whole log from its [logOffset]th entry on: 0, so all of
+ * it, unless the poll asked for the entries after the ones it has.
  */
 data class GameResponseDto(
 	val id: String,
@@ -51,20 +52,25 @@ data class GameResponseDto(
 	val players: List<PlayerResponseDto>,
 	val turn: TurnResponseDto?,
 	val log: List<LogEntryResponseDto>,
+	val logOffset: Int,
 	val board: List<SystemResponseDto>,
 	val result: GameResultResponseDto?,
 	val you: YouResponseDto?
 ) {
 
-	/** Only [viewerEmail]'s own money goes into the response; null [you] for a viewer who isn't a player. */
-	constructor(game: Game, viewerEmail: String) : this(
+	/**
+	 * Only [viewerEmail]'s own money goes into the response; null [you] for a viewer who isn't a player. [logAfter] is how
+	 * many log entries the viewer already has ([Game.logAfter]); 0 sends them all.
+	 */
+	constructor(game: Game, viewerEmail: String, logAfter: Int = 0) : this(
 		game.id,
 		game.turns,
 		game.status.name,
 		game.creatorEmail,
 		game.players.map { PlayerResponseDto(it) },
 		game.turn?.let { TurnResponseDto(it) },
-		game.log.map { LogEntryResponseDto(it) },
+		game.logAfter(logAfter).map { LogEntryResponseDto(it) },
+		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
 		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {

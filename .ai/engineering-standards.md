@@ -131,6 +131,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 - Game state is stored as native DynamoDB attributes (one item per game; nested objects as maps and
   lists), translated by `game/adapter/dynamodb/GameItem` — never as an opaque JSON string.
+- Nothing that grows with the length of a game lives inside the game item: DynamoDB refuses an item over 400 KB.
+  The Game log is one `LogTurnItem` per turn beside it, written with the game item in one transaction (§9).
 - One item class per persisted type (`GameItem`, `PlayerItem`, `ShipItem`, `TurnItem`), composed by its
   parent. Each maps as §5 says: a constructor from the domain object (`ShipItem(ship)`) and a method back
   (`ShipItem(attributes).toShip()`). A new type adds an item class and its round-trip test; a new field

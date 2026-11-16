@@ -1922,6 +1922,40 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("This game hasn't started")
 	}
 
+	@Test
+	fun shouldSendOnlyTheLogEntriesThePollDoesNotHaveYet() {
+		// the 2-second poll mustn't carry the whole log every time
+		val (creator, _, gameId) = startedGame("log-after")
+		val whole = pollGame(creator, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(whole.log).hasSize(2)
+		assertThat(whole.logOffset).isZero()
+
+		val newer = pollLogAfter(creator, gameId, "1").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val none = pollLogAfter(creator, gameId, "2").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(newer.log).isEqualTo(whole.log.drop(1))
+		assertThat(newer.logOffset).isEqualTo(1)
+		assertThat(none.log).isEmpty()
+		assertThat(none.logOffset).isEqualTo(2)
+		assertThat(newer.copy(log = whole.log, logOffset = 0)).isEqualTo(whole)
+	}
+
+	@Test
+	fun shouldSendTheWholeLogToAPollThatIsOutOfStep() {
+		val (creator, _, gameId) = startedGame("log-out-of-step")
+
+		for (count in listOf("3", "-1")) {
+			val game = pollLogAfter(creator, gameId, count).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+			assertThat(game.log).hasSize(2)
+			assertThat(game.logOffset).isZero()
+		}
+		pollLogAfter(creator, gameId, "many").expectStatus().isBadRequest
+	}
+
+	private fun pollLogAfter(token: String, gameId: String, count: String): RestTestClient.ResponseSpec =
+		restTestClient.get().uri("/api/games/{id}?logAfter={count}", gameId, count).header("Authorization", "Bearer $token").exchange()
+
 	private fun moveCargo(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/cargo/moves", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }

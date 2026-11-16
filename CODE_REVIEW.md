@@ -28,6 +28,7 @@ Stack: Spring Boot 4 + Kotlin 2.3 (JVM 17), ktlint-enforced style, JUnit 5 + Ass
   - a class that keeps growing story by story. If a change makes `Game` (or any class) noticeably longer, check whether the new logic belongs to a part.
   `Game` keeps only what spans its parts: membership, whose turn it is, the log, and messages that name other players.
 - **Naming** (standard #5): game vocabulary (`TradeOffer`, `StarSystem`, `Goods`) over generic terms (`Item`, `Manager`, `Handler`); immutable data (`val`, `data class`) by default.
+- **Refusals map to HTTP statuses in one place**: `GameExceptionAdvice`. A new refusal type is added there, not caught in an endpoint; a `try`/`catch` in `GameController` that turns a game exception into a status needs a stated reason (today only `POST /games`).
 - **ktlint clean**: `./gradlew build` runs `ktlintCheck` as part of `check`; a PR with style violations fails the gate before a human needs to comment on formatting.
 - **No speculative abstraction** (standard #0/#5): flag a port/adapter split, interface, or configuration knob introduced for a need that doesn't exist yet. Prefer the simplest thing that passes its tests.
 

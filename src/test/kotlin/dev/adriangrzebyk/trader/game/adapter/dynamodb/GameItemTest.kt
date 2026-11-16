@@ -113,7 +113,7 @@ class GameItemTest {
 	fun shouldReadBackEveryFieldOfAStartedGame() {
 		val item = GameItem(startedGame, version = 3)
 
-		assertThat(GameItem(item.attributes).toGame()).isEqualTo(startedGame)
+		assertThat(GameItem(item.attributes).toGame(startedGame.log)).isEqualTo(startedGame)
 		assertThat(GameItem(item.attributes).version).isEqualTo(3)
 	}
 
@@ -121,7 +121,7 @@ class GameItemTest {
 	fun shouldReadBackALobbyGameThatHasNoTurnYet() {
 		val lobby = Game.lobby("game-2", 12, Player.newcomer("host@example.com", "Host", "Host Corp"))
 
-		assertThat(GameItem(GameItem(lobby, version = 0).attributes).toGame()).isEqualTo(lobby)
+		assertThat(GameItem(GameItem(lobby, version = 0).attributes).toGame(emptyList())).isEqualTo(lobby)
 	}
 
 	@Test
@@ -135,17 +135,20 @@ class GameItemTest {
 
 		assertThat(muHerculisIso.keys).containsExactlyInAnyOrder("system", "goods", "price")
 		assertThat(muHerculisIso.getValue("price")).isEqualTo(AttributeValue.fromN("10"))
-		assertThat(GameItem(item - "prices").toGame().prices).isEqualTo(MarketPrices.board())
+		assertThat(GameItem(item - "prices").toGame(startedGame.log).prices).isEqualTo(MarketPrices.board())
 	}
 
 	@Test
 	fun shouldStoreTheGameAsNativeAttributesWithNestedMapsAndLists() {
 		val item = GameItem(startedGame, version = 0).attributes
 
-		assertThat(item.keys).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "log", "version")
+		assertThat(
+			item.keys
+		).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
-		assertThat(item.getValue("log").l()).isEqualTo(startedGame.log.map { LogEntryItem(it).attribute })
+		// The log itself is in LogTurnItems; the game item only lists the turns that have one.
+		assertThat(item.getValue("logTurns").l().map { it.n() }).isEqualTo(startedGame.log.map { it.turn.toString() }.distinct())
 		assertThat(item.getValue("players").l().map { it.m() }).isEqualTo(startedGame.players.map { PlayerItem(it).attributes })
 	}
 
@@ -157,11 +160,28 @@ class GameItemTest {
 	}
 
 	@Test
-	fun shouldNameTheMissingAttributeWhenAStoredItemIsIncomplete() {
-		val item = GameItem(startedGame, version = 0).attributes - "log"
+	fun shouldListNoLogTurnsForAGameWithoutALog() {
+		val lobby = Game.lobby("game-2", 12, Player.newcomer("host@example.com", "Host", "Host Corp"))
 
-		assertThatThrownBy { GameItem(item).toGame() }
+		assertThat(GameItem(GameItem(lobby, version = 0).attributes).logTurns()).isEmpty()
+	}
+
+	@Test
+	fun shouldReadAGameSavedWithItsLogInsideTheItem() {
+		// BACKWARD_COMPATIBILITY.md §7: before the log moved out, the item held `log` and no `logTurns`
+		val older = GameItem(startedGame, version = 0).attributes - "logTurns" +
+			("log" to AttributeValue.fromL(startedGame.log.map { LogEntryItem(it).attribute }))
+
+		assertThat(GameItem(older).logTurns()).isEmpty()
+		assertThat(GameItem(older).toGame(emptyList())).isEqualTo(startedGame)
+	}
+
+	@Test
+	fun shouldNameTheMissingAttributeWhenAStoredItemIsIncomplete() {
+		val item = GameItem(startedGame, version = 0).attributes - "players"
+
+		assertThatThrownBy { GameItem(item).toGame(startedGame.log) }
 			.isInstanceOf(IllegalStateException::class.java)
-			.hasMessageContaining("log")
+			.hasMessageContaining("players")
 	}
 }
