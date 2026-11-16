@@ -143,7 +143,7 @@ data class Game(
 
 	/**
 	 * [email] confirms where the output of their factories goes (R47, E06-S03-5): stored by [Player.collect], the rest lost,
-	 * and from then on they may signal done. Only in Investment, only for a player with factories, and once; a player with
+	 * and from then on they may signal done. The public log says what each factory's output came to (R50, E06-S07-1). Only in Investment, only for a player with factories, and once; a player with
 	 * none has nothing to collect (S03-6).
 	 */
 	fun collectOutput(email: String, placements: List<OutputPlacement>): Game {
@@ -153,7 +153,12 @@ data class Game(
 		if (!player.hasFactories()) {
 			throw InvalidGameOperationException("You have no factories to collect from.")
 		}
-		return copy(players = replace(player.collect(placements)), turn = investing.collectedBy(email))
+		val collected = player.collect(placements)
+		return copy(
+			players = replace(collected),
+			turn = investing.collectedBy(email),
+			log = log + collected.collectLog(player).map { LogEntry(investing.number, it) }
+		)
 	}
 
 	/**

@@ -1040,6 +1040,8 @@ class GameControllerTest {
 		assertThat(seenByOther.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
 		val raw = pollGame(other, gameId).expectBody(String::class.java).returnResult().responseBody!!
 		assertThat(raw).doesNotContain("\"ISO\":4")
+		// E06-S07-1, R50: what a factory's output came to is public, in the log
+		assertThat(seenByOther.log.last().text).endsWith(" collected 4 u of ISO at ${ship.system.displayName} (2 lost)")
 	}
 
 	@Test
