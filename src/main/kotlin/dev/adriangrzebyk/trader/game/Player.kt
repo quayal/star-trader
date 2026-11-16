@@ -167,6 +167,35 @@ data class Player(
 		return pay(cost.toInt()).withWarehouse(warehouse)
 	}
 
+	/**
+	 * This player after buying [units] of production of [goods] at [system] (R46, E06-S05): added to their factory there,
+	 * or creating it, for [units] × (5 × the good's price in [prices] + 10) HT ([ProductionCost]). The system must be able to produce the
+	 * good ([StarSystem.producibleGoods]), they need a ship of theirs there (in any location) and enough money.
+	 */
+	fun buyFactoryUnits(system: StarSystem, goods: Goods, units: Int, prices: MarketPrices): Player {
+		if (units < 1) {
+			throw InvalidInvestmentException("Enter a whole number of units, 1 or more.")
+		}
+		if (goods !in system.producibleGoods) {
+			throw InvalidInvestmentException("${system.displayName} can't produce ${goods.name}.")
+		}
+		if (ships.none { it.system == system }) {
+			throw InvalidInvestmentException("You need a ship at ${system.displayName} to build there.")
+		}
+		val cost = ProductionCost(prices.priceOf(MarketGood(system, goods))).of(units)
+		if (cost > money) {
+			throw InvalidInvestmentException("$units ${if (units == 1) "unit costs" else "units cost"} $cost HT; you have $money HT.")
+		}
+		val factory = factories.firstOrNull { it.system == system && it.goods == goods }?.addUnits(units) ?: Factory(system, goods, units)
+		return pay(cost.toInt()).withFactory(factory)
+	}
+
+	/** This player with [factory] in place of their factory for that good at that system, or added when they had none. */
+	private fun withFactory(factory: Factory): Player {
+		val others = factories.filterNot { it.system == factory.system && it.goods == factory.goods }
+		return copy(factories = others + factory)
+	}
+
 	/** This player set up for the first turn (R40): [money] HT and [ships]. */
 	fun startWith(money: Int, ships: List<Ship>): Player = copy(money = money, ships = ships)
 
