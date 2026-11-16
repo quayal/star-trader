@@ -75,7 +75,7 @@ class GameResponseDtoTest {
 			players = started.players.map {
 				if (it.email == "guest@example.com") {
 					it.copy(
-						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2)),
+						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2, emptyMap())),
 						factories = listOf(Factory(StarSystem.SIGMA_DRACONIS, Goods.FOOD, 3))
 					)
 				} else {
@@ -91,6 +91,64 @@ class GameResponseDtoTest {
 		assertThat(guest.factories).containsExactly(FactoryResponseDto("SIGMA_DRACONIS", "FOOD", 3))
 		assertThat(response.you?.money).isEqualTo(300)
 		assertThat(guest.toString()).doesNotContain("money")
+	}
+
+	/** [started] at the start of Investment, where the host owns an ISO factory and a warehouse already holding 3 ISO at Tau Ceti, where their ship is. */
+	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }.let { game ->
+		game.copy(
+			players = game.players.map {
+				if (it.email == "host@example.com") {
+					it.copy(
+						factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6)),
+						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.ISO to 3)))
+					)
+				} else {
+					it
+				}
+			}
+		)
+	}
+
+	@Test
+	fun shouldOfferTheCollectWithEveryDestinationAndItsFreeSpaceToTheFactoryOwner() {
+		// E06-S03-1, S03-2: the warehouse first (a null ship), then each ship in port there; free space for ISO, null for CHIPS and FOOD
+		val collect = GameResponseDto(investing, "host@example.com").you!!.collect!!
+
+		assertThat(collect.factories).containsExactly(
+			CollectFactoryResponseDto(
+				"TAU_CETI",
+				"Tau Ceti",
+				"ISO",
+				6,
+				listOf(CollectDestinationResponseDto(null, 7), CollectDestinationResponseDto("Wayfarer", 10))
+			)
+		)
+	}
+
+	@Test
+	fun shouldOfferNoCollectToAPlayerWithoutFactoriesOnceTheyCollectedOrOutsideInvestment() {
+		assertThat(GameResponseDto(investing, "guest@example.com").you!!.collect).isNull()
+		assertThat(GameResponseDto(investing.collectOutput("host@example.com", emptyList()), "host@example.com").you!!.collect).isNull()
+		assertThat(GameResponseDto(started, "host@example.com").you!!.collect).isNull()
+	}
+
+	@Test
+	fun shouldSendAWarehouseCargoOnlyToItsOwnerAndShowEveryoneWhoCollected() {
+		// R29, A05: players[] carries blocks and cargo spaces, never what a warehouse holds; turn.collected is public
+		val collected = investing.collectOutput("host@example.com", emptyList())
+		val seenByGuest = GameResponseDto(collected, "guest@example.com")
+		val seenByHost = GameResponseDto(collected, "host@example.com")
+
+		assertThat(seenByHost.you!!.warehouses).containsExactly(
+			YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 1, 10, mapOf("ISO" to 3), 3)
+		)
+		assertThat(seenByGuest.you!!.warehouses).isEmpty()
+		assertThat(
+			seenByGuest.players.single {
+				it.email == "host@example.com"
+			}.warehouses
+		).containsExactly(WarehouseResponseDto("TAU_CETI", 1, 10))
+		assertThat(seenByGuest.turn!!.collected).containsExactly("host@example.com")
 	}
 
 	@Test

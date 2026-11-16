@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.trading.StarSystem.MU_HERCULIS
@@ -78,6 +79,46 @@ class InvestmentServiceTest {
 		gameStore.create(investing)
 
 		assertThatThrownBy { service.signalDone("game-1", "stranger@example.com") }.isInstanceOf(NotAGameMemberException::class.java)
+	}
+
+	/** [investing] where the creator owns an ISO factory at Tau Ceti, where their Wayfarer is in port. */
+	private val withFactory = investing.copy(
+		players = investing.players.map {
+			if (it.email == "creator@example.com") it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it
+		}
+	)
+
+	@Test
+	fun shouldStoreACollectInTheStore() {
+		// E06-S03-5
+		gameStore.create(withFactory)
+
+		val game = service.collect("game-1", "creator@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
+
+		assertThat(game.turn?.collected).containsExactly("creator@example.com")
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldStoreACollectOnceEvenWhenTheStoreReplaysTheChange() {
+		// a real store re-runs the change when another write lands first (GameStore.update); the output must be stored once
+		gameStore.create(withFactory)
+
+		InvestmentService(ReplayingGameStore(gameStore))
+			.collect("game-1", "creator@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
+
+		val ship = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }.ship("Wayfarer")!!
+		assertThat(ship.holding(Goods.ISO)).isEqualTo(6)
+	}
+
+	@Test
+	fun shouldRefuseACollectAfterInvestmentClosed() {
+		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		gameStore.create(closed)
+
+		assertThatThrownBy { service.collect("game-1", "creator@example.com", emptyList()) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
 	}
 
 	/** Runs every change twice against the same stored state, the way an optimistic retry re-runs it. */

@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidBidException
+import dev.adriangrzebyk.trader.game.InvalidCollectException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
 import dev.adriangrzebyk.trader.game.InvalidLandingException
@@ -143,6 +144,38 @@ class GameController(
 			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
 		} catch (ex: NotAGameMemberException) {
 			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player with factories confirms where this turn's output goes (R47, E06-S03-5): what isn't placed or doesn't fit is
+	 * lost. `400` for a placement the rules refuse or that isn't a whole number, `409` outside Investment or when they have
+	 * already collected or have no factories, `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/investment/collect")
+	fun collectOutput(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: CollectRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val placements = (request ?: CollectRequestDto()).outputPlacements()
+			?: throw ResponseStatusException(
+				HttpStatus.BAD_REQUEST,
+				"Choose a destination and a whole number of units, 0 or more, for each placement."
+			)
+		val game = try {
+			investmentService.collect(id, session.email, placements)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidCollectException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
 		} catch (ex: InvalidGameOperationException) {
 			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
 		}

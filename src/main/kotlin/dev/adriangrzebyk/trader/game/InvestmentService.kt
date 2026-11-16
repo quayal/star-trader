@@ -8,4 +8,11 @@ class InvestmentService(private val gameStore: GameStore) {
 	 * (A04, R44).
 	 */
 	fun signalDone(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.signalDoneInvesting(callerEmail) }
+
+	/**
+	 * [callerEmail] confirms where their factories' output goes inside [GameStore.update], so a double press stores it once
+	 * and the placements are checked against the saved ships and warehouses (A04, R47).
+	 */
+	fun collect(gameId: String, callerEmail: String, placements: List<OutputPlacement>): Game =
+		gameStore.update(gameId) { it.collectOutput(callerEmail, placements) }
 }

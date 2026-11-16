@@ -16,7 +16,9 @@ import dev.adriangrzebyk.trader.trading.OfferType
  * public and empty until the first jump. [landingShip] is the ship that jumped and whose player hasn't chosen where it
  * ends up yet (R30, S03); public, and null when no ship waits to land. [doneInvesting] lists, in signal order, the
  * players who have signalled done during this turn's Investment (R44, E06-S01-2); like [doneBidding] it's public, so
- * everyone can see who the game is waiting for (D09), and empty outside Investment.
+ * everyone can see who the game is waiting for (D09), and empty outside Investment. [collected] lists, in confirm order,
+ * the players with factories who have confirmed where this turn's output goes (R47, E06-S03-5); public like
+ * [doneInvesting], and empty outside Investment.
  */
 data class Turn(
 	val number: Int,
@@ -32,7 +34,8 @@ data class Turn(
 	val tradingQueue: List<MarketGood>,
 	val resolvedGoods: List<MarketGood>,
 	val resolution: Resolution?,
-	val doneInvesting: List<String>
+	val doneInvesting: List<String>,
+	val collected: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -187,7 +190,7 @@ data class Turn(
 		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
 
 	/** Trading → Investment (R44): the phase after Trading, with nobody done investing yet. */
-	fun endTrading(): Turn = copy(phase = checkNotNull(TurnPhase.TRADING.next()), doneInvesting = emptyList())
+	fun endTrading(): Turn = copy(phase = checkNotNull(TurnPhase.TRADING.next()), doneInvesting = emptyList(), collected = emptyList())
 
 	/** Refuses anything but Investment: before it, it hasn't started, and once it has closed the turn has moved on (A04). */
 	fun requireInvesting() {
@@ -200,6 +203,24 @@ data class Turn(
 	fun signalDoneInvesting(email: String): Turn {
 		requireInvesting()
 		return if (email in doneInvesting) this else copy(doneInvesting = doneInvesting + email)
+	}
+
+	/** Whether [email] has confirmed where this turn's output goes (R47, E06-S03-5). */
+	fun hasCollected(email: String): Boolean = email in collected
+
+	/** Whether it's Investment and [email] hasn't confirmed their collect yet: the only time they may place output (R47). */
+	fun isCollecting(email: String): Boolean = phase == TurnPhase.INVESTMENT && !hasCollected(email)
+
+	/**
+	 * This turn after [email] confirmed where their output goes (R47, E06-S03-5). Once: a second confirm is refused, so
+	 * the output can't be stored twice (A04).
+	 */
+	fun collectedBy(email: String): Turn {
+		requireInvesting()
+		if (hasCollected(email)) {
+			throw InvalidGameOperationException("You have already collected your output.")
+		}
+		return copy(collected = collected + email)
 	}
 
 	/** Whether every one of [emails] has signalled done investing (D09). */
@@ -349,6 +370,7 @@ data class Turn(
 			emptyList(),
 			emptyList(),
 			null,
+			emptyList(),
 			emptyList()
 		)
 	}
