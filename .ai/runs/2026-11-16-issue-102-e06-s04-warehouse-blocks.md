@@ -49,8 +49,8 @@ already persists).
 
 ### Phase 2: Web
 
-- [ ] 2.1 `POST /investment/warehouse-blocks` and `you.invest`, with tests
-- [ ] 2.2 BACKWARD_COMPATIBILITY.md §6
+- [x] 2.1 `POST /investment/warehouse-blocks` and `you.invest`, with tests — 75cdcb5
+- [x] 2.2 BACKWARD_COMPATIBILITY.md §6 — e01cdf2
 
 ### Phase 3: The panel
 
