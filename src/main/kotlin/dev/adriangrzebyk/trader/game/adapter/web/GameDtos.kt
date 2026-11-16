@@ -401,10 +401,10 @@ data class YourWarehouseResponseDto(
 }
 
 /**
- * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05): [blockCost] HT a warehouse
- * block, the [systems] where they have a ship (the only places they can build, in the order of their ships) with how many
- * blocks they own there, and the [factories] they can add units to: each good those systems can produce, with the units
- * they make now. Private to the viewer, and null outside Investment and while they still have to collect.
+ * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05); no ship is needed for any of
+ * it. [blockCost] HT a warehouse block, the [systems] where they can buy blocks (all six, in map order) with how many blocks
+ * they own there, and the [factories] they can add units to: each good each system can produce, with the units they make
+ * now. Private to the viewer, and null outside Investment and while they still have to collect.
  */
 data class InvestResponseDto(
 	val blockCost: Int,
@@ -414,14 +414,14 @@ data class InvestResponseDto(
 
 	constructor(player: Player, prices: MarketPrices) : this(
 		Warehouse.BLOCK_COST,
-		player.ships.map { it.system }.distinct().map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
-		player.ships.map { it.system }.distinct().flatMap { system ->
+		StarSystem.entries.map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
+		StarSystem.entries.flatMap { system ->
 			system.producibleGoods.sortedBy { it.name }.map { InvestFactoryResponseDto(player, system, it, prices) }
 		}
 	)
 }
 
-/** A system where the viewer has a ship, and the [blocks] of warehouse they already own there (0 for none). */
+/** A system, and the [blocks] of warehouse the viewer already owns there (0 for none). */
 data class InvestSystemResponseDto(val system: String, val systemName: String, val blocks: Int) {
 
 	constructor(system: StarSystem, blocks: Int) : this(system.name, system.displayName, blocks)

@@ -150,14 +150,11 @@ data class Player(
 
 	/**
 	 * This player after buying [blocks] warehouse blocks at [system] (R45, E06-S04): added to their warehouse there, or
-	 * creating it, for [Warehouse.BLOCK_COST] HT each. Needs a ship of theirs at that system (in any location) and enough money.
+	 * creating it, for [Warehouse.BLOCK_COST] HT each. Needs enough money; no ship (creator, 2026-11-16).
 	 */
 	fun buyWarehouseBlocks(system: StarSystem, blocks: Int): Player {
 		if (blocks < 1) {
 			throw InvalidInvestmentException("Enter a whole number of blocks, 1 or more.")
-		}
-		if (ships.none { it.system == system }) {
-			throw InvalidInvestmentException("You need a ship at ${system.displayName} to build there.")
 		}
 		val cost = blocks.toLong() * Warehouse.BLOCK_COST
 		if (cost > money) {
@@ -170,7 +167,7 @@ data class Player(
 	/**
 	 * This player after buying [units] of production of [goods] at [system] (R46, E06-S05): added to their factory there,
 	 * or creating it, for [units] × (5 × the good's price in [prices] + 10) HT ([ProductionCost]). The system must be able to produce the
-	 * good ([StarSystem.producibleGoods]), they need a ship of theirs there (in any location) and enough money.
+	 * good ([StarSystem.producibleGoods]) and they need enough money; no ship and no factory there already (creator, 2026-11-16).
 	 */
 	fun buyFactoryUnits(system: StarSystem, goods: Goods, units: Int, prices: MarketPrices): Player {
 		if (units < 1) {
@@ -178,9 +175,6 @@ data class Player(
 		}
 		if (goods !in system.producibleGoods) {
 			throw InvalidInvestmentException("${system.displayName} can't produce ${goods.name}.")
-		}
-		if (ships.none { it.system == system }) {
-			throw InvalidInvestmentException("You need a ship at ${system.displayName} to build there.")
 		}
 		val cost = ProductionCost(prices.priceOf(MarketGood(system, goods))).of(units)
 		if (cost > money) {

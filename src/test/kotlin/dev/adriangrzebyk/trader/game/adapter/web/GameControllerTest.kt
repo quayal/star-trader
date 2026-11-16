@@ -1107,17 +1107,9 @@ class GameControllerTest {
 
 	@Test
 	fun shouldRefuseABuyTheRulesRefuse() {
-		// E06-S04-2: no ship there, too little money, a missing or fractional amount, an unknown system
-		val (_, other, gameId, ship) = investingWithAFactory("blocks-refused")
+		// E06-S04-2: too little money, a missing or fractional amount, an unknown system (no ship is needed)
+		val (_, other, gameId, _) = investingWithAFactory("blocks-refused")
 		val otherEmail = other.removePrefix("token-")
-		val away = StarSystem.entries.first { s ->
-			s != ship.system &&
-				gameStore.find(gameId)!!.players.all { p -> p.ships.none { it.system == s } }
-		}
-
-		buyBlocks(other, gameId, """{"system": "${away.name}", "blocks": 1}""")
-			.expectStatus().isBadRequest
-			.expectBody(String::class.java).isEqualTo("You need a ship at ${away.displayName} to build there.")
 		val home = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.ships.first().system
 		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 16}""")
 			.expectStatus().isBadRequest
@@ -1130,6 +1122,19 @@ class GameControllerTest {
 		buyBlocks(other, gameId, """{"system": "NOWHERE", "blocks": 1}""").expectStatus().isBadRequest
 		buyBlocks(other, gameId, "{}").expectStatus().isBadRequest
 		assertThat(gameStore.find(gameId)!!.players.first { it.email == otherEmail }.money).isEqualTo(300)
+	}
+
+	@Test
+	fun shouldBuyWarehouseBlocksAtASystemWhereThePlayerHasNoShip() {
+		// creator, 2026-11-16: investing needs no ship
+		val (_, other, gameId) = investingAtTau("blocks-noship")
+		val otherEmail = other.removePrefix("token-")
+
+		val bought = buyBlocks(other, gameId, """{"system": "SIGMA_DRACONIS", "blocks": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.you!!.invest!!.systems.single { it.system == "SIGMA_DRACONIS" }.blocks).isEqualTo(2)
+		assertThat(bought.players.single { it.email == otherEmail }.warehouses.single().blocks).isEqualTo(2)
 	}
 
 	@Test
@@ -1201,7 +1206,7 @@ class GameControllerTest {
 		val extended = buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 2}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(extended.you!!.invest!!.factories.single { it.goods == "ISO" }.size).isEqualTo(8)
+		assertThat(extended.you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }.size).isEqualTo(8)
 		assertThat(
 			extended.players.single {
 				it.email == owner.removePrefix("token-")
@@ -1223,30 +1228,48 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldOfferOnlyGoodsTheSystemsWhereTheyHaveAShipCanProduce() {
-		// E06-S05-1, S05-5
+	fun shouldOfferEverySystemThatCanProduceAndNeedNoShipThere() {
+		// E06-S05-1, S05-5, creator 2026-11-16: the owner has a ship only at Tau Ceti, the other only at Gamma Leporis
 		val (owner, other, gameId) = investingAtTau("units-offer")
 		collectOutput(owner, gameId, "{}").expectStatus().isOk
 
 		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val seenByOther = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByOwner.you!!.invest!!.factories.filter { it.system == "TAU_CETI" }.map { it.goods }).containsExactly("ISO")
-		assertThat(seenByOther.you!!.invest!!.factories.filter { it.system == "GAMMA_LEPORIS" }.map { it.goods }).containsExactly("POLY")
-		assertThat(seenByOther.you!!.invest!!.factories.map { it.system }).doesNotContain("TAU_CETI")
+		for (seen in listOf(seenByOwner, seenByOther)) {
+			assertThat(seen.you!!.invest!!.factories.map { it.system to it.goods }).containsExactly(
+				"GAMMA_LEPORIS" to "POLY",
+				"TAU_CETI" to "ISO",
+				"MU_HERCULIS" to "CHIPS",
+				"SIGMA_DRACONIS" to "FOOD",
+				"SIGMA_DRACONIS" to "ISO"
+			)
+		}
+	}
+
+	@Test
+	fun shouldBuildAFactoryWhereThePlayerHasNoShip() {
+		// creator, 2026-11-16: Mu Herculis makes CHIPS; neither player has a ship or a factory there
+		val (_, other, gameId) = investingAtTau("units-noship")
+		val otherEmail = other.removePrefix("token-")
+
+		val bought = buyUnits(other, gameId, """{"system": "MU_HERCULIS", "goods": "CHIPS", "units": 1}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.players.single { it.email == otherEmail }.factories).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1))
 	}
 
 	@Test
 	fun shouldRefuseFactoryUnitsTheRulesRefuse() {
-		// E06-S05-4, S05-5: a good the system can't make, no ship there, too little money, a bad amount, an unknown name
+		// E06-S05-4, S05-5: a good the system can't make, a system that makes nothing, too little money, a bad amount, an unknown name
 		val (_, other, gameId) = investingAtTau("units-refused")
 
 		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "ISO", "units": 1}""")
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("Gamma Leporis can't produce ISO.")
-		buyUnits(other, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+		buyUnits(other, gameId, """{"system": "BETA_HYDRI", "goods": "ISO", "units": 1}""")
 			.expectStatus().isBadRequest
-			.expectBody(String::class.java).isEqualTo("You need a ship at Tau Ceti to build there.")
+			.expectBody(String::class.java).isEqualTo("Beta Hydri can't produce ISO.")
 		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1000}""").expectStatus().isBadRequest
 		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 0}""")
 			.expectStatus().isBadRequest

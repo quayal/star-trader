@@ -607,7 +607,11 @@
 				<p class="muted" id="units-intro"></p>
 				<form class="offer-form" id="units-form" novalidate>
 					<div>
-						<label class="field-label" for="units-good">Factory</label>
+						<label class="field-label" for="units-system">System</label>
+						<select class="control" id="units-system"></select>
+					</div>
+					<div>
+						<label class="field-label" for="units-good">Goods</label>
 						<select class="control" id="units-good"></select>
 					</div>
 					<div>
@@ -945,7 +949,9 @@
 		doneInvestingRefusedText,
 		infrastructureState,
 		infrastructureStatusText,
-		factoryOptionLabel,
+		factoriesAt,
+		factorySystems,
+		goodsOptionLabel,
 		investFactories,
 		investSystems,
 		investmentJustStarted,
@@ -3006,9 +3012,19 @@
 	let unitsMessageKey = null;
 	let submittingUnits = false;
 
-	/** The picked factory entry, or undefined when the list changed under the pick. */
+	/** The picked system and good's entry, or undefined when the list changed under the pick. */
 	function pickedFactory(game) {
-		return investFactories(game).find(entry => `${entry.system}:${entry.goods}` === $('units-good').value);
+		return investFactories(game).find(entry => entry.system === $('units-system').value && entry.goods === $('units-good').value);
+	}
+
+	/** The Goods dropdown for the picked system, keeping the pick when that system still makes it. */
+	function fillGoods(game) {
+		const chosen = $('units-good').value;
+		const goods = factoriesAt(game, $('units-system').value);
+		$('units-good').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, goodsOptionLabel(entry))));
+		if (goods.some(entry => entry.goods === chosen)) {
+			$('units-good').value = chosen;
+		}
 	}
 
 	function setUnitsError(text) {
@@ -3045,24 +3061,34 @@
 		if (unitsMessageKey !== null && unitsMessageKey !== turnKey) {
 			setUnitsMessage('', false, null);
 		}
-		const factories = investFactories(game);
-		const key = `${turnKey}/${JSON.stringify(factories)}`;
+		const key = `${turnKey}/${JSON.stringify(investFactories(game))}`;
 		if (shownUnitsKey !== key) {
-			const chosen = $('units-good').value;
-			$('units-good').replaceChildren(...factories.map(entry => element('option', { value: `${entry.system}:${entry.goods}` }, factoryOptionLabel(entry))));
-			if (factories.some(entry => `${entry.system}:${entry.goods}` === chosen)) {
-				$('units-good').value = chosen;
+			const chosen = $('units-system').value;
+			const systems = factorySystems(game);
+			$('units-system').replaceChildren(...systems.map(entry => element('option', { value: entry.system }, entry.systemName)));
+			if (systems.some(entry => entry.system === chosen)) {
+				$('units-system').value = chosen;
 			}
+			fillGoods(game);
 			if (shownUnitsKey === null || !shownUnitsKey.startsWith(`${turnKey}/`)) {
 				$('units-count').value = '1'; // a new turn starts from one unit
 			}
 			shownUnitsKey = key;
-			$('units-intro').textContent = 'Each unit adds one unit of output a turn, for 5 \u00d7 the good\u2019s price + 10 HT. New units first produce next turn.';
+			$('units-intro').textContent = 'Each unit adds one unit of output a turn, for 5 \u00d7 the good\u2019s price + 10 HT. No ship needed. New units first produce next turn.';
 			$('units-button').textContent = UNITS_BUTTON;
 		}
 		updateUnitsCost(game);
 		$('units-button').disabled = submittingUnits;
 	}
+
+	// A new system lists its own goods, as the offer form does.
+	$('units-system').addEventListener('change', () => {
+		setUnitsError('');
+		if (lastGame?.you?.invest) {
+			fillGoods(lastGame);
+			updateUnitsCost(lastGame);
+		}
+	});
 
 	$('units-good').addEventListener('change', () => {
 		setUnitsError('');

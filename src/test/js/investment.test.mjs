@@ -24,7 +24,9 @@ import {
 	doneInvestingRefusedText,
 	isDoneInvesting,
 	infrastructureState,
-	factoryOptionLabel,
+	factoriesAt,
+	factorySystems,
+	goodsOptionLabel,
 	investFactories,
 	investSystems,
 	infrastructureStatusText,
@@ -445,10 +447,30 @@ describe('building or extending a factory (E06-S05)', () => {
 		});
 	});
 
-	describe('factoryOptionLabel', () => {
-		it('says what the viewer makes there now, or that there is no factory yet', () => {
-			assert.equal(factoryOptionLabel(iso), 'ISO at Tau Ceti \u2014 makes 6 a turn');
-			assert.equal(factoryOptionLabel(poly), 'POLY at Gamma Leporis \u2014 no factory yet');
+	describe('the System and Goods dropdowns (S05-1)', () => {
+		const sigmaIso = { system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis', goods: 'ISO', size: 0, price: 10, unitCost: 60 };
+		const sigmaFood = { system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis', goods: 'FOOD', size: 2, price: 15, unitCost: 85 };
+		const all = withInvest([poly, iso, sigmaFood, sigmaIso]);
+
+		it('lists each system that can produce something once, in the order given', () => {
+			assert.deepEqual(factorySystems(all), [
+				{ system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' },
+				{ system: 'TAU_CETI', systemName: 'Tau Ceti' },
+				{ system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis' },
+			]);
+			assert.deepEqual(factorySystems(withInvest([])), []);
+			assert.deepEqual(factorySystems(withInvest(null)), []);
+		});
+
+		it('lists what a system can produce', () => {
+			assert.deepEqual(factoriesAt(all, 'SIGMA_DRACONIS').map(f => f.goods), ['FOOD', 'ISO']);
+			assert.deepEqual(factoriesAt(all, 'TAU_CETI').map(f => f.goods), ['ISO']);
+			assert.deepEqual(factoriesAt(all, 'BETA_HYDRI'), []);
+		});
+
+		it('says what the viewer makes of a good now, or that there is no factory yet', () => {
+			assert.equal(goodsOptionLabel(iso), 'ISO \u2014 makes 6 a turn');
+			assert.equal(goodsOptionLabel(poly), 'POLY \u2014 no factory yet');
 		});
 	});
 

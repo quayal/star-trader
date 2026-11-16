@@ -9,7 +9,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-// R46, E06-S05: building or extending a factory where the player has a ship and the system can produce the good.
+// R46, E06-S05: building or extending a factory at any system that can produce the good, with no ship needed.
 class PlayerBuyFactoryUnitsTest {
 
 	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
@@ -49,9 +49,19 @@ class PlayerBuyFactoryUnitsTest {
 	}
 
 	@Test
-	fun shouldAllowAShipInAnyLocationAtTheSystem() {
-		// Lantern is in Space at Mu Herculis, which makes CHIPS
-		assertThat(player.buyFactoryUnits(MU_HERCULIS, Goods.CHIPS, 1, prices).factories).containsExactly(Factory(MU_HERCULIS, Goods.CHIPS, 1))
+	fun shouldNeedNeitherAShipNorAFactoryThereAlready() {
+		// creator, 2026-11-16: Gamma Leporis makes POLY and the player has no ship there and no factory
+		val bought = player.buyFactoryUnits(GAMMA_LEPORIS, Goods.POLY, 2, prices)
+
+		assertThat(bought.factories).containsExactly(Factory(GAMMA_LEPORIS, Goods.POLY, 2))
+		assertThat(bought.money).isEqualTo(300 - 2 * ProductionCost(prices.priceOf(MarketGood(GAMMA_LEPORIS, Goods.POLY))).perUnit())
+	}
+
+	@Test
+	fun shouldBuildForAPlayerWithNoShipsAtAll() {
+		val shipless = player.copy(ships = emptyList())
+
+		assertThat(shipless.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices).factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 1))
 	}
 
 	@Test
@@ -69,13 +79,6 @@ class PlayerBuyFactoryUnitsTest {
 				.isInstanceOf(InvalidInvestmentException::class.java)
 				.hasMessage("Beta Hydri can't produce ${goods.name}.")
 		}
-	}
-
-	@Test
-	fun shouldRefuseAPlayerWithNoShipAtTheSystem() {
-		assertThatThrownBy { player.buyFactoryUnits(GAMMA_LEPORIS, Goods.POLY, 1, prices) }
-			.isInstanceOf(InvalidInvestmentException::class.java)
-			.hasMessage("You need a ship at Gamma Leporis to build there.")
 	}
 
 	@Test
