@@ -57,3 +57,27 @@ already persists).
 - [x] 3.1 Pure helpers and tests in `js/investment.js` — f4da1ea
 - [x] 3.2 "Add warehouse blocks" panel and the shared-Investment line on s10 — 0bb1695
 - [ ] 3.3 Browser walk (two players, 390 px) and run log
+
+## Outcome (run log)
+
+Status: complete, pending review and CI.
+
+### What it did
+
+- **Domain**: `Warehouse.addBlocks` and `Warehouse.BLOCK_COST` (20 HT, R45); `Player.buyWarehouseBlocks(system, blocks)` owns the rules (1 or more blocks, a ship of theirs at that system, enough money; adds to the warehouse there or creates it); `Game.buyWarehouseBlocks` coordinates (Investment only, a player with factories only after they collected, S03-5) and logs "{corporation} added {n} warehouse block(s) at {System}" without a price (R50); `Game.canInvest(email)`; `InvalidInvestmentException`; `InvestmentService.buyWarehouseBlocks` runs it inside `GameStore.update` (A04).
+- **Web**: `POST /api/games/{id}/investment/warehouse-blocks` with `{ system, blocks }`; `you.invest` = `{ blockCost, systems: [{ system, systemName, blocks }] }`, private to the viewer, null outside Investment and while they still have to collect. Documented in BACKWARD_COMPATIBILITY.md §6. No stored-field change (`Warehouse.blocks` already persisted).
+- **Frontend** (Infrastructure screen): an "Add warehouse blocks" panel after Collect: a system picker (only systems with their ships, each with what they own there and its cargo spaces), a number of blocks, the total cost as they type, the server's own messages, and a success line; the "Everyone invests at the same time…" line in the status panel the whole time Investment is open (E06-S05 keeps it, doesn't repeat it). Pure helpers and tests in `js/investment.js`.
+
+### Decisions (defaults, not questions)
+
+- "A ship at that system" is any ship of theirs there (Port, Planet or Space). Tightening to Port is one line in `Player.buyWarehouseBlocks`.
+- Buying after "I'm done investing" is allowed: done is a readiness flag (D09), as in Bidding (R17); the panel stays until Investment closes.
+- One form with a system picker rather than one row per system: the number of systems with a ship is at most the number of ships, and one set of controls keeps the typed number and focus across polls.
+- `you.invest` is shaped to take S05's factories next to `systems` without breaking this.
+
+### Validation
+
+- `./gradlew build`: passes, 667 Kotlin tests (0 skipped) and 269 JS tests.
+- Tests added: warehouse and player rules, game flow (after Collect only, logged without a price, after "done", outside Investment, non-member), service (stored, once under a replaying store, after close), DTO shape and privacy, endpoint statuses (200, 400 ×6, 409 ×3, 403, 404, 401), JS helpers.
+- Browser walk (headless Chrome over DevTools; the jar on its own port with its own DynamoDB Local; two players, Ada's factory seeded with `UpdateItem`, the phase moved to Investment the same way): the shared line shows from the start; Bob (no factories) buys at once, Ada only after Confirm; picker lists only systems with ships; cost follows the typing; too many blocks and a fraction show the right error with focus on the input and typing clears it; 3 blocks take 60 HT (300 → 240) and the picker, Your warehouses and top bar update; typed values survive a poll; the public log line has no price; other players see blocks only (no cargo, no money); a player who is done can still buy; panel and line gone when Investment closes; no overflow at 390 px. Assertions use `offsetParent`, per the 2026-11-16 lesson.
+- Not seen: a screen reader, a real mouse or touch.
