@@ -1,7 +1,7 @@
 /*
  * Pure helpers for the game screens on index.html: Create a game (s11, `#new`), the lobby
- * (s12, `#game/{id}` before the start), the routes of the Deck, System details, Trading and the Game log (s01, s02, s03,
- * s04; their helpers are in board.js, trading.js and log.js) and the unknown screen (s08).
+ * (s12, `#game/{id}` before the start), the routes of the Deck, System details, Trading, the Game log and Infrastructure
+ * (s01, s02, s03, s04, s10; their helpers are in board.js, trading.js, log.js and investment.js) and the unknown screen (s08).
  */
 
 export const TURNS_ERROR = 'Enter a whole number of turns from 1 to 50.';
@@ -16,7 +16,7 @@ const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
 /**
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
  * `#game/{id}/system/{SYSTEM}` → System details (s02); `#game/{id}/log` → the Game log (s04); `#game/{id}/trading` → Trading
- * (s03); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
+ * (s03); `#game/{id}/infrastructure` → Infrastructure (s10, E06-S08); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
  * the game id when there is one so its "back to the Deck" link stays in that game.
  */
 export function parseRoute(hash) {
@@ -38,6 +38,10 @@ export function parseRoute(hash) {
 	const trading = /^#game\/([^/]+)\/trading$/.exec(text);
 	if (trading) {
 		return { view: 'trading', id: decodeURIComponent(trading[1]) };
+	}
+	const infrastructure = /^#game\/([^/]+)\/infrastructure$/.exec(text);
+	if (infrastructure) {
+		return { view: 'infrastructure', id: decodeURIComponent(infrastructure[1]) };
 	}
 	const over = /^#game\/([^/]+)\/game-over$/.exec(text);
 	if (over) {
@@ -69,6 +73,11 @@ export function logLink(id) {
 /** Trading (s03) of game [id]. */
 export function tradingLink(id) {
 	return `#game/${encodeURIComponent(id)}/trading`;
+}
+
+/** Infrastructure (s10, E06-S08, D12) of game [id]: all of Investment happens there. */
+export function infrastructureLink(id) {
+	return `#game/${encodeURIComponent(id)}/infrastructure`;
 }
 
 /** The hash of a game's Game over screen (s09, E05-S08). */

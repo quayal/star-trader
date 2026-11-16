@@ -1,6 +1,6 @@
 /*
- * Pure helpers for the Investment phase (E06-S01, R44) in the top bar of the Deck (s01) and System details (s02). They
- * read `turn.phase` and `turn.doneInvesting` from GET /api/games/{id} (BACKWARD_COMPATIBILITY.md §6):
+ * Pure helpers for the Investment phase (E06-S01, R44), which happens on the Infrastructure screen (s10, E06-S08, D12).
+ * They read `turn.phase` and `turn.doneInvesting` from GET /api/games/{id} (BACKWARD_COMPATIBILITY.md §6):
  * `turn.doneInvesting` is the public list of players' emails who signalled done (D09); nothing private is needed.
  */
 
@@ -153,4 +153,66 @@ export function validateCollect(factories, values) {
 		}
 	}
 	return { body: { placements } };
+}
+
+// ── The Infrastructure screen (s10, E06-S08, D12) ──
+
+export const NOT_INVESTING_TEXT = 'Investment opens after Trading.';
+/** S08-4: on the Deck and System details, while the viewer still has to place their output. */
+export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
+export const INFRASTRUCTURE_LINK_TEXT = 'Go to Infrastructure';
+
+/**
+ * S08-2: whether this game has just moved into Investment, which takes every player to the Infrastructure screen, as
+ * Trading does. False for the first state seen (a reload mid-phase doesn't pull the player away from where they opened).
+ */
+export function investmentJustStarted(previous, game) {
+	if (!previous || previous.id !== game.id || !isInvesting(game)) {
+		return false;
+	}
+	return previous.turn?.number !== game.turn.number || previous.turn?.phase !== 'INVESTMENT';
+}
+
+/** What the Infrastructure screen is for the viewer: 'closed' outside Investment, 'collect', 'invest', or 'done' (S08-3, S08-4, S08-6). */
+export function infrastructureState(game, email) {
+	if (!isInvesting(game)) {
+		return 'closed';
+	}
+	if (isCollecting(game)) {
+		return 'collect';
+	}
+	return isDoneInvesting(game, email) ? 'done' : 'invest';
+}
+
+/** S08-4: once the viewer is done, who the game still waits for ("Waiting for Vega Lines"), or that it's closing; else nothing. */
+export function infrastructureStatusText(game, email) {
+	if (infrastructureState(game, email) !== 'done') {
+		return '';
+	}
+	const others = waitingForInvesting(game, email);
+	return others.length ? `${DONE_INVESTING_TEXT}. Waiting for ${others.join(', ')}.` : DONE_INVESTING_TEXT;
+}
+
+/** The viewer's own warehouses for the screen (S08-6): where, blocks, "used / spaces", and what is held ("Empty" when nothing). */
+export function ownWarehouseRows(game) {
+	return (game.you?.warehouses ?? []).map(warehouse => {
+		const held = Object.entries(warehouse.cargo).map(([goods, units]) => `${units} ${goods}`);
+		return {
+			systemName: warehouse.systemName,
+			blocks: warehouse.blocks,
+			cargoUsed: warehouse.cargoUsed,
+			cargoSpaces: warehouse.cargoSpaces,
+			held: held.length ? held.join(', ') : 'Empty',
+		};
+	});
+}
+
+/** The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by email. */
+export function ownFactoryRows(game, email) {
+	const me = game.players.find(player => player.email === email);
+	return (me?.factories ?? []).map(factory => ({
+		systemName: game.board.find(system => system.id === factory.system)?.name ?? factory.system,
+		goods: factory.goods,
+		size: factory.size,
+	}));
 }
