@@ -13,6 +13,7 @@ import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
+import dev.adriangrzebyk.trader.game.ProductionCost
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
@@ -70,7 +71,8 @@ data class GameResponseDto(
 				game.turn?.bidOf(it.email),
 				game.turn?.resolution,
 				game.turn?.isCollecting(it.email) == true,
-				game.canInvest(it.email)
+				game.canInvest(it.email),
+				game.prices
 			)
 		}
 	)
@@ -355,7 +357,7 @@ data class YouResponseDto(
 	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
 	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
 	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
-	 * ([Game.canInvest]).
+	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs.
 	 */
 	constructor(
 		player: Player,
@@ -363,7 +365,8 @@ data class YouResponseDto(
 		bid: InitiativeBid?,
 		resolution: Resolution?,
 		collecting: Boolean,
-		investing: Boolean
+		investing: Boolean,
+		prices: MarketPrices
 	) : this(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
@@ -373,7 +376,7 @@ data class YouResponseDto(
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
 		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player).takeIf { investing }
+		InvestResponseDto(player, prices).takeIf { investing }
 	)
 }
 
@@ -398,15 +401,23 @@ data class YourWarehouseResponseDto(
 }
 
 /**
- * What the viewer may buy in Investment once they have collected (R45, E06-S04): [blockCost] HT a warehouse block, and the
- * [systems] where they have a ship (the only places they can build, in the order of their ships) with how many blocks
- * they own there. Private to the viewer, and null outside Investment and while they still have to collect.
+ * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05): [blockCost] HT a warehouse
+ * block, the [systems] where they have a ship (the only places they can build, in the order of their ships) with how many
+ * blocks they own there, and the [factories] they can add units to: each good those systems can produce, with the units
+ * they make now. Private to the viewer, and null outside Investment and while they still have to collect.
  */
-data class InvestResponseDto(val blockCost: Int, val systems: List<InvestSystemResponseDto>) {
+data class InvestResponseDto(
+	val blockCost: Int,
+	val systems: List<InvestSystemResponseDto>,
+	val factories: List<InvestFactoryResponseDto>
+) {
 
-	constructor(player: Player) : this(
+	constructor(player: Player, prices: MarketPrices) : this(
 		Warehouse.BLOCK_COST,
-		player.ships.map { it.system }.distinct().map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) }
+		player.ships.map { it.system }.distinct().map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
+		player.ships.map { it.system }.distinct().flatMap { system ->
+			system.producibleGoods.sortedBy { it.name }.map { InvestFactoryResponseDto(player, system, it, prices) }
+		}
 	)
 }
 
@@ -414,6 +425,29 @@ data class InvestResponseDto(val blockCost: Int, val systems: List<InvestSystemR
 data class InvestSystemResponseDto(val system: String, val systemName: String, val blocks: Int) {
 
 	constructor(system: StarSystem, blocks: Int) : this(system.name, system.displayName, blocks)
+}
+
+/**
+ * A good the viewer can add factory units for at [system] (R46): the [size] they make a turn now (0 for no factory yet),
+ * the good's market [price] there, and what one unit of size costs, [unitCost] = 5 × the price + 10 HT.
+ */
+data class InvestFactoryResponseDto(
+	val system: String,
+	val systemName: String,
+	val goods: String,
+	val size: Int,
+	val price: Int,
+	val unitCost: Int
+) {
+
+	constructor(player: Player, system: StarSystem, goods: Goods, prices: MarketPrices) : this(
+		system.name,
+		system.displayName,
+		goods.name,
+		player.factories.firstOrNull { it.system == system && it.goods == goods }?.size ?: 0,
+		prices.priceOf(MarketGood(system, goods)),
+		ProductionCost(prices.priceOf(MarketGood(system, goods))).perUnit()
+	)
 }
 
 /** The blocks to buy and where (R45, E06-S04). Names are checked here; [blocks] is a [BigDecimal] so 2.5 reaches a message instead of being rounded. */
@@ -424,6 +458,19 @@ data class BuyBlocksRequestDto(val system: String? = null, val blocks: BigDecima
 
 	/** The blocks as a whole number, or null when missing or not whole. */
 	fun wholeBlocks(): Int? = blocks?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+/** The units of production to buy and where (R46, E06-S05). Names are checked here; [units] is a [BigDecimal] so 2.5 reaches a message instead of being rounded. */
+data class BuyUnitsRequestDto(val system: String? = null, val goods: String? = null, val units: BigDecimal? = null) {
+
+	/** The system, or null when it's missing or isn't one. */
+	fun starSystem(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+
+	/** The good, or null when it's missing or isn't one. */
+	fun goodsConstant(): Goods? = Goods.entries.firstOrNull { it.name == goods }
+
+	/** The units as a whole number, or null when missing or not whole. */
+	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
 }
 
 /**

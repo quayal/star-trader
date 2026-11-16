@@ -1145,6 +1145,137 @@ class GameControllerTest {
 		buyBlocks("token-$first", "no-such-game", """{"system": "$system", "blocks": 1}""").expectStatus().isNotFound
 	}
 
+	/**
+	 * A two-player game at the start of turn 1's Investment where the first in initiative has a ship at Tau Ceti and an ISO
+	 * factory of 6 there, and the other has a ship at Gamma Leporis and no factory (the test moves the ships, whose
+	 * start is random). Returns the owner's token, the other's token and the game id.
+	 */
+	private fun investingAtTau(prefix: String): Triple<String, String, String> {
+		val (first, second, gameId) = orderedGame(prefix)
+		finishJumping("token-$first", gameId).expectStatus().isOk
+		finishJumping("token-$second", gameId).expectStatus().isOk
+		repeat(18) { resolveNext("token-$first", gameId).expectStatus().isOk }
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					val at = if (player.email == first) StarSystem.TAU_CETI else StarSystem.GAMMA_LEPORIS
+					val moved = player.copy(ships = listOf(player.ships[0].copy(system = at)) + player.ships.drop(1))
+					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6))) else moved
+				}
+			)
+		}
+		return Triple("token-$first", "token-$second", gameId)
+	}
+
+	@Test
+	fun shouldBuildAFactoryAtTheDeckPriceAndShowTheLogLineButNotThePrice() {
+		// E06-S05-1, S05-2, S05-3, S05-7, R50
+		val (_, other, gameId) = investingAtTau("units")
+		val before = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val gamma = before.you!!.invest!!.factories.single { it.goods == "POLY" }
+		assertThat(gamma.system).isEqualTo("GAMMA_LEPORIS")
+		assertThat(gamma.size).isZero()
+		assertThat(gamma.unitCost).isEqualTo(5 * gamma.price + 10)
+		assertThat(before.board.single { it.id == "GAMMA_LEPORIS" }.market.single { it.goods == "POLY" }.price).isEqualTo(gamma.price)
+
+		val bought = buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 2 * gamma.unitCost)
+		assertThat(bought.you!!.invest!!.factories.single { it.goods == "POLY" }.size).isEqualTo(2)
+		val me = bought.players.single { it.email == other.removePrefix("token-") }
+		assertThat(me.factories).containsExactly(FactoryResponseDto("GAMMA_LEPORIS", "POLY", 2))
+		assertThat(bought.log.last().text).isEqualTo("${me.corporationName} added 2 units of POLY production at Gamma Leporis")
+		assertThat(bought.log.last().text).doesNotContain("HT")
+	}
+
+	@Test
+	fun shouldExtendAnExistingFactoryAfterTheOwnerCollects() {
+		// E06-S05-3, S03-5, R48: one factory per good per system, so the size grows; nothing is produced for it this turn
+		val (owner, _, gameId) = investingAtTau("units-extend")
+
+		buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Collect your output first.")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		val extended = buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(extended.you!!.invest!!.factories.single { it.goods == "ISO" }.size).isEqualTo(8)
+		assertThat(
+			extended.players.single {
+				it.email == owner.removePrefix("token-")
+			}.factories
+		).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 8))
+		assertThat(extended.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
+	}
+
+	@Test
+	fun shouldLetAPlayerWithNoFactoryBuildTheirFirstAndStillSignalDone() {
+		// R48: building a first factory this turn doesn't make them collect from it
+		val (_, other, gameId) = investingAtTau("units-first")
+
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1}""").expectStatus().isOk
+		val after = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(after.you!!.collect).isNull()
+		assertThat(after.you!!.invest).isNotNull()
+		signalDoneInvesting(other, gameId).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldOfferOnlyGoodsTheSystemsWhereTheyHaveAShipCanProduce() {
+		// E06-S05-1, S05-5
+		val (owner, other, gameId) = investingAtTau("units-offer")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+
+		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val seenByOther = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(seenByOwner.you!!.invest!!.factories.filter { it.system == "TAU_CETI" }.map { it.goods }).containsExactly("ISO")
+		assertThat(seenByOther.you!!.invest!!.factories.filter { it.system == "GAMMA_LEPORIS" }.map { it.goods }).containsExactly("POLY")
+		assertThat(seenByOther.you!!.invest!!.factories.map { it.system }).doesNotContain("TAU_CETI")
+	}
+
+	@Test
+	fun shouldRefuseFactoryUnitsTheRulesRefuse() {
+		// E06-S05-4, S05-5: a good the system can't make, no ship there, too little money, a bad amount, an unknown name
+		val (_, other, gameId) = investingAtTau("units-refused")
+
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "ISO", "units": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Gamma Leporis can't produce ISO.")
+		buyUnits(other, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You need a ship at Tau Ceti to build there.")
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1000}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 0}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 1 or more.")
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY", "units": 1.5}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "POLY"}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "GAMMA_LEPORIS", "goods": "GOLD", "units": 1}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, """{"system": "NOWHERE", "goods": "POLY", "units": 1}""").expectStatus().isBadRequest
+		buyUnits(other, gameId, "{}").expectStatus().isBadRequest
+		val otherEmail = other.removePrefix("token-")
+		assertThat(gameStore.find(gameId)!!.players.first { it.email == otherEmail }.factories).isEmpty()
+	}
+
+	@Test
+	fun shouldRefuseFactoryUnitsFromOutsidersOrOutsideInvestment() {
+		val (first, _, gameId) = orderedGame("units-outside")
+
+		buyUnits("token-$first", gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		buyUnits(null, gameId, "{}").expectStatus().isUnauthorized
+		buyUnits(
+			signIn("units-stranger@example.com"),
+			gameId,
+			"""{"system": "TAU_CETI", "goods": "ISO", "units": 1}"""
+		).expectStatus().isForbidden
+		buyUnits("token-$first", "no-such-game", """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""").expectStatus().isNotFound
+	}
+
 	@Test
 	fun shouldRefuseACollectFromOutsidersOrOutsideInvestment() {
 		val (first, _, gameId) = orderedGame("collect-outside")
@@ -1636,6 +1767,12 @@ class GameControllerTest {
 
 	private fun buyBlocks(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/warehouse-blocks", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun buyUnits(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/factory-units", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

@@ -217,6 +217,41 @@ class GameController(
 		return GameResponseDto(game, session.email)
 	}
 
+	/**
+	 * The player builds or extends a factory at a system where they have a ship (R46, E06-S05): `{ system, goods, units }`.
+	 * `400` for an unknown system or good, units that aren't a whole number, fewer than 1, a good the system can't produce,
+	 * no ship there or too little money; `409` outside Investment or before they have collected; `403`, `404` and `401` as
+	 * for the other actions.
+	 */
+	@PostMapping("/games/{id}/investment/factory-units")
+	fun buyFactoryUnits(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BuyUnitsRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val order = request ?: BuyUnitsRequestDto()
+		val system = order.starSystem()
+		val goods = order.goodsConstant()
+		val units = order.wholeUnits()
+		if (system == null || goods == null || units == null) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a system, a good and a whole number of units, 1 or more.")
+		}
+		val game = try {
+			investmentService.buyFactoryUnits(id, session.email, system, goods, units)
+		} catch (ex: GameNotFoundException) {
+			throw ResponseStatusException(HttpStatus.NOT_FOUND, ex.message)
+		} catch (ex: NotAGameMemberException) {
+			throw ResponseStatusException(HttpStatus.FORBIDDEN, ex.message)
+		} catch (ex: InvalidInvestmentException) {
+			throw ResponseStatusException(HttpStatus.BAD_REQUEST, ex.message)
+		} catch (ex: InvalidGameOperationException) {
+			throw ResponseStatusException(HttpStatus.CONFLICT, ex.message)
+		}
+
+		return GameResponseDto(game, session.email)
+	}
+
 	/** Done is a readiness flag (R17); the last player's signal closes Bidding for everyone (D09). */
 	@PostMapping("/games/{id}/bidding/done")
 	fun signalDoneBidding(

@@ -141,6 +141,31 @@ class GameResponseDtoTest {
 	}
 
 	@Test
+	fun shouldOfferEachGoodTheViewersSystemsCanProduceWithTheUnitsTheyMakeAndWhatAUnitCosts() {
+		// E06-S05-1, S05-2, S05-5: Tau Ceti makes ISO only; the host already has an ISO factory of 6 there
+		val collected = investing.collectOutput("host@example.com", emptyList())
+		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
+		val price = collected.prices.priceOf(MarketGood(StarSystem.TAU_CETI, Goods.ISO))
+
+		assertThat(invest.factories).contains(InvestFactoryResponseDto("TAU_CETI", "Tau Ceti", "ISO", 6, price, 5 * price + 10))
+		assertThat(invest.factories.filter { it.system == "TAU_CETI" }.map { it.goods }).containsExactly("ISO")
+		assertThat(invest.factories.map { it.system }.distinct()).isSubsetOf(invest.systems.map { it.system })
+		assertThat(invest.factories.map { it.system }).doesNotContain("BETA_HYDRI", "EPSILON_ERIDANI")
+	}
+
+	@Test
+	fun shouldCostWhatTheTradingPriceNowIs() {
+		// S05-2: the price is the game's current one, which Trading moved
+		val moved = investing.copy(prices = investing.prices.withPrice(MarketGood(StarSystem.TAU_CETI, Goods.ISO), 20))
+		val collected = moved.collectOutput("host@example.com", emptyList())
+
+		val iso = GameResponseDto(collected, "host@example.com").you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }
+
+		assertThat(iso.price).isEqualTo(20)
+		assertThat(iso.unitCost).isEqualTo(110)
+	}
+
+	@Test
 	fun shouldOfferABuyToAPlayerWithNoFactoriesAtOnceAndNobodyOutsideInvestment() {
 		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNotNull()
 		assertThat(GameResponseDto(started, "host@example.com").you!!.invest).isNull()
