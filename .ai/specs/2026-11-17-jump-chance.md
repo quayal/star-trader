@@ -37,12 +37,15 @@ A jump no longer always succeeds. Every route between two systems has a base cha
 7. **The server computes it.** Each of the viewer's own ships (`you.ships[]`) carries `jumpChances`: for every other system, its `target` and `percent` (P(2d6 ≤ target), rounded to the nearest whole percent). Only the owner gets it, like the ship's other stats (R57).
 8. **After a failed jump** the form announces `Wayfarer's jump failed: it stays at Gamma Leporis.` instead of opening the landing dialog.
 
+9. **On the map** (the creator's follow-up, 2026-11-17): every system has an arrowhead just outside its circle on each route, pointing at the other system and holding the base chance of a jump that way. Everyone sees them. The labels move clear of them: the top row's ship lines go above its name, and the bottom row's name and ships go under its circle. A line under the map explains the arrowheads. Each system's link tells a screen reader the same chances. The board sends them as `board[].jumpChances` (base chances, public).
+
 ## Defaults I chose
 
 - **A failed jump leaves the ship where it was and uses its jump** (the creator's answer, 2026-11-17).
 - **Crew D adds 0.** The rule names A, B and C only.
 - **The roll is logged, the target isn't**: the roll is public like the position roll (R43), and the target would leak private stats.
 - **The percentage is rounded to a whole percent**, so 1/36 shows as 3%.
+- **The map shows base chances, not your ship's.** They're the same for everyone and don't depend on which ship is chosen; the jump form gives the chance for your ship.
 - **Nothing stored changes.** A failed jump is a name in `jumpedShips` with no `landingShip`, which the turn can already hold.
 
 ## Brief changes

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-	MAP_VIEW_BOX,
 	MARKET_LEVELS,
 	MODERATE_DEMAND_MIN_CHANCE,
 	NODE_POSITIONS,
@@ -22,6 +21,10 @@ import {
 	staleAgeText,
 	staleText,
 	systemAccessibleName,
+	jumpArrows,
+	jumpChancesText,
+	mapViewBox,
+	nodeLabels,
 	systemHoldings,
 } from '../../main/resources/static/js/board.js';
 
@@ -115,7 +118,6 @@ describe('the map', () => {
 		assert.equal(NODE_POSITIONS.TAU_CETI[1], NODE_POSITIONS.MU_HERCULIS[1]);
 		assert.ok(NODE_POSITIONS.EPSILON_ERIDANI[0] < NODE_POSITIONS.GAMMA_LEPORIS[0]);
 		assert.ok(NODE_POSITIONS.SIGMA_DRACONIS[0] > NODE_POSITIONS.BETA_HYDRI[0]);
-		assert.match(MAP_VIEW_BOX, /^-?\d+ \d+ \d+ \d+$/);
 	});
 
 	it('connects every pair of systems once', () => {
@@ -244,5 +246,47 @@ describe('staleText (S02-12)', () => {
 	it('keeps the announced sentence apart from the age, which changes on every failed poll', () => {
 		assert.equal(STALE_MESSAGE, "Couldn't refresh the game.");
 		assert.equal(staleAgeText(0.4), 'Showing the state from 0 seconds ago.');
+	});
+});
+
+describe('jumpArrows (R68)', () => {
+	const systems = [
+		{ id: 'GAMMA_LEPORIS', name: 'Gamma Leporis', jumpChances: { BETA_HYDRI: 7 } },
+		{ id: 'BETA_HYDRI', name: 'Beta Hydri', jumpChances: { GAMMA_LEPORIS: 5 } },
+	];
+
+	it('puts one arrowhead per direction outside the circle, pointing at the other system, with its chance', () => {
+		const [there, back] = jumpArrows(systems);
+		// Gamma Leporis (245, 101) → Beta Hydri (515, 101): straight right, tip 64 + 34 out, centroid 64 + 14 out.
+		assert.deepEqual(there, { from: 'GAMMA_LEPORIS', to: 'BETA_HYDRI', chance: 7, points: '313,115 313,87 343,101', x: 323, y: 101 });
+		assert.deepEqual(back, { from: 'BETA_HYDRI', to: 'GAMMA_LEPORIS', chance: 5, points: '447,87 447,115 417,101', x: 437, y: 101 });
+	});
+
+	it('draws nothing for a system without chances', () => {
+		assert.deepEqual(jumpArrows([{ id: 'TAU_CETI' }]), []);
+	});
+
+	it('names the chances from a system in board order for its accessible name', () => {
+		assert.equal(jumpChancesText(systems, systems[0]), 'Base jump chances from here: Beta Hydri 7.');
+		assert.equal(jumpChancesText(systems, { id: 'TAU_CETI' }), '');
+	});
+});
+
+describe('nodeLabels and mapViewBox (R68)', () => {
+	it("stacks the top row's ships above its name, clear of the arrowheads below it", () => {
+		assert.deepEqual(nodeLabels('GAMMA_LEPORIS', 2), { name: 25, ships: [-27, -7] });
+	});
+
+	it("puts the bottom row's name and ships under its circle, clear of the arrowheads above it", () => {
+		assert.deepEqual(nodeLabels('TAU_CETI', 2), { name: 665, ships: [689, 709] });
+	});
+
+	it("keeps the middle row's name above and ships below, further out", () => {
+		assert.deepEqual(nodeLabels('EPSILON_ERIDANI', 1), { name: 243, ships: [439] });
+	});
+
+	it('grows the viewBox to hold every label', () => {
+		assert.equal(mapViewBox([nodeLabels('GAMMA_LEPORIS', 2), nodeLabels('TAU_CETI', 1)]), '-20 -51 800 750');
+		assert.equal(mapViewBox([{ name: 300, ships: [320] }]), '-20 0 800 670');
 	});
 });

@@ -48,7 +48,15 @@ class GameResponseDtoTest {
 				police = 3,
 				security = 4,
 				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
-				producibleGoods = listOf("ISO")
+				producibleGoods = listOf("ISO"),
+				// R68: the base chance of a jump from Tau Ceti to each other system.
+				jumpChances = mapOf(
+					"GAMMA_LEPORIS" to 5,
+					"EPSILON_ERIDANI" to 9,
+					"BETA_HYDRI" to 8,
+					"MU_HERCULIS" to 4,
+					"SIGMA_DRACONIS" to 5
+				)
 			)
 		)
 	}

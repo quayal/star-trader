@@ -192,6 +192,8 @@
 		}
 		.map svg { display: block; width: 100%; height: auto; }
 		.map-edge { stroke: var(--border-subtle); stroke-width: 1; }
+		.map-jumps polygon { fill: var(--surface-raised); stroke: var(--border-control); stroke-width: 1; stroke-linejoin: round; }
+		.map-jumps text { fill: var(--text-primary); font-family: var(--font-body); font-size: 13px; font-weight: 700; }
 		.map-node circle { fill: var(--surface-page); stroke: var(--border-control); stroke-width: 2; transition: stroke var(--duration-hover); }
 		.map-node:hover circle, .map-node:focus-visible circle { stroke: var(--accent-selected); stroke-width: 3; }
 		.map-node:focus { outline: none; }
@@ -527,6 +529,7 @@
 				<h2 id="map-title">Map</h2>
 				<div id="map"></div>
 				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials). Select a system for its details.</p>
+				<p class="muted map-key">Each arrowhead is the base chance of a jump that way: a 2d6 roll of that or less gets there. Your crew and Safe jump add to it.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
@@ -1077,13 +1080,15 @@
 	} from './js/landing.js';
 	import { progressSnapshot, progressText } from './js/progress.js';
 	import {
-		MAP_VIEW_BOX,
 		MARKET_LEVELS,
 		NODE_POSITIONS,
 		NODE_RADIUS,
 		fleet,
 		locations,
+		jumpArrows,
 		mapEdges,
+		mapViewBox,
+		nodeLabels,
 		mapGood,
 		marketLevel,
 		marketPositions,
@@ -4087,17 +4092,33 @@
 
 	/** S02-1/2/4: the hexagon ring, each system a link holding its goods and prices, ships underneath. */
 	function renderMap(game) {
+		const systems = game.board.filter(system => NODE_POSITIONS[system.id]);
+		const shipRows = Object.fromEntries(systems.map(system => {
+			const labels = shipsAt(game, system.id, viewerId).map(ship => ship.label);
+			const rows = [];
+			for (let i = 0; i < labels.length; i += 2) {
+				rows.push(labels.slice(i, i + 2).join('  '));
+			}
+			return [system.id, rows.length ? rows : ['no ships']];
+		}));
+		const labelsAt = Object.fromEntries(systems.map(system => [system.id, nodeLabels(system.id, shipRows[system.id].length)]));
 		const map = svgElement('svg', {
-			viewBox: MAP_VIEW_BOX,
+			viewBox: mapViewBox(Object.values(labelsAt)),
 			role: 'group',
 			'aria-label': 'Map of the six star systems with their goods and prices. Each system links to its details.',
 		});
-		const systems = game.board.filter(system => NODE_POSITIONS[system.id]);
 		for (const [from, to] of mapEdges(systems.map(system => system.id))) {
 			const [x1, y1] = NODE_POSITIONS[from];
 			const [x2, y2] = NODE_POSITIONS[to];
 			map.append(svgElement('line', { x1, y1, x2, y2, class: 'map-edge' }));
 		}
+		// R68: the base jump chance each way, in an arrowhead pointing along the route. The system links say it to a screen reader.
+		const arrows = svgElement('g', { class: 'map-jumps', 'aria-hidden': 'true' });
+		for (const arrow of jumpArrows(systems)) {
+			arrows.append(svgElement('polygon', { points: arrow.points }));
+			arrows.append(svgElement('text', { x: arrow.x, y: arrow.y, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, String(arrow.chance)));
+		}
+		map.append(arrows);
 		for (const system of systems) {
 			const [x, y] = NODE_POSITIONS[system.id];
 			const node = svgElement('a', {
@@ -4106,7 +4127,8 @@
 				'aria-label': systemAccessibleName(game, system, viewerId),
 			});
 			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
-			node.append(svgElement('text', { x, y: y - NODE_RADIUS - 12, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
+			const labels = labelsAt[system.id];
+			node.append(svgElement('text', { x, y: labels.name, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
 			const lineHeight = 19;
 			const top = y - ((system.market.length - 1) * lineHeight) / 2 + 6;
 			system.market.forEach((entry, index) => {
@@ -4122,14 +4144,9 @@
 				line.append(level);
 				node.append(line);
 			});
-			const labels = shipsAt(game, system.id, viewerId).map(ship => ship.label);
-			const rows = [];
-			for (let i = 0; i < labels.length; i += 2) {
-				rows.push(labels.slice(i, i + 2).join('  '));
-			}
-			const ships = svgElement('text', { x, y: y + NODE_RADIUS + 24, 'text-anchor': 'middle', class: 'map-node__ships' });
-			(rows.length ? rows : ['no ships']).forEach((row, index) => {
-				ships.append(svgElement('tspan', { x, dy: index === 0 ? 0 : 20 }, row));
+			const ships = svgElement('text', { 'text-anchor': 'middle', class: 'map-node__ships' });
+			shipRows[system.id].forEach((row, index) => {
+				ships.append(svgElement('tspan', { x, y: labels.ships[index] }, row));
 			});
 			node.append(ships);
 			map.append(node);
