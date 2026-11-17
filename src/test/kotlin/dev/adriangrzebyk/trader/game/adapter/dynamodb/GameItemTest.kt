@@ -41,7 +41,9 @@ class GameItemTest {
 						location = ShipLocation.PORT,
 						cargo = emptyMap(),
 						hull = Ship.LEGACY_HULL,
-						modules = Ship.LEGACY_MODULES
+						modules = Ship.LEGACY_MODULES,
+						crewClass = Ship.STARTING_CREW_CLASS,
+						boughtOnTurn = null
 					),
 					Ship(
 						name = "Lantern",
@@ -49,7 +51,9 @@ class GameItemTest {
 						location = ShipLocation.SPACE,
 						cargo = emptyMap(),
 						hull = Ship.LEGACY_HULL,
-						modules = Ship.LEGACY_MODULES
+						modules = Ship.LEGACY_MODULES,
+						crewClass = Ship.STARTING_CREW_CLASS,
+						boughtOnTurn = null
 					)
 				),
 				marketPositions = emptyList(),
@@ -68,7 +72,9 @@ class GameItemTest {
 						location = ShipLocation.PLANET,
 						cargo = emptyMap(),
 						hull = Ship.LEGACY_HULL,
-						modules = Ship.LEGACY_MODULES
+						modules = Ship.LEGACY_MODULES,
+						crewClass = Ship.STARTING_CREW_CLASS,
+						boughtOnTurn = null
 					),
 					Ship(
 						name = "Halcyon",
@@ -76,7 +82,9 @@ class GameItemTest {
 						location = ShipLocation.PORT,
 						cargo = emptyMap(),
 						hull = Ship.LEGACY_HULL,
-						modules = Ship.LEGACY_MODULES
+						modules = Ship.LEGACY_MODULES,
+						crewClass = Ship.STARTING_CREW_CLASS,
+						boughtOnTurn = null
 					)
 				),
 				marketPositions = emptyList(),

@@ -268,7 +268,7 @@ data class Player(
 	/** Their ship [shipName], once checked that it's theirs and at a shipyard, where refits happen (R65). */
 	private fun shipToRefit(shipName: String): Ship {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
-		if (!ship.isAtShipyard()) {
+		if (!ship.canBeRefitted()) {
 			throw InvalidInvestmentException(
 				"${ship.name} must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
 			)
@@ -278,14 +278,14 @@ data class Player(
 
 	/**
 	 * This player after selling their ship [shipName] (R66), wherever it is, for [Ship.saleValue]. Its cargo is never in
-	 * the way: whatever fits goes into their warehouse at the ship's system, if they have one there, in goods order; the
-	 * rest is lost ([ShipSale]).
+	 * the way: whatever fits goes into their warehouse at the ship's system, if they have one there ([Warehouse.storeCargoOf]);
+	 * the rest is lost.
 	 */
 	fun sellShip(shipName: String): Player {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
 		val warehouse = warehouseAt(ship.system)
 		val sold = copy(money = money + ship.saleValue(), ships = ships.filterNot { it.name == ship.name })
-		return if (warehouse == null) sold else sold.withWarehouse(ShipSale(ship, warehouse).warehouseAfter())
+		return if (warehouse == null) sold else sold.withWarehouse(warehouse.storeCargoOf(ship))
 	}
 
 	/** This player's ships that can jump (R64): every one but those still in the shipyard. */
@@ -308,6 +308,9 @@ data class Player(
 
 	/** Where this player's ships start, for the public log: "Corp — Wayfarer at Tau Ceti, Lantern at Mu Herculis". */
 	fun startingPositions(): String = "$corporationName — " + ships.joinToString(", ") { it.position() }
+
+	/** Whether this player has a ship called [name], ignoring case: ship names are unique in a game that way (R62). */
+	fun hasShipNamed(name: String): Boolean = ships.any { it.name.equals(name, ignoreCase = true) }
 
 	/** This player's ship called [name], or null if they have none by that name. */
 	fun ship(name: String?): Ship? = ships.firstOrNull { it.name == name }

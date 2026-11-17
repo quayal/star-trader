@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- **2026-11-17 — `checkTokens` reads `#128` in `index.html` as a colour literal.** A comment citing a PR number (`#128`, `#abc`, any 3/4/6/8 hex digits after `#`) fails `./gradlew check` as a colour outside `tokens.css`. In static files, write "PR 128" or name the story instead.
+
 - **2026-11-17 — A screen redrawn only when the game changed can't show its own UI state.** `renderRunning` called `renderFleet` only `if (changed)`, i.e. when the polled game differed. E09's Sell button sets a page-local `pendingSale` and calls `render(lastGame, false)` — same game, so Fleet never redrew and the confirm step never appeared; unit tests couldn't see it, only the browser walk did. A screen with local state (a pending confirm, a busy flag) needs its own redraw key over the game data *and* that state (`shownFleetKey`), called on every render.
 
 - **2026-11-17 — A form's status line that outlives its turn reads as current.** The offer form isn't rebuilt between polls, so "Offer placed: Buy FOOD at 12 HT…" stayed under the form into the next turn's Bidding. Only switching systems or a "Bidding has closed" refusal had ever cleared it. `updateOfferForm` now remembers the `game/turn` it last showed and clears the message and price error when that changes. Any persistent form that shows a success or error line needs the same per-turn reset.

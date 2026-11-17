@@ -106,3 +106,10 @@ For buying, the player is "everywhere": no ship needs to be at the yard, as for 
 - **Names:** all 26, the original 14 and today's 12.
 - **Selling with cargo** is allowed: the cargo goes to the warehouse at that system if there is one and it fits, otherwise it's lost. Never silently, never blocked.
 - **Refit needs the Port.**
+
+## Notes from implementation and review (2026-11-17)
+
+- **S05-2 as built:** the sale's response is the game, not a report. The confirm step predicts what goes to the warehouse with the server's rule (`js/shipyard.js`); the line after the sale reads what the warehouse actually gained from the response, so it never relies on the prediction.
+- **R62 tightened:** a name may use letters, digits, spaces, hyphens, apostrophes and full stops, with at least one letter or digit, because it is the ship's address in the refit and sell URLs ("A/B" or ".." could never be sold).
+- **Names order:** starting ships keep the twelve names they had; the fourteen original-game names come after them in the suggestions.
+- **Late buys:** in the second-last turn the form says the ship leaves the yard only in the last Investment, too late to jump; in the last turn, that it never leaves. Fleet says "in the shipyard until the game ends" for such a ship.

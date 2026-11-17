@@ -6,7 +6,9 @@
 
 export const MAX_NAME_LENGTH = 20;
 export const NAME_ERROR = `Choose a name of 1 to ${MAX_NAME_LENGTH} characters.`;
-export const LATE_BUY_WARNING = 'This ship would leave the yard only after the game ends.';
+export const NAME_CHARACTERS_ERROR = 'Use letters, digits, spaces, hyphens, apostrophes and full stops.';
+export const LAST_TURN_WARNING = 'This ship would never leave the yard: the game ends first.';
+export const SECOND_LAST_TURN_WARNING = 'This ship would leave the yard only in the last Investment, too late to jump.';
 export const BUY_BUTTON = 'Buy ship';
 export const REFIT_NOTE = 'Refit at a shipyard: in the yard, or in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
 
@@ -77,11 +79,20 @@ export function validateShipName(game, name) {
 	if (trimmed.length < 1 || trimmed.length > MAX_NAME_LENGTH) {
 		return { error: NAME_ERROR };
 	}
+	// The server's rule: the name is the ship's address in a URL, so no "/", "\" or a name of dots alone.
+	if (!/^[\p{L}\p{N} '.-]+$/u.test(trimmed) || !/[\p{L}\p{N}]/u.test(trimmed)) {
+		return { error: NAME_CHARACTERS_ERROR };
+	}
 	const taken = game.players.flatMap(player => player.ships ?? []).some(ship => ship.name.toLowerCase() === trimmed.toLowerCase());
 	if (taken) {
 		return { error: `There's already a ship called ${trimmed} in this game.` };
 	}
 	return { name: trimmed };
+}
+
+/** Whether Suggest has a name to offer other than [current] (R62). */
+export function canSuggest(shipyard, current) {
+	return (shipyard?.freeNames ?? []).some(name => name !== current);
 }
 
 /** R62: a random free suggestion other than [current], or null when none is left; [random] is Math.random in the page. */
@@ -90,9 +101,12 @@ export function suggestName(shipyard, current, random = Math.random) {
 	return names.length ? names[Math.floor(random() * names.length)] : null;
 }
 
-/** R39, R63: a ship bought now leaves the yard next turn and first jumps the turn after, so in the last two turns it never sails. */
+/** R39, R63: a ship bought now leaves the yard in next turn's Investment and first jumps the turn after. */
 export function lateBuyWarning(game) {
-	return game.turn && game.turn.number + 2 > game.turns ? LATE_BUY_WARNING : '';
+	if (!game.turn || game.turn.number < game.turns - 1) {
+		return '';
+	}
+	return game.turn.number >= game.turns ? LAST_TURN_WARNING : SECOND_LAST_TURN_WARNING;
 }
 
 /**
@@ -146,7 +160,30 @@ export function saleConfirmText(game, myId, ship) {
 	return parts.join(' ');
 }
 
-/** R66: the line after the sale, from what the confirm step said: "Sold Wayfarer for 101 HT. 3 ISO went to …; 2 POLY were lost." */
+/**
+ * R66: what the sale of [shipName] actually did, from the game [before] it and the server's answer [after]: what the
+ * warehouse at the ship's system gained was stored, the rest of the ship's cargo was lost. Same shape as [saleOutcome].
+ */
+export function saleResult(before, after, myId, shipName) {
+	const position = before.players.find(player => player.id === myId)?.ships.find(ship => ship.name === shipName);
+	const cargo = before.you?.ships.find(ship => ship.name === shipName)?.cargo ?? {};
+	const held = (game, goods) => (game.you?.warehouses ?? []).find(entry => entry.system === position?.system)?.cargo?.[goods] ?? 0;
+	const stored = [];
+	const lost = [];
+	for (const goods of GOODS_ORDER) {
+		const units = cargo[goods] ?? 0;
+		const into = Math.min(units, Math.max(0, held(after, goods) - held(before, goods)));
+		if (into > 0) {
+			stored.push({ goods, units: into });
+		}
+		if (units - into > 0) {
+			lost.push({ goods, units: units - into });
+		}
+	}
+	return { stored, lost, systemName: position?.systemName ?? '' };
+}
+
+/** R66: the line after the sale, from [saleResult]: "Sold Wayfarer for 101 HT. 3 ISO went to …; 2 POLY were lost." */
 export function soldText(outcome, shipName, saleValue) {
 	const parts = [`Sold ${shipName} for ${saleValue} HT.`];
 	if (outcome.stored.length) {
@@ -164,7 +201,7 @@ export function soldText(outcome, shipName, saleValue) {
  * back. Empty when the ship isn't at a shipyard or the shipyard isn't open to them.
  */
 export function refitOptions(shipyard, ship) {
-	if (!shipyard || !ship.atShipyard) {
+	if (!shipyard || !ship.canRefit) {
 		return { add: [], remove: [] };
 	}
 	const pricePerCrew = shipyard.crewClasses.find(entry => entry.id === ship.crewClass)?.pricePerCrew ?? 0;
@@ -173,9 +210,6 @@ export function refitOptions(shipyard, ship) {
 	const add = shipyard.modules
 		.filter(module => (module.takesModuleCapacity ? roomLeft > 0 : !hasSafeJump))
 		.map(module => ({ id: module.id, name: module.name, cost: module.price + module.crew * pricePerCrew }));
-	const remove = ship.modules.map(fitted => {
-		const price = shipyard.modules.find(module => module.id === fitted.id)?.price ?? 0;
-		return { id: fitted.id, name: fitted.name, refund: Math.floor(price / 2) };
-	});
+	const remove = ship.modules.map(fitted => ({ id: fitted.id, name: fitted.name, refund: fitted.resaleValue }));
 	return { add, remove };
 }

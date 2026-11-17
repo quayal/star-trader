@@ -1039,8 +1039,9 @@
 		lateBuyWarning,
 		moduleList,
 		refitOptions,
+		canSuggest,
 		saleConfirmText,
-		saleOutcome,
+		saleResult,
 		shipCost,
 		shipyardOf,
 		soldText,
@@ -1757,7 +1758,7 @@
 	}
 
 	/** E09-S06-2: Sell, with a confirm step naming what happens to the cargo, and refits at a shipyard; only while investing. */
-	function shipActions(game, ship) {
+	function shipActions(game, ship, index) {
 		const shipyard = shipyardOf(game);
 		if (!canBuy(game) || !shipyard) {
 			return [];
@@ -1777,11 +1778,11 @@
 			}));
 		const { add, remove } = refitOptions(shipyard, own);
 		const refit = [];
-		if (!own.atShipyard) {
+		if (!own.canRefit) {
 			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
 		} else {
 			if (add.length) {
-				const id = `fleet-add-${ship.name.replace(/\W+/g, '-')}`;
+				const id = `fleet-add-${index}`; // the ship's place, not its name: two names can't collide
 				const select = element('select', { class: 'control', id },
 					...add.map(option => element('option', { value: option.id }, `${option.name} \u2014 ${option.cost} HT`)));
 				refit.push(element('div', { class: 'fleet-ship__row' },
@@ -1814,17 +1815,18 @@
 		const done = method === 'POST'
 			? `Fitted a ${option.name} module to ${ship.name} for ${option.cost} HT.`
 			: `Removed a ${option.name} module from ${ship.name}; ${option.refund} HT back.`;
-		await fleetAction(game, request, done);
+		await fleetAction(game, request, () => done);
 	}
 
 	/** S05-1: the sale, confirmed; the line after it says again what went to the warehouse and what was lost (R66). */
 	async function sellShip(game, ship) {
-		const outcome = saleOutcome(game, viewerId, ship.name);
 		pendingSale = null;
 		const request = api(`/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}`, { method: 'DELETE' });
-		await fleetAction(game, request, soldText(outcome, ship.name, ship.saleValue));
+		// What went to the warehouse is read from the server's answer, not predicted (E09 code review).
+		await fleetAction(game, request, updated => soldText(saleResult(game, updated, viewerId, ship.name), ship.name, ship.saleValue));
 	}
 
+	/** [doneText] makes the success line from the server's answer. */
 	async function fleetAction(game, request, doneText) {
 		const gameId = currentGameId;
 		const turnKey = `${gameId}/${game.turn.number}`;
@@ -1843,8 +1845,9 @@
 			return;
 		}
 		if (response?.ok) {
-			setFleetMessage(doneText, false, turnKey);
-			render(await response.json());
+			const updated = await response.json();
+			setFleetMessage(doneText(updated), false, turnKey);
+			render(updated);
 		} else {
 			setFleetMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
 			render(lastGame, false);
@@ -1865,7 +1868,8 @@
 		if (pendingSale !== null && (!canBuy(game) || !ships.some(ship => ship.name === pendingSale))) {
 			pendingSale = null;
 		}
-		const key = JSON.stringify([game.id, ships, canBuy(game), shipyardOf(game), game.you?.warehouses, pendingSale, fleetBusy]);
+		// Not the shipyard catalogue: its free names change whenever anyone buys a ship, which would reset a picked module.
+		const key = JSON.stringify([game.id, ships, game.you?.ships, canBuy(game), game.you?.warehouses, pendingSale, fleetBusy]);
 		if (key === shownFleetKey) {
 			return;
 		}
@@ -1903,7 +1907,7 @@
 							element('thead', {}, element('tr', {}, ...header)),
 							element('tbody', {}, ...rows)))
 					: element('p', { class: 'empty' }, 'No modules fitted'),
-				...shipActions(game, ship));
+				...shipActions(game, ship, index));
 		}));
 	}
 
@@ -3577,7 +3581,7 @@
 		if ($('ship-late').textContent !== late) {
 			$('ship-late').textContent = late;
 		}
-		$('ship-suggest').disabled = !suggestName(shipyard, $('ship-name').value.trim());
+		$('ship-suggest').disabled = !canSuggest(shipyard, $('ship-name').value.trim());
 		updateShipSummary(game);
 		$('ship-button').disabled = submittingShip;
 	}

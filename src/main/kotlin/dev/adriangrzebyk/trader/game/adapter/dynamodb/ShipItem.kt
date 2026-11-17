@@ -34,7 +34,7 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		hull = attributes[HULL]?.s()?.let { Hull.valueOf(it) } ?: Ship.LEGACY_HULL,
 		modules = attributes[MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: Ship.LEGACY_MODULES,
 		// Items saved before E09 have no crew class (every ship was a starting ship, class B, R55) and were never bought.
-		crewClass = attributes[CREW_CLASS]?.s()?.let { CrewClass.valueOf(it) } ?: CrewClass.B,
+		crewClass = attributes[CREW_CLASS]?.s()?.let { CrewClass.valueOf(it) } ?: Ship.STARTING_CREW_CLASS,
 		boughtOnTurn = attributes[BOUGHT_ON_TURN]?.n()?.toInt()
 	)
 

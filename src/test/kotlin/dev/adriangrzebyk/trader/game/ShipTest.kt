@@ -23,7 +23,9 @@ class ShipTest {
 				ShipLocation.PORT,
 				mapOf(Goods.POLY to 4, Goods.ISO to 3, Goods.CHIPS to 12),
 				Ship.LEGACY_HULL,
-				Ship.LEGACY_MODULES
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
 			)
 
 		assertThat(ship.cargoSpacesUsed()).isEqualTo(7)
@@ -38,7 +40,9 @@ class ShipTest {
 				ShipLocation.SPACE,
 				mapOf(Goods.CHIPS to 40, Goods.FOOD to 25),
 				Ship.LEGACY_HULL,
-				Ship.LEGACY_MODULES
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
 			)
 
 		assertThat(ship.cargoSpacesUsed()).isZero()
@@ -85,7 +89,9 @@ class ShipTest {
 				ShipLocation.PORT,
 				mapOf(Goods.POLY to 4, Goods.CHIPS to 12),
 				Ship.LEGACY_HULL,
-				Ship.LEGACY_MODULES
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
 			)
 
 		assertThat(ship.unitsThatFit(Goods.ISO, 8)).isEqualTo(6)
@@ -94,7 +100,17 @@ class ShipTest {
 
 	@Test
 	fun shouldLoadAnyAmountOfChipsAndFood() {
-		val full = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 10), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+		val full =
+			Ship(
+				"Wayfarer",
+				StarSystem.TAU_CETI,
+				ShipLocation.PORT,
+				mapOf(Goods.POLY to 10),
+				Ship.LEGACY_HULL,
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
+			)
 
 		assertThat(full.unitsThatFit(Goods.FOOD, 30)).isEqualTo(30)
 		assertThat(full.load(Goods.FOOD, 30).holding(Goods.FOOD)).isEqualTo(30)
@@ -104,7 +120,16 @@ class ShipTest {
 	@Test
 	fun shouldUnloadWhatItSoldAndDropAGoodItNoLongerCarries() {
 		val ship =
-			Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.ISO to 5, Goods.CHIPS to 2), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+			Ship(
+				"Wayfarer",
+				StarSystem.TAU_CETI,
+				ShipLocation.PORT,
+				mapOf(Goods.ISO to 5, Goods.CHIPS to 2),
+				Ship.LEGACY_HULL,
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
+			)
 
 		assertThat(ship.unload(Goods.ISO, 2).cargo).isEqualTo(mapOf(Goods.ISO to 3, Goods.CHIPS to 2))
 		assertThat(ship.unload(Goods.ISO, 5).cargo).isEqualTo(mapOf(Goods.CHIPS to 2))
@@ -113,7 +138,17 @@ class ShipTest {
 	@Test
 	fun shouldRefuseToUnloadMoreThanItHolds() {
 		// R10
-		val ship = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.ISO to 2), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+		val ship =
+			Ship(
+				"Wayfarer",
+				StarSystem.TAU_CETI,
+				ShipLocation.PORT,
+				mapOf(Goods.ISO to 2),
+				Ship.LEGACY_HULL,
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
+			)
 
 		assertThatThrownBy { ship.unload(Goods.ISO, 3) }
 			.isInstanceOf(InvalidTradeException::class.java)
@@ -122,7 +157,17 @@ class ShipTest {
 
 	@Test
 	fun shouldFitNothingInAnOverfullShip() {
-		val overfull = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 12), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+		val overfull =
+			Ship(
+				"Wayfarer",
+				StarSystem.TAU_CETI,
+				ShipLocation.PORT,
+				mapOf(Goods.POLY to 12),
+				Ship.LEGACY_HULL,
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
+			)
 
 		assertThat(overfull.unitsThatFit(Goods.ISO, 3)).isZero()
 		assertThat(overfull.load(Goods.ISO, 3).holding(Goods.ISO)).isZero()
@@ -203,8 +248,17 @@ class ShipTest {
 		assertThat(monarch.load(Goods.POLY, 9).holding(Goods.POLY)).isEqualTo(6)
 	}
 
-	private fun legacy() = Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+	private fun legacy() = Ship(
+		"Wayfarer",
+		StarSystem.TAU_CETI,
+		ShipLocation.PORT,
+		emptyMap(),
+		Ship.LEGACY_HULL,
+		Ship.LEGACY_MODULES,
+		Ship.STARTING_CREW_CLASS,
+		null
+	)
 
 	private fun ship(hull: Hull, vararg modules: Module) =
-		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList())
+		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS, null)
 }

@@ -17,8 +17,8 @@ data class Ship(
 	val cargo: Map<Goods, Int>,
 	val hull: Hull,
 	val modules: List<Module>,
-	val crewClass: CrewClass = CrewClass.B,
-	val boughtOnTurn: Int? = null
+	val crewClass: CrewClass,
+	val boughtOnTurn: Int?
 ) {
 
 	init {
@@ -65,10 +65,13 @@ data class Ship(
 	fun isInShipyard(): Boolean = location == ShipLocation.SHIPYARD
 
 	/** Whether this ship can be refitted (R65): in the yard, or in Port at a system with a shipyard. */
-	fun isAtShipyard(): Boolean = isInShipyard() || (location == ShipLocation.PORT && system.hasShipyard())
+	fun canBeRefitted(): Boolean = isInShipyard() || (location == ShipLocation.PORT && system.hasShipyard())
 
-	/** Whether this ship leaves the yard in turn [turn]'s Investment (R63): it was bought in an earlier turn. */
-	fun leavesYardIn(turn: Int): Boolean = isInShipyard() && (boughtOnTurn ?: 0) < turn
+	/** The turn whose Investment this ship leaves the yard in (R63): the one after it was bought; null once it's out. */
+	fun leavesYardOnTurn(): Int? = boughtOnTurn?.takeIf { isInShipyard() }?.plus(1)
+
+	/** Whether this ship leaves the yard in turn [turn]'s Investment (R63). */
+	fun leavesYardIn(turn: Int): Boolean = leavesYardOnTurn()?.let { it <= turn } ?: false
 
 	/** This ship once it left the yard (R63): in the Port of its shipyard's system. */
 	fun leaveYard(): Ship = copy(location = ShipLocation.PORT, boughtOnTurn = null)
@@ -188,6 +191,10 @@ data class Ship(
 		/** R62: a ship's name is 1 to 20 characters once trimmed. */
 		const val MAX_NAME_LENGTH = 20
 
+		/** R62: letters, digits, spaces, hyphens, apostrophes and full stops, with at least one letter or digit. */
+		private val NAME_PATTERN = Regex("[\\p{L}\\p{N} '.-]+")
+		const val NAME_CHARACTERS_MESSAGE = "Use letters, digits, spaces, hyphens, apostrophes and full stops."
+
 		/**
 		 * A new, empty ship called [name] (trimmed), bought in turn [turn] at [shipyard] (R61): a civilian [hull] with
 		 * civilian [modules] it can take (R52, R56), crewed at [crewClass]. It waits in the yard (R60, R63). That the name
@@ -197,6 +204,10 @@ data class Ship(
 			val trimmed = name?.trim().orEmpty()
 			if (trimmed.length !in 1..MAX_NAME_LENGTH) {
 				throw InvalidInvestmentException("Choose a name of 1 to $MAX_NAME_LENGTH characters.")
+			}
+			// The name is the ship's address in a URL (`/investment/ships/{ship}`): no "/", "\" or a name of dots alone.
+			if (!NAME_PATTERN.matches(trimmed) || trimmed.none { it.isLetterOrDigit() }) {
+				throw InvalidInvestmentException(NAME_CHARACTERS_MESSAGE)
 			}
 			if (!shipyard.hasShipyard()) {
 				throw InvalidInvestmentException("${shipyard.displayName} has no shipyard. Choose Beta Hydri, Epsilon Eridani or Tau Ceti.")
@@ -224,8 +235,11 @@ data class Ship(
 		val STARTING_HULL = Hull.CLARINET
 		val STARTING_MODULES = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
 
+		/** A starting ship's crew, already paid (R55, R67); also the class of a ship stored before E09. */
+		val STARTING_CREW_CLASS = CrewClass.B
+
 		/** A starting ship carrying nothing (R40, R55: every ship starts empty). */
 		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) =
-			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES)
+			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES, STARTING_CREW_CLASS, null)
 	}
 }
