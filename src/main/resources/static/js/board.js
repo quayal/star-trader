@@ -115,10 +115,25 @@ const ARROW_BASE = 4;
 const ARROW_TIP = 34;
 const ARROW_HALF_WIDTH = 14;
 
+/** How many of the highest, and of the lowest, different base jump chances on the board get their own colour. */
+const JUMP_LEVEL_SPAN = 3;
+
+/**
+ * R68: how a base jump chance compares with the others on the map, from the different values in [chances]: `high` for the
+ * three highest, `low` for the three lowest, `mid` for the rest (high wins if a short list makes them overlap).
+ */
+export function jumpChanceLevel(chances, chance) {
+	const values = [...new Set(chances)].sort((a, b) => a - b);
+	if (values.slice(-JUMP_LEVEL_SPAN).includes(chance)) {
+		return 'high';
+	}
+	return values.slice(0, JUMP_LEVEL_SPAN).includes(chance) ? 'low' : 'mid';
+}
+
 /**
  * R68: one arrowhead per system and route, just outside the system's circle and pointing at the other system, holding the
- * base chance of a jump that way (`board[].jumpChances`). [points] is the SVG polygon and [x], [y] the number's centre (the
- * triangle's centroid); coordinates are in map units, rounded to a tenth.
+ * base chance of a jump that way (`board[].jumpChances`) and its [jumpChanceLevel] among all of them. [points] is the SVG
+ * polygon and [x], [y] the number's centre (the triangle's centroid); coordinates are in map units, rounded to a tenth.
  */
 export function jumpArrows(systems) {
 	const round = value => Math.round(value * 10) / 10;
@@ -151,7 +166,8 @@ export function jumpArrows(systems) {
 			});
 		}
 	}
-	return arrows;
+	const chances = arrows.map(arrow => arrow.chance);
+	return arrows.map(arrow => ({ ...arrow, level: jumpChanceLevel(chances, arrow.chance) }));
 }
 
 /** R68: "Jump chances from here: Beta Hydri 7, …" for a system's accessible name, in board order; "" with none. */

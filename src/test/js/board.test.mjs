@@ -22,6 +22,7 @@ import {
 	staleText,
 	systemAccessibleName,
 	jumpArrows,
+	jumpChanceLevel,
 	jumpChancesText,
 	mapViewBox,
 	nodeLabels,
@@ -258,12 +259,23 @@ describe('jumpArrows (R68)', () => {
 	it('puts one arrowhead per direction outside the circle, pointing at the other system, with its chance', () => {
 		const [there, back] = jumpArrows(systems);
 		// Gamma Leporis (245, 101) → Beta Hydri (515, 101): straight right, tip 64 + 34 out, centroid 64 + 14 out.
-		assert.deepEqual(there, { from: 'GAMMA_LEPORIS', to: 'BETA_HYDRI', chance: 7, points: '313,115 313,87 343,101', x: 323, y: 101 });
-		assert.deepEqual(back, { from: 'BETA_HYDRI', to: 'GAMMA_LEPORIS', chance: 5, points: '447,87 447,115 417,101', x: 437, y: 101 });
+		assert.deepEqual(there, { from: 'GAMMA_LEPORIS', to: 'BETA_HYDRI', chance: 7, points: '313,115 313,87 343,101', x: 323, y: 101, level: 'high' });
+		assert.deepEqual(back, { from: 'BETA_HYDRI', to: 'GAMMA_LEPORIS', chance: 5, points: '447,87 447,115 417,101', x: 437, y: 101, level: 'high' });
 	});
 
 	it('draws nothing for a system without chances', () => {
 		assert.deepEqual(jumpArrows([{ id: 'TAU_CETI' }]), []);
+	});
+
+	it('marks the three highest different chances high, the three lowest low and the rest mid', () => {
+		// The creator's table (R68) has the chances 2 to 9.
+		const chances = [2, 2, 3, 4, 4, 5, 6, 6, 7, 8, 9, 9];
+
+		assert.deepEqual([2, 3, 4, 5, 6, 7, 8, 9].map(chance => jumpChanceLevel(chances, chance)), ['low', 'low', 'low', 'mid', 'mid', 'high', 'high', 'high']);
+	});
+
+	it('lets high win when there are too few different chances for both ends', () => {
+		assert.deepEqual([4, 5, 6, 7].map(chance => jumpChanceLevel([4, 5, 6, 7], chance)), ['low', 'high', 'high', 'high']);
 	});
 
 	it('names the chances from a system in board order for its accessible name', () => {

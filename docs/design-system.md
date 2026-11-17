@@ -42,6 +42,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `--trade-buy / -sell` (+ `--tint-*`) | The Buy/Sell column only (R04.1) | Anywhere else |
 | `--good-poly / -chips / -food / -iso` | The goods column and goods icons only (R04.1) | Anywhere else |
 | `--sd-easy / -fair / -hard / -bad` | The S/D value only (R03.5) | Buy/Sell column |
+| `--jump-high / -mid / -low` | The base jump chance numbers on the map (R68): three highest values, between, three lowest — level from `jumpChanceLevel` in `js/board.js` | Anywhere else |
 | `--glow-selected / -live / -danger` | Selected, live, danger (R01.1) | Logos, every border, decoration |
 | `--font-display` | Titles, badges, numerals (R01.2) | Body text |
 | `--font-body` | Body and labels (R01.2) | — |
