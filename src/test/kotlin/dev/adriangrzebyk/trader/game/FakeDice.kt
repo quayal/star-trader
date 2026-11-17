@@ -35,8 +35,8 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = e
 		/** Only d6 rolls: for interception (R70). */
 		fun d6(vararg rolls: Int) = FakeDice(emptyList(), emptyList(), rolls.toList())
 
-		/** Battle rolls: 2d6 for each salvo, d6 for each rocket check (R75). */
-		fun battle(twoD6: List<Int>, d6: List<Int>) = FakeDice(emptyList(), twoD6, d6)
+		/** Battle rolls, all d6 in the order taken: each salvo's roll, then its rocket check if it has one (R75). */
+		fun battle(vararg d6: Int) = FakeDice(emptyList(), emptyList(), d6.toList())
 	}
 }
 

@@ -152,7 +152,7 @@
 		#turn-order-panel > #pick-message:empty, #turn-order-panel > #jump-message:empty { margin: 0; } /* stay in the tree, so their text is announced */
 		.jump-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-panel); }
 		/* E04-S03: s05, the landing dialog. A native <dialog> opened with showModal() traps focus and closes on Escape. */
-		.landing {
+		.landing, .battle-report {
 			width: min(480px, calc(100vw - 2 * var(--space-panel)));
 			padding: var(--space-panel);
 			background: var(--surface-panel);
@@ -160,7 +160,11 @@
 			border: var(--border-width) solid var(--border-subtle);
 			border-radius: var(--radius-panel);
 		}
-		.landing::backdrop { background: var(--surface-backdrop); }
+		.landing::backdrop, .battle-report::backdrop { background: var(--surface-backdrop); }
+		/* The battle report dialog: what the last round's salvos did to and from the viewer's ships (R75–R78). */
+		.battle-report form { display: grid; gap: var(--space-related); max-width: none; }
+		.battle-report h2 { margin: 0; }
+		.battle-report ul { margin: 0; padding-left: var(--space-panel); display: grid; gap: var(--space-group); }
 		.landing form { display: grid; gap: var(--space-related); max-width: none; }
 		.landing h2 { margin: 0; }
 		.landing fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
@@ -648,6 +652,15 @@
 				</fieldset>
 				<p class="message message--error" id="landing-error" role="status"></p>
 				<div><button class="btn" id="landing-button" type="submit"></button></div>
+			</form>
+		</dialog>
+
+		<!-- The battle report (R75–R78), static markup filled on render: what the last round's salvos did, for the viewer. -->
+		<dialog class="battle-report" id="battle-report-dialog" aria-labelledby="battle-report-title">
+			<form id="battle-report-form" method="dialog">
+				<h2 id="battle-report-title"></h2>
+				<ul id="battle-report-lines"></ul>
+				<div><button class="btn" id="battle-report-button" type="submit"></button></div>
 			</form>
 		</dialog>
 
@@ -1155,6 +1168,10 @@
 		ORDERS_BUTTON,
 		battleShipRows,
 		battleStep,
+		canFireRockets,
+		REPORT_BUTTON,
+		reportLines,
+		reportTitle,
 		canBreakAway,
 		fightDecisionText,
 		fightTitle,
@@ -1710,6 +1727,7 @@
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
+		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
 		const changed = key !== renderedKey;
@@ -3320,8 +3338,8 @@
 				return element('fieldset', {},
 					element('legend', { class: 'field-label' }, ship),
 					element('div', { class: 'fight-row' }, select,
-						element('label', { class: 'fight-row', for: `fight-rockets-${index}` },
-							element('input', { type: 'checkbox', id: `fight-rockets-${index}`, 'data-rockets': ship }), 'Use rockets')));
+						...(canFireRockets(game, ship) ? [element('label', { class: 'fight-row', for: `fight-rockets-${index}` },
+							element('input', { type: 'checkbox', id: `fight-rockets-${index}`, 'data-rockets': ship }), 'Use rockets')] : [])));
 			});
 		}
 		if (step === 'HITS') {
@@ -3447,6 +3465,55 @@
 			clearTimeout(pollTimer);
 			pollGeneration += 1;
 			poll();
+		}
+	}
+
+	// ── The battle report dialog (R75–R78) ──
+
+	const SEEN_REPORT_LINES = 'trader.seenBattleReportLines';
+	// The report lines the viewer has dismissed in this tab, so a poll or a reload doesn't show them again.
+	const seenReportLines = new Set(readSeenReportLines());
+	// The lines the open dialog shows, marked seen when it closes.
+	let shownReportLines = [];
+
+	function readSeenReportLines() {
+		try {
+			return JSON.parse(globalThis.sessionStorage?.getItem(SEEN_REPORT_LINES) ?? '[]');
+		} catch {
+			return [];
+		}
+	}
+
+	function rememberReportLines() {
+		shownReportLines.forEach(line => seenReportLines.add(line.key));
+		try {
+			globalThis.sessionStorage?.setItem(SEEN_REPORT_LINES, JSON.stringify([...seenReportLines].slice(-200)));
+		} catch {
+			// Storage is a convenience: without it the report shows again after a reload.
+		}
+	}
+
+	/** Opens the report when the last round's salvos say something the viewer hasn't dismissed yet. */
+	function updateBattleReport(game) {
+		const dialog = $('battle-report-dialog');
+		const lines = game.status === 'RUNNING' ? reportLines(game, viewerId) : [];
+		if (!lines.length || $('landing-dialog').open) {
+			return;
+		}
+		const unseen = lines.some(line => !seenReportLines.has(line.key));
+		if (!unseen && !dialog.open) {
+			return;
+		}
+		const linesKey = JSON.stringify(lines.map(line => line.key));
+		if (dialog.dataset.key !== linesKey) {
+			dialog.dataset.key = linesKey;
+			shownReportLines = lines;
+			$('battle-report-title').textContent = reportTitle(game);
+			$('battle-report-lines').replaceChildren(...lines.map(line => element('li', {}, line.text)));
+			$('battle-report-button').textContent = REPORT_BUTTON;
+		}
+		if (!dialog.open) {
+			dialog.showModal();
 		}
 	}
 
@@ -3589,6 +3656,7 @@
 		event.preventDefault();
 		submitLanding($('landing-choices').querySelector('input:checked')?.value ?? DEFAULT_LOCATION);
 	});
+	$('battle-report-dialog').addEventListener('close', rememberReportLines);
 	$('landing-dialog').addEventListener('cancel', event => {
 		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
 		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)

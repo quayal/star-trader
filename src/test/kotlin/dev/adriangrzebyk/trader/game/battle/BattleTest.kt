@@ -64,6 +64,33 @@ class BattleTest {
 	}
 
 	@Test
+	fun shouldReportWhatEachSalvoCameTo() {
+		// R75–R78: Meridian is destroyed by Lantern's rocket, Wayfarer waits for Ada to place its hit.
+		val round = ordered.fired(
+			listOf(salvo("Wayfarer", "Meridian", 0), salvo("Lantern", "Meridian", 2, rocketRoll = 1), salvo("Meridian", "Wayfarer", 1)),
+			survivable
+		)
+
+		assertThat(round.report.round).isEqualTo(1)
+		assertThat(round.report.results).containsExactly(
+			SalvoResult("Wayfarer", ada, "Meridian", grace, false, 0, SalvoOutcome.NO_DAMAGE),
+			SalvoResult("Lantern", ada, "Meridian", grace, true, 2, SalvoOutcome.DESTROYED),
+			SalvoResult("Meridian", grace, "Wayfarer", ada, false, 1, SalvoOutcome.AWAITING_PLACEMENT)
+		)
+	}
+
+	@Test
+	fun shouldReportASalvoAtAShipBreakingAwayAsMissed() {
+		val breaking = started
+			.giveOrders(ada, listOf(fire("Wayfarer", "Meridian"), fire("Lantern", "Meridian")))
+			.giveOrders(grace, listOf(BattleOrder("Meridian", BattleAction.BREAK_AWAY, null, false)))
+
+		val round = breaking.fired(listOf(Salvo("Wayfarer", "Meridian", false, 6, 0, 2, 0, null, true)), survivable)
+
+		assertThat(round.report.results.single().outcome).isEqualTo(SalvoOutcome.BROKE_AWAY)
+	}
+
+	@Test
 	fun shouldLetABreakingAwayShipLeaveAndLogTheRound() {
 		val breaking = started
 			.giveOrders(ada, listOf(fire("Wayfarer", "Meridian"), fire("Lantern", "Meridian")))

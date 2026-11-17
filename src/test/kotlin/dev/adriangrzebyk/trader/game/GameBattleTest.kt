@@ -7,6 +7,8 @@ import dev.adriangrzebyk.trader.game.battle.BattleShip
 import dev.adriangrzebyk.trader.game.battle.BattleStage
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.PendingHits
+import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
+import dev.adriangrzebyk.trader.game.battle.SalvoResult
 import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.trading.StarSystem.EPSILON_ERIDANI
 import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
@@ -26,7 +28,7 @@ class GameBattleTest {
 
 	// Ships: Ada's Wayfarer at Tau Ceti and Lantern at Beta Hydri; Grace's Meridian at Gamma Leporis and Halcyon at
 	// Mu Herculis; Kim's Bright Reach at Sigma Draconis and Corvid at Epsilon Eridani. All starting Clarinets: weapons 6
-	// (8 with rockets), shields 2, intercept 2, class B. Turn order: Grace, Ada, Kim (see GameShipJumpTest).
+	// (rockets 5, from Light weapons only), shields 2, intercept 2, class B. Turn order: Grace, Ada, Kim (see GameShipJumpTest).
 	private val jumping = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
 		.start(
 			"ada@example.com",
@@ -129,7 +131,7 @@ class GameBattleTest {
 
 	@Test
 	fun shouldKeepOrdersSecretUntilEveryoneHasGivenThem() {
-		val game = fighting.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), FakeDice.battle(emptyList(), emptyList()))
+		val game = fighting.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), FakeDice.battle())
 
 		val battle = game.turn!!.battle!!
 		assertThat(battle.waitingFor()).containsExactly("grace@example.com")
@@ -156,31 +158,66 @@ class GameBattleTest {
 
 	@Test
 	fun shouldFireEverySalvoTogetherAndWaitForTheHitsToBePlaced() {
-		// Wayfarer 6 + 7 = 13 vs shields 2: 2 hits. Meridian with rockets 8 + 4 = 12: 1 hit; d6 3 holds.
+		// Wayfarer 6 + d6 6 = 12 vs shields 2: 1 hit. Meridian with rockets 5 + d6 4 = 9: 1 hit; d6 3 holds.
 		val fired = fireFirstRound()
 
 		val battle = fired.turn!!.battle!!
 		assertThat(battle.stage).isEqualTo(BattleStage.HITS)
 		assertThat(
 			battle.pendingHits
-		).containsExactly(PendingHits("Meridian", "grace@example.com", 2), PendingHits("Wayfarer", "ada@example.com", 1))
+		).containsExactly(PendingHits("Meridian", "grace@example.com", 1), PendingHits("Wayfarer", "ada@example.com", 1))
 		assertThat(fired.log.takeLast(3).map { it.text }).containsExactly(
 			"Battle at Tau Ceti, round 1",
-			"Salvo: Wayfarer → Meridian, 6 + 2d6 7 = 13 vs shields 2: 2 hits",
-			"Rocket salvo: Meridian → Wayfarer, 8 + 2d6 4 = 12 vs shields 2: 1 hit; d6 3: holds"
+			"Salvo: Wayfarer → Meridian, 6 + d6 6 = 12 vs shields 2: 1 hit",
+			"Rocket salvo: Meridian → Wayfarer, 5 + d6 4 = 9 vs shields 2: 1 hit; d6 3: holds"
 		)
+	}
+
+	@Test
+	fun shouldKeepWhatTheRoundsSalvosDidOnTheTurnUntilTheHitsArePlaced() {
+		// R75–R78: each salvo's outcome, for the players to be told; placing the hits settles it.
+		val fired = fireFirstRound()
+
+		assertThat(fired.turn!!.battleReport!!.results).containsExactly(
+			SalvoResult("Wayfarer", "ada@example.com", "Meridian", "grace@example.com", false, 1, SalvoOutcome.AWAITING_PLACEMENT),
+			SalvoResult("Meridian", "grace@example.com", "Wayfarer", "ada@example.com", true, 1, SalvoOutcome.AWAITING_PLACEMENT)
+		)
+		val placed = fired.placeBattleHits("grace@example.com", mapOf("Meridian" to HitPlacement(1, emptyList(), emptyMap())))
+		assertThat(placed.turn!!.battleReport!!.results.map { it.outcome })
+			.containsExactly(SalvoOutcome.PLACED, SalvoOutcome.AWAITING_PLACEMENT)
+	}
+
+	@Test
+	fun shouldKeepTheReportWhenTheLastShipsDestroyEachOtherAndTheBattleIsGone() {
+		// Both rocket salvos: 5 + d6 6 = 11 vs shields 2: 1 hit; d6 1 destroys each. Nobody is left to land.
+		val game = fighting
+			.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian", rockets = true)), FakeDice())
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer", rockets = true)), FakeDice.battle(6, 1, 6, 1))
+
+		assertThat(game.turn!!.battle).isNull()
+		assertThat(game.turn!!.battleReport!!.results.map { it.outcome }).containsOnly(SalvoOutcome.DESTROYED)
+	}
+
+	@Test
+	fun shouldRefuseRocketsFromAShipWithNoWorkingRocketModule() {
+		// R75: only modules fire rockets; Wayfarer's Light weapons are damaged.
+		val damaged = withShip(fighting, "Wayfarer") { it.copy(damagedModules = listOf(Module.LIGHT_WEAPONS)) }
+
+		assertThatThrownBy { damaged.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian", rockets = true)), FakeDice()) }
+			.isInstanceOf(InvalidBattleException::class.java)
+			.hasMessage("Wayfarer has no working rocket module, so it can't fire rockets.")
 	}
 
 	@Test
 	fun shouldStartTheNextRoundOnceEveryoneHasPlacedTheirHits() {
 		val placed = fireFirstRound()
-			.placeBattleHits("grace@example.com", mapOf("Meridian" to HitPlacement(0, listOf(ModuleHit(Module.CARGO, false, 2)), emptyMap())))
+			.placeBattleHits("grace@example.com", mapOf("Meridian" to HitPlacement(0, listOf(ModuleHit(Module.CARGO, false, 1)), emptyMap())))
 			.placeBattleHits("ada@example.com", mapOf("Wayfarer" to HitPlacement(1, emptyList(), emptyMap())))
 
 		val battle = placed.turn!!.battle!!
 		assertThat(battle.round).isEqualTo(2)
 		assertThat(battle.stage).isEqualTo(BattleStage.ORDERS)
-		assertThat(shipOf(placed, "Meridian").modules.count { it == Module.CARGO }).isEqualTo(3)
+		assertThat(shipOf(placed, "Meridian").damagedCount(Module.CARGO)).isEqualTo(1)
 		assertThat(shipOf(placed, "Wayfarer").hullDamage).isEqualTo(1)
 	}
 
@@ -230,10 +267,10 @@ class GameBattleTest {
 
 	@Test
 	fun shouldDestroyAShipWithARocketRollAtOrBelowTheHits() {
-		// Meridian's rockets: 8 + 9 = 17 vs shields 2: 2 hits; d6 2 destroys Wayfarer. Wayfarer still fires: 6 + 2 = 8, 1 hit.
+		// Wayfarer fires first: 6 + d6 2 = 8, 1 hit. Meridian's rockets: 5 + d6 6 = 11: 1 hit; d6 1 destroys Wayfarer, which still fired.
 		val game = fighting
 			.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), FakeDice())
-			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer", rockets = true)), FakeDice.battle(listOf(2, 9), listOf(2)))
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer", rockets = true)), FakeDice.battle(2, 6, 1))
 
 		assertThat(game.players.first { it.email == "ada@example.com" }.ship("Wayfarer")).isNull()
 		assertThat(game.log.map { it.text }).contains("Wayfarer is destroyed")
@@ -248,13 +285,13 @@ class GameBattleTest {
 
 	@Test
 	fun shouldDestroyAShipThatCannotAbsorbItsHits() {
-		// A bare Piccolo (shields 2, no modules) survives at most 2 hits; Meridian's 6 + 10 = 16 gives it 2, Lantern's... only one firer.
-		val piccolo = withShip(fighting, "Wayfarer") { it.copy(hull = Hull.PICCOLO, modules = emptyList()) }
+		// A bare Piccolo (shields 2, no modules) with 2 hull hits already can't survive another.
+		val piccolo = withShip(fighting, "Wayfarer") { it.copy(hull = Hull.PICCOLO, modules = emptyList(), hullDamage = 2) }
 		val game = piccolo
 			.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), FakeDice())
-			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), FakeDice.battle(listOf(2, 20), emptyList()))
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), FakeDice.battle(2, 1))
 
-		// Wayfarer: 2 + 2 = 4, no hits. Meridian: 6 + 20 = 26 vs shields 2: 4 hits, more than 2.
+		// Wayfarer: 2 + d6 2 = 4, no hits. Meridian: 6 + d6 1 = 7 vs shields 2: 1 hit, more than it can take.
 		assertThat(game.players.first { it.email == "ada@example.com" }.ship("Wayfarer")).isNull()
 		assertThat(game.turn!!.battle!!.stage).isEqualTo(BattleStage.LANDING)
 	}
@@ -262,7 +299,7 @@ class GameBattleTest {
 	@Test
 	fun shouldRefuseAnotherPlayersHits() {
 		assertThatThrownBy {
-			fireFirstRound().placeBattleHits("kim@example.com", mapOf("Meridian" to HitPlacement(2, emptyList(), emptyMap())))
+			fireFirstRound().placeBattleHits("kim@example.com", mapOf("Meridian" to HitPlacement(1, emptyList(), emptyMap())))
 		}.isInstanceOf(InvalidGameOperationException::class.java)
 	}
 
@@ -303,7 +340,7 @@ class GameBattleTest {
 		// Lantern 6 + 2 = 8 vs shields 2: 1 hit on Meridian; Meridian 6 + 2 = 8: 1 hit on Lantern.
 		val round2 = battle
 			.giveBattleOrders("ada@example.com", listOf(breakAway("Wayfarer"), fire("Lantern", "Meridian")), FakeDice())
-			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Lantern")), FakeDice.battle(listOf(2, 2), emptyList()))
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Lantern")), FakeDice.battle(2, 2))
 			.placeBattleHits("ada@example.com", mapOf("Lantern" to HitPlacement(1, emptyList(), emptyMap())))
 			.placeBattleHits("grace@example.com", mapOf("Meridian" to HitPlacement(1, emptyList(), emptyMap())))
 
@@ -346,7 +383,7 @@ class GameBattleTest {
 
 	private fun fireFirstRound(): Game = fighting
 		.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), FakeDice())
-		.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer", rockets = true)), FakeDice.battle(listOf(7, 4), listOf(3)))
+		.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer", rockets = true)), FakeDice.battle(6, 4, 3))
 
 	private fun fire(ship: String, target: String, rockets: Boolean = false) = BattleOrder(ship, BattleAction.FIRE, target, rockets)
 

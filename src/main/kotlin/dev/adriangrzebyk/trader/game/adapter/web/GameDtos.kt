@@ -92,7 +92,8 @@ data class GameResponseDto(
 				game.prices,
 				game.freeShipNames(),
 				game.turn?.interception,
-				game.turn?.battle
+				game.turn?.battle,
+				game.turn?.battleReport?.reportFor(it.email)?.let { report -> BattleReportResponseDto(report, ids) }
 			)
 		}
 	)
@@ -402,7 +403,8 @@ data class YouResponseDto(
 	val collect: CollectResponseDto?,
 	val invest: InvestResponseDto?,
 	val interception: YourInterceptionResponseDto?,
-	val battle: YourBattleResponseDto?
+	val battle: YourBattleResponseDto?,
+	val battleReport: BattleReportResponseDto?
 ) {
 
 	/**
@@ -410,7 +412,7 @@ data class YouResponseDto(
 	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
 	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
 	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs; [freeShipNames] the suggestions for a new
-	 * ship's name ([Game.freeShipNames]).
+	 * ship's name ([Game.freeShipNames]); [battleReport] the last battle round's salvos that concern [player].
 	 */
 	constructor(
 		id: String,
@@ -423,7 +425,8 @@ data class YouResponseDto(
 		prices: MarketPrices,
 		freeShipNames: List<String>,
 		interception: Interception?,
-		battle: Battle?
+		battle: Battle?,
+		battleReport: BattleReportResponseDto?
 	) : this(
 		id,
 		player.money,
@@ -437,7 +440,8 @@ data class YouResponseDto(
 		InvestResponseDto(player, prices, freeShipNames).takeIf { investing },
 		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
 		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
-			?.let { YourBattleResponseDto(it, player.email, id) }
+			?.let { YourBattleResponseDto(it, player.email, id) },
+		battleReport
 	)
 }
 

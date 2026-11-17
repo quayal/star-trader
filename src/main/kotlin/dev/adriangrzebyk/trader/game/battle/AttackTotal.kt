@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game.battle
 
-/** A salvo's weapons + 2d6 (R75), read against the battle table. */
+/** A salvo's weapons + d6 (R75; the creator's vault note said 2d6 by mistake, corrected 2026-11-17), read against the battle table. */
 @JvmInline
 value class AttackTotal(val value: Int) {
 

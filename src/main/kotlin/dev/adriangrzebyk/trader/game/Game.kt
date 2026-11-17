@@ -492,7 +492,7 @@ data class Game(
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		return copy(
-			turn = current.withBattle(Battle.start(system, fighting, interceptions)),
+			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions)),
 			log = log + LogEntry(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
 		)
 	}
@@ -505,6 +505,7 @@ data class Game(
 		playerOf(email)
 		val current = runningTurn()
 		val battle = current.battleNow().giveOrders(email, orders)
+		orders.filter { it.rockets }.forEach { shipNamed(it.ship).checkCanFireRockets() }
 		val game = copy(turn = current.withBattle(battle))
 		return if (battle.isRoundOrdered()) game.withRoundFired(battle, dice) else game
 	}
@@ -522,7 +523,7 @@ data class Game(
 		val round = battle.fired(salvos, battle.fightingShips().associateWith { shipNamed(it).hitsSurvivable() })
 		return copy(
 			players = players.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
-			turn = current.withBattle(round.battle),
+			turn = current.withBattleRound(round.battle, round.report),
 			log = log + round.log.map { LogEntry(current.number, it) }
 		).withBattleMovedOn()
 	}
@@ -540,7 +541,7 @@ data class Game(
 		val destroyed = pending.map { it.ship }.filter { hit.ship(it) == null }.toSet()
 		return copy(
 			players = replace(hit),
-			turn = current.withBattle(battle.hitsPlaced(email, destroyed)),
+			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
 			log = log + destroyed.map { LogEntry(current.number, "$it is destroyed") }
 		).withBattleMovedOn()
 	}

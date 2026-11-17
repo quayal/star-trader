@@ -9,8 +9,10 @@ import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleAction
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
+import dev.adriangrzebyk.trader.game.battle.SalvoResult
 import dev.adriangrzebyk.trader.trading.Goods
 import java.math.BigDecimal
 
@@ -137,6 +139,42 @@ data class YourBattleResponseDto(
 		battle.ordersOf(viewerEmail).map { BattleOrderResponseDto(it) },
 		battle.pendingHits.filter { it.ownerEmail == viewerEmail }.map { PendingHitsResponseDto(it.ship, viewerId, it.hits) },
 		battle.shipsToLand(viewerEmail)
+	)
+}
+
+/**
+ * What the last battle round's salvos did to and from the viewer's ships (R75–R78): round [round] at [system], one
+ * result per salvo, each with its [SalvoResultResponseDto.outcome]. The browser words it.
+ */
+data class BattleReportResponseDto(val system: String, val systemName: String, val round: Int, val results: List<SalvoResultResponseDto>) {
+
+	constructor(report: BattleReport, ids: PlayerIds) : this(
+		report.system.name,
+		report.system.displayName,
+		report.round,
+		report.results.map { SalvoResultResponseDto(it, ids) }
+	)
+}
+
+/** One salvo's result (R75, R76); [outcome] is a [dev.adriangrzebyk.trader.game.battle.SalvoOutcome] name. */
+data class SalvoResultResponseDto(
+	val firer: String,
+	val firerOwnerId: String,
+	val target: String,
+	val targetOwnerId: String,
+	val rockets: Boolean,
+	val hits: Int,
+	val outcome: String
+) {
+
+	constructor(result: SalvoResult, ids: PlayerIds) : this(
+		result.firer,
+		ids.of(result.firerOwnerEmail),
+		result.target,
+		ids.of(result.targetOwnerEmail),
+		result.rockets,
+		result.hits,
+		result.outcome.name
 	)
 }
 

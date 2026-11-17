@@ -108,7 +108,7 @@ data class Battle(
 	/**
 	 * This round once its [salvos] have landed (R74–R77): the ships breaking away leave; a rocket kill, or more hits than
 	 * [hitsSurvivable] says a ship can absorb (by ship name), destroys it; the rest of the hits wait for their owners to
-	 * place them. The round's public log lines (R78) come with it.
+	 * place them. The round's public log lines (R78) and its report to the players come with it.
 	 */
 	fun fired(salvos: List<Salvo>, hitsSurvivable: Map<String, Int>): FiredRound {
 		val leaving = breakingAway()
@@ -119,7 +119,12 @@ data class Battle(
 		val pending = hitsByShip.filterKeys { it !in destroyed }.map { (ship, hits) -> PendingHits(ship, ownerOf(ship), hits) }
 		val log = listOf("Battle at ${system.displayName}, round $round") +
 			leaving.map { "$it breaks away" } + salvos.map { it.log() } + destroyed.map { "$it is destroyed" }
-		return FiredRound(afterSalvos(leaving.toSet(), destroyed, pending), destroyed, log)
+		val report = BattleReport(
+			system,
+			round,
+			salvos.map { SalvoResult.of(it, ownerOf(it.firer), ownerOf(it.target), destroyed) }
+		)
+		return FiredRound(afterSalvos(leaving.toSet(), destroyed, pending), destroyed, log, report)
 	}
 
 	/**
@@ -223,8 +228,11 @@ data class BattleOrder(val ship: String, val action: BattleAction, val target: S
 	fun targetShip(): String = checkNotNull(target) { "$ship's order isn't to fire" }
 }
 
-/** A battle round once its salvos have landed (R74–R78): the [battle] after it, the ships it [destroyed], its public [log]. */
-data class FiredRound(val battle: Battle, val destroyed: Set<String>, val log: List<String>)
+/**
+ * A battle round once its salvos have landed (R74–R78): the [battle] after it, the ships it [destroyed], its public [log]
+ * and the [report] each player is shown.
+ */
+data class FiredRound(val battle: Battle, val destroyed: Set<String>, val log: List<String>, val report: BattleReport)
 
 /** A ship's order in a battle round (R74). */
 enum class BattleAction { FIRE, BREAK_AWAY }

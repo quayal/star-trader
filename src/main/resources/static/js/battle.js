@@ -104,7 +104,7 @@ export function battleShipRows(game) {
 		owner: corporation(game, ship.ownerId),
 		ownerId: ship.ownerId,
 		hull: `${ship.hull.name}, hull ${ship.hullDamage} / ${ship.stats.shields} hit`,
-		stats: `weapons ${ship.stats.weapons} (rockets ${ship.stats.weapons - weaponsWithoutRockets(ship) + rocketPower(ship)}), shields ${ship.stats.shields}, intercept ${ship.stats.intercept}, crew ${ship.crewClass}`,
+		stats: `weapons ${ship.stats.weapons}, rockets ${ship.stats.rocketWeapons}, shields ${ship.stats.shields}, intercept ${ship.stats.intercept}, crew ${ship.crewClass}`,
 		modules: ship.modules.map(module => `${module.name} × ${module.count}${module.damaged ? ` (${module.damaged} damaged)` : ''}`).join(', ') || 'no modules',
 		note: left ? 'broke away' : ship.interceptedBy?.length ? `intercepted by ${ship.interceptedBy.join(' and ')}` : '',
 	});
@@ -115,21 +115,17 @@ function working(module) {
 	return module.count - module.damaged;
 }
 
-/** The weapons a ship's working modules with a rocket value add, which rockets replace (R75). */
-function weaponsWithoutRockets(ship) {
-	return ship.modules.filter(module => module.rocketWeapons > 0).reduce((sum, module) => sum + working(module) * module.weapons, 0);
-}
-
-function rocketPower(ship) {
-	return ship.modules.reduce((sum, module) => sum + working(module) * module.rocketWeapons, 0);
-}
-
 /** R74: the ships [playerId]'s ships may fire at: every other player's ship still fighting. */
 export function targets(game, playerId) {
 	return (game.turn?.battle?.ships ?? []).filter(ship => ship.ownerId !== playerId).map(ship => ({
 		name: ship.name,
 		label: `${ship.name} (${corporation(game, ship.ownerId)})`,
 	}));
+}
+
+/** R75: whether [shipName] may fire rockets: only its working modules' rocket values count, so it needs one. */
+export function canFireRockets(game, shipName) {
+	return (game.turn?.battle?.ships.find(ship => ship.name === shipName)?.stats.rocketWeapons ?? 0) > 0;
 }
 
 /** R74: whether the viewer's [shipName] may break away: nothing that intercepted it still fights. */
@@ -207,4 +203,65 @@ export const HIT_RULES = 'A working module: 1 hit damages it, 2 destroy it. A da
 /** "3 hits to place" for a ship, or "1 hit to place". */
 export function hitsText(hits) {
 	return hits === 1 ? '1 hit to place' : `${hits} hits to place`;
+}
+
+export const REPORT_BUTTON = 'OK';
+
+/** The battle report dialog's heading: "Battle at Tau Ceti — round 1 results", or "" with no report. */
+export function reportTitle(game) {
+	const report = game.you?.battleReport;
+	return report ? `Battle at ${report.systemName} — round ${report.round} results` : '';
+}
+
+/**
+ * R75–R78: what the last round's salvos did to and from the viewer's ships, one line each, worded from the outcome the
+ * server decided: `{ key, text }`. The key identifies the line for "already seen"; a line about the viewer's own ship
+ * reads the same whether or not they've placed its hits yet, so placing them doesn't bring it back.
+ */
+export function reportLines(game, playerId) {
+	const report = game.you?.battleReport;
+	if (!report) {
+		return [];
+	}
+	const firers = new Set(report.results.filter(result => result.firerOwnerId === playerId).map(result => result.firer));
+	return report.results.map(result => {
+		const text = result.firerOwnerId === playerId
+			? `${firers.size > 1 ? `${result.firer}: ` : ''}${firedText(game, result)}`
+			: takenText(game, result);
+		return { key: `${game.id}/${game.turn?.number}/${report.system}/${report.round}/${text}`, text };
+	});
+}
+
+function damage(result) {
+	return `${result.rockets ? ' with rockets' : ''} for ${result.hits} damage`;
+}
+
+function firedText(game, result) {
+	const owner = corporation(game, result.targetOwnerId);
+	switch (result.outcome) {
+	case 'BROKE_AWAY':
+		return `You fired at ${result.target}, but it broke away.`;
+	case 'NO_DAMAGE':
+		return `You fired${result.rockets ? ' rockets' : ''} at ${result.target}: no damage.`;
+	case 'AWAITING_PLACEMENT':
+		return `You hit ${result.target}${damage(result)}, wait for ${owner} to apply damage to ship.`;
+	case 'PLACED':
+		return `You hit ${result.target}${damage(result)}, ${owner} applied the damage.`;
+	default:
+		return `You hit ${result.target}${damage(result)}, ship destroyed.`;
+	}
+}
+
+function takenText(game, result) {
+	const firer = `${result.firer} (${corporation(game, result.firerOwnerId)})`;
+	switch (result.outcome) {
+	case 'BROKE_AWAY':
+		return `${firer} fired at your ${result.target}, but it broke away.`;
+	case 'NO_DAMAGE':
+		return `${firer} fired${result.rockets ? ' rockets' : ''} at your ${result.target}: no damage.`;
+	case 'DESTROYED':
+		return `${firer} hit your ${result.target}${damage(result)}, ship destroyed.`;
+	default:
+		return `${firer} hit your ${result.target}${damage(result)}.`;
+	}
 }

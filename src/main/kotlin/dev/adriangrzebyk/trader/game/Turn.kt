@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -23,7 +24,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * everyone can see who the game is waiting for (D09), and empty outside Investment. [collected] lists, in confirm order,
  * the players with factories who have confirmed where this turn's output goes (R47, E06-S03-5); public like
  * [doneInvesting], and empty outside Investment. [interception] is the arrival other players decide whether to intercept
- * (R70), and [battle] the battle it started (R73); while either is set, nobody jumps or lands.
+ * (R70), and [battle] the battle it started (R73); while either is set, nobody jumps or lands. [battleReport] is what
+ * the last battle round's salvos did (R75–R78), kept until the next round fires or a new battle starts, so it outlives
+ * the battle.
  */
 data class Turn(
 	val number: Int,
@@ -42,7 +45,8 @@ data class Turn(
 	val doneInvesting: List<String>,
 	val collected: List<String>,
 	val interception: Interception?,
-	val battle: Battle?
+	val battle: Battle?,
+	val battleReport: BattleReport?
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -203,6 +207,16 @@ data class Turn(
 
 	/** This turn with [changed] as its battle, or none. */
 	fun withBattle(changed: Battle?): Turn = copy(battle = changed)
+
+	/** This turn with [started] as its battle and no report from an earlier one (R73). */
+	fun withBattleStarted(started: Battle): Turn = copy(battle = started, battleReport = null)
+
+	/** This turn once a battle round fired (R74–R78): [changed] is the battle after it, [report] what its salvos did. */
+	fun withBattleRound(changed: Battle, report: BattleReport): Turn = copy(battle = changed, battleReport = report)
+
+	/** This turn with [changed] as its battle once [ships]' hits were placed, destroying those in [destroyed] (R76). */
+	fun withHitsPlaced(changed: Battle, ships: Set<String>, destroyed: Set<String>): Turn =
+		copy(battle = changed, battleReport = battleReport?.hitsPlaced(ships, destroyed))
 
 	/** This turn after [ships] tried to intercept (R72): like a jump, it's their move for the turn. */
 	fun recordInterceptors(ships: List<String>): Turn = copy(jumpedShips = jumpedShips + ships.filterNot { it in jumpedShips })
@@ -418,6 +432,7 @@ data class Turn(
 			null,
 			emptyList(),
 			emptyList(),
+			null,
 			null,
 			null
 		)
