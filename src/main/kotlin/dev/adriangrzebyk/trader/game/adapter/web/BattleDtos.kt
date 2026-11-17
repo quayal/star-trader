@@ -1,17 +1,16 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.game.Battle
-import dev.adriangrzebyk.trader.game.BattleAction
-import dev.adriangrzebyk.trader.game.BattleOrder
-import dev.adriangrzebyk.trader.game.BattleStage
 import dev.adriangrzebyk.trader.game.HitPlacement
-import dev.adriangrzebyk.trader.game.Interception
-import dev.adriangrzebyk.trader.game.InvalidBattleException
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.ModuleHit
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleAction
+import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.trading.Goods
 import java.math.BigDecimal
 
@@ -137,7 +136,7 @@ data class YourBattleResponseDto(
 		battle.fightingShipsOf(viewerEmail).filter { battle.canBreakAway(it) },
 		battle.ordersOf(viewerEmail).map { BattleOrderResponseDto(it) },
 		battle.pendingHits.filter { it.ownerEmail == viewerEmail }.map { PendingHitsResponseDto(it.ship, viewerId, it.hits) },
-		battle.survivorsOf(viewerEmail).takeIf { battle.stage == BattleStage.LANDING && viewerEmail !in battle.done }.orEmpty()
+		battle.shipsToLand(viewerEmail)
 	)
 }
 

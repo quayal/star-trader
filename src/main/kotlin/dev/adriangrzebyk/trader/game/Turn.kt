@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem

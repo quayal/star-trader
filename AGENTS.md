@@ -14,6 +14,8 @@ Product direction, confirmed decisions, business rules and open risks live in `.
 
 Engineering standards and architecture conventions (package structure, hexagonal/DDD boundaries, testing rules) live in `.ai/engineering-standards.md` — read it before writing or restructuring any code. Two Kotlin style rules there (§5) are enforced by ktlint, so `./gradlew check` fails on them: no trailing commas, and a function that works on one of our types is a method of that type's class, with domain↔adapter mapping as constructors or methods of the adapter-side class (`GameResponseDto(game, viewerEmail)`). No extensions on our own types, and no Kotlin `object` used as a namespace for functions; a function no class owns may be top-level. ktlint catches most of this and review catches the rest. Likewise (§8), each class owns the rules about its own data: `Game` and the services coordinate by calling methods on `Ship`, `Player`, `Turn`, `Offer` and so on, never reaching inside them. `x.copy(…)` outside `x`'s own class fails ktlint. The project's own ktlint rules live in `ktlint-rules/`.
 
+Before writing or changing code, follow the `trader-implement` skill (`.claude/skills/trader-implement/SKILL.md`): it places each rule in the class that owns its data and ends with a diff audit against the standards that must run before a commit. The `om-*` implementation skills pick it up through `.ai/skills/`.
+
 The frontend design system (tokens, shared CSS classes, what to avoid) is summarized in `docs/design-system.md` — read it before building or restyling any screen. Color literals belong only in `static/css/tokens.css`; `./gradlew check` fails otherwise.
 
 ## Working practices

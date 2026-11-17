@@ -1,8 +1,5 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.game.Battle
-import dev.adriangrzebyk.trader.game.BattleInterception
-import dev.adriangrzebyk.trader.game.BattleShip
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -17,6 +14,9 @@ import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
+import dev.adriangrzebyk.trader.game.battle.BattleShip
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import dev.adriangrzebyk.trader.login.adapter.dynamodb.sessionItemId

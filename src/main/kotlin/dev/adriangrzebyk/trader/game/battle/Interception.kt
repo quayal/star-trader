@@ -1,5 +1,6 @@
-package dev.adriangrzebyk.trader.game
+package dev.adriangrzebyk.trader.game.battle
 
+import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**

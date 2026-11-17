@@ -1,5 +1,13 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
+import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.BattleShip
+import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
+import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
+import dev.adriangrzebyk.trader.game.battle.Salvo
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -507,22 +515,15 @@ data class Game(
 	 */
 	private fun withRoundFired(battle: Battle, dice: Dice): Game {
 		val current = runningTurn()
-		val leaving = battle.breakingAway().toSet()
 		val salvos = battle.fireOrders().map { order ->
-			val target = checkNotNull(order.target)
-			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, target in leaving, dice)
+			val target = order.targetShip()
+			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, battle.isBreakingAway(target), dice)
 		}
-		val rocketKills = salvos.filter { it.destroysTarget() }.map { it.target }.toSet()
-		val hitsByShip = salvos.filter { it.hits > 0 }.groupBy { it.target }.mapValues { (_, hits) -> hits.sumOf { it.hits } }
-		val overwhelmed = hitsByShip.filter { (ship, hits) -> ship !in rocketKills && hits > shipNamed(ship).hitsSurvivable() }.keys
-		val destroyed = rocketKills + overwhelmed
-		val pending = hitsByShip.filterKeys { it !in destroyed }.map { (ship, hits) -> PendingHits(ship, battle.ownerOf(ship), hits) }
-		val events = listOf("Battle at ${battle.system.displayName}, round ${battle.round}") +
-			leaving.map { "$it breaks away" } + salvos.map { it.log() } + destroyed.map { "$it is destroyed" }
+		val round = battle.fired(salvos, battle.fightingShips().associateWith { shipNamed(it).hitsSurvivable() })
 		return copy(
-			players = players.map { player -> destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
-			turn = current.withBattle(battle.afterSalvos(destroyed, pending)),
-			log = log + events.map { LogEntry(current.number, it) }
+			players = players.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
+			turn = current.withBattle(round.battle),
+			log = log + round.log.map { LogEntry(current.number, it) }
 		).withBattleMovedOn()
 	}
 
@@ -534,10 +535,7 @@ data class Game(
 		val player = playerOf(email)
 		val current = runningTurn()
 		val battle = current.battleNow()
-		val pending = battle.pendingHitsOf(email)
-		if (placements.keys != pending.map { it.ship }.toSet()) {
-			throw InvalidBattleException("Place the hits on each of your ships that took them: ${pending.joinToString(", ") { it.ship }}.")
-		}
+		val pending = battle.hitsToPlace(email, placements.keys)
 		val hit = pending.fold(player) { owner, hits -> owner.takeHits(hits.ship, hits.hits, placements.getValue(hits.ship)) }
 		val destroyed = pending.map { it.ship }.filter { hit.ship(it) == null }.toSet()
 		return copy(
@@ -555,11 +553,8 @@ data class Game(
 		val player = playerOf(email)
 		val current = runningTurn()
 		val battle = current.battleNow()
-		val landed = battle.landedBy(email)
+		val landed = battle.landedBy(email, locations.keys)
 		val survivors = battle.survivorsOf(email)
-		if (locations.keys != survivors.toSet()) {
-			throw InvalidBattleException("Choose where each of your ships from the battle ends up: ${survivors.joinToString(", ")}.")
-		}
 		val placed = locations.entries.fold(player) { owner, (ship, location) -> owner.landShip(ship, location) }
 		val events = survivors.map { "Landing: ${player.corporationName} — ${checkNotNull(placed.ship(it)).landingLog()}" }
 		return copy(
@@ -576,8 +571,13 @@ data class Game(
 	private fun withBattleMovedOn(): Game {
 		val current = runningTurn()
 		val battle = checkNotNull(current.battle)
-		val over = battle.stage == BattleStage.LANDING && battle.done.isEmpty()
-		val events = if (over) listOf(LogEntry(current.number, "The battle at ${battle.system.displayName} is over")) else emptyList()
+		val events = if (battle.isJustOver()) {
+			listOf(
+				LogEntry(current.number, "The battle at ${battle.system.displayName} is over")
+			)
+		} else {
+			emptyList()
+		}
 		if (!battle.isFinished()) {
 			return copy(log = log + events)
 		}

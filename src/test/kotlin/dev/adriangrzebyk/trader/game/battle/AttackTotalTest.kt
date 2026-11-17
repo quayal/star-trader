@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.game
+package dev.adriangrzebyk.trader.game.battle
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest

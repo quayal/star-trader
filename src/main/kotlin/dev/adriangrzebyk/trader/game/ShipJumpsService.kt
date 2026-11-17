@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.game.battle.BattleOrder
 import dev.adriangrzebyk.trader.trading.StarSystem
 
 class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice) {

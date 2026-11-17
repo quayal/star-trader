@@ -1,7 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
-import dev.adriangrzebyk.trader.game.Battle
 import dev.adriangrzebyk.trader.game.CargoDestination
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
@@ -9,7 +8,6 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
-import dev.adriangrzebyk.trader.game.Interception
 import dev.adriangrzebyk.trader.game.JumpChance
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -29,6 +27,8 @@ import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -618,13 +618,16 @@ data class InvestFactoryResponseDto(
 	val unitCost: Int
 ) {
 
-	constructor(player: Player, system: StarSystem, goods: Goods, prices: MarketPrices) : this(
+	constructor(player: Player, system: StarSystem, goods: Goods, prices: MarketPrices) :
+		this(player, system, goods, prices.priceOf(MarketGood(system, goods)))
+
+	private constructor(player: Player, system: StarSystem, goods: Goods, price: Int) : this(
 		system.name,
 		system.displayName,
 		goods.name,
-		player.factories.firstOrNull { it.system == system && it.goods == goods }?.size ?: 0,
-		prices.priceOf(MarketGood(system, goods)),
-		ProductionCost(prices.priceOf(MarketGood(system, goods))).perUnit()
+		player.factoryAt(system, goods)?.size ?: 0,
+		price,
+		ProductionCost(price).perUnit()
 	)
 }
 

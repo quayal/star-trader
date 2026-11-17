@@ -1,7 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.GameNotFoundException
-import dev.adriangrzebyk.trader.game.InvalidBattleException
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidCargoMoveException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
@@ -17,6 +16,7 @@ import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.NotYourTurnException
 import dev.adriangrzebyk.trader.game.PhaseClosedException
+import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler

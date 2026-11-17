@@ -9,6 +9,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  */
 data class Factory(val system: StarSystem, val goods: Goods, val size: Int) {
 
+	/** Whether this is the factory for [goods] at [system]. */
+	fun isFor(system: StarSystem, goods: Goods): Boolean = this.system == system && this.goods == goods
+
 	/** This factory with [units] more units a turn (R46): there is no cap. */
 	fun addUnits(units: Int): Factory = copy(size = size + units)
 

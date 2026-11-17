@@ -153,6 +153,9 @@ data class Player(
 		}
 	}
 
+	/** This player's factory for [goods] at [system], if they have one (R46). */
+	fun factoryAt(system: StarSystem, goods: Goods): Factory? = factories.firstOrNull { it.isFor(system, goods) }
+
 	/** Whether this player has a factory, so they collect output at the start of Investment (R47, E06-S03-6). */
 	fun hasFactories(): Boolean = factories.isNotEmpty()
 
@@ -168,7 +171,7 @@ data class Player(
 			throw InvalidCollectException("Enter a whole number of units, 0 or more, for each destination.")
 		}
 		placements.groupBy { it.system to it.goods }.forEach { (key, group) ->
-			val factory = factories.firstOrNull { it.system == key.first && it.goods == key.second }
+			val factory = factoryAt(key.first, key.second)
 				?: throw InvalidCollectException("You have no ${key.second.name} factory at ${key.first.displayName}.")
 			if (group.sumOf { it.units } > factory.size) {
 				throw InvalidCollectException("Your ${factory.goods.name} factory at ${factory.system.displayName} makes ${factory.size} units.")
@@ -229,7 +232,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("$units ${if (units == 1) "unit costs" else "units cost"} $cost HT; you have $money HT.")
 		}
-		val factory = factories.firstOrNull { it.system == system && it.goods == goods }?.addUnits(units) ?: Factory(system, goods, units)
+		val factory = factoryAt(system, goods)?.addUnits(units) ?: Factory(system, goods, units)
 		return pay(cost.toInt()).withFactory(factory)
 	}
 
@@ -331,7 +334,7 @@ data class Player(
 
 	/** This player with [factory] in place of their factory for that good at that system, or added when they had none. */
 	private fun withFactory(factory: Factory): Player {
-		val others = factories.filterNot { it.system == factory.system && it.goods == factory.goods }
+		val others = factories.filterNot { it.isFor(factory.system, factory.goods) }
 		return copy(factories = others + factory)
 	}
 

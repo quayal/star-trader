@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
-import dev.adriangrzebyk.trader.game.Interception
-import dev.adriangrzebyk.trader.game.InterceptionAnswer
+import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
