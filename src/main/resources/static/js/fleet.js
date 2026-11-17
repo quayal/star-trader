@@ -10,7 +10,7 @@ export const MILITARY_LABEL = 'Military: illegal to possess';
 export const AERODYNAMIC_LABEL = 'Aerodynamic: easier landing';
 export const MODULE_COLUMNS = ['Module', 'Fitted', 'Weapons', 'Rockets', 'Crew', 'Cargo', 'Passengers'];
 
-const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'in Space' };
+const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'in Space', SHIPYARD: 'in the shipyard' };
 const CARGO_ORDER = ['POLY', 'ISO', 'CHIPS', 'FOOD'];
 
 /** R56: the labels of a hull or module, each a sentence, so a flag is never a colour alone (S03-4). */
@@ -43,6 +43,7 @@ export function statRows(ship) {
 		{ label: 'Crew needed', value: String(stats.crewNeeded) },
 		{ label: 'Passengers', value: String(stats.passengers) },
 		{ label: 'Modules', value: `${stats.modulesUsed} / ${stats.moduleCapacity}` },
+		...(ship.crewClass ? [{ label: 'Crew class', value: ship.crewClass }] : []),
 	];
 }
 
@@ -67,7 +68,8 @@ export function fleetShips(game, myId) {
 		return {
 			name: ship.name,
 			systemId: ship.system,
-			where: whereText(ship),
+			// E09-S06-3: a ship in the yard says when it leaves it.
+			where: own.leavesYardOnTurn ? `${ship.systemName} · in the shipyard, leaves it in turn ${own.leavesYardOnTurn}’s Investment` : whereText(ship),
 			hull: { name: own.hull.name, flags: flagLabels(own.hull) },
 			modules: moduleRows(own.modules),
 			stats: statRows(own),

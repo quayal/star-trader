@@ -54,6 +54,18 @@ const game = {
 };
 
 describe('fleetShips', () => {
+	it('says when a ship in the yard leaves it, and shows its crew class (E09-S06-3, R67)', () => {
+		const yard = {
+			players: [{ id: 'ada', ships: [{ name: 'Spiral', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'SHIPYARD' }] }],
+			you: { ships: [{ ...wayfarer, name: 'Spiral', crewClass: 'D', leavesYardOnTurn: 3 }] },
+		};
+
+		const [spiral] = fleetShips(yard, 'ada');
+
+		assert.equal(spiral.where, 'Tau Ceti · in the shipyard, leaves it in turn 3’s Investment');
+		assert.deepEqual(spiral.stats.at(-1), { label: 'Crew class', value: 'D' });
+	});
+
 	it('lists only my ships, each with its hull, modules, stats, position and cargo (S03-2, S03-3, S03-5)', () => {
 		const ships = fleetShips(game, 'ada');
 

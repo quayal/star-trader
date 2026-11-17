@@ -1,0 +1,188 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+	LATE_BUY_WARNING,
+	NAME_ERROR,
+	fitCheck,
+	lateBuyWarning,
+	moduleList,
+	refitOptions,
+	saleConfirmText,
+	saleOutcome,
+	shipCost,
+	soldText,
+	suggestName,
+	validateShipName,
+} from '../../main/resources/static/js/shipyard.js';
+
+const SHIPYARD = {
+	shipyards: [{ system: 'TAU_CETI', systemName: 'Tau Ceti' }],
+	hulls: [
+		{ id: 'CLARINET', name: 'Clarinet', price: 160, moduleCapacity: 5, crew: 1, cargoSpaces: 0, aerodynamic: false },
+		{ id: 'CORCO_GAMMA', name: 'Corco Gamma', price: 80, moduleCapacity: 2, crew: 1, cargoSpaces: 0, aerodynamic: true },
+		{ id: 'LEVIATHAN', name: 'Leviathan', price: 250, moduleCapacity: 18, crew: 4, cargoSpaces: 6, aerodynamic: false },
+	],
+	modules: [
+		{ id: 'SAFE_JUMP', name: 'Safe jump', price: 10, crew: 0, cargoSpaces: 0, weapons: 0, passengers: 0, takesModuleCapacity: false },
+		{ id: 'CARGO', name: 'Cargo', price: 4, crew: 0, cargoSpaces: 2, weapons: 0, passengers: 0, takesModuleCapacity: true },
+		{ id: 'LIGHT_WEAPONS', name: 'Light weapons', price: 17, crew: 0, cargoSpaces: 0, weapons: 3, passengers: 0, takesModuleCapacity: true },
+		{ id: 'PASSENGER', name: 'Passenger', price: 15, crew: 1, cargoSpaces: 0, weapons: 0, passengers: 2, takesModuleCapacity: true },
+	],
+	crewClasses: [{ id: 'A', pricePerCrew: 20 }, { id: 'B', pricePerCrew: 10 }, { id: 'C', pricePerCrew: 6 }, { id: 'D', pricePerCrew: 2 }],
+	freeNames: ['Spiral', 'Coral', 'Knight'],
+};
+
+const STARTING = { CARGO: '4', LIGHT_WEAPONS: '1', SAFE_JUMP: '1' };
+
+function game({ cargo = {}, warehouse = null, turn = 3, turns = 20 } = {}) {
+	return {
+		turns,
+		turn: { number: turn, phase: 'INVESTMENT' },
+		players: [
+			{ id: 'me', ships: [{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' }] },
+			{ id: 'other', ships: [{ name: 'Meridian', system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis', location: 'PORT' }] },
+		],
+		you: {
+			money: 300,
+			ships: [{ name: 'Wayfarer', cargo, saleValue: 101 }],
+			warehouses: warehouse ? [warehouse] : [],
+			invest: { shipyard: SHIPYARD },
+		},
+	};
+}
+
+describe('shipCost', () => {
+	it('adds the hull, every module and the crew at its class (R61)', () => {
+		const cost = shipCost(SHIPYARD, 'CLARINET', STARTING, 'B');
+		assert.equal(cost.total, 213);
+		assert.equal(cost.text, 'Hull 160 + modules 43 + crew 1 × 10 = 213 HT');
+	});
+
+	it('counts the crew of the hull and of every module', () => {
+		const cost = shipCost(SHIPYARD, 'LEVIATHAN', { PASSENGER: '7' }, 'A');
+		assert.equal(cost.crewCount, 11);
+		assert.equal(cost.total, 250 + 105 + 220);
+	});
+
+	it('is null for a hull or class the shipyard does not sell', () => {
+		assert.equal(shipCost(SHIPYARD, 'SWORD', {}, 'B'), null);
+		assert.equal(shipCost(SHIPYARD, 'CLARINET', {}, 'Z'), null);
+	});
+});
+
+describe('fitCheck', () => {
+	it('counts every module but Safe jump against the hull (R52)', () => {
+		assert.deepEqual(fitCheck(SHIPYARD, 'CLARINET', STARTING), { used: 5, capacity: 5, error: null });
+	});
+
+	it('refuses more modules than the hull holds, and a second Safe jump', () => {
+		assert.equal(fitCheck(SHIPYARD, 'CORCO_GAMMA', { CARGO: '3' }).error, 'A Corco Gamma holds 2 modules, not 3.');
+		assert.equal(fitCheck(SHIPYARD, 'CLARINET', { SAFE_JUMP: '2' }).error, 'A ship has at most one Safe jump module.');
+	});
+
+	it('refuses a count that is not a whole number of 0 or more', () => {
+		assert.equal(fitCheck(SHIPYARD, 'CLARINET', { CARGO: '1.5' }).error, 'Enter a whole number of each module, 0 or more.');
+		assert.equal(fitCheck(SHIPYARD, 'CLARINET', { CARGO: '-1' }).error, 'Enter a whole number of each module, 0 or more.');
+	});
+});
+
+describe('moduleList', () => {
+	it('sends one id per unit, in the shipyard order', () => {
+		assert.deepEqual(moduleList(SHIPYARD, STARTING), ['SAFE_JUMP', 'CARGO', 'CARGO', 'CARGO', 'CARGO', 'LIGHT_WEAPONS']);
+	});
+});
+
+describe('validateShipName', () => {
+	it('trims the name and refuses an empty or too long one (R62)', () => {
+		assert.deepEqual(validateShipName(game(), '  Sea Wolf '), { name: 'Sea Wolf' });
+		assert.equal(validateShipName(game(), '   ').error, NAME_ERROR);
+		assert.equal(validateShipName(game(), 'A'.repeat(21)).error, NAME_ERROR);
+	});
+
+	it('refuses a name any ship in the game has, ignoring case', () => {
+		assert.equal(validateShipName(game(), 'meridian').error, "There's already a ship called meridian in this game.");
+	});
+});
+
+describe('suggestName', () => {
+	it('picks a free name other than the one in the field', () => {
+		assert.equal(suggestName(SHIPYARD, 'Spiral', () => 0), 'Coral');
+		assert.equal(suggestName(SHIPYARD, '', () => 0.99), 'Knight');
+	});
+
+	it('is null once every suggestion is taken', () => {
+		assert.equal(suggestName({ ...SHIPYARD, freeNames: [] }, ''), null);
+	});
+});
+
+describe('lateBuyWarning', () => {
+	it('warns in the last two turns, when the ship would never jump (R39, R63)', () => {
+		assert.equal(lateBuyWarning(game({ turn: 18, turns: 20 })), '');
+		assert.equal(lateBuyWarning(game({ turn: 19, turns: 20 })), LATE_BUY_WARNING);
+		assert.equal(lateBuyWarning(game({ turn: 20, turns: 20 })), LATE_BUY_WARNING);
+	});
+});
+
+describe('selling a ship (R66)', () => {
+	const warehouse = { system: 'TAU_CETI', cargoSpaces: 10, cargoUsed: 4, cargo: { POLY: 4 } };
+
+	it('stores what fits in the warehouse there, in goods order, and loses the rest, as the server does', () => {
+		const outcome = saleOutcome(game({ cargo: { FOOD: 9, ISO: 7, POLY: 2 }, warehouse }), 'me', 'Wayfarer');
+		assert.deepEqual(outcome.stored, [{ goods: 'FOOD', units: 9 }, { goods: 'ISO', units: 6 }]);
+		assert.deepEqual(outcome.lost, [{ goods: 'ISO', units: 1 }, { goods: 'POLY', units: 2 }]);
+	});
+
+	it('loses all of it without a warehouse there', () => {
+		const outcome = saleOutcome(game({ cargo: { ISO: 3 } }), 'me', 'Wayfarer');
+		assert.deepEqual(outcome.stored, []);
+		assert.deepEqual(outcome.lost, [{ goods: 'ISO', units: 3 }]);
+	});
+
+	it('names the price and every unit that moves or is lost before and after', () => {
+		const loaded = game({ cargo: { ISO: 7, POLY: 2 }, warehouse });
+		assert.equal(saleConfirmText(loaded, 'me', loaded.you.ships[0]),
+			'Sell Wayfarer for 101 HT? 6 ISO go to your warehouse at Tau Ceti. 1 ISO, 2 POLY are lost.');
+		assert.equal(soldText(saleOutcome(loaded, 'me', 'Wayfarer'), 'Wayfarer', 101),
+			'Sold Wayfarer for 101 HT. 6 ISO went to your warehouse at Tau Ceti. 1 ISO, 2 POLY were lost.');
+	});
+
+	it('says only the price for an empty ship', () => {
+		const empty = game();
+		assert.equal(saleConfirmText(empty, 'me', empty.you.ships[0]), 'Sell Wayfarer for 101 HT?');
+	});
+
+	it('says the cargo is lost with the ship when there is no warehouse', () => {
+		const loaded = game({ cargo: { ISO: 1 } });
+		assert.equal(saleConfirmText(loaded, 'me', loaded.you.ships[0]), 'Sell Wayfarer for 101 HT? 1 ISO is lost with it.');
+	});
+});
+
+describe('refitOptions (R65)', () => {
+	const ship = {
+		name: 'Wayfarer',
+		crewClass: 'B',
+		atShipyard: true,
+		stats: { modulesUsed: 4, moduleCapacity: 5 },
+		modules: [{ id: 'CARGO', name: 'Cargo', count: 4 }],
+	};
+
+	it('offers the modules that still fit, each at its price plus crew at the ship class', () => {
+		const { add } = refitOptions(SHIPYARD, ship);
+		assert.deepEqual(add.map(option => [option.id, option.cost]), [['SAFE_JUMP', 10], ['CARGO', 4], ['LIGHT_WEAPONS', 17], ['PASSENGER', 25]]);
+	});
+
+	it('offers no module that takes a slot on a full ship, and no second Safe jump', () => {
+		const full = { ...ship, stats: { modulesUsed: 5, moduleCapacity: 5 }, modules: [...ship.modules, { id: 'SAFE_JUMP', name: 'Safe jump', count: 1 }] };
+		assert.deepEqual(refitOptions(SHIPYARD, full).add, []);
+	});
+
+	it('pays back half of a removed module, rounded down', () => {
+		const withPassenger = { ...ship, modules: [{ id: 'PASSENGER', name: 'Passenger', count: 1 }] };
+		assert.deepEqual(refitOptions(SHIPYARD, withPassenger).remove, [{ id: 'PASSENGER', name: 'Passenger', refund: 7 }]);
+	});
+
+	it('offers nothing away from a shipyard', () => {
+		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, atShipyard: false }), { add: [], remove: [] });
+	});
+});

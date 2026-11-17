@@ -38,7 +38,10 @@ export const LOCATIONS = [
 	{ id: 'PLANET', name: 'Planet' },
 ];
 
-const LOCATION_NAMES = Object.fromEntries(LOCATIONS.map(location => [location.id, location.name]));
+/** R60: a ship bought at a shipyard waits there; only Beta Hydri, Epsilon Eridani and Tau Ceti have one. */
+export const SHIPYARD = { id: 'SHIPYARD', name: 'Shipyard' };
+
+const LOCATION_NAMES = Object.fromEntries([...LOCATIONS, SHIPYARD].map(location => [location.id, location.name]));
 
 export const TIERS = [
 	{ id: 'DICTATOR', name: 'Dictator' },
@@ -200,6 +203,9 @@ export function fleetLine(entry) {
 
 /** R31: the statistics line of a location. */
 export function locationStats(system, locationId) {
+	if (locationId === SHIPYARD.id) {
+		return 'New ships wait here a turn';
+	}
 	if (locationId === 'PORT') {
 		return `Class ${system.portClass} · Legal system ${system.legalSystem}`;
 	}
@@ -213,7 +219,9 @@ export function locationStats(system, locationId) {
 export function locations(game, system, myId) {
 	const ships = shipsAt(game, system.id, myId);
 	const yours = Object.fromEntries(fleet(game, myId).map(entry => [entry.name, entry]));
-	return LOCATIONS.map(location => ({
+	// R60: the shipyard is listed only while a ship waits in it.
+	const shown = ships.some(ship => ship.location === SHIPYARD.id) ? [...LOCATIONS, SHIPYARD] : LOCATIONS;
+	return shown.map(location => ({
 		id: location.id,
 		name: location.name,
 		stats: locationStats(system, location.id),
