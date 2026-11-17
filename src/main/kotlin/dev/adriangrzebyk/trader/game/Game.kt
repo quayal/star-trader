@@ -90,8 +90,31 @@ data class Game(
 		}
 	}
 
-	/** [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Investment starts (R44, E06-S01-1). */
-	private fun endTrading(current: Turn): Game = copy(turn = current.endTrading(), log = log + LogEntry(current.number, ALL_GOODS_RESOLVED))
+	/**
+	 * [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Investment starts (R44, E06-S01-1).
+	 * A player with no factories has no Collect, so their ships bought last turn leave the yard now (R63).
+	 */
+	private fun endTrading(current: Turn): Game {
+		val investing = copy(turn = current.endTrading(), log = log + LogEntry(current.number, ALL_GOODS_RESOLVED))
+		return players.filterNot { it.hasFactories() }.fold(investing) { game, player -> game.withShipsLeavingYard(player.email) }
+	}
+
+	/**
+	 * This game once [email]'s ships bought in an earlier turn left the yard (R63): right after their Collect, so they never
+	 * take that Investment's output (output is phase 6, the ship phase 7). Each departure is logged.
+	 */
+	private fun withShipsLeavingYard(email: String): Game {
+		val current = runningTurn()
+		val player = playerOf(email)
+		val leaving = player.shipsLeavingYardIn(current.number)
+		if (leaving.isEmpty()) {
+			return this
+		}
+		return copy(
+			players = replace(player.releaseShipsFromYard(current.number)),
+			log = log + leaving.map { LogEntry(current.number, it.leavingYardLog()) }
+		)
+	}
 
 	/**
 	 * Ends [current], whose Investment is over (R44, E06-S01-2). After the last
@@ -164,7 +187,7 @@ data class Game(
 			players = replace(collected),
 			turn = investing.collectedBy(email),
 			log = log + collected.collectLog(player).map { LogEntry(investing.number, it) }
-		)
+		).withShipsLeavingYard(email)
 	}
 
 	/**
@@ -201,6 +224,59 @@ data class Game(
 		val line = "${player.corporationName} added $amount of ${goods.name} production at ${system.displayName}"
 		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
 		return copy(players = replace(bought), turn = settled, log = log + LogEntry(investing.number, line))
+	}
+
+	/**
+	 * [email] buys a ship (R61, E09-S02): [Ship.commission] checks what it's made of, the game that its name isn't taken by
+	 * any ship in it, ignoring case (R62), and [Player.buyShip] that they can pay. It waits in the yard (R63). The public
+	 * log names the ship and the yard, never the hull or the price (R50, R57). Only in Investment, after their Collect,
+	 * like any purchase (R48).
+	 */
+	fun buyShip(email: String, name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val ship = Ship.commission(name, shipyard, hull, modules, crewClass, investing.number)
+		if (players.flatMap { it.ships }.any { it.name.equals(ship.name, ignoreCase = true) }) {
+			throw InvalidInvestmentException("There's already a ship called ${ship.name} in this game.")
+		}
+		val line = "${player.corporationName} ordered ${ship.name} at the ${shipyard.displayName} shipyard"
+		return copy(players = replace(player.buyShip(ship)), log = log + LogEntry(investing.number, line))
+	}
+
+	/** The suggested names no ship in this game uses yet, ignoring case (R62), in [Ship.NAMES] order. */
+	fun freeShipNames(): List<String> {
+		val taken = players.flatMap { it.ships }.map { it.name.lowercase() }.toSet()
+		return Ship.NAMES.filterNot { it.lowercase() in taken }
+	}
+
+	/** [email] fits one more [module] to their ship [shipName] at a shipyard (R65): see [Player.addModule]. Private, not logged. */
+	fun addModule(email: String, shipName: String, module: Module): Game = withInvestment(email) { it.addModule(shipName, module) }
+
+	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
+	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email) { it.removeModule(shipName, module) }
+
+	/**
+	 * [email] sells their ship [shipName] (R66): see [Player.sellShip]. The sale is public, without the amount (R29); what
+	 * happened to the cargo is private, so isn't logged.
+	 */
+	fun sellShip(email: String, shipName: String): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val line = "${player.corporationName} sold $shipName"
+		return copy(players = replace(player.sellShip(shipName)), log = log + LogEntry(investing.number, line))
+	}
+
+	/** This game once [change] applied to [email] in Investment, after their Collect (S03-5). */
+	private fun withInvestment(email: String, change: (Player) -> Player): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		return copy(players = replace(change(player)))
 	}
 
 	/**
@@ -298,7 +374,7 @@ data class Game(
 		if (settled.picker() == null) {
 			events += "Turn order (for this turn): " + settled.turnOrder().joinToString(" → ") { corporationOf(checkNotNull(it)) }
 		}
-		return copy(turn = settled, log = log + events.map { LogEntry(current.number, it) })
+		return copy(turn = settled, log = log + events.map { LogEntry(current.number, it) }).withEmptyJumpSlotsSkipped()
 	}
 
 	/**
@@ -338,7 +414,7 @@ data class Game(
 			turn = current.landed(),
 			log = log + LogEntry(current.number, "Landing: ${landed.corporationName} — ${checkNotNull(landed.ship(shipName)).landingLog()}")
 		)
-		return if (current.haveAllJumped(landed.ships)) game.endJumpSlot(email) else game
+		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
 	}
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
@@ -633,7 +709,23 @@ data class Game(
 		return current
 	}
 
-	private fun endJumpSlot(email: String): Game = copy(turn = runningTurn().endJumpSlot(email))
+	private fun endJumpSlot(email: String): Game = copy(turn = runningTurn().endJumpSlot(email)).withEmptyJumpSlotsSkipped()
+
+	/**
+	 * This game once every jump slot that has nothing to jump has ended (R64): a player whose ships are all in the yard, or
+	 * who has none, can't act, so the turn doesn't wait for them. Each is logged.
+	 */
+	private fun withEmptyJumpSlotsSkipped(): Game {
+		val current = turn ?: return this
+		val jumper = current.jumper() ?: return this
+		if (playerOf(jumper).jumpableShips().isNotEmpty()) {
+			return this
+		}
+		return copy(
+			turn = current.endJumpSlot(jumper),
+			log = log + LogEntry(current.number, "${corporationOf(jumper)} has no ship to jump")
+		).withEmptyJumpSlotsSkipped()
+	}
 
 	/**
 	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as

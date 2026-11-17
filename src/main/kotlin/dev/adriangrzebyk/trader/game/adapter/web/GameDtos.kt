@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.CargoDestination
+import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -85,7 +86,8 @@ data class GameResponseDto(
 				game.turn?.resolution,
 				game.turn?.isCollecting(it.email) == true,
 				game.canInvest(it.email),
-				game.prices
+				game.prices,
+				game.freeShipNames()
 			)
 		}
 	)
@@ -389,7 +391,8 @@ data class YouResponseDto(
 	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
 	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
 	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
-	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs.
+	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs; [freeShipNames] the suggestions for a new
+	 * ship's name ([Game.freeShipNames]).
 	 */
 	constructor(
 		id: String,
@@ -399,7 +402,8 @@ data class YouResponseDto(
 		resolution: Resolution?,
 		collecting: Boolean,
 		investing: Boolean,
-		prices: MarketPrices
+		prices: MarketPrices,
+		freeShipNames: List<String>
 	) : this(
 		id,
 		player.money,
@@ -410,7 +414,7 @@ data class YouResponseDto(
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
 		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player, prices).takeIf { investing }
+		InvestResponseDto(player, prices, freeShipNames).takeIf { investing }
 	)
 }
 
@@ -438,21 +442,124 @@ data class YourWarehouseResponseDto(
  * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05); no ship is needed for any of
  * it. [blockCost] HT a warehouse block, the [systems] where they can buy blocks (all six, in map order) with how many blocks
  * they own there, and the [factories] they can add units to: each good each system can produce, with the units they make
- * now. Private to the viewer, and null outside Investment and while they still have to collect.
+ * now, and what the [shipyard] sells (E09-S02). Private to the viewer, and null outside Investment and while they still
+ * have to collect.
  */
 data class InvestResponseDto(
 	val blockCost: Int,
 	val systems: List<InvestSystemResponseDto>,
-	val factories: List<InvestFactoryResponseDto>
+	val factories: List<InvestFactoryResponseDto>,
+	val shipyard: ShipyardResponseDto
 ) {
 
-	constructor(player: Player, prices: MarketPrices) : this(
+	constructor(player: Player, prices: MarketPrices, freeShipNames: List<String>) : this(
 		Warehouse.BLOCK_COST,
 		StarSystem.entries.map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
 		StarSystem.entries.flatMap { system ->
 			system.producibleGoods.sortedBy { it.name }.map { InvestFactoryResponseDto(player, system, it, prices) }
-		}
+		},
+		ShipyardResponseDto(freeShipNames)
 	)
+}
+
+/**
+ * What a shipyard sells (R60, R61, R65): the [shipyards] (in map order), the civilian [hulls] and [modules] with their
+ * prices (R56: no military ones), what a crew member of each class costs, and [freeNames], the suggested names nobody in
+ * the game uses yet (R62).
+ */
+data class ShipyardResponseDto(
+	val shipyards: List<ShipyardSystemResponseDto>,
+	val hulls: List<ShipyardHullResponseDto>,
+	val modules: List<ShipyardModuleResponseDto>,
+	val crewClasses: List<CrewClassResponseDto>,
+	val freeNames: List<String>
+) {
+
+	constructor(freeNames: List<String>) : this(
+		StarSystem.entries.filter { it.hasShipyard() }.map { ShipyardSystemResponseDto(it.name, it.displayName) },
+		Hull.entries.filter { it.isForSale() }.map { ShipyardHullResponseDto(it) },
+		Module.entries.filter { it.isForSale() }.map { ShipyardModuleResponseDto(it) },
+		CrewClass.entries.map { CrewClassResponseDto(it.name, it.pricePerCrew) },
+		freeNames
+	)
+}
+
+data class ShipyardSystemResponseDto(val system: String, val systemName: String)
+
+/** A hull for sale (R51): its `Hull` constant as [id], and what the buy form needs to price and fit it. */
+data class ShipyardHullResponseDto(
+	val id: String,
+	val name: String,
+	val price: Int,
+	val moduleCapacity: Int,
+	val crew: Int,
+	val cargoSpaces: Int,
+	val aerodynamic: Boolean
+) {
+
+	constructor(hull: Hull) : this(
+		hull.name,
+		hull.displayName,
+		hull.price,
+		hull.moduleCapacity,
+		hull.crew,
+		hull.builtInCargo,
+		hull.aerodynamic
+	)
+}
+
+/** A module for sale (R52): its `Module` constant as [id]; Safe jump takes no module capacity and a ship has one at most. */
+data class ShipyardModuleResponseDto(
+	val id: String,
+	val name: String,
+	val price: Int,
+	val crew: Int,
+	val cargoSpaces: Int,
+	val weapons: Int,
+	val passengers: Int,
+	val takesModuleCapacity: Boolean
+) {
+
+	constructor(module: Module) : this(
+		module.name,
+		module.displayName,
+		module.price,
+		module.crew,
+		module.cargoSpaces,
+		module.weapons,
+		module.passengers,
+		module.takesModuleCapacity
+	)
+}
+
+data class CrewClassResponseDto(val id: String, val pricePerCrew: Int)
+
+/**
+ * A ship to buy (R61, E09-S02): [name], the [shipyard] system, the [hull] and [modules] as `Hull` and `Module` constants
+ * (a module once per unit), and the [crewClass] (`A` to `D`). Names are checked here.
+ */
+data class BuyShipRequestDto(
+	val name: String? = null,
+	val shipyard: String? = null,
+	val hull: String? = null,
+	val modules: List<String>? = null,
+	val crewClass: String? = null
+) {
+
+	fun shipyardSystem(): StarSystem? = StarSystem.entries.firstOrNull { it.name == shipyard }
+
+	fun hullConstant(): Hull? = Hull.entries.firstOrNull { it.name == hull }
+
+	/** The modules, or null when one of them isn't a module; none when missing. */
+	fun moduleConstants(): List<Module>? = modules.orEmpty().map { name -> Module.entries.firstOrNull { it.name == name } ?: return null }
+
+	fun crewClassConstant(): CrewClass? = CrewClass.entries.firstOrNull { it.name == crewClass }
+}
+
+/** A module to fit to a ship (R65): its `Module` constant. */
+data class FitModuleRequestDto(val module: String? = null) {
+
+	fun moduleConstant(): Module? = Module.entries.firstOrNull { it.name == module }
 }
 
 /** A system, and the [blocks] of warehouse the viewer already owns there (0 for none). */
@@ -643,7 +750,11 @@ data class YourShipResponseDto(
 	val cargoSpaces: Int,
 	val hull: HullResponseDto,
 	val modules: List<FittedModuleResponseDto>,
-	val stats: ShipStatsResponseDto
+	val stats: ShipStatsResponseDto,
+	val crewClass: String,
+	val saleValue: Int,
+	val atShipyard: Boolean,
+	val leavesYardOnTurn: Int?
 ) {
 
 	constructor(ship: Ship) : this(
@@ -653,7 +764,11 @@ data class YourShipResponseDto(
 		ship.cargoSpaces(),
 		HullResponseDto(ship.hull),
 		ship.fittedModules().map { (module, count) -> FittedModuleResponseDto(module, count) },
-		ShipStatsResponseDto(ship)
+		ShipStatsResponseDto(ship),
+		ship.crewClass.name,
+		ship.saleValue(),
+		ship.isAtShipyard(),
+		ship.boughtOnTurn?.takeIf { ship.isInShipyard() }?.plus(1)
 	)
 }
 
@@ -665,6 +780,7 @@ data class HullResponseDto(val name: String, val military: Boolean, val aerodyna
 
 /** A module a ship carries [count] of, with what one of them adds (R52): the figures are per module, not times [count]. */
 data class FittedModuleResponseDto(
+	val id: String,
 	val name: String,
 	val count: Int,
 	val weapons: Int,
@@ -676,6 +792,7 @@ data class FittedModuleResponseDto(
 ) {
 
 	constructor(module: Module, count: Int) : this(
+		module.name,
 		module.displayName,
 		count,
 		module.weapons,

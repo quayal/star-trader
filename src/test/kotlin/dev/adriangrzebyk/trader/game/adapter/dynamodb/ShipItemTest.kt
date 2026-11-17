@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
@@ -20,7 +21,9 @@ class ShipItemTest {
 		location = ShipLocation.SPACE,
 		cargo = mapOf(Goods.ISO to 3, Goods.FOOD to 9),
 		hull = Hull.MONARCH,
-		modules = listOf(Module.CARGO, Module.LIGHT_WEAPONS, Module.CARGO, Module.SAFE_JUMP)
+		modules = listOf(Module.CARGO, Module.LIGHT_WEAPONS, Module.CARGO, Module.SAFE_JUMP),
+		crewClass = CrewClass.C,
+		boughtOnTurn = 4
 	)
 
 	@Test
@@ -46,7 +49,9 @@ class ShipItemTest {
 				"hull" to AttributeValue.fromS("MONARCH"),
 				"modules" to AttributeValue.fromL(
 					listOf("CARGO", "LIGHT_WEAPONS", "CARGO", "SAFE_JUMP").map { AttributeValue.fromS(it) }
-				)
+				),
+				"crewClass" to AttributeValue.fromS("C"),
+				"boughtOnTurn" to AttributeValue.fromN("4")
 			)
 		)
 	}
@@ -66,6 +71,20 @@ class ShipItemTest {
 		assertThat(loaded.modules).containsExactly(Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO, Module.CARGO)
 		assertThat(loaded.cargoSpaces()).isEqualTo(10)
 		assertThat(loaded.cargo).isEqualTo(ship.cargo)
+	}
+
+	@Test
+	fun shouldReadAShipStoredBeforeShipyardsExistedAsAClassBShipThatWasNeverBought() {
+		// E09: every ship was a starting ship then (R55).
+		val loaded = ShipItem(ShipItem(ship).attributes - "crewClass" - "boughtOnTurn").toShip()
+
+		assertThat(loaded.crewClass).isEqualTo(CrewClass.B)
+		assertThat(loaded.boughtOnTurn).isNull()
+	}
+
+	@Test
+	fun shouldNotStoreAPurchaseTurnForAShipThatWasNeverBought() {
+		assertThat(ShipItem(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("boughtOnTurn")
 	}
 
 	@Test

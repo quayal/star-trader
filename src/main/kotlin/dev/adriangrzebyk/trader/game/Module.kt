@@ -23,5 +23,14 @@ enum class Module(
 	HEAVY_WEAPONS("Heavy weapons", 7, 10, 1, 0, 0, 80, military = true),
 	DOGFIGHT("Dogfight", 4, 7, 0, 0, 0, 30, military = true),
 	LIGHT_WEAPONS("Light weapons", 3, 5, 0, 0, 0, 17, military = false),
-	PASSENGER("Passenger", 0, 0, 1, 0, 2, 15, military = false)
+	PASSENGER("Passenger", 0, 0, 1, 0, 2, 15, military = false);
+
+	/** Whether this module can be bought at a shipyard (R61, R65): civilian only (R56). */
+	fun isForSale(): Boolean = !military
+
+	/** What fitting this module costs on a ship of [crewClass] (R65): its price plus its crew at that class. */
+	fun fittingCost(crewClass: CrewClass): Int = price + crew * crewClass.pricePerCrew
+
+	/** What removing this module pays back (R65): half its price, rounded down; its crew isn't paid back. */
+	fun resaleValue(): Int = price / 2
 }
