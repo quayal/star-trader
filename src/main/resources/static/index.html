@@ -298,7 +298,7 @@
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
 		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
 		.fleet[hidden] { display: none; }
-		/* E09: a ship's shipyard actions on Fleet, and the buy form on Infrastructure. */
+		/* E09: a ship's shipyard actions on Fleet, and the buy form under them. */
 		.fleet-ship__actions { display: grid; gap: var(--space-related); padding-top: var(--space-related); border-top: var(--border-width) solid var(--border-subtle); }
 		.fleet-ship__actions h4 { margin: 0; }
 		.fleet-ship__row { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
@@ -325,8 +325,11 @@
 		.ship-modules__grid .control { width: 72px; }
 		.ship-cost { margin: 0; font-family: var(--font-display); }
 		/* R51: the hull comparison sits next to the buy form, under it on a narrow screen. */
-		.infrastructure { max-width: 1200px; }
-		.infrastructure > :not(#ship-panel) { max-width: 720px; }
+		.fleet { max-width: 1200px; }
+		.fleet > :not(#ship-panel) { max-width: 960px; }
+		.fleet #ship-panel { display: grid; gap: var(--space-related); }
+		.fleet #ship-panel p:empty, .fleet p#ship-closed:empty { display: none; }
+		.fleet #ship-panel[hidden] { display: none; } /* after the rule above, which sets display */
 		.ship-buy { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: var(--space-between-groups); align-items: start; }
 		@media (max-width: 1100px) {
 			.ship-buy { grid-template-columns: minmax(0, 1fr); }
@@ -665,6 +668,59 @@
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
 			<!-- E08-S02-9: for a player with a warehouse; the form is on Infrastructure. -->
 			<p id="fleet-cargo" hidden><a class="link" id="fleet-cargo-link" href="/"></a></p>
+			<!-- Why there is no buy form now: output to place first, or not Investment. -->
+			<p class="muted" id="ship-closed"></p>
+			<!-- E09-S06-1 (R61), on Fleet since 2026-11-17 beside the ships the player has: static markup, so the typed name, the picks and the counts survive the poll. -->
+			<section class="panel" id="ship-panel" aria-labelledby="ship-title" hidden>
+				<h2 id="ship-title">Buy a ship</h2>
+				<p class="muted">It waits a turn in the shipyard, leaves it in next turn’s Investment, and makes its first jump the turn after. Refit, repair and sell the ships you have above.</p>
+				<p class="message message--warn" id="ship-late" role="status"></p>
+				<div class="ship-buy">
+				<form class="offer-form" id="ship-form" novalidate>
+					<div>
+						<label class="field-label" for="ship-name">Name</label>
+						<div class="ship-name-row">
+							<input class="control" id="ship-name" maxlength="20" autocomplete="off" aria-describedby="ship-name-error">
+							<button class="quiet-button" id="ship-suggest" type="button">Suggest</button>
+						</div>
+						<p class="message message--error field-error" id="ship-name-error" role="alert"></p>
+					</div>
+					<div>
+						<label class="field-label" for="ship-yard">Shipyard</label>
+						<select class="control" id="ship-yard"></select>
+					</div>
+					<div>
+						<label class="field-label" for="ship-hull">Hull</label>
+						<select class="control" id="ship-hull" aria-describedby="ship-hull-facts"></select>
+						<p class="message muted" id="ship-hull-facts"></p>
+					</div>
+					<fieldset class="ship-modules" aria-describedby="ship-capacity ship-modules-error">
+						<legend class="field-label">Modules</legend>
+						<div class="ship-modules__grid" id="ship-modules"></div>
+						<p class="message muted" id="ship-capacity" role="status"></p>
+						<p class="message message--error field-error" id="ship-modules-error" role="alert"></p>
+					</fieldset>
+					<fieldset class="offer-type">
+						<legend class="field-label">Crew class (price per crew member)</legend>
+						<div class="choices" id="ship-crew"></div>
+					</fieldset>
+					<p class="ship-cost" id="ship-cost" role="status"></p>
+					<div><button class="btn" id="ship-button" type="submit">Buy ship</button></div>
+					<p class="message" id="ship-message" role="status"></p>
+				</form>
+				<!-- R51: every hull for sale side by side; picking a row picks that hull in the form. -->
+				<div class="ship-hulls">
+					<h3 class="field-label" id="ship-hulls-title">Hulls for sale</h3>
+					<div class="ship-hulls__table" role="region" tabindex="0" aria-labelledby="ship-hulls-title">
+						<table class="data-table">
+							<thead><tr id="ship-hulls-head"></tr></thead>
+							<tbody id="ship-hulls-rows"></tbody>
+						</table>
+					</div>
+					<p class="muted">Weapons and shields are the hull’s own; weapon modules add to them. Cargo is built-in space; Cargo modules add more. Repair is what fixing the hull costs. Aerodynamic hulls land on a planet more easily.</p>
+				</div>
+				</div>
+			</section>
 		</div>
 
 		<!-- s09 (E05-S08): Game over, once the last turn's Trading has resolved its last good. -->
@@ -697,6 +753,8 @@
 				<p class="message" id="infra-done-message" role="status" tabindex="-1"></p>
 				<!-- E06-S04-6: all the time Investment is open, so nobody thinks they wait for a builder. -->
 				<p class="muted" id="invest-note"></p>
+				<!-- Buying a ship is on Fleet, beside the ships the player has. -->
+				<p id="ship-pointer" hidden><a class="link" id="ship-pointer-link" href="/">Buy a ship on the Fleet tab</a></p>
 			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
@@ -751,57 +809,6 @@
 					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
 					<p class="message" id="units-message" role="status"></p>
 				</form>
-			</section>
-			<!-- E09-S06-1 (R61): static markup, so the typed name, the picks and the counts survive the poll. -->
-			<section class="panel" id="ship-panel" aria-labelledby="ship-title" hidden>
-				<h2 id="ship-title">Buy a ship</h2>
-				<p class="muted">It waits a turn in the shipyard, leaves it in next turn’s Investment, and makes its first jump the turn after. Refit and sell your ships on the Fleet tab.</p>
-				<p class="message message--warn" id="ship-late" role="status"></p>
-				<div class="ship-buy">
-				<form class="offer-form" id="ship-form" novalidate>
-					<div>
-						<label class="field-label" for="ship-name">Name</label>
-						<div class="ship-name-row">
-							<input class="control" id="ship-name" maxlength="20" autocomplete="off" aria-describedby="ship-name-error">
-							<button class="quiet-button" id="ship-suggest" type="button">Suggest</button>
-						</div>
-						<p class="message message--error field-error" id="ship-name-error" role="alert"></p>
-					</div>
-					<div>
-						<label class="field-label" for="ship-yard">Shipyard</label>
-						<select class="control" id="ship-yard"></select>
-					</div>
-					<div>
-						<label class="field-label" for="ship-hull">Hull</label>
-						<select class="control" id="ship-hull" aria-describedby="ship-hull-facts"></select>
-						<p class="message muted" id="ship-hull-facts"></p>
-					</div>
-					<fieldset class="ship-modules" aria-describedby="ship-capacity ship-modules-error">
-						<legend class="field-label">Modules</legend>
-						<div class="ship-modules__grid" id="ship-modules"></div>
-						<p class="message muted" id="ship-capacity" role="status"></p>
-						<p class="message message--error field-error" id="ship-modules-error" role="alert"></p>
-					</fieldset>
-					<fieldset class="offer-type">
-						<legend class="field-label">Crew class (price per crew member)</legend>
-						<div class="choices" id="ship-crew"></div>
-					</fieldset>
-					<p class="ship-cost" id="ship-cost" role="status"></p>
-					<div><button class="btn" id="ship-button" type="submit">Buy ship</button></div>
-					<p class="message" id="ship-message" role="status"></p>
-				</form>
-				<!-- R51: every hull for sale side by side; picking a row picks that hull in the form. -->
-				<div class="ship-hulls">
-					<h3 class="field-label" id="ship-hulls-title">Hulls for sale</h3>
-					<div class="ship-hulls__table" role="region" tabindex="0" aria-labelledby="ship-hulls-title">
-						<table class="data-table">
-							<thead><tr id="ship-hulls-head"></tr></thead>
-							<tbody id="ship-hulls-rows"></tbody>
-						</table>
-					</div>
-					<p class="muted">Weapons and shields are the hull’s own; weapon modules add to them. Cargo is built-in space; Cargo modules add more. Repair is what fixing the hull costs. Aerodynamic hulls land on a planet more easily.</p>
-				</div>
-				</div>
 			</section>
 			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
 			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
@@ -1117,6 +1124,7 @@
 		saleConfirmText,
 		saleResult,
 		shipCost,
+		buyClosedText,
 		shipyardOf,
 		soldText,
 		suggestName,
@@ -1747,6 +1755,11 @@
 		if (view === 'fleet') {
 			// S03-8: with the regular poll. It checks for itself what changed, which includes this page's own state (E09-S06-2).
 			renderFleet(game);
+			updateShipForm(game); // R61: buying sits under the ships the player already has
+			const closed = buyClosedText(game);
+			if ($('ship-closed').textContent !== closed) {
+				$('ship-closed').textContent = closed;
+			}
 			if (changed) {
 				$('fleet-cargo').hidden = !canMoveCargo(game); // E08-S02-9
 				$('fleet-cargo-link').href = infrastructureLink(game.id);
@@ -3692,7 +3705,11 @@
 		updateCollectForm(game);
 		updateBlocksForm(game);
 		updateUnitsForm(game);
-		updateShipForm(game);
+		const pointer = canBuy(game);
+		$('ship-pointer').hidden = !pointer;
+		if (pointer) {
+			$('ship-pointer-link').href = fleetLink(game.id);
+		}
 		updateCargoForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);

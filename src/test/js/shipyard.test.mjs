@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+	BUY_CLOSED_TEXT,
+	BUY_COLLECT_FIRST_TEXT,
 	LAST_TURN_WARNING,
 	NAME_CHARACTERS_ERROR,
 	NAME_ERROR,
 	SECOND_LAST_TURN_WARNING,
 	HULL_COLUMNS,
+	buyClosedText,
 	canSuggest,
 	fitCheck,
 	hullRows,
@@ -150,6 +153,30 @@ describe('suggestName', () => {
 		assert.equal(suggestName({ ...SHIPYARD, freeNames: [] }, ''), null);
 		assert.equal(canSuggest({ ...SHIPYARD, freeNames: ['Spiral'] }, 'Spiral'), false);
 		assert.equal(canSuggest(SHIPYARD, 'Spiral'), true);
+	});
+});
+
+describe('buyClosedText', () => {
+	it('says nothing while the viewer may buy, so the form shows instead', () => {
+		assert.equal(buyClosedText({ ...game(), status: 'RUNNING' }), '');
+	});
+
+	it('sends the viewer to collect first when Investment is open but their output is unplaced', () => {
+		const collecting = { ...game(), status: 'RUNNING', you: { ...game().you, invest: null } };
+
+		assert.equal(buyClosedText(collecting), BUY_COLLECT_FIRST_TEXT);
+	});
+
+	it('says when buying opens in any other phase', () => {
+		const trading = { ...game(), status: 'RUNNING', turn: { number: 3, phase: 'TRADING' } };
+
+		assert.equal(buyClosedText(trading), BUY_CLOSED_TEXT);
+	});
+
+	it('says nothing once the game is over: there is no next Investment', () => {
+		const over = { ...game(), status: 'FINISHED', turn: { number: 20, phase: 'TRADING' } };
+
+		assert.equal(buyClosedText(over), '');
 	});
 });
 
