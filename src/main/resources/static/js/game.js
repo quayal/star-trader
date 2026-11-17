@@ -81,7 +81,7 @@ export function tradingLink(id) {
 	return `#game/${encodeURIComponent(id)}/trading`;
 }
 
-/** Infrastructure (s10, E06-S08, D12) of game [id]: all of Investment happens there. */
+/** Infrastructure (s10, E06-S08, D12) of game [id]: Investment happens there, apart from buying a ship, which is on Fleet (D18). */
 export function infrastructureLink(id) {
 	return `#game/${encodeURIComponent(id)}/infrastructure`;
 }

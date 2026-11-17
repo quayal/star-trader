@@ -1,8 +1,10 @@
 /*
- * Pure helpers for shipyards (E09): buying a ship on Infrastructure, refitting and selling one on Fleet. What a shipyard
+ * Pure helpers for shipyards (E09): buying, refitting and selling a ship, all on Fleet. What a shipyard
  * sells comes from `you.invest.shipyard` (only while the viewer may invest); a ship's position from the public
  * `players[].ships`; its hull, modules, crew class and sale value from `you.ships` (R57).
  */
+
+import { canBuy, isInvesting } from './investment.js';
 
 export const MAX_NAME_LENGTH = 20;
 export const NAME_ERROR = `Choose a name of 1 to ${MAX_NAME_LENGTH} characters.`;
@@ -10,6 +12,8 @@ export const NAME_CHARACTERS_ERROR = 'Use letters, digits, spaces, hyphens, apos
 export const LAST_TURN_WARNING = 'This ship would never leave the yard: the game ends first.';
 export const SECOND_LAST_TURN_WARNING = 'This ship would leave the yard only in the last Investment, too late to jump.';
 export const BUY_BUTTON = 'Buy ship';
+export const BUY_CLOSED_TEXT = 'You can buy a ship here during Investment.';
+export const BUY_COLLECT_FIRST_TEXT = 'Place your factories\' output on Infrastructure first, then buy a ship here.';
 export const REFIT_NOTE = 'Fit or remove modules in port, or while the ship is still in the yard.';
 export const REPAIR_NOTE = 'Repair at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
 
@@ -39,6 +43,17 @@ export function hullRows(shipyard, selectedId) {
 /** What the shipyard sells, or null when the viewer can't buy now. */
 export function shipyardOf(game) {
 	return game.you?.invest?.shipyard ?? null;
+}
+
+/**
+ * Why Fleet shows no buy form now (R61): output to place first in Investment, or another phase; '' while the viewer may
+ * buy, and once the game is over. The server sends the shipyard only while they may (`you.invest`), and decides again on every purchase.
+ */
+export function buyClosedText(game) {
+	if (canBuy(game) || game.status !== 'RUNNING') {
+		return '';
+	}
+	return isInvesting(game) ? BUY_COLLECT_FIRST_TEXT : BUY_CLOSED_TEXT;
 }
 
 /**
