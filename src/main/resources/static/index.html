@@ -204,6 +204,9 @@
 		.map-edge { stroke: var(--border-subtle); stroke-width: 1; }
 		.map-jumps polygon { fill: var(--surface-raised); stroke: var(--border-control); stroke-width: 1; stroke-linejoin: round; }
 		.map-jumps text { fill: var(--text-primary); font-family: var(--font-body); font-size: 13px; font-weight: 700; }
+		.map-jumps text[data-level="high"] { fill: var(--jump-high); }
+		.map-jumps text[data-level="mid"] { fill: var(--jump-mid); }
+		.map-jumps text[data-level="low"] { fill: var(--jump-low); }
 		.map-node circle { fill: var(--surface-page); stroke: var(--border-control); stroke-width: 2; transition: stroke var(--duration-hover); }
 		.map-node:hover circle, .map-node:focus-visible circle { stroke: var(--accent-selected); stroke-width: 3; }
 		.map-node:focus { outline: none; }
@@ -564,7 +567,7 @@
 				<h2 id="map-title">Map</h2>
 				<div id="map"></div>
 				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials). Select a system for its details.</p>
-				<p class="muted map-key">Each arrowhead is the base chance of a jump that way: a 2d6 roll of that or less gets there. Your crew and Safe jump add to it.</p>
+				<p class="muted map-key">Each arrowhead is the base chance of a jump that way: a 2d6 roll of that or less gets there. Your crew and Safe jump add to it. Green marks the three highest values on the map, red the three lowest.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
@@ -4449,7 +4452,7 @@
 		const arrows = svgElement('g', { class: 'map-jumps', 'aria-hidden': 'true' });
 		for (const arrow of jumpArrows(systems)) {
 			arrows.append(svgElement('polygon', { points: arrow.points }));
-			arrows.append(svgElement('text', { x: arrow.x, y: arrow.y, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, String(arrow.chance)));
+			arrows.append(svgElement('text', { x: arrow.x, y: arrow.y, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'data-level': arrow.level }, String(arrow.chance)));
 		}
 		map.append(arrows);
 		for (const system of systems) {

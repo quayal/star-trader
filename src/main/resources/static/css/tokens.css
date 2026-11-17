@@ -73,6 +73,11 @@
 	--market-supply-moderate: var(--red-muted);    /* D08 — ▼ price may fall (pick, 2026-11-02) */
 	--market-supply-high: var(--red-400);          /* D08 — ▼ price likely to fall */
 
+	/* Base jump chances on the map (R68): green for the three highest values, red for the three lowest, grey between (creator, 2026-11-17). Only on the arrowhead numbers. */
+	--jump-high: var(--green-400);          /* R68 — one of the three highest base chances */
+	--jump-mid: var(--ink-400);             /* R68 — in between */
+	--jump-low: var(--red-400);             /* R68 — one of the three lowest base chances */
+
 	/* Typography (R01.2; 12 px floor) */
 	--font-display: 'Orbitron', sans-serif; /* R01.2 — titles, badges, numerals; not body text */
 	--font-body: 'Rajdhani', sans-serif;    /* R01.2 — body and labels */
