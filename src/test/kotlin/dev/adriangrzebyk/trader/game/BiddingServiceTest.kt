@@ -117,6 +117,16 @@ class BiddingServiceTest {
 	}
 
 	@Test
+	fun shouldStoreAWithdrawal() {
+		gameStore.create(started.placeOffer("joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8))
+
+		val game = service.withdrawOffer("game-1", "joiner@example.com", TAU_CETI, Goods.POLY)
+
+		assertThat(game.turn?.offers).isEmpty()
+		assertThat(gameStore.find("game-1")).isEqualTo(game)
+	}
+
+	@Test
 	fun shouldRefuseAnOfferForAGameThatDoesNotExist() {
 		assertThatThrownBy { service.placeOffer("missing", "joiner@example.com", TAU_CETI, Goods.POLY, OfferType.BUY, 8) }
 			.isInstanceOf(GameNotFoundException::class.java)

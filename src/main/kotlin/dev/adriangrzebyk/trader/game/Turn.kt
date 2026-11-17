@@ -1,6 +1,8 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).
@@ -107,6 +109,15 @@ data class Turn(
 			throw InvalidOfferException("You already have an offer on ${offer.goods.name} at ${offer.system.displayName} this turn.")
 		}
 		return copy(offers = offers + offer)
+	}
+
+	/**
+	 * This turn without [email]'s offer on [goods] at [system] (R59); the same turn when they have none, so a second
+	 * withdrawal of the same offer changes nothing. Other players' offers are never touched.
+	 */
+	fun withdrawOffer(email: String, system: StarSystem, goods: Goods): Turn {
+		requireBidding()
+		return copy(offers = offers.filterNot { it.playerEmail == email && it.system == system && it.goods == goods })
 	}
 
 	/** What [email] pays when Bidding closes (R27): their bid, or 0 if they never placed one (Q07, proposed). */

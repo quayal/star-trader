@@ -168,6 +168,22 @@
 		.offer-notes p { margin: 0; }
 		.offer-list { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-group); }
 		.offer-list .trade { padding: 0 var(--space-hairline); border-radius: var(--radius-control); }
+		.offer-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); }
+		/* R59: the small × that withdraws an offer while Bidding is open; sized like the queue arrows (a 32 px target). */
+		.offer-row__withdraw {
+			flex: none;
+			min-width: 32px;
+			min-height: 32px;
+			border: var(--border-width) solid var(--border-control);
+			border-radius: var(--radius-control);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			font-size: var(--text-value);
+			line-height: 1;
+			cursor: pointer;
+		}
+		.offer-row__withdraw:hover:not(:disabled) { border-color: var(--accent-selected); }
+		.offer-row__withdraw:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
 		.system__body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: var(--space-panel); align-items: start; }
 		.system__main { display: grid; gap: var(--space-panel); }
 		.system__body > [hidden] { display: none; }
@@ -529,6 +545,7 @@
 				<section class="panel" id="your-offers-panel" aria-labelledby="your-offers-title">
 					<h2 id="your-offers-title">Your offers this turn</h2>
 					<ul class="offer-list" id="your-offers"></ul>
+					<p class="message" id="your-offers-message" role="status" tabindex="-1" hidden></p>
 					<p class="muted">Only you can see these until Trading resolves them.</p>
 				</section>
 			</div>
@@ -1001,6 +1018,8 @@
 		offerChoices,
 		showsYourOffers,
 		placedText,
+		withdrawLabel,
+		withdrawnText,
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
@@ -2241,18 +2260,74 @@
 
 	const TYPE_NAMES = { BUY: 'Buy', SELL: 'Sell' };
 
+	/** The turn and phase the "Your offers" message is about; once Bidding closes or a turn ends, it's cleared. */
+	let yourOffersMessageKey = null;
+
 	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
 	function renderYourOffers(game) {
 		$('your-offers-panel').hidden = !showsYourOffers(game); // E05-S08-6: no stale offers after the game ends
 		const offers = game.you?.offers ?? [];
 		const bid = bidLine(game); // S05-2: the bid sits with the offers, just as private
+		const messageKey = `${game.id}/${game.turn?.number}/${game.turn?.phase}`;
+		if (yourOffersMessageKey !== messageKey) {
+			yourOffersMessageKey = messageKey;
+			setYourOffersMessage('', false); // a withdrawal from an earlier phase, turn or game is stale
+		}
+		const withdrawable = isBidding(game); // R59: offers are final once Bidding closes
 		$('your-offers').replaceChildren(...(bid ? [element('li', {}, bid)] : []), ...(offers.length
-			? offers.map(offer => element('li', {},
-				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
-				element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
-				` at ${offer.price} HT \u2014 `,
-				element('a', { class: 'link', href: systemLink(game.id, offer.system) }, offer.systemName)))
+			? offers.map(offer => element('li', { class: 'offer-row' },
+				element('span', {},
+					element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
+					element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
+					` at ${offer.price} HT \u2014 `,
+					element('a', { class: 'link', href: systemLink(game.id, offer.system) }, offer.systemName)),
+				...(withdrawable ? [withdrawButton(offer)] : [])))
 			: [element('li', { class: 'muted' }, noOffersText(game))]));
+	}
+
+	function setYourOffersMessage(text, error) {
+		const message = $('your-offers-message');
+		message.textContent = text;
+		message.className = error ? 'message message--error' : 'message message--success';
+		message.hidden = !text; // an empty line would still take up space under the list
+	}
+
+	/** R59: the × that withdraws [offer]. */
+	function withdrawButton(offer) {
+		const button = element('button', { class: 'offer-row__withdraw', type: 'button', 'aria-label': withdrawLabel(offer), title: 'Withdraw offer' }, '\u00d7');
+		button.addEventListener('click', () => withdrawOffer(offer, button));
+		return button;
+	}
+
+	async function withdrawOffer(offer, button) {
+		const gameId = currentGameId;
+		setYourOffersMessage('', false);
+		button.disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/offers/${encodeURIComponent(offer.system)}/${encodeURIComponent(offer.goods)}`, { method: 'DELETE' });
+		} catch {
+			button.disabled = false;
+			setYourOffersMessage(UNREACHABLE, true);
+			return;
+		}
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			render(await response.json()); // the row goes, and the offer form lists the good again
+			setYourOffersMessage(withdrawnText(offer), false);
+			$('your-offers-message').focus(); // the button is gone; keep focus with the list
+			return;
+		}
+		const message = await errorText(response, '');
+		button.disabled = false;
+		setYourOffersMessage(refusalText(response.status, message, "The offer couldn't be withdrawn."), true);
+		if (isClosedRefusal(response.status, message)) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the page catches up with the close, and the × buttons go
+		}
 	}
 
 	/**
@@ -2264,6 +2339,7 @@
 		const form = {
 			prefix,
 			closedKey: null, // `${gameId}/${turn}` of a refused offer (S03-7); see updateOfferForm
+			turnKey: null, // `${gameId}/${turn}` the form last showed; its status line belongs to that turn only
 			system: withSystem ? element('select', { class: 'control', id: id('system') }) : null,
 			systemId: null,
 			goods: element('select', { class: 'control', id: id('goods'), 'aria-describedby': id('notes') }),
@@ -2340,6 +2416,12 @@
 			form.closedKey = null; // the refusal belonged to another game or turn: drop its message and typed price
 			form.message.textContent = '';
 			form.price.value = '';
+		}
+		const turnKey = `${game.id}/${game.turn?.number}`;
+		if (form.turnKey !== turnKey) {
+			form.turnKey = turnKey;
+			form.message.textContent = ''; // "Offer placed" from an earlier turn or another game is stale
+			setPriceError(form, '');
 		}
 		panel.hidden = !isBidding(game);
 		if (panel.hidden) {

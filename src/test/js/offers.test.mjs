@@ -17,6 +17,8 @@ import {
 	placedText,
 	refusalText,
 	validatePrice,
+	withdrawLabel,
+	withdrawnText,
 } from '../../main/resources/static/js/offers.js';
 
 const ME = 'me';
@@ -108,6 +110,12 @@ describe('texts', () => {
 
 		assert.equal(offerText(offer), 'Sell POLY at 12 HT');
 		assert.equal(placedText(offer, 'Tau Ceti'), 'Offer placed: Sell POLY at 12 HT, Tau Ceti. Hidden from other players until Trading.');
+	});
+
+	it('names the withdraw button and its result after the offer and its system (R59)', () => {
+		const offer = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'FOOD', type: 'BUY', price: 12 };
+		assert.equal(withdrawLabel(offer), 'Withdraw offer: Buy FOOD at 12 HT, Tau Ceti');
+		assert.equal(withdrawnText(offer), 'Offer withdrawn: Buy FOOD at 12 HT, Tau Ceti.');
 	});
 
 	it('says the empty list differently once Bidding has closed', () => {

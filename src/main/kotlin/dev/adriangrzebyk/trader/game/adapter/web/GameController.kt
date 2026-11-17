@@ -17,8 +17,11 @@ import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.game.TradingService
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
+import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.trading.StarSystem
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -247,6 +250,27 @@ class GameController(
 		val goods = request.goods() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a good.")
 		val type = request.type() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Buy or Sell.")
 		val game = biddingService.placeOffer(id, session.email, system, goods, type, request.wholePrice())
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * Withdraws the caller's offer on [goods] at [system] while Bidding is open (R59) and answers with their view of the
+	 * game. Withdrawing an offer they don't have changes nothing; `409` "Bidding has closed" once it has (A04).
+	 */
+	@DeleteMapping("/games/{id}/offers/{system}/{goods}")
+	fun withdrawOffer(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable system: String,
+		@PathVariable goods: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val starSystem = StarSystem.entries.firstOrNull { it.name == system }
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a star system.")
+		val good = Goods.entries.firstOrNull { it.name == goods }
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a good.")
+		val game = biddingService.withdrawOffer(id, session.email, starSystem, good)
 
 		return GameResponseDto(game, session.email)
 	}

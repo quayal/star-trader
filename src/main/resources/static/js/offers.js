@@ -83,6 +83,16 @@ export function placedText(offer, systemName) {
 	return `Offer placed: ${offerText(offer)}, ${systemName}. Hidden from other players until Trading.`;
 }
 
+/** The × button's name on one of the player's own offers (R59): "Withdraw offer: Buy FOOD at 12 HT, Sigma Draconis". */
+export function withdrawLabel(offer) {
+	return `Withdraw offer: ${offerText(offer)}, ${offer.systemName}`;
+}
+
+/** The status line after an offer is withdrawn (R59). */
+export function withdrawnText(offer) {
+	return `Offer withdrawn: ${offerText(offer)}, ${offer.systemName}.`;
+}
+
 /**
  * Whether the Deck shows "Your offers this turn": not once the game is over (E05-S08-6), and not during Investment
  * (E06-S01). Every offer has been resolved by then, so the list and its "Only you can see these until Trading resolves

@@ -590,6 +590,45 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldWithdrawAnOfferDuringBiddingAndLetThePlayerOfferAgain() {
+		val (_, joinerToken, gameId) = startedGame("withdraw")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""").expectStatus().isCreated
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "ISO", "type": "SELL", "price": 9}""").expectStatus().isCreated
+
+		val withdrawn = withdrawOffer(joinerToken, gameId, "TAU_CETI", "POLY")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(withdrawn.you!!.offers).containsExactly(YourOfferResponseDto("TAU_CETI", "Tau Ceti", "ISO", "SELL", 9))
+		// R59: a second withdrawal (a double click) changes nothing.
+		withdrawOffer(joinerToken, gameId, "TAU_CETI", "POLY").expectStatus().isOk
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "SELL", "price": 12}""").expectStatus().isCreated
+		assertThat(gameStore.find(gameId)!!.turn!!.offers).hasSize(2)
+	}
+
+	@Test
+	fun shouldRefuseAWithdrawalAfterBiddingClosedOrForAnUnknownGoodOrSystem() {
+		val (creatorToken, joinerToken, gameId) = startedGame("withdraw-late")
+		placeOffer(joinerToken, gameId, """{"system": "TAU_CETI", "goods": "POLY", "type": "BUY", "price": 8}""").expectStatus().isCreated
+
+		withdrawOffer(joinerToken, gameId, "NOWHERE", "POLY")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose a star system.")
+		withdrawOffer(joinerToken, gameId, "TAU_CETI", "GOLD")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose a good.")
+		withdrawOffer(signIn("withdraw-stranger@example.com"), gameId, "TAU_CETI", "POLY").expectStatus().isForbidden
+		withdrawOffer(null, gameId, "TAU_CETI", "POLY").expectStatus().isUnauthorized
+
+		signalDone(joinerToken, gameId).expectStatus().isOk
+		signalDone(creatorToken, gameId).expectStatus().isOk
+		withdrawOffer(joinerToken, gameId, "TAU_CETI", "POLY")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Bidding has closed")
+		assertThat(gameStore.find(gameId)!!.turn!!.offers).hasSize(1)
+	}
+
+	@Test
 	fun shouldPlaceAndChangeABidAndShowItOnlyToItsPlayer() {
 		val (creatorToken, joinerToken, gameId) = startedGame("bid")
 
@@ -2041,6 +2080,12 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/offers", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
+	}
+
+	private fun withdrawOffer(token: String?, gameId: String, system: String, goods: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.delete().uri("/api/games/{id}/offers/{system}/{goods}", gameId, system, goods)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun pickPlace(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

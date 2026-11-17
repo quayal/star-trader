@@ -149,6 +149,67 @@ class GameOfferTest {
 	}
 
 	@Test
+	fun shouldWithdrawOnlyTheCallersOfferOnThatGoodAtThatSystem() {
+		// R59: other goods, other systems and other players' offers stay.
+		val game = started
+			.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
+			.placeOffer("creator@example.com", TAU_CETI, POLY, SELL, 9)
+			.placeOffer("joiner@example.com", BETA_HYDRI, POLY, BUY, 8)
+			.placeOffer("joiner@example.com", TAU_CETI, ISO, BUY, 8)
+			.withdrawOffer("joiner@example.com", TAU_CETI, POLY)
+
+		assertThat(game.turn?.offers).containsExactly(
+			Offer("creator@example.com", TAU_CETI, POLY, SELL, 9),
+			Offer("joiner@example.com", BETA_HYDRI, POLY, BUY, 8),
+			Offer("joiner@example.com", TAU_CETI, ISO, BUY, 8)
+		)
+	}
+
+	@Test
+	fun shouldLetAPlayerOfferAgainOnAGoodTheyWithdrew() {
+		// R59, R33: one offer standing per good per system.
+		val game = started
+			.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
+			.withdrawOffer("joiner@example.com", TAU_CETI, POLY)
+			.placeOffer("joiner@example.com", TAU_CETI, POLY, SELL, 12)
+
+		assertThat(game.turn?.offers).containsExactly(Offer("joiner@example.com", TAU_CETI, POLY, SELL, 12))
+	}
+
+	@Test
+	fun shouldChangeNothingWhenWithdrawingAnOfferThePlayerDoesNotHave() {
+		val game = started.placeOffer("creator@example.com", TAU_CETI, POLY, SELL, 9)
+
+		assertThat(game.withdrawOffer("joiner@example.com", TAU_CETI, POLY)).isEqualTo(game)
+	}
+
+	@Test
+	fun shouldStillWithdrawAnOfferAfterSignallingDoneWhileOthersBid() {
+		val game = started
+			.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
+			.signalDoneBidding("joiner@example.com", FakeDice(2, 1))
+			.withdrawOffer("joiner@example.com", TAU_CETI, POLY)
+
+		assertThat(game.turn?.offers).isEmpty()
+	}
+
+	@Test
+	fun shouldRefuseToWithdrawAnOfferOnceBiddingHasClosed() {
+		// A04: offers are final once Bidding closes.
+		val closed = started.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8).advancePhase(FakeDice(2, 1))
+
+		assertThatThrownBy { closed.withdrawOffer("joiner@example.com", TAU_CETI, POLY) }
+			.isInstanceOf(PhaseClosedException::class.java)
+			.hasMessage("Bidding has closed")
+	}
+
+	@Test
+	fun shouldRefuseAWithdrawalFromSomeoneOutsideTheGame() {
+		assertThatThrownBy { started.withdrawOffer("stranger@example.com", TAU_CETI, POLY) }
+			.isInstanceOf(NotAGameMemberException::class.java)
+	}
+
+	@Test
 	fun shouldRefuseAnOfferFromSomeoneOutsideTheGame() {
 		assertThatThrownBy { started.placeOffer("stranger@example.com", TAU_CETI, POLY, BUY, 8) }
 			.isInstanceOf(NotAGameMemberException::class.java)

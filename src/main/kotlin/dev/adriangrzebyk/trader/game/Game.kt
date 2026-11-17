@@ -265,6 +265,17 @@ data class Game(
 	}
 
 	/**
+	 * Withdraws [email]'s offer on [goods] at [system] while Bidding is open (R59); withdrawing one they don't have
+	 * changes nothing. After Bidding closed it's refused as such (A04).
+	 */
+	fun withdrawOffer(email: String, system: StarSystem, goods: Goods): Game {
+		playerOf(email)
+		val current = runningTurn()
+		current.requireBidding()
+		return copy(turn = current.withdrawOffer(email, system, goods))
+	}
+
+	/**
 	 * [email] picks [place] (1 = first) in this turn's turn order (R26). Players pick one at a time in initiative order
 	 * (R27); out of turn is refused, and [Turn.pickPlace] checks the place and fills the last one. Each pick is logged,
 	 * then the full order (S01-5).
