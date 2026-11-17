@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
-import dev.adriangrzebyk.trader.game.CargoDestination
+import dev.adriangrzebyk.trader.game.CargoHolder
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
@@ -655,11 +655,11 @@ data class BuyUnitsRequestDto(val system: String? = null, val goods: String? = n
 }
 
 /**
- * A move of goods between one of the caller's ships in port and their warehouse there (R58, E08-S02): [units] of [goods]
- * out of or into [ship], [to] the `WAREHOUSE` or the `SHIP`. Names are checked here; [units] is a [BigDecimal] so 2.5
- * reaches a message instead of being rounded.
+ * A move of goods (R58, E08-S02, revised 2026-11-17): [units] of [goods] [from] one of the caller's holders [to] another
+ * in the same port. Each end is a ship's name, or left out for the caller's warehouse there. [units] is a [BigDecimal]
+ * so 2.5 reaches a message instead of being rounded.
  */
-data class MoveCargoRequestDto(val ship: String? = null, val goods: String? = null, val units: BigDecimal? = null, val to: String? = null) {
+data class MoveCargoRequestDto(val from: String? = null, val to: String? = null, val goods: String? = null, val units: BigDecimal? = null) {
 
 	/** The good, or null when it's missing or isn't one. */
 	fun goodsConstant(): Goods? = Goods.entries.firstOrNull { it.name == goods }
@@ -667,8 +667,11 @@ data class MoveCargoRequestDto(val ship: String? = null, val goods: String? = nu
 	/** The units as a whole number, or null when missing or not whole. */
 	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
 
-	/** Where the goods go, or null when it's missing or isn't `WAREHOUSE` or `SHIP`. */
-	fun destination(): CargoDestination? = CargoDestination.entries.firstOrNull { it.name == to }
+	/** Where the goods come from: the ship [from], or the warehouse when it's left out. */
+	fun source(): CargoHolder = from?.let { CargoHolder.Ship(it) } ?: CargoHolder.Warehouse
+
+	/** Where the goods go: the ship [to], or the warehouse when it's left out. */
+	fun destination(): CargoHolder = to?.let { CargoHolder.Ship(it) } ?: CargoHolder.Warehouse
 }
 
 /**

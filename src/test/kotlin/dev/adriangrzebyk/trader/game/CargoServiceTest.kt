@@ -34,7 +34,7 @@ class CargoServiceTest {
 	fun shouldStoreTheMove() {
 		gameStore.create(started)
 
-		val game = service.move("game-1", "creator@example.com", "Wayfarer", Goods.ISO, 4, CargoDestination.SHIP)
+		val game = service.move("game-1", "creator@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 4)
 
 		assertThat(creatorIn(game).ship("Wayfarer")!!.holding(Goods.ISO)).isEqualTo(4)
 		assertThat(creatorIn(game).warehouseAt(TAU_CETI)!!.holding(Goods.ISO)).isEqualTo(2)
@@ -46,7 +46,9 @@ class CargoServiceTest {
 		// A real store re-runs the change when another write lands first (GameStore.update); goods must not double.
 		gameStore.create(started)
 
-		CargoService(ReplayingGameStore(gameStore)).move("game-1", "creator@example.com", "Wayfarer", Goods.ISO, 4, CargoDestination.SHIP)
+		CargoService(
+			ReplayingGameStore(gameStore)
+		).move("game-1", "creator@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 4)
 
 		val stored = creatorIn(gameStore.find("game-1")!!)
 		assertThat(stored.ship("Wayfarer")!!.holding(Goods.ISO)).isEqualTo(4)
@@ -57,7 +59,7 @@ class CargoServiceTest {
 	fun shouldLeaveTheGameAsItWasWhenTheMoveIsRefused() {
 		gameStore.create(started)
 
-		assertThatThrownBy { service.move("game-1", "creator@example.com", "Wayfarer", Goods.ISO, 7, CargoDestination.SHIP) }
+		assertThatThrownBy { service.move("game-1", "creator@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 7) }
 			.isInstanceOf(InvalidCargoMoveException::class.java)
 
 		assertThat(gameStore.find("game-1")).isEqualTo(started)
@@ -65,7 +67,7 @@ class CargoServiceTest {
 
 	@Test
 	fun shouldRefuseAGameThatDoesNotExist() {
-		assertThatThrownBy { service.move("nope", "creator@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { service.move("nope", "creator@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1) }
 			.isInstanceOf(GameNotFoundException::class.java)
 	}
 

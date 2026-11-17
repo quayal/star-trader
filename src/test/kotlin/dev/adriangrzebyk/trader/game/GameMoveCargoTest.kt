@@ -36,7 +36,7 @@ class GameMoveCargoTest {
 		for (phase in TurnPhase.entries) {
 			assertThat(game.turn!!.phase).isEqualTo(phase)
 
-			val moved = game.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP)
+			val moved = game.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1)
 
 			assertThat(playerOf(moved, "ada@example.com").ship("Wayfarer")!!.holding(Goods.ISO)).isEqualTo(1)
 			assertThat(playerOf(moved, "ada@example.com").warehouseAt(TAU_CETI)!!.holding(Goods.ISO)).isEqualTo(5)
@@ -49,7 +49,7 @@ class GameMoveCargoTest {
 	@Test
 	fun shouldChangeNothingButThePlayersOwnCargo() {
 		// R29: private, so no log line; the turn and everyone else stay as they were
-		val moved = bidding.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 4, CargoDestination.SHIP)
+		val moved = bidding.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 4)
 
 		assertThat(moved.log).isEqualTo(bidding.log)
 		assertThat(moved.turn).isEqualTo(bidding.turn)
@@ -65,7 +65,7 @@ class GameMoveCargoTest {
 		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1)
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
 
-		val away = adasSlot.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 6, CargoDestination.SHIP)
+		val away = adasSlot.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 6)
 			.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 
 		val wayfarer = playerOf(away, "ada@example.com").ship("Wayfarer")!!
@@ -81,13 +81,13 @@ class GameMoveCargoTest {
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
 		val jumped = adasSlot.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 
-		assertThatThrownBy { jumped.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { jumped.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1) }
 			.isInstanceOf(InvalidCargoMoveException::class.java)
 	}
 
 	@Test
 	fun shouldPassTheRulesOfThePlayerThrough() {
-		assertThatThrownBy { bidding.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 7, CargoDestination.SHIP) }
+		assertThatThrownBy { bidding.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 7) }
 			.isInstanceOf(InvalidCargoMoveException::class.java)
 			.hasMessage("Your warehouse at Tau Ceti has only 6 ISO.")
 	}
@@ -95,20 +95,20 @@ class GameMoveCargoTest {
 	@Test
 	fun shouldNotLetAPlayerMoveAnotherPlayersShip() {
 		// Meridian is Grace's; Ada can't name it
-		assertThatThrownBy { bidding.moveCargo("ada@example.com", "Meridian", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { bidding.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Meridian"), Goods.ISO, 1) }
 			.isInstanceOf(InvalidCargoMoveException::class.java)
 			.hasMessage("Choose one of your ships.")
 	}
 
 	@Test
 	fun shouldRefuseAPlayerWhoIsNotInTheGame() {
-		assertThatThrownBy { bidding.moveCargo("eve@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { bidding.moveCargo("eve@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1) }
 			.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
 	@Test
 	fun shouldRefuseBeforeTheGameStarts() {
-		assertThatThrownBy { lobby.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { lobby.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("This game hasn't started")
 	}
@@ -117,7 +117,7 @@ class GameMoveCargoTest {
 	fun shouldRefuseOnceTheGameIsOver() {
 		val over = bidding.copy(status = GameStatus.FINISHED)
 
-		assertThatThrownBy { over.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
+		assertThatThrownBy { over.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("This game is over")
 	}
