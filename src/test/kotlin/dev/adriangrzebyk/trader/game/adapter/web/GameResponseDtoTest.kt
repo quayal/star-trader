@@ -56,9 +56,19 @@ class GameResponseDtoTest {
 					"BETA_HYDRI" to 8,
 					"MU_HERCULIS" to 4,
 					"SIGMA_DRACONIS" to 5
-				)
+				),
+				// R60: Tau Ceti has a shipyard.
+				shipyard = true
 			)
 		)
+	}
+
+	// R60: only Beta Hydri, Epsilon Eridani and Tau Ceti have a shipyard, and the map shows it.
+	@Test
+	fun shouldSayWhichSystemsHaveAShipyard() {
+		val board = GameResponseDto(started, "host@example.com").board
+
+		assertThat(board.filter { it.shipyard }.map { it.id }).containsExactlyInAnyOrder("BETA_HYDRI", "EPSILON_ERIDANI", "TAU_CETI")
 	}
 
 	@Test
