@@ -18,6 +18,11 @@ export function flagLabels(part) {
 	return [part.military ? MILITARY_LABEL : null, part.aerodynamic ? AERODYNAMIC_LABEL : null].filter(Boolean);
 }
 
+/** E09-S06-3: when a ship in the yard leaves it, or that it won't before the game ends (R63). */
+function yardText(game, turn) {
+	return game.turns && turn > game.turns ? 'in the shipyard until the game ends' : `in the shipyard, leaves it in turn ${turn}’s Investment`;
+}
+
 /** S03-3: "Tau Ceti · Port", or "Tau Ceti · in Space" for a ship that hasn't landed. */
 export function whereText(ship) {
 	return `${ship.systemName} · ${LOCATION_NAMES[ship.location] ?? ship.location}`;
@@ -69,7 +74,7 @@ export function fleetShips(game, myId) {
 			name: ship.name,
 			systemId: ship.system,
 			// E09-S06-3: a ship in the yard says when it leaves it.
-			where: own.leavesYardOnTurn ? `${ship.systemName} · in the shipyard, leaves it in turn ${own.leavesYardOnTurn}’s Investment` : whereText(ship),
+			where: own.leavesYardOnTurn ? `${ship.systemName} · ${yardText(game, own.leavesYardOnTurn)}` : whereText(ship),
 			hull: { name: own.hull.name, flags: flagLabels(own.hull) },
 			modules: moduleRows(own.modules),
 			stats: statRows(own),

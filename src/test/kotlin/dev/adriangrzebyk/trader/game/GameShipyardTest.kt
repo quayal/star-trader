@@ -91,6 +91,18 @@ class GameShipyardTest {
 	}
 
 	@Test
+	fun shouldRefuseANameThatCannotBeAShipsAddressInAUrl() {
+		// The refit and sell endpoints carry the name in the path (E09 code review).
+		listOf("A/B", "a\\b", ".", "..", "--").forEach { name ->
+			assertThatThrownBy { investing.buyShip("ada@example.com", name, TAU_CETI, Hull.PHOENIX, emptyList(), CrewClass.D) }
+				.isInstanceOf(InvalidInvestmentException::class.java)
+				.hasMessage(Ship.NAME_CHARACTERS_MESSAGE)
+		}
+		assertThat(investing.buyShip("ada@example.com", "St. Jude's Ark-2", TAU_CETI, Hull.PHOENIX, emptyList(), CrewClass.D).freeShipNames())
+			.isNotEmpty()
+	}
+
+	@Test
 	fun shouldRefuseANameAnyShipInTheGameHasIgnoringCase() {
 		// R62: Meridian is Grace's starting ship.
 		assertThatThrownBy { investing.buyShip("ada@example.com", "meridian", TAU_CETI, Hull.PHOENIX, emptyList(), CrewClass.D) }

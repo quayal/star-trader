@@ -36,6 +36,12 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
 	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
 
+	/**
+	 * This warehouse after taking in the cargo of [ship], sold here (R66): each good in goods order, as far as it fits
+	 * ([load]); the rest is lost. `js/shipyard.js` tells the seller the same before and after.
+	 */
+	fun storeCargoOf(ship: Ship): Warehouse = Goods.entries.fold(this) { warehouse, goods -> warehouse.load(goods, ship.holding(goods)) }
+
 	/** This warehouse after storing or loading [units] of [goods]: what fits ([unitsThatFit]); the rest is lost (R16, R47, R49). */
 	fun load(goods: Goods, units: Int): Warehouse = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
 

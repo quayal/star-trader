@@ -2,14 +2,18 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-	LATE_BUY_WARNING,
+	LAST_TURN_WARNING,
+	NAME_CHARACTERS_ERROR,
 	NAME_ERROR,
+	SECOND_LAST_TURN_WARNING,
+	canSuggest,
 	fitCheck,
 	lateBuyWarning,
 	moduleList,
 	refitOptions,
 	saleConfirmText,
 	saleOutcome,
+	saleResult,
 	shipCost,
 	soldText,
 	suggestName,
@@ -100,6 +104,14 @@ describe('validateShipName', () => {
 		assert.equal(validateShipName(game(), 'A'.repeat(21)).error, NAME_ERROR);
 	});
 
+	it('refuses a name that cannot be the ship address in a URL, as the server does', () => {
+		for (const name of ['A/B', 'a\\b', '.', '..', '--']) {
+			assert.equal(validateShipName(game(), name).error, NAME_CHARACTERS_ERROR, name);
+		}
+		assert.deepEqual(validateShipName(game(), "St. Jude's Ark-2"), { name: "St. Jude's Ark-2" });
+		assert.deepEqual(validateShipName(game(), 'Łódź'), { name: 'Łódź' });
+	});
+
 	it('refuses a name any ship in the game has, ignoring case', () => {
 		assert.equal(validateShipName(game(), 'meridian').error, "There's already a ship called meridian in this game.");
 	});
@@ -113,14 +125,16 @@ describe('suggestName', () => {
 
 	it('is null once every suggestion is taken', () => {
 		assert.equal(suggestName({ ...SHIPYARD, freeNames: [] }, ''), null);
+		assert.equal(canSuggest({ ...SHIPYARD, freeNames: ['Spiral'] }, 'Spiral'), false);
+		assert.equal(canSuggest(SHIPYARD, 'Spiral'), true);
 	});
 });
 
 describe('lateBuyWarning', () => {
 	it('warns in the last two turns, when the ship would never jump (R39, R63)', () => {
 		assert.equal(lateBuyWarning(game({ turn: 18, turns: 20 })), '');
-		assert.equal(lateBuyWarning(game({ turn: 19, turns: 20 })), LATE_BUY_WARNING);
-		assert.equal(lateBuyWarning(game({ turn: 20, turns: 20 })), LATE_BUY_WARNING);
+		assert.equal(lateBuyWarning(game({ turn: 19, turns: 20 })), SECOND_LAST_TURN_WARNING);
+		assert.equal(lateBuyWarning(game({ turn: 20, turns: 20 })), LAST_TURN_WARNING);
 	});
 });
 
@@ -147,6 +161,14 @@ describe('selling a ship (R66)', () => {
 			'Sold Wayfarer for 101 HT. 6 ISO went to your warehouse at Tau Ceti. 1 ISO, 2 POLY were lost.');
 	});
 
+	it('reads what was stored from the server answer, not from the prediction', () => {
+		const before = game({ cargo: { ISO: 7, POLY: 2 }, warehouse });
+		const after = game({ warehouse: { ...warehouse, cargo: { POLY: 4, ISO: 5 } } });
+		const result = saleResult(before, after, 'me', 'Wayfarer');
+		assert.deepEqual(result.stored, [{ goods: 'ISO', units: 5 }]);
+		assert.deepEqual(result.lost, [{ goods: 'ISO', units: 2 }, { goods: 'POLY', units: 2 }]);
+	});
+
 	it('says only the price for an empty ship', () => {
 		const empty = game();
 		assert.equal(saleConfirmText(empty, 'me', empty.you.ships[0]), 'Sell Wayfarer for 101 HT?');
@@ -162,9 +184,9 @@ describe('refitOptions (R65)', () => {
 	const ship = {
 		name: 'Wayfarer',
 		crewClass: 'B',
-		atShipyard: true,
+		canRefit: true,
 		stats: { modulesUsed: 4, moduleCapacity: 5 },
-		modules: [{ id: 'CARGO', name: 'Cargo', count: 4 }],
+		modules: [{ id: 'CARGO', name: 'Cargo', count: 4, resaleValue: 2 }],
 	};
 
 	it('offers the modules that still fit, each at its price plus crew at the ship class', () => {
@@ -173,16 +195,16 @@ describe('refitOptions (R65)', () => {
 	});
 
 	it('offers no module that takes a slot on a full ship, and no second Safe jump', () => {
-		const full = { ...ship, stats: { modulesUsed: 5, moduleCapacity: 5 }, modules: [...ship.modules, { id: 'SAFE_JUMP', name: 'Safe jump', count: 1 }] };
+		const full = { ...ship, stats: { modulesUsed: 5, moduleCapacity: 5 }, modules: [...ship.modules, { id: 'SAFE_JUMP', name: 'Safe jump', count: 1, resaleValue: 5 }] };
 		assert.deepEqual(refitOptions(SHIPYARD, full).add, []);
 	});
 
-	it('pays back half of a removed module, rounded down', () => {
-		const withPassenger = { ...ship, modules: [{ id: 'PASSENGER', name: 'Passenger', count: 1 }] };
-		assert.deepEqual(refitOptions(SHIPYARD, withPassenger).remove, [{ id: 'PASSENGER', name: 'Passenger', refund: 7 }]);
+	it('shows what the server pays back for a removed module, even one the shipyard does not sell', () => {
+		const withArsenal = { ...ship, modules: [{ id: 'ARSENAL', name: 'Arsenal', count: 1, resaleValue: 50 }] };
+		assert.deepEqual(refitOptions(SHIPYARD, withArsenal).remove, [{ id: 'ARSENAL', name: 'Arsenal', refund: 50 }]);
 	});
 
 	it('offers nothing away from a shipyard', () => {
-		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, atShipyard: false }), { add: [], remove: [] });
+		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }), { add: [], remove: [] });
 	});
 });

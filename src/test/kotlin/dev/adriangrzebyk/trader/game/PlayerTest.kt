@@ -111,7 +111,17 @@ class PlayerTest {
 	@Test
 	fun shouldPayForABuyAndLoadWhatFitsLosingTheRest() {
 		// S04-4: Wayfarer has 8 free spaces and Meridian 1; 12 ISO split 10 + 2 onto them fit 8 + 1, and 3 are lost.
-		val meridian = Ship("Meridian", StarSystem.TAU_CETI, ShipLocation.PORT, mapOf(Goods.POLY to 9), Ship.LEGACY_HULL, Ship.LEGACY_MODULES)
+		val meridian =
+			Ship(
+				"Meridian",
+				StarSystem.TAU_CETI,
+				ShipLocation.PORT,
+				mapOf(Goods.POLY to 9),
+				Ship.LEGACY_HULL,
+				Ship.LEGACY_MODULES,
+				Ship.STARTING_CREW_CLASS,
+				null
+			)
 		val trader = player.copy(ships = listOf(wayfarer, meridian))
 		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)
 

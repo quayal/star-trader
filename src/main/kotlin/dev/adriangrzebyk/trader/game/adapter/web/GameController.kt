@@ -251,7 +251,7 @@ class GameController(
 		@PathVariable module: String
 	): GameResponseDto {
 		val session = sessionFor(authorization)
-		val fitted = FitModuleRequestDto(module).moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		val fitted = moduleNamed(module) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
 		return GameResponseDto(investmentService.removeModule(id, session.email, ship, fitted), session.email)
 	}
 

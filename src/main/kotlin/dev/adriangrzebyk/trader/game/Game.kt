@@ -196,15 +196,10 @@ data class Game(
 	 * factories, after they collected (S03-5), so the new blocks never catch this turn's output (R48). Done is a readiness
 	 * flag (D09): a player who signalled done may still invest until everyone has.
 	 */
-	fun buyWarehouseBlocks(email: String, system: StarSystem, blocks: Int): Game {
-		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
-		val bought = player.buyWarehouseBlocks(system, blocks)
-		val line = "${player.corporationName} added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
-		return copy(players = replace(bought), log = log + LogEntry(investing.number, line))
-	}
+	fun buyWarehouseBlocks(email: String, system: StarSystem, blocks: Int): Game =
+		withInvestment(email, "added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}") {
+			it.buyWarehouseBlocks(system, blocks)
+		}
 
 	/**
 	 * [email] buys [units] of production of [goods] at [system] (R46, E06-S05): [Player.buyFactoryUnits] checks and applies
@@ -233,50 +228,42 @@ data class Game(
 	 * like any purchase (R48).
 	 */
 	fun buyShip(email: String, name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass): Game {
-		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
-		val ship = Ship.commission(name, shipyard, hull, modules, crewClass, investing.number)
-		if (players.flatMap { it.ships }.any { it.name.equals(ship.name, ignoreCase = true) }) {
+		val ship = Ship.commission(name, shipyard, hull, modules, crewClass, runningTurn().number)
+		if (isShipNameTaken(ship.name)) {
 			throw InvalidInvestmentException("There's already a ship called ${ship.name} in this game.")
 		}
-		val line = "${player.corporationName} ordered ${ship.name} at the ${shipyard.displayName} shipyard"
-		return copy(players = replace(player.buyShip(ship)), log = log + LogEntry(investing.number, line))
+		return withInvestment(email, "ordered ${ship.name} at the ${shipyard.displayName} shipyard") { it.buyShip(ship) }
 	}
 
 	/** The suggested names no ship in this game uses yet, ignoring case (R62), in [Ship.NAMES] order. */
-	fun freeShipNames(): List<String> {
-		val taken = players.flatMap { it.ships }.map { it.name.lowercase() }.toSet()
-		return Ship.NAMES.filterNot { it.lowercase() in taken }
-	}
+	fun freeShipNames(): List<String> = Ship.NAMES.filterNot { isShipNameTaken(it) }
+
+	/** Whether any player has a ship called [name], ignoring case (R62). */
+	private fun isShipNameTaken(name: String): Boolean = players.any { it.hasShipNamed(name) }
 
 	/** [email] fits one more [module] to their ship [shipName] at a shipyard (R65): see [Player.addModule]. Private, not logged. */
-	fun addModule(email: String, shipName: String, module: Module): Game = withInvestment(email) { it.addModule(shipName, module) }
+	fun addModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.addModule(shipName, module) }
 
 	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
-	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email) { it.removeModule(shipName, module) }
+	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.removeModule(shipName, module) }
 
 	/**
 	 * [email] sells their ship [shipName] (R66): see [Player.sellShip]. The sale is public, without the amount (R29); what
 	 * happened to the cargo is private, so isn't logged.
 	 */
-	fun sellShip(email: String, shipName: String): Game {
-		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
-		val line = "${player.corporationName} sold $shipName"
-		return copy(players = replace(player.sellShip(shipName)), log = log + LogEntry(investing.number, line))
-	}
+	fun sellShip(email: String, shipName: String): Game = withInvestment(email, "sold $shipName") { it.sellShip(shipName) }
 
-	/** This game once [change] applied to [email] in Investment, after their Collect (S03-5). */
-	private fun withInvestment(email: String, change: (Player) -> Player): Game {
+	/**
+	 * This game once [change] applied to [email] in Investment, after their Collect (S03-5), with "{corporation} [event]"
+	 * in the public log when there is one.
+	 */
+	private fun withInvestment(email: String, event: String?, change: (Player) -> Player): Game {
 		val player = playerOf(email)
 		val investing = runningTurn()
 		investing.requireInvesting()
 		requireCollected(player, investing)
-		return copy(players = replace(change(player)))
+		val line = event?.let { LogEntry(investing.number, "${player.corporationName} $it") }
+		return copy(players = replace(change(player)), log = log + listOfNotNull(line))
 	}
 
 	/**

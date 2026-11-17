@@ -64,6 +64,7 @@ describe('fleetShips', () => {
 
 		assert.equal(spiral.where, 'Tau Ceti · in the shipyard, leaves it in turn 3’s Investment');
 		assert.deepEqual(spiral.stats.at(-1), { label: 'Crew class', value: 'D' });
+		assert.equal(fleetShips({ ...yard, turns: 2 }, 'ada')[0].where, 'Tau Ceti · in the shipyard until the game ends');
 	});
 
 	it('lists only my ships, each with its hull, modules, stats, position and cargo (S03-2, S03-3, S03-5)', () => {

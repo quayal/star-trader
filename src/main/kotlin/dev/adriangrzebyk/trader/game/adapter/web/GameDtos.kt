@@ -559,8 +559,11 @@ data class BuyShipRequestDto(
 /** A module to fit to a ship (R65): its `Module` constant. */
 data class FitModuleRequestDto(val module: String? = null) {
 
-	fun moduleConstant(): Module? = Module.entries.firstOrNull { it.name == module }
+	fun moduleConstant(): Module? = moduleNamed(module)
 }
+
+/** The module whose `Module` constant is [name], or null for none: for a request body or a path alike. */
+fun moduleNamed(name: String?): Module? = Module.entries.firstOrNull { it.name == name }
 
 /** A system, and the [blocks] of warehouse the viewer already owns there (0 for none). */
 data class InvestSystemResponseDto(val system: String, val systemName: String, val blocks: Int) {
@@ -753,7 +756,7 @@ data class YourShipResponseDto(
 	val stats: ShipStatsResponseDto,
 	val crewClass: String,
 	val saleValue: Int,
-	val atShipyard: Boolean,
+	val canRefit: Boolean,
 	val leavesYardOnTurn: Int?
 ) {
 
@@ -767,8 +770,8 @@ data class YourShipResponseDto(
 		ShipStatsResponseDto(ship),
 		ship.crewClass.name,
 		ship.saleValue(),
-		ship.isAtShipyard(),
-		ship.boughtOnTurn?.takeIf { ship.isInShipyard() }?.plus(1)
+		ship.canBeRefitted(),
+		ship.leavesYardOnTurn()
 	)
 }
 
@@ -788,7 +791,8 @@ data class FittedModuleResponseDto(
 	val crew: Int,
 	val cargoSpaces: Int,
 	val passengers: Int,
-	val military: Boolean
+	val military: Boolean,
+	val resaleValue: Int
 ) {
 
 	constructor(module: Module, count: Int) : this(
@@ -800,7 +804,8 @@ data class FittedModuleResponseDto(
 		module.crew,
 		module.cargoSpaces,
 		module.passengers,
-		module.military
+		module.military,
+		module.resaleValue()
 	)
 }
 
