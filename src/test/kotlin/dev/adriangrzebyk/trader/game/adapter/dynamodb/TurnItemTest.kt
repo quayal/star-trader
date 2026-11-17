@@ -1,18 +1,9 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
-import dev.adriangrzebyk.trader.game.Battle
-import dev.adriangrzebyk.trader.game.BattleAction
-import dev.adriangrzebyk.trader.game.BattleInterception
-import dev.adriangrzebyk.trader.game.BattleOrder
-import dev.adriangrzebyk.trader.game.BattleShip
-import dev.adriangrzebyk.trader.game.BattleStage
 import dev.adriangrzebyk.trader.game.InitiativeBid
-import dev.adriangrzebyk.trader.game.Interception
-import dev.adriangrzebyk.trader.game.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Offer
-import dev.adriangrzebyk.trader.game.PendingHits
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
@@ -20,6 +11,15 @@ import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnOrderPick
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Wholesale
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleAction
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
+import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.BattleShip
+import dev.adriangrzebyk.trader.game.battle.BattleStage
+import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
+import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem

@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.game
+package dev.adriangrzebyk.trader.game.battle
 
 /** A salvo's weapons + 2d6 (R75), read against the battle table. */
 @JvmInline

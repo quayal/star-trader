@@ -1,4 +1,7 @@
-package dev.adriangrzebyk.trader.game
+package dev.adriangrzebyk.trader.game.battle
+
+import dev.adriangrzebyk.trader.game.Dice
+import dev.adriangrzebyk.trader.game.Ship
 
 /**
  * One ship firing at another in a battle round (R75): [firepower] + [roll] (2d6) against the target's [shields] gives

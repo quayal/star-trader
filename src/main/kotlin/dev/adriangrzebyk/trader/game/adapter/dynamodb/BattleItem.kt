@@ -1,12 +1,12 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
-import dev.adriangrzebyk.trader.game.Battle
-import dev.adriangrzebyk.trader.game.BattleAction
-import dev.adriangrzebyk.trader.game.BattleInterception
-import dev.adriangrzebyk.trader.game.BattleOrder
-import dev.adriangrzebyk.trader.game.BattleShip
-import dev.adriangrzebyk.trader.game.BattleStage
-import dev.adriangrzebyk.trader.game.PendingHits
+import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleAction
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
+import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.BattleShip
+import dev.adriangrzebyk.trader.game.battle.BattleStage
+import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 

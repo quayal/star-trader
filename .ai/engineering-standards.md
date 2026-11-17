@@ -23,6 +23,10 @@ working solution, say so and ask rather than silently defaulting to "the proper 
   belong to?" and put it there, creating a new package if none fits.
 - Each package is self-sufficient: its logic and tests live together. Nothing outside a package reaches
   into its internals.
+- A large concept inside a package gets a subpackage once it has several classes of its own: `game.battle` holds
+  `Battle`, `Salvo`, `AttackTotal`, `Interception` (creator, 2026-11-17). It may import from its parent and the
+  parent from it when both are parts of one aggregate saved as a unit (`Game`); a separate top-level package is for a
+  separate concept, not for one that only exists inside a `Game`.
 
 ## 2. Hexagonal within each feature, not across the whole app
 

@@ -1,5 +1,6 @@
-package dev.adriangrzebyk.trader.game
+package dev.adriangrzebyk.trader.game.battle
 
+import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
@@ -98,12 +99,34 @@ data class Battle(
 	/** The ships breaking away this round (R74). */
 	fun breakingAway(): List<String> = orders.filter { it.action == BattleAction.BREAK_AWAY }.map { it.ship }
 
+	/** Whether [ship] breaks away this round (R74): a salvo at it misses. */
+	fun isBreakingAway(ship: String): Boolean = ship in breakingAway()
+
+	/** The names of the ships still fighting. */
+	fun fightingShips(): List<String> = ships.map { it.name }
+
 	/**
-	 * This battle once the round's salvos landed (R74–R77): the ships breaking away have left, [destroyed] ones are gone,
-	 * and [hits] wait to be placed; with none, the next round starts or the battle is over.
+	 * This round once its [salvos] have landed (R74–R77): the ships breaking away leave; a rocket kill, or more hits than
+	 * [hitsSurvivable] says a ship can absorb (by ship name), destroys it; the rest of the hits wait for their owners to
+	 * place them. The round's public log lines (R78) come with it.
 	 */
-	fun afterSalvos(destroyed: Set<String>, hits: List<PendingHits>): Battle {
-		val leaving = breakingAway().toSet()
+	fun fired(salvos: List<Salvo>, hitsSurvivable: Map<String, Int>): FiredRound {
+		val leaving = breakingAway()
+		val rocketKills = salvos.filter { it.destroysTarget() }.map { it.target }.toSet()
+		val hitsByShip = salvos.filter { it.hits > 0 }.groupBy { it.target }.mapValues { (_, hits) -> hits.sumOf { it.hits } }
+		val overwhelmed = hitsByShip.filter { (ship, hits) -> ship !in rocketKills && hits > hitsSurvivable.getValue(ship) }.keys
+		val destroyed = rocketKills + overwhelmed
+		val pending = hitsByShip.filterKeys { it !in destroyed }.map { (ship, hits) -> PendingHits(ship, ownerOf(ship), hits) }
+		val log = listOf("Battle at ${system.displayName}, round $round") +
+			leaving.map { "$it breaks away" } + salvos.map { it.log() } + destroyed.map { "$it is destroyed" }
+		return FiredRound(afterSalvos(leaving.toSet(), destroyed, pending), destroyed, log)
+	}
+
+	/**
+	 * This battle once the round's salvos landed: [leaving] ships have left, [destroyed] ones are gone, and [hits] wait to
+	 * be placed; with none, the next round starts or the battle is over.
+	 */
+	private fun afterSalvos(leaving: Set<String>, destroyed: Set<String>, hits: List<PendingHits>): Battle {
 		val after = copy(
 			ships = ships.filterNot { it.name in leaving || it.name in destroyed },
 			leftShips = leftShips + ships.filter { it.name in leaving },
@@ -124,6 +147,15 @@ data class Battle(
 		return mine
 	}
 
+	/** [email]'s hits to place (R76), refused unless [placed] names exactly their ships that took them. */
+	fun hitsToPlace(email: String, placed: Set<String>): List<PendingHits> {
+		val mine = pendingHitsOf(email)
+		if (placed != mine.map { it.ship }.toSet()) {
+			throw InvalidBattleException("Place the hits on each of your ships that took them: ${mine.joinToString(", ") { it.ship }}.")
+		}
+		return mine
+	}
+
 	/** This battle once [email] placed their hits, which [destroyed] their ships named there (R76, R77). */
 	fun hitsPlaced(email: String, destroyed: Set<String>): Battle {
 		pendingHitsOf(email)
@@ -138,16 +170,29 @@ data class Battle(
 		copy(stage = BattleStage.LANDING, done = emptyList())
 	}
 
-	/** This battle once [email] placed their surviving ships (R77); refused before the battle is over, or twice. */
-	fun landedBy(email: String): Battle {
+	/**
+	 * This battle once [email] placed their surviving ships (R77), [placed] naming exactly those ships; refused before the
+	 * battle is over, or twice.
+	 */
+	fun landedBy(email: String, placed: Set<String>): Battle {
 		if (stage != BattleStage.LANDING) {
 			throw InvalidGameOperationException("The battle isn't over yet.")
 		}
 		if (email !in landers() || email in done) {
 			throw InvalidGameOperationException("You have no ship from the battle to place.")
 		}
+		val survivors = survivorsOf(email)
+		if (placed != survivors.toSet()) {
+			throw InvalidBattleException("Choose where each of your ships from the battle ends up: ${survivors.joinToString(", ")}.")
+		}
 		return copy(done = done + email)
 	}
+
+	/** The ships [email] still has to place now the battle is over (R77): none before then, or once they have. */
+	fun shipsToLand(email: String): List<String> = if (stage == BattleStage.LANDING && email !in done) survivorsOf(email) else emptyList()
+
+	/** Whether the battle has just ended (R77): nobody fights on and nobody has placed a surviving ship yet. */
+	fun isJustOver(): Boolean = stage == BattleStage.LANDING && done.isEmpty()
 
 	/** Whether the battle is over and every surviving ship has been placed (R77): the jumps go on. */
 	fun isFinished(): Boolean = stage == BattleStage.LANDING && waitingFor().isEmpty()
@@ -172,7 +217,14 @@ data class BattleInterception(val ship: String, val interceptor: String)
 data class BattleShip(val name: String, val ownerEmail: String)
 
 /** What a player orders [ship] to do this round (R74): fire at [target], with [rockets] or not, or break away. */
-data class BattleOrder(val ship: String, val action: BattleAction, val target: String?, val rockets: Boolean)
+data class BattleOrder(val ship: String, val action: BattleAction, val target: String?, val rockets: Boolean) {
+
+	/** The ship an order to fire is aimed at. */
+	fun targetShip(): String = checkNotNull(target) { "$ship's order isn't to fire" }
+}
+
+/** A battle round once its salvos have landed (R74–R78): the [battle] after it, the ships it [destroyed], its public [log]. */
+data class FiredRound(val battle: Battle, val destroyed: Set<String>, val log: List<String>)
 
 /** A ship's order in a battle round (R74). */
 enum class BattleAction { FIRE, BREAK_AWAY }
