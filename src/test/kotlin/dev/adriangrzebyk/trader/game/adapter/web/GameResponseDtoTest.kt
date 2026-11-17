@@ -571,4 +571,24 @@ class GameResponseDtoTest {
 
 		assertThat(GameResponseDto(finished, "guest@example.com").result!!.winners).containsExactly("p1", "p2")
 	}
+
+	// R51: the buy form shows every hull's characteristics, so a buyer can compare them before picking one.
+	@Test
+	fun shouldSendAHullForSaleWithAllItsCharacteristics() {
+		assertThat(ShipyardHullResponseDto(Hull.CORCO_IOTA)).isEqualTo(
+			ShipyardHullResponseDto(
+				id = "CORCO_IOTA",
+				name = "Corco Iota",
+				price = 190,
+				moduleCapacity = 6,
+				crew = 1,
+				cargoSpaces = 1,
+				weapons = 3,
+				shields = 3,
+				intercept = 2,
+				repairCost = 30,
+				aerodynamic = false
+			)
+		)
+	}
 }

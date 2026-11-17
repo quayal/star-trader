@@ -507,7 +507,10 @@ data class ShipyardResponseDto(
 
 data class ShipyardSystemResponseDto(val system: String, val systemName: String)
 
-/** A hull for sale (R51): its `Hull` constant as [id], and what the buy form needs to price and fit it. */
+/**
+ * A hull for sale (R51): its `Hull` constant as [id], what the buy form needs to price and fit it, and the rest of its
+ * characteristics (base [weapons], [shields], [intercept] and [repairCost]) so a buyer can compare hulls.
+ */
 data class ShipyardHullResponseDto(
 	val id: String,
 	val name: String,
@@ -515,6 +518,10 @@ data class ShipyardHullResponseDto(
 	val moduleCapacity: Int,
 	val crew: Int,
 	val cargoSpaces: Int,
+	val weapons: Int,
+	val shields: Int,
+	val intercept: Int,
+	val repairCost: Int,
 	val aerodynamic: Boolean
 ) {
 
@@ -525,6 +532,10 @@ data class ShipyardHullResponseDto(
 		hull.moduleCapacity,
 		hull.crew,
 		hull.builtInCargo,
+		hull.weapons,
+		hull.shields,
+		hull.intercept,
+		hull.repairCost,
 		hull.aerodynamic
 	)
 }
