@@ -241,11 +241,12 @@ class GameShipyardTest {
 	}
 
 	@Test
-	fun shouldRefuseARefitAwayFromAShipyard() {
-		// Grace's Meridian is in port at Gamma Leporis, which has none.
-		assertThatThrownBy { investing.addModule("grace@example.com", "Meridian", Module.CARGO) }
-			.isInstanceOf(InvalidInvestmentException::class.java)
-			.hasMessage("Meridian must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+	fun shouldRefitInPortAtASystemWithoutAShipyard() {
+		// R65 (creator, 2026-11-17): modules are fitted in any port. Grace's Meridian is in port at Gamma Leporis, which has no shipyard.
+		val game = investing.removeModule("grace@example.com", "Meridian", Module.LIGHT_WEAPONS)
+			.addModule("grace@example.com", "Meridian", Module.PASSENGER)
+
+		assertThat(shipOf(game, "Meridian").modules).contains(Module.PASSENGER).doesNotContain(Module.LIGHT_WEAPONS)
 	}
 
 	@Test
@@ -267,7 +268,9 @@ class GameShipyardTest {
 			}
 		)
 
-		assertThatThrownBy { inSpace.addModule("ada@example.com", "Wayfarer", Module.CARGO) }.isInstanceOf(InvalidInvestmentException::class.java)
+		assertThatThrownBy { inSpace.addModule("ada@example.com", "Wayfarer", Module.CARGO) }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("Wayfarer must be in port to refit.")
 	}
 
 	@Test
@@ -275,7 +278,7 @@ class GameShipyardTest {
 		assertThatThrownBy { investing.addModule("ada@example.com", "Wayfarer", Module.CARGO) }
 			.isInstanceOf(InvalidFittingException::class.java)
 		assertThatThrownBy { investing.addModule("ada@example.com", "Wayfarer", Module.DOGFIGHT) }
-			.hasMessage("Dogfight is military: it can't be bought at a shipyard.")
+			.hasMessage("Dogfight is military: it can't be bought.")
 	}
 
 	@Test

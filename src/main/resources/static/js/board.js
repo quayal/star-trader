@@ -255,7 +255,7 @@ export function mapGood(entry) {
 }
 
 /** R60: what a shipyard on the map means, in the map key and a system's accessible name. */
-export const SHIPYARD_TEXT = 'Shipyard: buy, refit and repair ships here.';
+export const SHIPYARD_TEXT = 'Shipyard: build and repair ships here.';
 
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
 export function systemAccessibleName(game, system, myId) {

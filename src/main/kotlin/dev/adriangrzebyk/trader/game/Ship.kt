@@ -173,8 +173,11 @@ data class Ship(
 	/** Whether this ship is still in the shipyard it was bought at (R60, R64): it doesn't jump, trade or take cargo. */
 	fun isInShipyard(): Boolean = location == ShipLocation.SHIPYARD
 
-	/** Whether this ship can be refitted (R65): in the yard, or in Port at a system with a shipyard. */
-	fun canBeRefitted(): Boolean = isInShipyard() || (location == ShipLocation.PORT && system.hasShipyard())
+	/** Whether this ship can be refitted (R65): in the yard, or in Port at any system (creator, 2026-11-17: not only at shipyards). */
+	fun canBeRefitted(): Boolean = isInShipyard() || isInPort()
+
+	/** Whether this ship can be repaired (R79): in the yard, or in Port at a system with a shipyard. */
+	fun canBeRepaired(): Boolean = isInShipyard() || (isInPort() && system.hasShipyard())
 
 	/** The turn whose Investment this ship leaves the yard in (R63): the one after it was bought; null once it's out. */
 	fun leavesYardOnTurn(): Int? = boughtOnTurn?.takeIf { isInShipyard() }?.plus(1)
@@ -200,7 +203,7 @@ data class Ship(
 	 */
 	fun withModuleAdded(module: Module): Ship {
 		if (!module.isForSale()) {
-			throw InvalidInvestmentException("${module.displayName} is military: it can't be bought at a shipyard.")
+			throw InvalidInvestmentException("${module.displayName} is military: it can't be bought.")
 		}
 		return copy(modules = modules + module)
 	}

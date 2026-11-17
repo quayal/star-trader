@@ -274,6 +274,18 @@ class GameBattleTest {
 	}
 
 	@Test
+	fun shouldRefuseARepairAwayFromAShipyard() {
+		// R79: repair stays at a shipyard, though refits happen in any port (R65).
+		val investing = withShip(fighting.copy(turn = fighting.turn!!.withBattle(null).landed().toTrading().endTrading()), "Wayfarer") {
+			it.copy(system = GAMMA_LEPORIS, location = ShipLocation.PORT, hullDamage = 1)
+		}
+
+		assertThatThrownBy { investing.repairShip("ada@example.com", "Wayfarer") }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("Wayfarer must be at a shipyard to repair: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+	}
+
+	@Test
 	fun shouldFreeTheInterceptedShipOnceItsInterceptorHasLeftTheBattle() {
 		// R74: Lantern also waits in Space, so the battle goes on after Wayfarer, the interceptor, breaks away.
 		val withLantern = withShip(withShip(jumping, "Wayfarer") { it.copy(location = ShipLocation.SPACE) }, "Lantern") {

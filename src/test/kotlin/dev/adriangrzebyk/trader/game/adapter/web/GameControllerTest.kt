@@ -1360,15 +1360,12 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldRefuseARefitAwayFromAShipyardAndShipyardActionsOutsideInvestment() {
-		// E09-S04-3: the other's first ship is in port at Gamma Leporis, which has no shipyard.
+	fun shouldRefitInAnyPortAndRefuseShipyardActionsOutsideInvestment() {
+		// R65 (creator, 2026-11-17): the other's first ship is in port at Gamma Leporis, which has no shipyard, and refits there.
 		val (_, other, gameId) = investingAtTau("ship-refit-bad")
 		val atGamma = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.ships.first().name
 
-		addModule(other, gameId, atGamma, """{"module": "CARGO"}""")
-			.expectStatus().isBadRequest
-			.expectBody(String::class.java)
-			.isEqualTo("$atGamma must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+		removeModule(other, gameId, atGamma, "LIGHT_WEAPONS").expectStatus().isOk
 		addModule(other, gameId, atGamma, """{"module": "WARP"}""").expectStatus().isBadRequest
 		removeModule(other, gameId, atGamma, "WARP").expectStatus().isBadRequest
 

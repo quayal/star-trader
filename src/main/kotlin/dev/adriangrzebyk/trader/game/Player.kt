@@ -259,19 +259,17 @@ data class Player(
 		return pay(cost).withShip(refitted)
 	}
 
-	/** This player after removing one [module] from their ship [shipName] at a shipyard (R65), paid half its price back. */
+	/** This player after removing one [module] from their ship [shipName] in port or in the yard (R65), paid half its price back. */
 	fun removeModule(shipName: String, module: Module): Player {
 		val ship = shipToRefit(shipName)
 		return receive(module.resaleValue()).withShip(ship.withModuleRemoved(module))
 	}
 
-	/** Their ship [shipName], once checked that it's theirs and at a shipyard, where refits happen (R65). */
+	/** Their ship [shipName], once checked that it's theirs and in port or in the yard, where refits happen (R65). */
 	private fun shipToRefit(shipName: String): Ship {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
 		if (!ship.canBeRefitted()) {
-			throw InvalidInvestmentException(
-				"${ship.name} must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
-			)
+			throw InvalidInvestmentException("${ship.name} must be in port to refit.")
 		}
 		return ship
 	}
@@ -293,7 +291,12 @@ data class Player(
 	 * refused when it has none or they can't pay.
 	 */
 	fun repairShip(shipName: String): Player {
-		val ship = shipToRefit(shipName)
+		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
+		if (!ship.canBeRepaired()) {
+			throw InvalidInvestmentException(
+				"${ship.name} must be at a shipyard to repair: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
+			)
+		}
 		val repaired = ship.repaired()
 		val cost = ship.repairCost()
 		if (cost > money) {
