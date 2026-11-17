@@ -168,7 +168,7 @@ data class MarketPositionResponseDto(val system: String, val goods: String, val 
  * One system of the board: its R31 location statistics and its market at this game's [MarketPrices] (D07, D08, R35),
  * and the goods a factory here can make, empty where none can (R46, E06-S02-3). [jumpChances] is the base chance of a
  * jump from here to each other system, keyed by `StarSystem` constant (R68): public, the same for everyone, before a
- * ship's crew and Safe jump modifiers.
+ * ship's crew and Safe jump modifiers. [shipyard] is whether ships can be bought, refitted and repaired here (R60).
  */
 data class SystemResponseDto(
 	val id: String,
@@ -179,7 +179,8 @@ data class SystemResponseDto(
 	val security: Int,
 	val market: List<MarketEntryResponseDto>,
 	val producibleGoods: List<String>,
-	val jumpChances: Map<String, Int>
+	val jumpChances: Map<String, Int>,
+	val shipyard: Boolean
 ) {
 
 	constructor(system: StarSystem, prices: MarketPrices) : this(
@@ -191,7 +192,8 @@ data class SystemResponseDto(
 		system.locations.security,
 		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices) },
 		system.producibleGoods.map { it.name }.sorted(),
-		StarSystem.entries.mapNotNull { to -> system.baseJumpChanceTo(to)?.let { to.name to it } }.toMap()
+		StarSystem.entries.mapNotNull { to -> system.baseJumpChanceTo(to)?.let { to.name to it } }.toMap(),
+		system.hasShipyard()
 	)
 }
 

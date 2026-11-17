@@ -20,6 +20,7 @@ import {
 	STALE_MESSAGE,
 	staleAgeText,
 	staleText,
+	SHIPYARD_TEXT,
 	systemAccessibleName,
 	jumpArrows,
 	jumpChanceLevel,
@@ -143,6 +144,11 @@ describe('the map', () => {
 			'Tau Ceti: ISO 4 HT, moderate demand, price may rise; POLY 6 HT, high demand, price likely to rise. '
 				+ '1 of your ships, 1 other ship. Open system details.',
 		);
+	});
+
+	it('says a system has a shipyard (R60)', () => {
+		assert.equal(SHIPYARD_TEXT, 'Shipyard: buy, refit and repair ships here.');
+		assert.match(systemAccessibleName(game, { ...tauCeti, shipyard: true }, 'ada'), /price likely to rise\. Shipyard: buy, refit and repair ships here\. 1 of your ships/);
 	});
 });
 

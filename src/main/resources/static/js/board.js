@@ -254,6 +254,9 @@ export function mapGood(entry) {
 	return { goods: entry.goods, price: level.symbol ? `${entry.price}${SYMBOL_GAP}` : `${entry.price}`, symbol: level.symbol, level };
 }
 
+/** R60: what a shipyard on the map means, in the map key and a system's accessible name. */
+export const SHIPYARD_TEXT = 'Shipyard: buy, refit and repair ships here.';
+
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
 export function systemAccessibleName(game, system, myId) {
 	const goods = system.market.map(entry => {
@@ -264,7 +267,8 @@ export function systemAccessibleName(game, system, myId) {
 	const mine = ships.filter(ship => ship.mine).length;
 	const others = ships.length - mine;
 	const jumps = jumpChancesText(game.board ?? [], system);
-	return `${system.name}: ${goods}. ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}.${jumps ? ` ${jumps}` : ''} Open system details.`;
+	const shipyard = system.shipyard ? ` ${SHIPYARD_TEXT}` : '';
+	return `${system.name}: ${goods}.${shipyard} ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}.${jumps ? ` ${jumps}` : ''} Open system details.`;
 }
 
 /** "POLY 4, ISO 3, CHIPS 12", or "Empty" for a ship carrying nothing. */
