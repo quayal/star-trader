@@ -14,11 +14,13 @@ before code (placement), while coding (test first), and after (a diff audit you 
 
 1. Read `.ai/engineering-standards.md` and the "Repo-specific checks" in `CODE_REVIEW.md` in this session, even if
    you think you know them. Skim `.ai/lessons.md` for the area you're touching.
-2. Write a placement table, in the spec or your plan, one row per new rule or behaviour:
+2. Place every new rule with the ordered questions in `.ai/engineering-standards.md` §13 (first match wins), and write
+   the outcome as a table in the spec or your plan, one row per new rule or behaviour, with the §13 row number that
+   decided it:
 
-   | Rule | Whose data does it read or change? | Where it goes |
-   |---|---|---|
-   | e.g. "a rocket roll ≤ hits destroys the target" | the battle round's salvos | `Battle.fired` |
+   | Rule | Data it reads / changes | §13 row | Where it goes |
+   |---|---|---|---|
+   | e.g. "a rocket roll ≤ hits destroys the target" | the round's salvos; the battle's ships | 5 | `Battle.fired` |
 
    - The answer is the class that owns that data: `Ship`, `Player`, `Battle`, `Turn`, `Offer`, `Factory`.
      `Game` (or a service) gets a row only when the rule spans several parts: membership, whose turn it is, the log,

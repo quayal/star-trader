@@ -150,6 +150,36 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 - Once real games exist, a newly added attribute is missing from older items: default it in the item class,
   not in the domain class (see `BACKWARD_COMPATIBILITY.md`, persistence schema).
 
+## 13. Where a piece of logic goes: ask in order, first match wins
+
+Placement is the decision agents get wrong most often, and in a way review catches late. Don't decide it by feel.
+Write the rule down as one sentence ("a rocket roll at or below the hits destroys the target"), list the data it
+**reads** and **changes**, then take the first row that matches (creator, 2026-11-17):
+
+| # | Question | If yes, it goes… | Example here |
+|---|---|---|---|
+| 1 | Does it turn our data into HTTP/JSON/storage shapes or back? | A constructor or method of the adapter-side class. It only maps: an `if`, `filter` or `firstOrNull` over domain fields means a rule got in, so go on to row 4. | `InvestFactoryResponseDto(player, …)`, `BattleItem(battle)` |
+| 2 | Does it need the outside world: randomness, time, I/O, another service? | Behind a port with a fake (§4). The domain gets the port or the value it produced passed in. | `Dice`, `FakeDice` |
+| 3 | Does it load, save or run something as one transaction for a request? | An application service: load, call one method on the aggregate, save. No rule in it. | `ShipJumpsService.giveOrders` |
+| 4 | Do all the fields it reads and changes belong to one object? | A method on that object. | `Factory.isFor(system, goods)`, `Battle.isJustOver()` |
+| 5 | Is that so once other objects' contributions are passed in as plain values? | A method on that object taking those values, never the other objects themselves. | `Battle.fired(salvos, hitsSurvivable)`, not `fired(ships)` |
+| 6 | Is it a calculation on a single meaningful number or string? | A value class around that value. | `ProductionCost(price).perUnit()`, `AttackTotal(n).hitsAgainst(shields)` |
+| 7 | Does it truly need two or more parts' behaviour at once? | The nearest owner of both (usually `Game`) coordinates: it looks the parts up, calls their methods and passes values between them. The decisions stay in the parts. | `Game.withRoundFired`: fire salvos from two players' ships, hand them to `Battle`, apply `FiredRound` |
+| 8 | Is it the result of one step that another step consumes? | A small immutable result type, next to the class that produces it. | `Salvo`, `FiredRound` |
+| 9 | Is it shown in the browser? | The server computes it and sends it. The JS only formats it, and repeats a check only for a confirmed instant-feedback story, with the server still deciding. | `unitCost` in the DTO; S05-4's client-side money check |
+
+Then pick the package: the game concept the owning class belongs to (§1), as a subpackage once that concept has
+several classes of its own (`game.battle`).
+
+**Tie-breakers.** When two rows seem to fit, take the one that keeps the data and the rule in the same class. When a
+rule seems to need a part to take another part (row 5 vs 7), pass values. When the owning class doesn't exist yet,
+create it: a new value class or result type is cheaper than a rule in the wrong place.
+
+**Signals that a placement is wrong**, which `.claude/skills/trader-implement` greps for in a diff: a condition over
+two or more fields of another object (`it.system == x && it.goods == y`, `battle.stage == … && battle.done…`); logic in
+a DTO or item constructor; a method of one part taking another part as a parameter; `Game.kt` getting longer from rules
+whose data lives in a part.
+
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
