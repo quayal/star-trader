@@ -366,9 +366,11 @@ data class Game(
 
 	/**
 	 * [email] jumps their ship [shipName] to [destination] during their slot (R26, S02); see [Ship.jumpTo]. Each ship
-	 * jumps at most once per turn, and nothing else happens while a ship waits to land (S03). The jump is logged (S02-7).
+	 * jumps at most once per turn, and nothing else happens while a ship waits to land (S03). [dice] rolls 2d6 against the
+	 * ship's [JumpChance] (R68): a failed jump leaves the ship where it was, with its jump used, and ends the slot when it
+	 * was the last ship to jump, as a landing does. Either way the jump and its roll are logged (S02-7).
 	 */
-	fun jumpShip(email: String, shipName: String?, destination: StarSystem?): Game {
+	fun jumpShip(email: String, shipName: String?, destination: StarSystem?, dice: Dice): Game {
 		val current = jumpSlotOf(email)
 		current.refuseWhileAShipWaitsToLand()
 		val player = playerOf(email)
@@ -377,11 +379,20 @@ data class Game(
 		if (destination == null) {
 			throw InvalidJumpException("Choose a destination system.")
 		}
+		val roll = dice.twoD6()
+		if (!ship.checkedJumpChanceTo(destination).succeeds(roll)) {
+			val recorded = current.recordFailedJump(ship)
+			val failed = copy(
+				turn = recorded,
+				log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${ship.failedJumpLog(destination, roll)}")
+			)
+			return if (recorded.haveAllJumped(player.jumpableShips())) failed.endJumpSlot(email) else failed
+		}
 		val moved = player.jumpShip(ship, destination)
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()}")
+			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()} (rolled $roll)")
 		)
 	}
 

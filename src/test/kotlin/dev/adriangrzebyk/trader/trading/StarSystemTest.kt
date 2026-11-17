@@ -37,4 +37,22 @@ class StarSystemTest {
 	fun shouldOnlyProduceGoodsThatTheSystemAlsoTrades() {
 		assertThat(StarSystem.entries).allMatch { it.goods.containsAll(it.producibleGoods) }
 	}
+
+	// R68: the creator's table, where the two directions of a route can differ.
+	@Test
+	fun shouldGiveEachDirectionOfARouteItsOwnBaseJumpChance() {
+		assertThat(StarSystem.GAMMA_LEPORIS.baseJumpChanceTo(StarSystem.BETA_HYDRI)).isEqualTo(7)
+		assertThat(StarSystem.BETA_HYDRI.baseJumpChanceTo(StarSystem.GAMMA_LEPORIS)).isEqualTo(5)
+		assertThat(StarSystem.MU_HERCULIS.baseJumpChanceTo(StarSystem.TAU_CETI)).isEqualTo(9)
+		assertThat(StarSystem.TAU_CETI.baseJumpChanceTo(StarSystem.MU_HERCULIS)).isEqualTo(4)
+		assertThat(StarSystem.TAU_CETI.baseJumpChanceTo(StarSystem.EPSILON_ERIDANI)).isEqualTo(9)
+	}
+
+	@Test
+	fun shouldHaveABaseJumpChanceBetweenEveryTwoSystemsAndNoneToItself() {
+		StarSystem.entries.forEach { from ->
+			assertThat(from.baseJumpChanceTo(from)).isNull()
+			StarSystem.entries.filter { it != from }.forEach { to -> assertThat(from.baseJumpChanceTo(to)).isBetween(2, 12) }
+		}
+	}
 }

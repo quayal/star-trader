@@ -51,9 +51,8 @@ export const TIERS = [
 
 /**
  * The map is a flat-topped hexagon ring, rows 2 : 2 : 2 with the middle pair wider (D07):
- * Gamma, Beta / Epsilon, Sigma / Tau, Mu. Coordinates are in MAP_VIEW_BOX units.
+ * Gamma, Beta / Epsilon, Sigma / Tau, Mu. Coordinates are in map units.
  */
-export const MAP_VIEW_BOX = '-20 0 800 670';
 export const NODE_RADIUS = 64;
 export const NODE_POSITIONS = {
 	GAMMA_LEPORIS: [245, 101],
@@ -111,6 +110,96 @@ export function mapEdges(systemIds) {
 	return edges;
 }
 
+// R68: an arrowhead starts this far outside a system's circle and reaches this far out, this wide at its base.
+const ARROW_BASE = 4;
+const ARROW_TIP = 34;
+const ARROW_HALF_WIDTH = 14;
+
+/**
+ * R68: one arrowhead per system and route, just outside the system's circle and pointing at the other system, holding the
+ * base chance of a jump that way (`board[].jumpChances`). [points] is the SVG polygon and [x], [y] the number's centre (the
+ * triangle's centroid); coordinates are in map units, rounded to a tenth.
+ */
+export function jumpArrows(systems) {
+	const round = value => Math.round(value * 10) / 10;
+	const arrows = [];
+	for (const system of systems) {
+		const from = NODE_POSITIONS[system.id];
+		for (const [to, chance] of Object.entries(system.jumpChances ?? {})) {
+			const target = NODE_POSITIONS[to];
+			if (!from || !target) {
+				continue;
+			}
+			const length = Math.hypot(target[0] - from[0], target[1] - from[1]);
+			const [ux, uy] = [(target[0] - from[0]) / length, (target[1] - from[1]) / length];
+			const along = distance => [from[0] + ux * distance, from[1] + uy * distance];
+			const [bx, by] = along(NODE_RADIUS + ARROW_BASE);
+			const [tx, ty] = along(NODE_RADIUS + ARROW_TIP);
+			const corners = [
+				[bx - uy * ARROW_HALF_WIDTH, by + ux * ARROW_HALF_WIDTH],
+				[bx + uy * ARROW_HALF_WIDTH, by - ux * ARROW_HALF_WIDTH],
+				[tx, ty],
+			];
+			const [cx, cy] = along(NODE_RADIUS + (2 * ARROW_BASE + ARROW_TIP) / 3);
+			arrows.push({
+				from: system.id,
+				to,
+				chance,
+				points: corners.map(([x, y]) => `${round(x)},${round(y)}`).join(' '),
+				x: round(cx),
+				y: round(cy),
+			});
+		}
+	}
+	return arrows;
+}
+
+/** R68: "Jump chances from here: Beta Hydri 7, …" for a system's accessible name, in board order; "" with none. */
+export function jumpChancesText(board, system) {
+	const chances = board.filter(other => system.jumpChances?.[other.id] !== undefined).map(other => `${other.name} ${system.jumpChances[other.id]}`);
+	return chances.length ? `Base jump chances from here: ${chances.join(', ')}.` : '';
+}
+
+const NAME_GAP = 12; // between a circle and its name's baseline above it
+const NAME_HEIGHT = 20; // the name's font size
+const SHIP_ROW = 20; // between two lines of ship labels
+const SHIP_GAP = 24; // between a circle or a name and the ship line next to it
+
+/**
+ * R68: where a system's name and ship lines go (baselines, in map units), clear of its jump arrowheads, which
+ * leave the top row sideways and down, the bottom row sideways and up, and the middle row on every side but straight up
+ * and down. So the top row stacks its ships above its name, the bottom row puts both under its circle, and the middle
+ * row keeps its name above and its ships below, a little further out. [rows] is how many ship lines it has.
+ */
+export function nodeLabels(systemId, rows) {
+	const [, y] = NODE_POSITIONS[systemId];
+	const lines = count => Array.from({ length: count }, (_, index) => index);
+	if (systemId === 'GAMMA_LEPORIS' || systemId === 'BETA_HYDRI') {
+		const name = y - NODE_RADIUS - NAME_GAP;
+		const lowest = name - NAME_HEIGHT - SHIP_GAP / 2;
+		return { name, ships: lines(rows).map(index => lowest - (rows - 1 - index) * SHIP_ROW) };
+	}
+	if (systemId === 'TAU_CETI' || systemId === 'MU_HERCULIS') {
+		const name = y + NODE_RADIUS + NAME_GAP + NAME_HEIGHT;
+		return { name, ships: lines(rows).map(index => name + SHIP_GAP + index * SHIP_ROW) };
+	}
+	return {
+		name: y - NODE_RADIUS - NAME_GAP - 16,
+		ships: lines(rows).map(index => y + NODE_RADIUS + SHIP_GAP + 16 + index * SHIP_ROW),
+	};
+}
+
+/**
+ * The map's viewBox: x from -20, 800 wide; y from 0 to 670 for the circles, grown up or down to hold every label
+ * [nodeLabels] placed.
+ */
+export function mapViewBox(labels) {
+	const baselines = labels.flatMap(label => [label.name, ...label.ships]);
+	const top = Math.min(0, Math.min(...baselines) - NAME_HEIGHT - 4);
+	const bottom = Math.max(670, Math.max(...baselines) + 10);
+	return `-20 ${top} 800 ${bottom - top}`;
+}
+
 /** "Vega Lines" → "VL": the first letter of each word, at most three. */
 export function initials(corporationName) {
 	const letters = String(corporationName ?? '').trim().split(/\s+/).filter(Boolean).map(word => word[0].toUpperCase());
@@ -158,7 +247,8 @@ export function systemAccessibleName(game, system, myId) {
 	const ships = shipsAt(game, system.id, myId);
 	const mine = ships.filter(ship => ship.mine).length;
 	const others = ships.length - mine;
-	return `${system.name}: ${goods}. ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}. Open system details.`;
+	const jumps = jumpChancesText(game.board ?? [], system);
+	return `${system.name}: ${goods}. ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}.${jumps ? ` ${jumps}` : ''} Open system details.`;
 }
 
 /** "POLY 4, ISO 3, CHIPS 12", or "Empty" for a ship carrying nothing. */

@@ -66,7 +66,7 @@ class GameMoveCargoTest {
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
 
 		val away = adasSlot.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 6, CargoDestination.SHIP)
-			.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS)
+			.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 
 		val wayfarer = playerOf(away, "ada@example.com").ship("Wayfarer")!!
 		assertThat(wayfarer.system).isEqualTo(MU_HERCULIS)
@@ -79,7 +79,7 @@ class GameMoveCargoTest {
 		val jumping = bidding.signalDoneBidding("ada@example.com", FakeDice(2, 1)).signalDoneBidding("grace@example.com", FakeDice(2, 1))
 		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1)
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
-		val jumped = adasSlot.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS)
+		val jumped = adasSlot.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 
 		assertThatThrownBy { jumped.moveCargo("ada@example.com", "Wayfarer", Goods.ISO, 1, CargoDestination.SHIP) }
 			.isInstanceOf(InvalidCargoMoveException::class.java)

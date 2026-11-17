@@ -27,7 +27,7 @@ class GameLandingTest {
 		.pickTurnOrderPlace("kim@example.com", 3)
 		.pickTurnOrderPlace("grace@example.com", 1)
 
-	private val arrived = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI)
+	private val arrived = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 
 	@Test
 	fun shouldWaitForTheLandingAfterAJump() {
@@ -65,7 +65,10 @@ class GameLandingTest {
 
 	@Test
 	fun shouldKeepTheSlotUntilTheLastShipHasLanded() {
-		val lastJumped = arrived.landShip("grace@example.com", ShipLocation.PORT).jumpShip("grace@example.com", "Halcyon", TAU_CETI)
+		val lastJumped = arrived.landShip(
+			"grace@example.com",
+			ShipLocation.PORT
+		).jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
 
 		// S03-6: the jump isn't finished until the landing is confirmed.
 		assertThat(lastJumped.turn!!.jumper()).isEqualTo("grace@example.com")
@@ -75,7 +78,7 @@ class GameLandingTest {
 	@Test
 	fun shouldRefuseAnotherJumpOrFinishingWhileAShipWaitsToLand() {
 		// S02-3: the next jump is made after the previous one has resolved.
-		assertThatThrownBy { arrived.jumpShip("grace@example.com", "Halcyon", TAU_CETI) }
+		assertThatThrownBy { arrived.jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Choose where Meridian ends up first.")
 		assertThatThrownBy { arrived.finishJumping("grace@example.com") }

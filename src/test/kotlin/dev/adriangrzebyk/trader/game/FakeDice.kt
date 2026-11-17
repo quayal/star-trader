@@ -19,5 +19,15 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>) : Dice {
 	companion object {
 		/** Only 2d6 rolls: for Trading, where the counter rolls (R34). */
 		fun twoD6(vararg rolls: Int) = FakeDice(emptyList(), rolls.toList())
+
+		/** Every 2d6 is [roll], however many are taken: 2 makes every jump succeed (R68), for tests about something else. */
+		fun everyTwoD6(roll: Int): Dice = object : Dice {
+			override fun d2(): Int = error("FakeDice.everyTwoD6 has no d2 rolls")
+
+			override fun twoD6(): Int = roll
+		}
 	}
 }
+
+/** Dice whose every 2d6 is a 2, so every jump succeeds (R68): for tests about anything but the jump roll. */
+val JUMPS_SUCCEED: Dice = FakeDice.everyTwoD6(2)

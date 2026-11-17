@@ -55,7 +55,7 @@ class GameController(
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore)
-	private val shipJumpsService = ShipJumpsService(gameStore)
+	private val shipJumpsService = ShipJumpsService(gameStore, dice)
 	private val tradingService = TradingService(gameStore, dice)
 
 	@PostMapping("/games")

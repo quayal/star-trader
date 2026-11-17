@@ -48,7 +48,15 @@ class GameResponseDtoTest {
 				police = 3,
 				security = 4,
 				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
-				producibleGoods = listOf("ISO")
+				producibleGoods = listOf("ISO"),
+				// R68: the base chance of a jump from Tau Ceti to each other system.
+				jumpChances = mapOf(
+					"GAMMA_LEPORIS" to 5,
+					"EPSILON_ERIDANI" to 9,
+					"BETA_HYDRI" to 8,
+					"MU_HERCULIS" to 4,
+					"SIGMA_DRACONIS" to 5
+				)
 			)
 		)
 	}
@@ -293,6 +301,22 @@ class GameResponseDtoTest {
 				passengers = 0,
 				modulesUsed = 5,
 				moduleCapacity = 5
+			)
+		)
+	}
+
+	// R68: from Tau Ceti, the route's base plus crew B (+3) and Safe jump (+2); only the owner gets it (R57).
+	@Test
+	fun shouldSendTheViewerTheirShipsChanceToJumpToEachOtherSystem() {
+		val wayfarer = GameResponseDto(started, "host@example.com").you!!.ships.first()
+
+		assertThat(wayfarer.jumpChances).isEqualTo(
+			mapOf(
+				"GAMMA_LEPORIS" to JumpChanceResponseDto(10, 92),
+				"EPSILON_ERIDANI" to JumpChanceResponseDto(14, 100),
+				"BETA_HYDRI" to JumpChanceResponseDto(13, 100),
+				"MU_HERCULIS" to JumpChanceResponseDto(9, 83),
+				"SIGMA_DRACONIS" to JumpChanceResponseDto(10, 92)
 			)
 		)
 	}
