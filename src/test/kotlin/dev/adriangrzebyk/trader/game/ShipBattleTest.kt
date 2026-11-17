@@ -16,17 +16,27 @@ class ShipBattleTest {
 	@Test
 	fun shouldFireWithTheHullAndWorkingModules() {
 		assertThat(wayfarer.firepower(rockets = false)).isEqualTo(6)
-		assertThat(wayfarer.firepower(rockets = true)).isEqualTo(8)
-		assertThat(wayfarer.copy(damagedModules = listOf(Module.LIGHT_WEAPONS)).firepower(rockets = true)).isEqualTo(3)
+		assertThat(wayfarer.copy(damagedModules = listOf(Module.LIGHT_WEAPONS)).firepower(rockets = false)).isEqualTo(3)
 	}
 
 	@Test
-	fun shouldUseRocketValuesOnlyForModulesThatHaveThem() {
-		// R75: Battle comm has no rocket value, so it fires its 6 either way.
-		val armed = wayfarer.copy(modules = listOf(Module.BATTLE_COMM, Module.HEAVY_WEAPONS))
+	fun shouldFireRocketsWithTheWorkingModulesRocketValuesOnly() {
+		// R75 (creator, 2026-11-17): the hull's 3 and Battle comm's 6 add nothing to a rocket salvo.
+		val armed = wayfarer.copy(modules = listOf(Module.BATTLE_COMM, Module.HEAVY_WEAPONS, Module.LIGHT_WEAPONS))
 
-		assertThat(armed.firepower(rockets = false)).isEqualTo(3 + 6 + 7)
-		assertThat(armed.firepower(rockets = true)).isEqualTo(3 + 6 + 10)
+		assertThat(wayfarer.firepower(rockets = true)).isEqualTo(5)
+		assertThat(armed.firepower(rockets = false)).isEqualTo(3 + 6 + 7 + 3)
+		assertThat(armed.firepower(rockets = true)).isEqualTo(10 + 5)
+		assertThat(armed.copy(damagedModules = listOf(Module.HEAVY_WEAPONS)).firepower(rockets = true)).isEqualTo(5)
+	}
+
+	@Test
+	fun shouldRefuseRocketsFromAShipWithNoWorkingRocketModule() {
+		// R75
+		wayfarer.checkCanFireRockets()
+		assertThatThrownBy { wayfarer.copy(damagedModules = listOf(Module.LIGHT_WEAPONS)).checkCanFireRockets() }
+			.isInstanceOf(InvalidBattleException::class.java)
+			.hasMessage("Wayfarer has no working rocket module, so it can't fire rockets.")
 	}
 
 	@Test

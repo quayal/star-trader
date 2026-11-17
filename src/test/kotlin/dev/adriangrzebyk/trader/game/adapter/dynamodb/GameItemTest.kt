@@ -117,7 +117,8 @@ class GameItemTest {
 			doneInvesting = emptyList(),
 			collected = listOf("ada@example.com"),
 			interception = null,
-			battle = null
+			battle = null,
+			battleReport = null
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(

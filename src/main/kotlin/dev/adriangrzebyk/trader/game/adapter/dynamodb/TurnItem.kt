@@ -27,7 +27,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
 			turn.interception?.let { INTERCEPTION to AttributeValue.fromM(InterceptionItem(it).attributes) },
-			turn.battle?.let { BATTLE to AttributeValue.fromM(BattleItem(it).attributes) }
+			turn.battle?.let { BATTLE to AttributeValue.fromM(BattleItem(it).attributes) },
+			turn.battleReport?.let { BATTLE_REPORT to AttributeValue.fromM(BattleReportItem(it).attributes) }
 		)
 	)
 
@@ -64,7 +65,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			collected = attributes[COLLECTED]?.l()?.map { it.s() } ?: emptyList(),
 			// Absent when nobody is deciding an interception or fighting, which is also how items saved before E10 read.
 			interception = attributes[INTERCEPTION]?.m()?.let { InterceptionItem(it).toInterception() },
-			battle = attributes[BATTLE]?.m()?.let { BattleItem(it).toBattle() }
+			battle = attributes[BATTLE]?.m()?.let { BattleItem(it).toBattle() },
+			// Absent until a battle round fires in the turn, which is also how items saved before 2026-11-17 read.
+			battleReport = attributes[BATTLE_REPORT]?.m()?.let { BattleReportItem(it).toBattleReport() }
 		)
 	}
 
@@ -86,5 +89,6 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val RESOLUTION = "resolution"
 		const val INTERCEPTION = "interception"
 		const val BATTLE = "battle"
+		const val BATTLE_REPORT = "battleReport"
 	}
 }

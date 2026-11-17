@@ -15,11 +15,14 @@ import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleAction
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
+import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.BattleShip
 import dev.adriangrzebyk.trader.game.battle.BattleStage
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.PendingHits
+import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
+import dev.adriangrzebyk.trader.game.battle.SalvoResult
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
 import dev.adriangrzebyk.trader.trading.StarSystem
@@ -49,6 +52,7 @@ class TurnItemTest {
 		collected = listOf("grace@example.com"),
 		interception = null,
 		battle = null,
+		battleReport = null,
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -89,19 +93,28 @@ class TurnItemTest {
 				listOf(BattleOrder("Wayfarer", BattleAction.FIRE, "Meridian", true), BattleOrder("Lantern", BattleAction.BREAK_AWAY, null, false)),
 				listOf(PendingHits("Meridian", "grace@example.com", 3)),
 				listOf("ada@example.com")
+			),
+			battleReport = BattleReport(
+				StarSystem.TAU_CETI,
+				1,
+				listOf(
+					SalvoResult("Wayfarer", "ada@example.com", "Meridian", "grace@example.com", true, 3, SalvoOutcome.AWAITING_PLACEMENT),
+					SalvoResult("Meridian", "grace@example.com", "Lantern", "ada@example.com", false, 0, SalvoOutcome.BROKE_AWAY)
+				)
 			)
 		)
 
 		assertThat(TurnItem(TurnItem(fighting).attributes).toTurn()).isEqualTo(fighting)
-		assertThat(TurnItem(fighting).attributes.keys).contains("interception", "battle")
+		assertThat(TurnItem(fighting).attributes.keys).contains("interception", "battle", "battleReport")
 	}
 
 	@Test
 	fun shouldReadATurnSavedBeforeBattlesExistedWithNoInterceptionOrBattle() {
-		val loaded = TurnItem(TurnItem(turn).attributes - "interception" - "battle").toTurn()
+		val loaded = TurnItem(TurnItem(turn).attributes - "interception" - "battle" - "battleReport").toTurn()
 
 		assertThat(loaded.interception).isNull()
 		assertThat(loaded.battle).isNull()
+		assertThat(loaded.battleReport).isNull()
 	}
 
 	@Test
@@ -136,7 +149,8 @@ class TurnItemTest {
 					doneInvesting = emptyList(),
 					collected = emptyList(),
 					interception = null,
-					battle = null
+					battle = null,
+					battleReport = null
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -375,7 +389,8 @@ class TurnItemTest {
 				doneInvesting = emptyList(),
 				collected = emptyList(),
 				interception = null,
-				battle = null
+				battle = null,
+				battleReport = null
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

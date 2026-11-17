@@ -5,6 +5,7 @@ import {
 	battleShipRows,
 	battleStep,
 	canBreakAway,
+	canFireRockets,
 	fightDecisionText,
 	fightTitle,
 	hitParts,
@@ -15,6 +16,8 @@ import {
 	jettisonable,
 	ordersBody,
 	overflow,
+	reportLines,
+	reportTitle,
 	shipHitsBody,
 	targets,
 	waitingText,
@@ -35,7 +38,7 @@ function battleShip(name, ownerId, extra = {}) {
 		hull: { name: 'Clarinet' },
 		hullDamage: 0,
 		modules: [CARGO, LIGHT],
-		stats: { weapons: 6, shields: 2, intercept: 2 },
+		stats: { weapons: 6, rocketWeapons: 5, shields: 2, intercept: 2 },
 		cargoSpaces: 6,
 		crewClass: 'B',
 		...extra,
@@ -115,7 +118,7 @@ describe('a battle (E10-S03, S04)', () => {
 
 		assert.equal(rows.length, 2);
 		assert.equal(rows[0].hull, 'Clarinet, hull 1 / 2 hit');
-		assert.equal(rows[0].stats, 'weapons 6 (rockets 8), shields 2, intercept 2, crew B');
+		assert.equal(rows[0].stats, 'weapons 6, rockets 5, shields 2, intercept 2, crew B');
 		assert.equal(rows[0].modules, 'Cargo × 4 (1 damaged), Light weapons × 1');
 		assert.equal(rows[0].note, '');
 		assert.equal(rows[1].note, 'intercepted by Wayfarer');
@@ -186,5 +189,64 @@ describe('the top bar during a fight (E10)', () => {
 	it('names the battle or interception instead of the jumper', () => {
 		assert.equal(jumpingText(game({ battle: battle() }), ME), 'battle at Tau Ceti');
 		assert.equal(jumpingText(game({ interception: INTERCEPTION }), ME), 'interception at Tau Ceti');
+	});
+});
+
+describe('rockets (R75)', () => {
+	it('are offered only to a ship with a working rocket module', () => {
+		const unarmed = battle({ ships: [battleShip('Wayfarer', ME, { stats: { weapons: 3, rocketWeapons: 0, shields: 2, intercept: 2 } }), battleShip('Meridian', VEGA)] });
+
+		assert.equal(canFireRockets(game({ battle: battle() }), 'Wayfarer'), true);
+		assert.equal(canFireRockets(game({ battle: unarmed }), 'Wayfarer'), false);
+	});
+});
+
+describe('the battle report (R75–R78)', () => {
+	function result(firer, firerOwnerId, target, targetOwnerId, outcome, extra = {}) {
+		return { firer, firerOwnerId, target, targetOwnerId, rockets: false, hits: 4, outcome, ...extra };
+	}
+
+	function reported(...results) {
+		return game({ you: { battleReport: { system: 'TAU_CETI', systemName: 'Tau Ceti', round: 1, results } } });
+	}
+
+	const texts = g => reportLines(g, ME).map(line => line.text);
+
+	it('tells the firer what their salvo did', () => {
+		assert.equal(reportTitle(reported()), 'Battle at Tau Ceti — round 1 results');
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'DESTROYED', { rockets: true }))),
+			['You hit Lantern with rockets for 4 damage, ship destroyed.']);
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'AWAITING_PLACEMENT'))),
+			['You hit Lantern for 4 damage, wait for Vega Lines to apply damage to ship.']);
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'PLACED'))),
+			['You hit Lantern for 4 damage, Vega Lines applied the damage.']);
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'DESTROYED_WHEN_PLACED'))),
+			['You hit Lantern for 4 damage, ship destroyed.']);
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'NO_DAMAGE', { hits: 0 }))),
+			['You fired at Lantern: no damage.']);
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'BROKE_AWAY', { hits: 0 }))),
+			['You fired at Lantern, but it broke away.']);
+	});
+
+	it('names the firing ship when several of yours fired', () => {
+		assert.deepEqual(texts(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'PLACED'), result('Comet', ME, 'Lantern', VEGA, 'PLACED'))), [
+			'Wayfarer: You hit Lantern for 4 damage, Vega Lines applied the damage.',
+			'Comet: You hit Lantern for 4 damage, Vega Lines applied the damage.',
+		]);
+	});
+
+	it('tells the target what hit it, the same before and after its hits are placed', () => {
+		const waiting = reportLines(reported(result('Meridian', VEGA, 'Wayfarer', ME, 'AWAITING_PLACEMENT')), ME);
+		const placed = reportLines(reported(result('Meridian', VEGA, 'Wayfarer', ME, 'PLACED')), ME);
+
+		assert.equal(waiting[0].text, 'Meridian (Vega Lines) hit your Wayfarer for 4 damage.');
+		assert.equal(placed[0].key, waiting[0].key);
+		assert.deepEqual(texts(reported(result('Meridian', VEGA, 'Wayfarer', ME, 'DESTROYED', { rockets: true }))),
+			['Meridian (Vega Lines) hit your Wayfarer with rockets for 4 damage, ship destroyed.']);
+	});
+
+	it('says nothing without a report', () => {
+		assert.deepEqual(reportLines(game(), ME), []);
+		assert.equal(reportTitle(game()), '');
 	});
 });

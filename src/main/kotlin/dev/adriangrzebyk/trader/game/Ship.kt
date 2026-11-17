@@ -45,11 +45,17 @@ data class Ship(
 	fun rocketWeapons(): Int = workingModules().sumOf { it.rocketWeapons }
 
 	/**
-	 * What this ship adds to 2d6 when it fires (R75): its [weapons], or with [rockets] the hull's weapons plus each working
-	 * module's rocket value where it has one and its weapons where it hasn't.
+	 * What this ship adds to 2d6 when it fires (R75): its [weapons], or with [rockets] only its working modules' rocket
+	 * values (creator, 2026-11-17: the hull and modules without one add nothing to a rocket salvo).
 	 */
-	fun firepower(rockets: Boolean): Int =
-		if (rockets) hull.weapons + workingModules().sumOf { if (it.rocketWeapons > 0) it.rocketWeapons else it.weapons } else weapons()
+	fun firepower(rockets: Boolean): Int = if (rockets) rocketWeapons() else weapons()
+
+	/** Refuses an order to fire rockets from a ship with no working rocket module (R75). */
+	fun checkCanFireRockets() {
+		if (rocketWeapons() == 0) {
+			throw InvalidBattleException("$name has no working rocket module, so it can't fire rockets.")
+		}
+	}
 
 	/** This ship's interception total with [d6] rolled (R70, R71): intercept + d6 + crew class + a working Battle comm. */
 	fun interceptTotal(d6: Int): Int = intercept() + d6 + interceptModifier()

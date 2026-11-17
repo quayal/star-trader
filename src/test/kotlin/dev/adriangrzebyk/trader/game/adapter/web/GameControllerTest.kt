@@ -98,7 +98,9 @@ class GameControllerTest {
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null))
+		assertThat(
+			game.you
+		).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null))
 	}
 
 	@Test
