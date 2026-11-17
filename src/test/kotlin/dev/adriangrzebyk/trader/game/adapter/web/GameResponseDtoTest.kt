@@ -297,6 +297,22 @@ class GameResponseDtoTest {
 		)
 	}
 
+	// R68: from Tau Ceti, the route's base plus crew B (+3) and Safe jump (+2); only the owner gets it (R57).
+	@Test
+	fun shouldSendTheViewerTheirShipsChanceToJumpToEachOtherSystem() {
+		val wayfarer = GameResponseDto(started, "host@example.com").you!!.ships.first()
+
+		assertThat(wayfarer.jumpChances).isEqualTo(
+			mapOf(
+				"GAMMA_LEPORIS" to JumpChanceResponseDto(10, 92),
+				"EPSILON_ERIDANI" to JumpChanceResponseDto(14, 100),
+				"BETA_HYDRI" to JumpChanceResponseDto(13, 100),
+				"MU_HERCULIS" to JumpChanceResponseDto(9, 83),
+				"SIGMA_DRACONIS" to JumpChanceResponseDto(10, 92)
+			)
+		)
+	}
+
 	@Test
 	fun shouldFlagAMilitaryAndAerodynamicHullAndAMilitaryModule() {
 		// E07-S03-4, R56: nothing in the game gives a player one yet, but the flags are sent

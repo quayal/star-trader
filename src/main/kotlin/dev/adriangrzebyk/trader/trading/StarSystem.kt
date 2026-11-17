@@ -62,4 +62,36 @@ enum class StarSystem(
 	fun getPrice(goods: Goods): Int = goodsPrices.getValue(goods)
 
 	fun getIndicator(goods: Goods): Int = indicators.getValue(goods)
+
+	/**
+	 * The base chance of a jump from here to [destination] (R68): a 2d6 roll of this or less succeeds before the ship's
+	 * modifiers. Each direction of a route has its own; null for this system itself, which is no jump.
+	 */
+	fun baseJumpChanceTo(destination: StarSystem): Int? = if (destination == this) null else JUMP_CHANCES.getValue(this to destination)
+
+	companion object {
+		/** R68, the creator's table: each route as (from, chance from → to, chance to → from, to). */
+		private val ROUTES = listOf(
+			Route(GAMMA_LEPORIS, 7, 5, BETA_HYDRI),
+			Route(GAMMA_LEPORIS, 4, 4, SIGMA_DRACONIS),
+			Route(GAMMA_LEPORIS, 2, 2, MU_HERCULIS),
+			Route(GAMMA_LEPORIS, 7, 5, TAU_CETI),
+			Route(GAMMA_LEPORIS, 7, 6, EPSILON_ERIDANI),
+			Route(BETA_HYDRI, 4, 6, SIGMA_DRACONIS),
+			Route(BETA_HYDRI, 3, 6, MU_HERCULIS),
+			Route(BETA_HYDRI, 8, 8, TAU_CETI),
+			Route(BETA_HYDRI, 8, 8, EPSILON_ERIDANI),
+			Route(SIGMA_DRACONIS, 5, 6, MU_HERCULIS),
+			Route(SIGMA_DRACONIS, 7, 5, TAU_CETI),
+			Route(SIGMA_DRACONIS, 7, 5, EPSILON_ERIDANI),
+			Route(MU_HERCULIS, 6, 4, EPSILON_ERIDANI),
+			Route(MU_HERCULIS, 9, 4, TAU_CETI),
+			Route(TAU_CETI, 9, 9, EPSILON_ERIDANI)
+		)
+
+		private val JUMP_CHANCES: Map<Pair<StarSystem, StarSystem>, Int> =
+			ROUTES.flatMap { listOf((it.from to it.to) to it.there, (it.to to it.from) to it.back) }.toMap()
+	}
+
+	private class Route(val from: StarSystem, val there: Int, val back: Int, val to: StarSystem)
 }

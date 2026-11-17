@@ -184,6 +184,9 @@ data class Turn(
 	/** This turn after [ship] jumped: it can't jump again, and it waits to land (S03). */
 	fun recordJump(ship: Ship): Turn = copy(jumpedShips = jumpedShips + ship.name, landingShip = ship.name)
 
+	/** This turn after [ship]'s jump failed (R68): it can't jump again, and stays where it was, so nothing waits to land. */
+	fun recordFailedJump(ship: Ship): Turn = copy(jumpedShips = jumpedShips + ship.name)
+
 	/** The name of the ship waiting to land (S03), refused when there is none. */
 	fun shipWaitingToLand(): String = landingShip ?: throw InvalidGameOperationException("No ship is waiting to land.")
 

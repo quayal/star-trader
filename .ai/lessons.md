@@ -13,6 +13,8 @@ How to add a lesson:
 
 ## Entries
 
+- **2026-11-17 — Jumps roll dice now (R68), and `GameControllerTest` runs on real random dice.** A controller test that jumps must jump to a destination its ship is certain to reach (`certainDestination`, read from `you.ships[].jumpChances`; every starting ship has one, since crew B + Safe jump add 5 and every system has a route of base 7+), or it fails about 4 times in 10. Domain tests pass `JUMPS_SUCCEED` (every 2d6 a 2) unless they test the roll.
+
 - **2026-11-17 — `checkTokens` reads `#128` in `index.html` as a colour literal.** A comment citing a PR number (`#128`, `#abc`, any 3/4/6/8 hex digits after `#`) fails `./gradlew check` as a colour outside `tokens.css`. In static files, write "PR 128" or name the story instead.
 
 - **2026-11-17 — A screen redrawn only when the game changed can't show its own UI state.** `renderRunning` called `renderFleet` only `if (changed)`, i.e. when the polled game differed. E09's Sell button sets a page-local `pendingSale` and calls `render(lastGame, false)` — same game, so Fleet never redrew and the confirm step never appeared; unit tests couldn't see it, only the browser walk did. A screen with local state (a pending confirm, a busy flag) needs its own redraw key over the game data *and* that state (`shownFleetKey`), called on every render.

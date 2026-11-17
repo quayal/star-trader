@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 class ShipJumpsServiceTest {
 
 	private val gameStore = FakeGameStore()
-	private val service = ShipJumpsService(gameStore)
+	private val service = ShipJumpsService(gameStore, JUMPS_SUCCEED)
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 
@@ -41,7 +41,7 @@ class ShipJumpsServiceTest {
 	@Test
 	fun shouldPickOnceEvenWhenTheStoreReplaysTheChange() {
 		gameStore.create(shipJumps)
-		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.pickPlace("game-1", "creator@example.com", 1)
 
@@ -72,7 +72,7 @@ class ShipJumpsServiceTest {
 	@Test
 	fun shouldJumpOnceEvenWhenTheStoreReplaysTheChange() {
 		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
-		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.jump("game-1", "creator@example.com", "Wayfarer", MU_HERCULIS)
 
@@ -83,7 +83,9 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldStoreTheLanding() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS))
+		gameStore.create(
+			shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
+		)
 
 		val game = service.land("game-1", "creator@example.com", ShipLocation.PLANET)
 
@@ -93,8 +95,10 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldLandOnceEvenWhenTheStoreReplaysTheChange() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS))
-		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+		gameStore.create(
+			shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
+		)
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.land("game-1", "creator@example.com", ShipLocation.PORT)
 
@@ -116,7 +120,7 @@ class ShipJumpsServiceTest {
 	@Test
 	fun shouldFinishOnceEvenWhenTheStoreReplaysTheChange() {
 		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
-		val replaying = ShipJumpsService(ReplayingGameStore(gameStore))
+		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.finishJumping("game-1", "creator@example.com")
 

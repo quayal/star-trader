@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
 	JUMPING_NOW,
 	deckDecisionText,
+	failedJumpText,
+	jumpChanceText,
 	SLOT_DONE,
 	jumper,
 	jumpingText,
@@ -127,5 +129,49 @@ describe('deckDecisionText: a step on the Deck the game waits on you for', () =>
 		assert.equal(deckDecisionText(game({ phase: 'TRADING' }), ME), '');
 		assert.equal(deckDecisionText(game({ doneJumping: SET }), ME), '');
 		assert.equal(deckDecisionText(game({ turnOrder: [null, null, null] }), null), '');
+	});
+});
+
+describe('jumpChanceText (R68)', () => {
+	const withChances = {
+		...game(),
+		you: {
+			ships: [
+				{
+					name: 'Wayfarer',
+					jumpChances: { MU_HERCULIS: { target: 9, percent: 83 }, BETA_HYDRI: { target: 13, percent: 100 } },
+				},
+			],
+		},
+	};
+
+	it("shows the chosen ship's chance and the roll it needs", () => {
+		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'MU_HERCULIS'), 'Chance of success: 83% (2d6 roll of 9 or less)');
+	});
+
+	it('shows a certain jump as 100% with no roll to make', () => {
+		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'BETA_HYDRI'), 'Chance of success: 100%');
+	});
+
+	it("shows nothing for the ship's own system, someone else's ship, or a game without your ships", () => {
+		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'TAU_CETI'), '');
+		assert.equal(jumpChanceText(withChances, 'Meridian', 'TAU_CETI'), '');
+		assert.equal(jumpChanceText(game(), 'Wayfarer', 'MU_HERCULIS'), '');
+	});
+});
+
+describe('failedJumpText (R68)', () => {
+	it('says the jump failed when the ship jumped but waits to land nowhere', () => {
+		assert.equal(failedJumpText(game({ jumpedShips: ['Wayfarer'] }), 'Wayfarer'), "Wayfarer's jump failed: it stays at Tau Ceti.");
+	});
+
+	it('says nothing when the ship made the jump and waits to land', () => {
+		const landing = game({ jumpedShips: ['Wayfarer'] });
+		landing.turn.landingShip = 'Wayfarer';
+		assert.equal(failedJumpText(landing, 'Wayfarer'), '');
+	});
+
+	it("says nothing for a ship that hasn't jumped", () => {
+		assert.equal(failedJumpText(game(), 'Wayfarer'), '');
 	});
 });

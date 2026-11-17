@@ -2,7 +2,7 @@ package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.trading.StarSystem
 
-class ShipJumpsService(private val gameStore: GameStore) {
+class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice) {
 
 	/**
 	 * [callerEmail] picks [place] in this turn's turn order inside [GameStore.update], so two players acting at once
@@ -14,9 +14,10 @@ class ShipJumpsService(private val gameStore: GameStore) {
 	/**
 	 * [callerEmail] jumps [shipName] to [destination] inside [GameStore.update], so a ship can't jump twice and a jump
 	 * can't land out of turn when two requests race: the second is checked against the first's saved jump (A04, R26).
+	 * [dice] rolls whether it succeeds (R68).
 	 */
 	fun jump(gameId: String, callerEmail: String, shipName: String?, destination: StarSystem?): Game =
-		gameStore.update(gameId) { it.jumpShip(callerEmail, shipName, destination) }
+		gameStore.update(gameId) { it.jumpShip(callerEmail, shipName, destination, dice) }
 
 	/** [callerEmail] ends their jump slot inside [GameStore.update], so it ends once (A04, S02-6). */
 	fun finishJumping(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.finishJumping(callerEmail) }

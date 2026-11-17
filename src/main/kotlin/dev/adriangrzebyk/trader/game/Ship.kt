@@ -146,16 +146,35 @@ data class Ship(
 	}
 
 	/**
-	 * This ship after jumping to [destination] (R19, S02): instantly, arriving in Space until its player chooses where it
-	 * ends up (S03). Never to the system it's already at (S02-4).
+	 * This ship's chance to jump to [destination] (R68): the route's base chance plus its crew's modifier and its Safe
+	 * jump module's, if it has one. Null for the system it's already at, which is no jump.
 	 */
-	fun jumpTo(destination: StarSystem): Ship {
+	fun jumpChanceTo(destination: StarSystem): JumpChance? = system.baseJumpChanceTo(destination)?.let { base ->
+		JumpChance(base + crewClass.jumpModifier + modules.sumOf { it.jumpModifier })
+	}
+
+	/** This ship's chance to jump to each other system (R68), in map order: what its player sees before jumping. */
+	fun jumpChances(): Map<StarSystem, JumpChance> =
+		StarSystem.entries.mapNotNull { destination -> jumpChanceTo(destination)?.let { destination to it } }.toMap()
+
+	/**
+	 * This ship's chance to jump to [destination] (R68), refused while it's still in the shipyard (R64) or for the system
+	 * it's already at (S02-4).
+	 */
+	fun checkedJumpChanceTo(destination: StarSystem): JumpChance {
 		if (isInShipyard()) {
 			throw InvalidJumpException("$name is still in the shipyard.")
 		}
-		if (destination == system) {
-			throw InvalidJumpException("$name is already at ${destination.displayName}. Pick another destination.")
-		}
+		return jumpChanceTo(destination)
+			?: throw InvalidJumpException("$name is already at ${destination.displayName}. Pick another destination.")
+	}
+
+	/**
+	 * This ship after a jump to [destination] that succeeded (R19, R68, S02): instantly, arriving in Space until its player
+	 * chooses where it ends up (S03). Refused as [checkedJumpChanceTo] refuses.
+	 */
+	fun jumpTo(destination: StarSystem): Ship {
+		checkedJumpChanceTo(destination)
 		return copy(system = destination, location = ShipLocation.SPACE)
 	}
 
@@ -172,6 +191,13 @@ data class Ship(
 
 	/** The public log's account of the jump that brought this ship here (S02-7): "Wayfarer → Tau Ceti". */
 	fun jumpLog(): String = "$name → ${system.displayName}"
+
+	/**
+	 * The public log's account of a jump to [destination] that failed on [roll] (R68): "Wayfarer failed to jump to Tau
+	 * Ceti (rolled 9) and stays at Gamma Leporis". The target isn't told: it would reveal the crew and modules (R57).
+	 */
+	fun failedJumpLog(destination: StarSystem, roll: Int): String =
+		"$name failed to jump to ${destination.displayName} (rolled $roll) and stays at ${system.displayName}"
 
 	/** The public log's account of where this ship ended up (S03-3): "Wayfarer lands at the port (Tau Ceti)". */
 	fun landingLog(): String = "$name ${location.landingLog} (${system.displayName})"

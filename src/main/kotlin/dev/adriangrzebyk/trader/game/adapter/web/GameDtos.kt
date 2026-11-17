@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.JumpChance
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
@@ -744,7 +745,7 @@ data class LandShipRequestDto(val location: String? = null) {
  * One of the viewer's own ships, for them only (R29, R57): [cargo] is units per good (only goods it carries),
  * [cargoUsed] counts POLY and ISO only (R42) and [cargoSpaces] comes from the hull and modules (R54). [hull], [modules]
  * (one entry per different module, with how many) and [stats] are what the Fleet tab shows (E07-S03); nobody else's
- * are ever sent (S03-6).
+ * are ever sent (S03-6). [jumpChances] is its chance to jump to each other system, keyed by `StarSystem` constant (R68).
  */
 data class YourShipResponseDto(
 	val name: String,
@@ -757,7 +758,8 @@ data class YourShipResponseDto(
 	val crewClass: String,
 	val saleValue: Int,
 	val canRefit: Boolean,
-	val leavesYardOnTurn: Int?
+	val leavesYardOnTurn: Int?,
+	val jumpChances: Map<String, JumpChanceResponseDto>
 ) {
 
 	constructor(ship: Ship) : this(
@@ -771,8 +773,15 @@ data class YourShipResponseDto(
 		ship.crewClass.name,
 		ship.saleValue(),
 		ship.canBeRefitted(),
-		ship.leavesYardOnTurn()
+		ship.leavesYardOnTurn(),
+		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) }
 	)
+}
+
+/** A ship's chance to jump to one system (R68): a 2d6 roll of [target] or less succeeds, [percent] of the time. */
+data class JumpChanceResponseDto(val target: Int, val percent: Int) {
+
+	constructor(chance: JumpChance) : this(chance.target, chance.percent())
 }
 
 /** A ship's hull by name, with its flags (R51, R56); its numbers are part of the ship's [ShipStatsResponseDto]. */

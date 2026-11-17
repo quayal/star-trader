@@ -261,4 +261,27 @@ class ShipTest {
 
 	private fun ship(hull: Hull, vararg modules: Module) =
 		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS, null)
+
+	// R68: base chance + crew (A +5, B +3, C +1, D +0) + Safe jump (+2).
+	@Test
+	fun shouldAddTheCrewAndSafeJumpModifiersToTheRoutesBaseChance() {
+		val starting = Ship.emptyAt("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT)
+		val withoutSafeJump = starting.withModuleRemoved(Module.SAFE_JUMP)
+
+		assertThat(starting.jumpChanceTo(StarSystem.BETA_HYDRI)).isEqualTo(JumpChance(7 + 3 + 2))
+		assertThat(withoutSafeJump.jumpChanceTo(StarSystem.BETA_HYDRI)).isEqualTo(JumpChance(7 + 3))
+		assertThat(crewed(CrewClass.A).jumpChanceTo(StarSystem.MU_HERCULIS)).isEqualTo(JumpChance(2 + 5))
+		assertThat(crewed(CrewClass.C).jumpChanceTo(StarSystem.MU_HERCULIS)).isEqualTo(JumpChance(2 + 1))
+		assertThat(crewed(CrewClass.D).jumpChanceTo(StarSystem.MU_HERCULIS)).isEqualTo(JumpChance(2))
+	}
+
+	@Test
+	fun shouldGiveAChanceForEveryOtherSystemOnly() {
+		val chances = Ship.emptyAt("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT).jumpChances()
+
+		assertThat(chances.keys).containsExactlyElementsOf(StarSystem.entries - StarSystem.GAMMA_LEPORIS)
+	}
+
+	private fun crewed(crewClass: CrewClass) =
+		Ship("Kestrel", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT, emptyMap(), Hull.CLARINET, listOf(Module.CARGO), crewClass, null)
 }

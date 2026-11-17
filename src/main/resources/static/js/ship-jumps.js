@@ -97,3 +97,30 @@ export function shipOptionText(ship) {
 export function validateJump(ship, destination) {
 	return ship && ship.system === destination ? `${ship.name} is already at ${ship.systemName}. Pick another destination.` : '';
 }
+
+/**
+ * R68: the chance that [shipName], one of the viewer's own ships (`you.ships[].jumpChances`), jumps to [destination]:
+ * "Chance of success: 58% (2d6 roll of 7 or less)", or "" with no ship, for its own system or for someone else's ship.
+ */
+export function jumpChanceText(game, shipName, destination) {
+	const chance = game.you?.ships?.find(ship => ship.name === shipName)?.jumpChances?.[destination];
+	if (!chance) {
+		return '';
+	}
+	return chance.percent >= 100
+		? 'Chance of success: 100%'
+		: `Chance of success: ${chance.percent}% (2d6 roll of ${chance.target} or less)`;
+}
+
+/**
+ * R68: after jumping [shipName], what the game answered says whether the jump failed: the ship jumped but isn't waiting
+ * to land. Then "Wayfarer's jump failed: it stays at Gamma Leporis."; "" when it made the jump.
+ */
+export function failedJumpText(game, shipName) {
+	const turn = game.turn ?? {};
+	if (turn.landingShip === shipName || !(turn.jumpedShips ?? []).includes(shipName)) {
+		return '';
+	}
+	const ship = game.players.flatMap(p => p.ships).find(s => s.name === shipName);
+	return ship ? `${shipName}'s jump failed: it stays at ${ship.systemName}.` : '';
+}

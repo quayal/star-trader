@@ -810,7 +810,7 @@ class GameControllerTest {
 		val (first, second, gameId) = orderedGame("jump")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 			.players.first { it.id == idOf(gameId, first) }.ships.first()
-		val destination = StarSystem.entries.first { it.name != ship.system }
+		val destination = certainDestination("token-$first", gameId, ship.name)
 
 		// E04-S02: the first place jumps one ship; it arrives at once, in space, and the jump is public.
 		val jumped = jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""")
@@ -821,7 +821,7 @@ class GameControllerTest {
 		assertThat(seenByOther.players.first { it.id == idOf(gameId, first) }.ships.first())
 			.isEqualTo(ShipResponseDto(ship.name, destination.name, destination.displayName, "SPACE"))
 		assertThat(seenByOther.turn!!.jumpedShips).containsExactly(ship.name)
-		assertThat(jumped.log.last().text).endsWith("— ${ship.name} → ${destination.displayName}")
+		assertThat(jumped.log.last().text).matches(".*— \\Q${ship.name} → ${destination.displayName}\\E \\(rolled \\d+\\)")
 
 		// E04-S03: the jump finishes once the player chooses where the ship ends up.
 		assertThat(seenByOther.turn!!.landingShip).isEqualTo(ship.name)
@@ -849,7 +849,7 @@ class GameControllerTest {
 		val (first, second, gameId) = orderedGame("jump-cargo")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 			.players.first { it.id == idOf(gameId, first) }.ships.first()
-		val destination = StarSystem.entries.first { it.name != ship.system }
+		val destination = certainDestination("token-$first", gameId, ship.name)
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 
 		// S02-10, R29: where the ship is, yes; what it carries, no.
@@ -867,7 +867,7 @@ class GameControllerTest {
 		val first = gameStore.find(gameId)!!.turn!!.initiative.first()
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		val ship = closed.players.first { it.id == idOf(gameId, first) }.ships.first()
-		val destination = StarSystem.entries.first { it.name != ship.system }
+		val destination = certainDestination("token-$first", gameId, ship.name)
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 		landShip("token-$first", gameId, """{"location": "PORT"}""").expectStatus().isOk
 
@@ -934,7 +934,7 @@ class GameControllerTest {
 			.expectBody(String::class.java).isEqualTo("No ship is waiting to land.")
 		val ship = pollGame("token-$first", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 			.players.first { it.id == idOf(gameId, first) }.ships.first()
-		val destination = StarSystem.entries.first { it.name != ship.system }
+		val destination = certainDestination("token-$first", gameId, ship.name)
 		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${destination.name}"}""").expectStatus().isOk
 
 		listOf("""{"location": "ORBIT"}""", """{}""").forEach { body ->
@@ -1966,6 +1966,16 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/jumps", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
+	}
+
+	/**
+	 * A system the viewer's ship [shipName] is certain to reach (R68): every starting ship has one, as its crew and Safe
+	 * jump add 5 and every system has a route of base 7 or more. The jump roll is random here, so tests jump there.
+	 */
+	private fun certainDestination(token: String, gameId: String, shipName: String): StarSystem {
+		val you = pollGame(token, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!
+		val chances = you.ships.first { it.name == shipName }.jumpChances
+		return StarSystem.valueOf(chances.entries.first { it.value.percent == 100 }.key)
 	}
 
 	private fun landShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

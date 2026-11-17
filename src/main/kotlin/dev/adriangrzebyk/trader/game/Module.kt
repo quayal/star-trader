@@ -3,7 +3,8 @@ package dev.adriangrzebyk.trader.game
 /**
  * A module fitted to a hull (R52), game data from the creator's table. [rocketWeapons] is the figure in brackets in the
  * table (0 where there is none). Safe jump upgrades the standard jump module, so it takes no module capacity
- * ([takesModuleCapacity]). A [military] module is illegal to own (R56).
+ * ([takesModuleCapacity]) and adds [jumpModifier] to the ship's jump target (R68). A [military] module is illegal to own
+ * (R56).
  */
 enum class Module(
 	val displayName: String,
@@ -14,10 +15,11 @@ enum class Module(
 	val passengers: Int,
 	val price: Int,
 	val military: Boolean,
-	val takesModuleCapacity: Boolean = true
+	val takesModuleCapacity: Boolean = true,
+	val jumpModifier: Int = 0
 ) {
 	ARSENAL("Arsenal", 7, 14, 1, 0, 0, 100, military = true),
-	SAFE_JUMP("Safe jump", 0, 0, 0, 0, 0, 10, military = false, takesModuleCapacity = false),
+	SAFE_JUMP("Safe jump", 0, 0, 0, 0, 0, 10, military = false, takesModuleCapacity = false, jumpModifier = 2),
 	BATTLE_COMM("Battle comm", 6, 0, 2, 0, 0, 50, military = true),
 	CARGO("Cargo", 0, 0, 0, 2, 0, 4, military = false),
 	HEAVY_WEAPONS("Heavy weapons", 7, 10, 1, 0, 0, 80, military = true),

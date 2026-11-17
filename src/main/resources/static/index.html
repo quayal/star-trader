@@ -540,7 +540,8 @@
 						</div>
 						<div>
 							<label class="field-label" for="jump-destination">Destination</label>
-							<select class="control" id="jump-destination" aria-describedby="jump-error"></select>
+							<select class="control" id="jump-destination" aria-describedby="jump-chance jump-error"></select>
+							<p class="message muted" id="jump-chance"></p>
 							<p class="message message--error field-error" id="jump-error"></p>
 						</div>
 						<div class="jump-actions">
@@ -1057,6 +1058,8 @@
 		JUMP_TITLE,
 		JUMPING_NOW,
 		JUMPS_DONE_TEXT,
+		failedJumpText,
+		jumpChanceText,
 		shipOptionText,
 		shipsToJump,
 		slotStatuses,
@@ -3032,6 +3035,15 @@
 				$('jump-destination').value = chosen;
 			}
 		}
+		updateJumpChance(game);
+	}
+
+	/** R68: the chosen ship's chance to reach the chosen destination, under the destination. */
+	function updateJumpChance(game = lastGame) {
+		const text = game ? jumpChanceText(game, $('jump-ship').value, $('jump-destination').value) : '';
+		if ($('jump-chance').textContent !== text) {
+			$('jump-chance').textContent = text; // only on a change, so a screen reader isn't told it again every poll
+		}
 	}
 
 	/**
@@ -3048,7 +3060,7 @@
 			$('jump-ship').focus();
 			return;
 		}
-		setJumpMessage(JUMPS_DONE_TEXT, false);
+		setJumpMessage(announce ? `${announce} ${JUMPS_DONE_TEXT}` : JUMPS_DONE_TEXT, false);
 		$('jump-message').focus(); // the form is gone, so focus goes to what replaced it
 	}
 
@@ -3075,7 +3087,8 @@
 			return; // the player has left this game
 		}
 		if (response?.ok) {
-			afterJumpStep(await response.json());
+			const game = await response.json();
+			afterJumpStep(game, body?.ship ? failedJumpText(game, body.ship) : ''); // R68: a failed jump opens no landing
 			return;
 		}
 		setJumpMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true);
@@ -3240,8 +3253,14 @@
 		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
 		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)
 	});
-	$('jump-ship').addEventListener('change', () => setJumpError(''));
-	$('jump-destination').addEventListener('change', () => setJumpError(''));
+	$('jump-ship').addEventListener('change', () => {
+		setJumpError('');
+		updateJumpChance();
+	});
+	$('jump-destination').addEventListener('change', () => {
+		setJumpError('');
+		updateJumpChance();
+	});
 
 	// ── E03-S04: "I'm done bidding" in the top bar ──
 
