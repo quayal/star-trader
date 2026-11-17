@@ -32,4 +32,29 @@ class InvestmentService(private val gameStore: GameStore) {
 	 */
 	fun buyFactoryUnits(gameId: String, callerEmail: String, system: StarSystem, goods: Goods, units: Int): Game =
 		gameStore.update(gameId) { it.buyFactoryUnits(callerEmail, system, goods, units) }
+
+	/**
+	 * [callerEmail] buys a ship inside [GameStore.update], so its name is checked against the saved ships and its price
+	 * against the saved balance, and a replayed change buys it once (A04, R61, R62).
+	 */
+	fun buyShip(
+		gameId: String,
+		callerEmail: String,
+		name: String?,
+		shipyard: StarSystem,
+		hull: Hull,
+		modules: List<Module>,
+		crewClass: CrewClass
+	): Game = gameStore.update(gameId) { it.buyShip(callerEmail, name, shipyard, hull, modules, crewClass) }
+
+	/** [callerEmail] fits [module] to their ship [shipName] inside [GameStore.update] (A04, R65). */
+	fun addModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
+		gameStore.update(gameId) { it.addModule(callerEmail, shipName, module) }
+
+	/** [callerEmail] removes [module] from their ship [shipName] inside [GameStore.update] (A04, R65). */
+	fun removeModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
+		gameStore.update(gameId) { it.removeModule(callerEmail, shipName, module) }
+
+	/** [callerEmail] sells their ship [shipName] inside [GameStore.update], so a double press sells it once (A04, R66). */
+	fun sellShip(gameId: String, callerEmail: String, shipName: String): Game = gameStore.update(gameId) { it.sellShip(callerEmail, shipName) }
 }

@@ -267,9 +267,18 @@ class GameResponseDtoTest {
 
 		assertThat(wayfarer.hull).isEqualTo(HullResponseDto("Clarinet", military = false, aerodynamic = false))
 		assertThat(wayfarer.modules).containsExactly(
-			FittedModuleResponseDto("Cargo", 4, weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 2, passengers = 0, military = false),
-			FittedModuleResponseDto("Light weapons", 1, weapons = 3, rocketWeapons = 5, crew = 0, cargoSpaces = 0, passengers = 0, military = false),
-			FittedModuleResponseDto("Safe jump", 1, weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 0, passengers = 0, military = false)
+			FittedModuleResponseDto(
+				"CARGO", "Cargo", 4,
+				weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 2, passengers = 0, military = false
+			),
+			FittedModuleResponseDto(
+				"LIGHT_WEAPONS", "Light weapons", 1,
+				weapons = 3, rocketWeapons = 5, crew = 0, cargoSpaces = 0, passengers = 0, military = false
+			),
+			FittedModuleResponseDto(
+				"SAFE_JUMP", "Safe jump", 1,
+				weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 0, passengers = 0, military = false
+			)
 		)
 		assertThat(wayfarer.stats).isEqualTo(
 			ShipStatsResponseDto(

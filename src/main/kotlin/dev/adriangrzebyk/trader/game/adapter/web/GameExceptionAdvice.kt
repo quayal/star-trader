@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidCargoMoveException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
+import dev.adriangrzebyk.trader.game.InvalidFittingException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvalidInvestmentException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
@@ -43,6 +44,7 @@ class GameExceptionAdvice {
 		InvalidBidException::class,
 		InvalidCargoMoveException::class,
 		InvalidCollectException::class,
+		InvalidFittingException::class,
 		InvalidInvestmentException::class,
 		InvalidJumpException::class,
 		InvalidLandingException::class,

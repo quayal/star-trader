@@ -84,7 +84,8 @@ export function shipsToJump(game, playerId) {
 	}
 	const jumped = game.turn.jumpedShips ?? [];
 	const ships = game.players.find(p => p.id === playerId)?.ships ?? [];
-	return ships.filter(ship => !jumped.includes(ship.name));
+	// R64: a ship still in the shipyard doesn't jump.
+	return ships.filter(ship => !jumped.includes(ship.name) && ship.location !== 'SHIPYARD');
 }
 
 /** S02-2: "Wayfarer (at Tau Ceti)" in the ship list. */

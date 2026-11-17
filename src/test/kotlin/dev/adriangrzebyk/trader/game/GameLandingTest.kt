@@ -36,8 +36,14 @@ class GameLandingTest {
 	}
 
 	@Test
+	fun shouldNotLandAShipInTheShipyard() {
+		// R60: only a ship bought there is in the yard.
+		assertThatThrownBy { arrived.landShip("grace@example.com", ShipLocation.SHIPYARD) }.isInstanceOf(InvalidLandingException::class.java)
+	}
+
+	@Test
 	fun shouldPutTheShipWhereThePlayerChooses() {
-		ShipLocation.entries.forEach { location ->
+		ShipLocation.entries.filter { it.isLandable() }.forEach { location ->
 			val game = arrived.landShip("grace@example.com", location)
 
 			assertThat(

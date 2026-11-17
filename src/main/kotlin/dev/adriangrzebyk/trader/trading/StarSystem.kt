@@ -56,6 +56,9 @@ enum class StarSystem(
 
 	val goods: Set<Goods> get() = goodsPrices.keys
 
+	/** Whether this system has a shipyard (R60): Beta Hydri, Epsilon Eridani and Tau Ceti. */
+	fun hasShipyard(): Boolean = this == BETA_HYDRI || this == EPSILON_ERIDANI || this == TAU_CETI
+
 	fun getPrice(goods: Goods): Int = goodsPrices.getValue(goods)
 
 	fun getIndicator(goods: Goods): Int = indicators.getValue(goods)

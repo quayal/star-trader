@@ -12,7 +12,7 @@ export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
 const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading', INVESTMENT: 'Investment' };
-const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space' };
+const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 
 /**
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);

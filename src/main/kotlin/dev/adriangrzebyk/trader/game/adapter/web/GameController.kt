@@ -198,6 +198,79 @@ class GameController(
 	}
 
 	/**
+	 * The player buys a ship (R61, E09-S02): `{ name, shipyard, hull, modules, crewClass }`. `400` for an unknown shipyard,
+	 * hull, module or crew class, and for a ship the rules refuse (a taken or bad name, no shipyard there, military parts,
+	 * too many modules, too little money); `409` outside Investment or before they have collected; `403`, `404` and `401`
+	 * as for the other actions.
+	 */
+	@PostMapping("/games/{id}/investment/ships")
+	fun buyShip(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BuyShipRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val order = request ?: BuyShipRequestDto()
+		val shipyard = order.shipyardSystem() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a shipyard.")
+		val hull = order.hullConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a hull.")
+		val modules = order.moduleConstants() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose modules from the list.")
+		val crewClass = order.crewClassConstant()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a crew class: A, B, C or D.")
+		val game = investmentService.buyShip(id, session.email, order.name, shipyard, hull, modules, crewClass)
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player fits one module to their ship at a shipyard (R65, E09-S04): `{ module }`. `400` for an unknown or military
+	 * module, a ship that isn't theirs or isn't at a shipyard, one the hull can't take, too little money; `409` outside
+	 * Investment or before they have collected.
+	 */
+	@PostMapping("/games/{id}/investment/ships/{ship}/modules")
+	fun addModule(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable ship: String,
+		@RequestBody(required = false) request: FitModuleRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val module = request?.moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.addModule(id, session.email, ship, module), session.email)
+	}
+
+	/**
+	 * The player removes one module from their ship at a shipyard (R65, E09-S04), paid half its price back. `400` for an
+	 * unknown module, one the ship hasn't got, a ship that isn't theirs or isn't at a shipyard, and a removal that would
+	 * leave too little cargo space for its POLY and ISO; `409` outside Investment or before they have collected.
+	 */
+	@DeleteMapping("/games/{id}/investment/ships/{ship}/modules/{module}")
+	fun removeModule(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable ship: String,
+		@PathVariable module: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val fitted = FitModuleRequestDto(module).moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.removeModule(id, session.email, ship, fitted), session.email)
+	}
+
+	/**
+	 * The player sells their ship (R66, E09-S05), wherever it is, for half its hull and modules. Its cargo goes into their
+	 * warehouse at that system as far as it fits; the rest is lost. `400` for a ship that isn't theirs; `409` outside
+	 * Investment or before they have collected.
+	 */
+	@DeleteMapping("/games/{id}/investment/ships/{ship}")
+	fun sellShip(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable ship: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(investmentService.sellShip(id, session.email, ship), session.email)
+	}
+
+	/**
 	 * The player moves goods between one of their ships in port and their warehouse there (R58, E08-S02): `{ ship, goods,
 	 * units, to }`, in any phase of a running game. `400` for an unknown good or destination, units that aren't a whole
 	 * number, and a move the rules refuse (not their ship, not in port, no warehouse there, more than the source holds or

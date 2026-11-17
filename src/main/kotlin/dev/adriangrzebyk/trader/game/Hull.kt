@@ -32,6 +32,9 @@ enum class Hull(
 	LEVIATHAN("Leviathan", 18, 1, 4, 1, 1, 6, 250, 20, military = false, aerodynamic = false),
 	PICCOLO("Piccolo", 0, 3, 1, 2, 2, 0, 70, 10, military = false, aerodynamic = true);
 
+	/** Whether this hull can be bought at a shipyard (R61): civilian only; a military one comes only through an opportunity (R56). */
+	fun isForSale(): Boolean = !military
+
 	/**
 	 * Refuses [modules] this hull can't take (R52): more than [moduleCapacity] of those that take capacity, or a second
 	 * Safe jump, which takes none but a ship has only one of.

@@ -233,6 +233,70 @@ data class Player(
 		return pay(cost.toInt()).withFactory(factory)
 	}
 
+	/**
+	 * This player after buying [ship] (R61), fresh from [Ship.commission]: it costs [Ship.price], which they must be able to
+	 * pay in full. No ship of theirs needs to be at the yard: in Investment a player is everywhere.
+	 */
+	fun buyShip(ship: Ship): Player {
+		val cost = ship.price()
+		if (cost > money) {
+			throw InvalidInvestmentException("This ship costs $cost HT; you have $money HT.")
+		}
+		return copy(money = money - cost, ships = ships + ship)
+	}
+
+	/**
+	 * This player after fitting one more [module] to their ship [shipName] at a shipyard (R65), paying its price and its
+	 * crew at the ship's class ([Module.fittingCost]).
+	 */
+	fun addModule(shipName: String, module: Module): Player {
+		val ship = shipToRefit(shipName)
+		val refitted = ship.withModuleAdded(module)
+		val cost = module.fittingCost(ship.crewClass)
+		if (cost > money) {
+			throw InvalidInvestmentException("A ${module.displayName} module costs $cost HT; you have $money HT.")
+		}
+		return pay(cost).withShip(refitted)
+	}
+
+	/** This player after removing one [module] from their ship [shipName] at a shipyard (R65), paid half its price back. */
+	fun removeModule(shipName: String, module: Module): Player {
+		val ship = shipToRefit(shipName)
+		return receive(module.resaleValue()).withShip(ship.withModuleRemoved(module))
+	}
+
+	/** Their ship [shipName], once checked that it's theirs and at a shipyard, where refits happen (R65). */
+	private fun shipToRefit(shipName: String): Ship {
+		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
+		if (!ship.isAtShipyard()) {
+			throw InvalidInvestmentException(
+				"${ship.name} must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
+			)
+		}
+		return ship
+	}
+
+	/**
+	 * This player after selling their ship [shipName] (R66), wherever it is, for [Ship.saleValue]. Its cargo is never in
+	 * the way: whatever fits goes into their warehouse at the ship's system, if they have one there, in goods order; the
+	 * rest is lost ([ShipSale]).
+	 */
+	fun sellShip(shipName: String): Player {
+		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
+		val warehouse = warehouseAt(ship.system)
+		val sold = copy(money = money + ship.saleValue(), ships = ships.filterNot { it.name == ship.name })
+		return if (warehouse == null) sold else sold.withWarehouse(ShipSale(ship, warehouse).warehouseAfter())
+	}
+
+	/** This player's ships that can jump (R64): every one but those still in the shipyard. */
+	fun jumpableShips(): List<Ship> = ships.filterNot { it.isInShipyard() }
+
+	/** This player's ships that leave the yard in turn [turn]'s Investment (R63). */
+	fun shipsLeavingYardIn(turn: Int): List<Ship> = ships.filter { it.leavesYardIn(turn) }
+
+	/** This player once their ships bought before turn [turn] left the yard (R63), each into the Port of its system. */
+	fun releaseShipsFromYard(turn: Int): Player = copy(ships = ships.map { if (it.leavesYardIn(turn)) it.leaveYard() else it })
+
 	/** This player with [factory] in place of their factory for that good at that system, or added when they had none. */
 	private fun withFactory(factory: Factory): Player {
 		val others = factories.filterNot { it.system == factory.system && it.goods == factory.goods }

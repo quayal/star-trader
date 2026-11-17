@@ -279,6 +279,32 @@
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
 		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
 		.fleet[hidden] { display: none; }
+		/* E09: a ship's shipyard actions on Fleet, and the buy form on Infrastructure. */
+		.fleet-ship__actions { display: grid; gap: var(--space-related); padding-top: var(--space-related); border-top: var(--border-width) solid var(--border-subtle); }
+		.fleet-ship__actions h4 { margin: 0; }
+		.fleet-ship__row { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
+		.fleet-ship__row[hidden] { display: none; }
+		.fleet-ship__row .control { width: auto; max-width: 100%; }
+		.quiet-button {
+			min-height: 32px;
+			padding: 0 var(--space-related);
+			border: var(--border-width) solid var(--border-control);
+			border-radius: var(--radius-control);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			font-family: var(--font-body);
+			font-size: var(--text-body);
+			cursor: pointer;
+		}
+		.quiet-button:hover:not(:disabled) { border-color: var(--accent-selected); }
+		.quiet-button:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
+		.ship-name-row { display: flex; gap: var(--space-group); align-items: center; }
+		.ship-name-row .control { flex: 1 1 auto; min-width: 0; }
+		.ship-modules { margin: 0; padding: 0; border: none; min-width: 0; }
+		.ship-modules__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-group) var(--space-panel); }
+		.ship-modules__grid label { display: flex; gap: var(--space-group); align-items: center; justify-content: space-between; }
+		.ship-modules__grid .control { width: 72px; }
+		.ship-cost { margin: 0; font-family: var(--font-display); }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
@@ -575,6 +601,8 @@
 		<!-- Fleet (E07-S03): the player's own ships, with hull, modules, stats, position and cargo (R57). -->
 		<div class="fleet" id="fleet-panel" hidden>
 			<h2 class="system__title" id="fleet-panel-title" tabindex="-1">Fleet</h2>
+			<!-- E09-S06-2: what a refit or a sale did, kept outside the ship panels, which are redrawn. -->
+			<p class="message" id="fleet-message" role="status" tabindex="-1" hidden></p>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
 			<!-- E08-S02-9: for a player with a warehouse; the form is on Infrastructure. -->
@@ -664,6 +692,44 @@
 					</div>
 					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
 					<p class="message" id="units-message" role="status"></p>
+				</form>
+			</section>
+			<!-- E09-S06-1 (R61): static markup, so the typed name, the picks and the counts survive the poll. -->
+			<section class="panel" id="ship-panel" aria-labelledby="ship-title" hidden>
+				<h2 id="ship-title">Buy a ship</h2>
+				<p class="muted">It waits a turn in the shipyard, leaves it in next turn’s Investment, and makes its first jump the turn after. Refit and sell your ships on the Fleet tab.</p>
+				<p class="message message--warn" id="ship-late" role="status"></p>
+				<form class="offer-form" id="ship-form" novalidate>
+					<div>
+						<label class="field-label" for="ship-name">Name</label>
+						<div class="ship-name-row">
+							<input class="control" id="ship-name" maxlength="20" autocomplete="off" aria-describedby="ship-name-error">
+							<button class="quiet-button" id="ship-suggest" type="button">Suggest</button>
+						</div>
+						<p class="message message--error field-error" id="ship-name-error" role="alert"></p>
+					</div>
+					<div>
+						<label class="field-label" for="ship-yard">Shipyard</label>
+						<select class="control" id="ship-yard"></select>
+					</div>
+					<div>
+						<label class="field-label" for="ship-hull">Hull</label>
+						<select class="control" id="ship-hull" aria-describedby="ship-hull-facts"></select>
+						<p class="message muted" id="ship-hull-facts"></p>
+					</div>
+					<fieldset class="ship-modules" aria-describedby="ship-capacity ship-modules-error">
+						<legend class="field-label">Modules</legend>
+						<div class="ship-modules__grid" id="ship-modules"></div>
+						<p class="message muted" id="ship-capacity" role="status"></p>
+						<p class="message message--error field-error" id="ship-modules-error" role="alert"></p>
+					</fieldset>
+					<fieldset class="offer-type">
+						<legend class="field-label">Crew class (price per crew member)</legend>
+						<div class="choices" id="ship-crew"></div>
+					</fieldset>
+					<p class="ship-cost" id="ship-cost" role="status"></p>
+					<div><button class="btn" id="ship-button" type="submit">Buy ship</button></div>
+					<p class="message" id="ship-message" role="status"></p>
 				</form>
 			</section>
 			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
@@ -966,6 +1032,21 @@
 	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
+	import {
+		BUY_BUTTON,
+		REFIT_NOTE,
+		fitCheck,
+		lateBuyWarning,
+		moduleList,
+		refitOptions,
+		saleConfirmText,
+		saleOutcome,
+		shipCost,
+		shipyardOf,
+		soldText,
+		suggestName,
+		validateShipName,
+	} from './js/shipyard.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
 		FINISH_BUTTON,
@@ -1560,8 +1641,9 @@
 		}
 		focusInfrastructureTitle = false;
 		if (view === 'fleet') {
+			// S03-8: with the regular poll. It checks for itself what changed, which includes this page's own state (E09-S06-2).
+			renderFleet(game);
 			if (changed) {
-				renderFleet(game); // S03-8: with the regular poll
 				$('fleet-cargo').hidden = !canMoveCargo(game); // E08-S02-9
 				$('fleet-cargo-link').href = infrastructureLink(game.id);
 				$('fleet-cargo-link').textContent = FLEET_MOVE_LINK;
@@ -1660,9 +1742,134 @@
 		return flags.map(text => element('span', { class: text.startsWith('Military') ? 'badge badge--warn' : 'badge' }, text));
 	}
 
+	// E09-S06-2: the ship whose sale waits for confirmation, what the panels were last drawn from (they're redrawn only
+	// on a change, so a picked module and focus survive the poll), and the turn the Fleet message is about.
+	let pendingSale = null;
+	let shownFleetKey = null;
+	let fleetMessageKey = null;
+	let fleetBusy = false;
+
+	function setFleetMessage(text, error, key) {
+		$('fleet-message').textContent = text;
+		$('fleet-message').className = error ? 'message message--error' : 'message message--success';
+		$('fleet-message').hidden = !text;
+		fleetMessageKey = text ? key : null;
+	}
+
+	/** E09-S06-2: Sell, with a confirm step naming what happens to the cargo, and refits at a shipyard; only while investing. */
+	function shipActions(game, ship) {
+		const shipyard = shipyardOf(game);
+		if (!canBuy(game) || !shipyard) {
+			return [];
+		}
+		const own = game.you.ships.find(entry => entry.name === ship.name);
+		const sale = pendingSale === ship.name
+			? element('div', { class: 'fleet-ship__row' },
+				element('p', { class: 'message message--warn' }, saleConfirmText(game, viewerId, own)),
+				shipButton('btn', 'Confirm sale', () => sellShip(game, own)),
+				shipButton('quiet-button', 'Cancel', () => {
+					pendingSale = null;
+					render(lastGame, false);
+				}))
+			: element('div', { class: 'fleet-ship__row' }, shipButton('quiet-button', `Sell for ${own.saleValue} HT`, () => {
+				pendingSale = ship.name;
+				render(lastGame, false);
+			}));
+		const { add, remove } = refitOptions(shipyard, own);
+		const refit = [];
+		if (!own.atShipyard) {
+			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
+		} else {
+			if (add.length) {
+				const id = `fleet-add-${ship.name.replace(/\W+/g, '-')}`;
+				const select = element('select', { class: 'control', id },
+					...add.map(option => element('option', { value: option.id }, `${option.name} \u2014 ${option.cost} HT`)));
+				refit.push(element('div', { class: 'fleet-ship__row' },
+					element('label', { class: 'field-label', for: id }, 'Add a module'), select,
+					shipButton('quiet-button', 'Fit', () => refitShip(game, own, 'POST', select.value,
+						add.find(option => option.id === select.value)))));
+			} else {
+				refit.push(element('p', { class: 'muted' }, 'No room for another module.'));
+			}
+			refit.push(...remove.map(option => element('div', { class: 'fleet-ship__row' },
+				shipButton('quiet-button', `Remove one ${option.name} (+${option.refund} HT)`, () => refitShip(game, own, 'DELETE', option.id, option)))));
+		}
+		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Shipyard'), sale, ...refit)];
+	}
+
+	function shipButton(className, text, onClick) {
+		const button = element('button', { class: className, type: 'button' }, text);
+		button.disabled = fleetBusy;
+		button.addEventListener('click', onClick);
+		return button;
+	}
+
+	/** S04-1: one module added or removed; the answer redraws Fleet with the new modules and balance. */
+	async function refitShip(game, ship, method, moduleId, option) {
+		const gameId = currentGameId;
+		const base = `/api/games/${encodeURIComponent(gameId)}/investment/ships/${encodeURIComponent(ship.name)}/modules`;
+		const request = method === 'POST'
+			? api(base, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ module: moduleId }) })
+			: api(`${base}/${encodeURIComponent(moduleId)}`, { method });
+		const done = method === 'POST'
+			? `Fitted a ${option.name} module to ${ship.name} for ${option.cost} HT.`
+			: `Removed a ${option.name} module from ${ship.name}; ${option.refund} HT back.`;
+		await fleetAction(game, request, done);
+	}
+
+	/** S05-1: the sale, confirmed; the line after it says again what went to the warehouse and what was lost (R66). */
+	async function sellShip(game, ship) {
+		const outcome = saleOutcome(game, viewerId, ship.name);
+		pendingSale = null;
+		const request = api(`/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}`, { method: 'DELETE' });
+		await fleetAction(game, request, soldText(outcome, ship.name, ship.saleValue));
+	}
+
+	async function fleetAction(game, request, doneText) {
+		const gameId = currentGameId;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		fleetBusy = true;
+		shownFleetKey = null;
+		render(lastGame, false); // the buttons go disabled while it's on its way
+		let response;
+		try {
+			response = await request;
+		} catch {
+			response = null;
+		}
+		fleetBusy = false;
+		shownFleetKey = null;
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			setFleetMessage(doneText, false, turnKey);
+			render(await response.json());
+		} else {
+			setFleetMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
+			render(lastGame, false);
+			if (response && response.status !== 400) {
+				repollNow();
+			}
+		}
+		$('fleet-message').focus(); // the button pressed may be gone; keep focus with what happened
+	}
+
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
 	function renderFleet(game) {
+		const turnKey = `${game.id}/${game.turn?.number}/${game.turn?.phase}`;
+		if (fleetMessageKey !== null && !turnKey.startsWith(`${fleetMessageKey}/`)) {
+			setFleetMessage('', false, null);
+		}
 		const ships = fleetShips(game, viewerId);
+		if (pendingSale !== null && (!canBuy(game) || !ships.some(ship => ship.name === pendingSale))) {
+			pendingSale = null;
+		}
+		const key = JSON.stringify([game.id, ships, canBuy(game), shipyardOf(game), game.you?.warehouses, pendingSale, fleetBusy]);
+		if (key === shownFleetKey) {
+			return;
+		}
+		shownFleetKey = key;
 		if (ships.length === 0) {
 			$('fleet-ships').replaceChildren(element('p', { class: 'empty' }, NO_SHIPS_TEXT));
 			return;
@@ -1695,7 +1902,8 @@
 						element('table', { class: 'data-table' },
 							element('thead', {}, element('tr', {}, ...header)),
 							element('tbody', {}, ...rows)))
-					: element('p', { class: 'empty' }, 'No modules fitted'));
+					: element('p', { class: 'empty' }, 'No modules fitted'),
+				...shipActions(game, ship));
 		}));
 	}
 
@@ -3134,6 +3342,7 @@
 		updateCollectForm(game);
 		updateBlocksForm(game);
 		updateUnitsForm(game);
+		updateShipForm(game);
 		updateCargoForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
@@ -3267,6 +3476,178 @@
 		setBlocksMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E09-S06-1: buying a ship (R61) ──
+
+	/** The game and turn the form was set up for: a new one starts from the defaults (lesson 2026-11-04). */
+	let shownShipKey = null;
+	let shipMessageKey = null;
+	let submittingShip = false;
+
+	/** The defaults: a ship like the starting ones (R55), so the form opens on something sensible to buy. */
+	const DEFAULT_SHIP = { hull: 'CLARINET', modules: { CARGO: 4, LIGHT_WEAPONS: 1, SAFE_JUMP: 1 }, crewClass: 'B' };
+
+	function setShipMessage(text, error, key) {
+		$('ship-message').textContent = text;
+		$('ship-message').className = error ? 'message message--error' : 'message message--success';
+		shipMessageKey = text ? key : null;
+	}
+
+	function setShipFieldError(id, inputs, text) {
+		$(id).textContent = text;
+		for (const input of inputs) {
+			if (text) {
+				input.setAttribute('aria-invalid', 'true');
+			} else {
+				input.removeAttribute('aria-invalid');
+			}
+		}
+	}
+
+	/** What the form says now, as module id → count text. */
+	function shipCounts() {
+		return Object.fromEntries([...$('ship-modules').querySelectorAll('input')].map(input => [input.dataset.module, input.value.trim()]));
+	}
+
+	function shipCrewClass() {
+		return document.querySelector('input[name="ship-crew"]:checked')?.value ?? DEFAULT_SHIP.crewClass;
+	}
+
+	/** The cost line, the capacity line and the hull's facts, from what is picked and typed now. */
+	function updateShipSummary(game) {
+		const shipyard = shipyardOf(game);
+		const hull = shipyard.hulls.find(entry => entry.id === $('ship-hull').value);
+		const counts = shipCounts();
+		const fit = fitCheck(shipyard, $('ship-hull').value, counts);
+		const cost = fit.error ? null : shipCost(shipyard, $('ship-hull').value, counts, shipCrewClass());
+		const facts = hull ? `${hull.moduleCapacity} module slots, crew ${hull.crew}${hull.cargoSpaces ? `, ${hull.cargoSpaces} built-in cargo spaces` : ''}` : '';
+		const capacity = hull ? `Modules ${fit.used} / ${fit.capacity} (Safe jump takes no slot)` : '';
+		const total = cost ? `${cost.text} · you have ${game.you.money} HT` : '';
+		for (const [id, text] of [['ship-hull-facts', facts], ['ship-capacity', capacity], ['ship-cost', total]]) {
+			if ($(id).textContent !== text) {
+				$(id).textContent = text;
+			}
+		}
+	}
+
+	function updateShipForm(game) {
+		const panel = $('ship-panel');
+		panel.hidden = !canBuy(game);
+		if (panel.hidden) {
+			shownShipKey = null;
+			return;
+		}
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (shipMessageKey !== null && shipMessageKey !== turnKey) {
+			setShipMessage('', false, null);
+		}
+		const shipyard = shipyardOf(game);
+		if (shownShipKey !== turnKey) {
+			shownShipKey = turnKey;
+			$('ship-yard').replaceChildren(...shipyard.shipyards.map(yard => element('option', { value: yard.system }, yard.systemName)));
+			$('ship-hull').replaceChildren(...shipyard.hulls.map(hull => element('option', { value: hull.id }, `${hull.name} \u2014 ${hull.price} HT`)));
+			$('ship-hull').value = DEFAULT_SHIP.hull;
+			$('ship-modules').replaceChildren(...shipyard.modules.map(module => {
+				const input = element('input', {
+					class: 'control price-input', id: `ship-mod-${module.id}`, inputmode: 'numeric', 'data-module': module.id,
+					value: String(DEFAULT_SHIP.modules[module.id] ?? 0),
+				});
+				input.addEventListener('input', () => {
+					setShipFieldError('ship-modules-error', [...$('ship-modules').querySelectorAll('input')], '');
+					updateShipSummary(lastGame);
+				});
+				const what = [module.cargoSpaces ? `${module.cargoSpaces} cargo` : '', module.weapons ? `${module.weapons} weapons` : '',
+					module.passengers ? `${module.passengers} passengers` : '', module.crew ? `crew ${module.crew}` : ''].filter(Boolean).join(', ');
+				return element('label', { for: input.id }, element('span', {}, `${module.name} (${module.price} HT${what ? `; ${what}` : ''})`), input);
+			}));
+			$('ship-crew').replaceChildren(...shipyard.crewClasses.map(crew => {
+				const radio = element('input', { type: 'radio', name: 'ship-crew', value: crew.id });
+				radio.checked = crew.id === DEFAULT_SHIP.crewClass;
+				radio.addEventListener('change', () => updateShipSummary(lastGame));
+				return element('label', { class: 'choice' }, radio, `${crew.id} \u00b7 ${crew.pricePerCrew} HT`);
+			}));
+			$('ship-name').value = suggestName(shipyard, '') ?? '';
+			setShipFieldError('ship-name-error', [$('ship-name')], '');
+			setShipFieldError('ship-modules-error', [...$('ship-modules').querySelectorAll('input')], '');
+			$('ship-button').textContent = BUY_BUTTON;
+		}
+		const late = lateBuyWarning(game);
+		if ($('ship-late').textContent !== late) {
+			$('ship-late').textContent = late;
+		}
+		$('ship-suggest').disabled = !suggestName(shipyard, $('ship-name').value.trim());
+		updateShipSummary(game);
+		$('ship-button').disabled = submittingShip;
+	}
+
+	$('ship-hull').addEventListener('change', () => {
+		setShipFieldError('ship-modules-error', [...$('ship-modules').querySelectorAll('input')], '');
+		updateShipSummary(lastGame);
+	});
+	$('ship-name').addEventListener('input', () => setShipFieldError('ship-name-error', [$('ship-name')], ''));
+	$('ship-suggest').addEventListener('click', () => {
+		const name = suggestName(shipyardOf(lastGame), $('ship-name').value.trim());
+		if (name) {
+			$('ship-name').value = name;
+			setShipFieldError('ship-name-error', [$('ship-name')], '');
+		}
+	});
+
+	/** S02-1, S02-2: checked here first, then by the server; the answer redraws the screen with the ship in the yard. */
+	$('ship-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		const shipyard = game && shipyardOf(game);
+		if (!shipyard) {
+			return;
+		}
+		const named = validateShipName(game, $('ship-name').value);
+		setShipFieldError('ship-name-error', [$('ship-name')], named.error ?? '');
+		const counts = shipCounts();
+		const fit = fitCheck(shipyard, $('ship-hull').value, counts);
+		setShipFieldError('ship-modules-error', [...$('ship-modules').querySelectorAll('input')], fit.error ?? '');
+		if (named.error || fit.error) {
+			(named.error ? $('ship-name') : $('ship-modules').querySelector('input')).focus();
+			return;
+		}
+		const cost = shipCost(shipyard, $('ship-hull').value, counts, shipCrewClass());
+		if (cost.total > game.you.money) {
+			setShipMessage(`This ship costs ${cost.total} HT; you have ${game.you.money} HT.`, true, `${game.id}/${game.turn.number}`);
+			return;
+		}
+		const gameId = currentGameId;
+		const yard = $('ship-yard').value;
+		const yardName = shipyard.shipyards.find(entry => entry.system === yard)?.systemName ?? yard;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		const body = { name: named.name, shipyard: yard, hull: $('ship-hull').value, modules: moduleList(shipyard, counts), crewClass: shipCrewClass() };
+		submittingShip = true;
+		$('ship-button').disabled = true;
+		setShipMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/ships`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+		} catch {
+			response = null;
+		}
+		submittingShip = false;
+		$('ship-button').disabled = false;
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			const updated = await response.json();
+			setShipMessage(`Ordered ${named.name} at the ${yardName} shipyard for ${cost.total} HT.`, false, turnKey);
+			$('ship-name').value = suggestName(shipyardOf(updated), '') ?? '';
+			render(updated);
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		setShipMessage(message, true, turnKey);
+		if (response && response.status !== 400) {
+			repollNow(); // e.g. Investment closed: the screen catches up
 		}
 	});
 

@@ -87,6 +87,13 @@ describe('shipsToJump', () => {
 		assert.deepEqual(shipsToJump(yourSlot, ME).map(s => s.name), ['Lantern']);
 		assert.deepEqual(shipsToJump(game(), ME), []);
 	});
+
+	it('leaves out a ship still in the shipyard (R64)', () => {
+		const yourSlot = game({ doneJumping: [VEGA] });
+		yourSlot.players[1].ships[1].location = 'SHIPYARD';
+
+		assert.deepEqual(shipsToJump(yourSlot, ME).map(s => s.name), ['Wayfarer']);
+	});
 });
 
 describe('shipOptionText', () => {

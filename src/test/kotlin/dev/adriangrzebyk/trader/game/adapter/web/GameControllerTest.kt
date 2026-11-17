@@ -1274,6 +1274,114 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldBuyAShipIntoTheYardShowingItsHullOnlyToItsOwner() {
+		// E09-S02-1, S02-4, S02-5, S02-6, R57
+		val (owner, other, gameId) = investingAtTau("ship-buy")
+		val otherEmail = other.removePrefix("token-")
+		val corporation = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.corporationName
+		val before = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val shipyard = before.you!!.invest!!.shipyard
+		assertThat(shipyard.shipyards.map { it.system }).containsExactly("TAU_CETI", "EPSILON_ERIDANI", "BETA_HYDRI")
+		assertThat(shipyard.hulls.map { it.id }).contains("PHOENIX").doesNotContain("SWORD", "DAGGER", "SPEAR")
+		assertThat(shipyard.modules.map { it.id }).contains("CARGO", "SAFE_JUMP").doesNotContain("ARSENAL")
+		assertThat(shipyard.crewClasses.map { it.id to it.pricePerCrew }).containsExactly("A" to 20, "B" to 10, "C" to 6, "D" to 2)
+		assertThat(shipyard.freeNames).contains("Spiral")
+
+		val bought = buyShip(
+			other,
+			gameId,
+			"""{"name": "Sea Wolf", "shipyard": "TAU_CETI", "hull": "PHOENIX", "modules": ["CARGO"], "crewClass": "D"}"""
+		).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		// 85 hull + 4 Cargo + 1 crew × 2
+		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 91)
+		val mine = bought.you!!.ships.single { it.name == "Sea Wolf" }
+		assertThat(mine.hull.name).isEqualTo("Phoenix")
+		assertThat(mine.crewClass).isEqualTo("D")
+		assertThat(mine.leavesYardOnTurn).isEqualTo(2)
+		assertThat(mine.saleValue).isEqualTo(44)
+		assertThat(bought.log.last().text).isEqualTo("$corporation ordered Sea Wolf at the Tau Ceti shipyard")
+		val seenByOwner = pollGame(owner, gameId).expectBody(String::class.java).returnResult().responseBody!!
+		assertThat(seenByOwner).contains("\"name\":\"Sea Wolf\",\"system\":\"TAU_CETI\",\"systemName\":\"Tau Ceti\",\"location\":\"SHIPYARD\"")
+		assertThat(seenByOwner).doesNotContain("Phoenix").doesNotContain("PHOENIX")
+	}
+
+	@Test
+	fun shouldRefuseAShipTheRulesDoNotAllow() {
+		// E09-S02-2
+		val (_, other, gameId) = investingAtTau("ship-bad")
+		val takenName = gameStore.find(gameId)!!.players.first().ships.first().name
+		listOf(
+			"""{"name": "X", "shipyard": "NOWHERE", "hull": "PHOENIX", "crewClass": "D"}""" to "Choose a shipyard.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "BARGE", "crewClass": "D"}""" to "Choose a hull.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "PHOENIX", "modules": ["TELEPORT"], "crewClass": "D"}""" to
+				"Choose modules from the list.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "PHOENIX", "crewClass": "Z"}""" to "Choose a crew class: A, B, C or D.",
+			"""{"name": "$takenName", "shipyard": "TAU_CETI", "hull": "PHOENIX", "crewClass": "D"}""" to
+				"There's already a ship called $takenName in this game.",
+			"""{"name": "X", "shipyard": "MU_HERCULIS", "hull": "PHOENIX", "crewClass": "D"}""" to
+				"Mu Herculis has no shipyard. Choose Beta Hydri, Epsilon Eridani or Tau Ceti.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "SWORD", "crewClass": "D"}""" to
+				"The Sword is military: it can't be bought at a shipyard.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "CORCO_GAMMA", "modules": ["CARGO", "CARGO", "CARGO"], "crewClass": "D"}""" to
+				"A Corco Gamma holds 2 modules, not 3.",
+			"""{"name": "X", "shipyard": "TAU_CETI", "hull": "LEVIATHAN", "modules": [${List(7) {
+				"\"PASSENGER\""
+			}.joinToString()}], "crewClass": "A"}""" to
+				"This ship costs 575 HT; you have 300 HT." // 250 + 7 × 15 + (4 + 7) crew × 20
+		).forEach { (body, message) ->
+			buyShip(other, gameId, body).expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo(message)
+		}
+	}
+
+	@Test
+	fun shouldRefitAShipInTheYardAndSellIt() {
+		// E09-S04-1, S04-2, E09-S05-1, S05-3
+		val (_, other, gameId) = investingAtTau("ship-refit")
+		val otherEmail = other.removePrefix("token-")
+		val corporation = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.corporationName
+		val bought = buyShip(other, gameId, """{"name": "Sea Wolf", "shipyard": "BETA_HYDRI", "hull": "PHOENIX", "crewClass": "B"}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		val fitted = addModule(other, gameId, "Sea Wolf", """{"module": "PASSENGER"}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(fitted.you!!.money).isEqualTo(bought.you!!.money - 25) // 15 + 1 crew × 10
+		assertThat(fitted.you!!.ships.single { it.name == "Sea Wolf" }.modules.map { it.id }).containsExactly("PASSENGER")
+
+		val removed = removeModule(other, gameId, "Sea Wolf", "PASSENGER")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(removed.you!!.money).isEqualTo(fitted.you!!.money + 7) // half of 15, rounded down
+
+		val sold = sellShip(other, gameId, "Sea Wolf").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(sold.you!!.money).isEqualTo(removed.you!!.money + 42) // half of 85
+		assertThat(sold.you!!.ships.map { it.name }).doesNotContain("Sea Wolf")
+		assertThat(sold.log.last().text).isEqualTo("$corporation sold Sea Wolf")
+	}
+
+	@Test
+	fun shouldRefuseARefitAwayFromAShipyardAndShipyardActionsOutsideInvestment() {
+		// E09-S04-3: the other's first ship is in port at Gamma Leporis, which has no shipyard.
+		val (_, other, gameId) = investingAtTau("ship-refit-bad")
+		val atGamma = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.ships.first().name
+
+		addModule(other, gameId, atGamma, """{"module": "CARGO"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java)
+			.isEqualTo("$atGamma must be at a shipyard to refit: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+		addModule(other, gameId, atGamma, """{"module": "WARP"}""").expectStatus().isBadRequest
+		removeModule(other, gameId, atGamma, "WARP").expectStatus().isBadRequest
+
+		val (token, _, running) = startedGame("ship-bidding")
+		val ship = gameStore.find(running)!!.players.first().ships.first().name
+		sellShip(
+			token,
+			running,
+			ship
+		).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		sellShip(null, running, ship).expectStatus().isUnauthorized
+	}
+
+	@Test
 	fun shouldBuildAFactoryAtTheDeckPriceAndShowTheLogLineButNotThePrice() {
 		// E06-S05-1, S05-2, S05-3, S05-7, R50
 		val (_, other, gameId) = investingAtTau("units")
@@ -2068,6 +2176,31 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/factory-units", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
+	}
+
+	private fun buyShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun addModule(token: String?, gameId: String, ship: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/modules", gameId, ship)
+			.contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun removeModule(token: String?, gameId: String, ship: String, module: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.delete().uri("/api/games/{id}/investment/ships/{ship}/modules/{module}", gameId, ship, module)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
+	}
+
+	private fun sellShip(token: String?, gameId: String, ship: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.delete().uri("/api/games/{id}/investment/ships/{ship}", gameId, ship)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun signalDoneInvesting(token: String?, gameId: String): RestTestClient.ResponseSpec {

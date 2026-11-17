@@ -6,7 +6,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 /**
  * A player's ship: a [hull] with [modules] (R51, R52). Its name and position are public, like the board; its [cargo]
  * (units per good) is private to its owner (S02-7), as are its hull and modules (R57). Trading fills and empties the
- * cargo (E05). Its stats are derived from the hull and modules, never stored (R53).
+ * cargo (E05). Its stats are derived from the hull and modules, never stored (R53). All its crew are of one [crewClass]
+ * (R67). A ship bought in Investment ([boughtOnTurn]; null for every other ship) waits in the shipyard until the next
+ * turn's Investment (R63).
  */
 data class Ship(
 	val name: String,
@@ -14,7 +16,9 @@ data class Ship(
 	val location: ShipLocation,
 	val cargo: Map<Goods, Int>,
 	val hull: Hull,
-	val modules: List<Module>
+	val modules: List<Module>,
+	val crewClass: CrewClass = CrewClass.B,
+	val boughtOnTurn: Int? = null
 ) {
 
 	init {
@@ -57,6 +61,56 @@ data class Ship(
 	/** Whether this ship is in port, at whatever system: the only place it loads from or unloads into a warehouse (R58). */
 	fun isInPort(): Boolean = location == ShipLocation.PORT
 
+	/** Whether this ship is still in the shipyard it was bought at (R60, R64): it doesn't jump, trade or take cargo. */
+	fun isInShipyard(): Boolean = location == ShipLocation.SHIPYARD
+
+	/** Whether this ship can be refitted (R65): in the yard, or in Port at a system with a shipyard. */
+	fun isAtShipyard(): Boolean = isInShipyard() || (location == ShipLocation.PORT && system.hasShipyard())
+
+	/** Whether this ship leaves the yard in turn [turn]'s Investment (R63): it was bought in an earlier turn. */
+	fun leavesYardIn(turn: Int): Boolean = isInShipyard() && (boughtOnTurn ?: 0) < turn
+
+	/** This ship once it left the yard (R63): in the Port of its shipyard's system. */
+	fun leaveYard(): Ship = copy(location = ShipLocation.PORT, boughtOnTurn = null)
+
+	/** The public log line when this ship leaves the yard (R63): "Spiral leaves the Tau Ceti shipyard". */
+	fun leavingYardLog(): String = "$name leaves the ${system.displayName} shipyard"
+
+	/** What this ship costs to commission (R61): its hull, every module and its crew at its class. */
+	fun price(): Int = hull.price + modules.sumOf { it.price } + crewNeeded() * crewClass.pricePerCrew
+
+	/** What selling this ship pays (R66): half its hull's and modules' prices, rounded down; its crew isn't paid back. */
+	fun saleValue(): Int = (hull.price + modules.sumOf { it.price }) / 2
+
+	/**
+	 * This ship with one more [module] (R65), refused for a military one (R56) or one the hull can't take (R52). Where the
+	 * ship is and paying for it are the player's to check.
+	 */
+	fun withModuleAdded(module: Module): Ship {
+		if (!module.isForSale()) {
+			throw InvalidInvestmentException("${module.displayName} is military: it can't be bought at a shipyard.")
+		}
+		return copy(modules = modules + module)
+	}
+
+	/**
+	 * This ship with one [module] fewer (R65), refused when it has none, or when what's left couldn't hold the POLY and
+	 * ISO it carries (R42, R54): goods are never lost to a refit.
+	 */
+	fun withModuleRemoved(module: Module): Ship {
+		if (module !in modules) {
+			throw InvalidInvestmentException("$name has no ${module.displayName} module.")
+		}
+		val refitted = copy(modules = modules - module)
+		if (refitted.cargoSpaces() < cargoSpacesUsed()) {
+			throw InvalidInvestmentException(
+				"$name carries ${cargoSpacesUsed()} units of POLY and ISO; without that module it would have only " +
+					"${refitted.cargoSpaces()} cargo spaces."
+			)
+		}
+		return refitted
+	}
+
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
 	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
 
@@ -93,14 +147,22 @@ data class Ship(
 	 * ends up (S03). Never to the system it's already at (S02-4).
 	 */
 	fun jumpTo(destination: StarSystem): Ship {
+		if (isInShipyard()) {
+			throw InvalidJumpException("$name is still in the shipyard.")
+		}
 		if (destination == system) {
 			throw InvalidJumpException("$name is already at ${destination.displayName}. Pick another destination.")
 		}
 		return copy(system = destination, location = ShipLocation.SPACE)
 	}
 
-	/** This ship after its player chose where in its system it ends up (R30, S03). */
-	fun landAt(location: ShipLocation): Ship = copy(location = location)
+	/** This ship after its player chose where in its system it ends up (R30, S03): never the shipyard (R60). */
+	fun landAt(location: ShipLocation): Ship {
+		if (!location.isLandable()) {
+			throw InvalidLandingException()
+		}
+		return copy(location = location)
+	}
 
 	/** Where this ship is, for the public log: "Wayfarer at Tau Ceti". */
 	fun position(): String = "$name at ${system.displayName}"
@@ -112,11 +174,41 @@ data class Ship(
 	fun landingLog(): String = "$name ${location.landingLog} (${system.displayName})"
 
 	companion object {
-		/** Two names per player in join order; enough for a full game of 6. */
+		/**
+		 * The suggested ship names (R62): this game's own twelve, which starting ships take two each in join order (R40),
+		 * then the original game's ship tokens, which a ship bought later is suggested first. A suggestion is a name nobody
+		 * in the game uses yet.
+		 */
 		val NAMES = listOf(
-			"Wayfarer", "Lantern", "Meridian", "Halcyon", "Bright Reach", "Corvid",
-			"Ironside", "Tallow", "Ostrava", "Kestrel", "Solace", "Pilgrim"
+			"Wayfarer", "Lantern", "Meridian", "Halcyon", "Bright Reach", "Corvid", "Ironside", "Tallow", "Ostrava", "Kestrel",
+			"Solace", "Pilgrim", "Spiral", "Coral", "Knight", "Needle", "Sphinx", "Quasar", "Flash", "Luna", "Alfa", "Falcon",
+			"Pulsar", "Tzar", "Satyr", "Regent"
 		)
+
+		/** R62: a ship's name is 1 to 20 characters once trimmed. */
+		const val MAX_NAME_LENGTH = 20
+
+		/**
+		 * A new, empty ship called [name] (trimmed), bought in turn [turn] at [shipyard] (R61): a civilian [hull] with
+		 * civilian [modules] it can take (R52, R56), crewed at [crewClass]. It waits in the yard (R60, R63). That the name
+		 * is free in the game, and paying [price], are the player's and the game's to check.
+		 */
+		fun commission(name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass, turn: Int): Ship {
+			val trimmed = name?.trim().orEmpty()
+			if (trimmed.length !in 1..MAX_NAME_LENGTH) {
+				throw InvalidInvestmentException("Choose a name of 1 to $MAX_NAME_LENGTH characters.")
+			}
+			if (!shipyard.hasShipyard()) {
+				throw InvalidInvestmentException("${shipyard.displayName} has no shipyard. Choose Beta Hydri, Epsilon Eridani or Tau Ceti.")
+			}
+			if (!hull.isForSale()) {
+				throw InvalidInvestmentException("The ${hull.displayName} is military: it can't be bought at a shipyard.")
+			}
+			modules.firstOrNull { !it.isForSale() }?.let {
+				throw InvalidInvestmentException("${it.displayName} is military: it can't be bought at a shipyard.")
+			}
+			return Ship(trimmed, shipyard, ShipLocation.SHIPYARD, emptyMap(), hull, modules, crewClass, turn)
+		}
 
 		/**
 		 * The hull and modules of every ship before E07: a Clarinet with 5 Cargo modules, so 10 cargo spaces (R42).
