@@ -570,7 +570,7 @@
 			<section class="panel deck__map" aria-labelledby="map-title">
 				<h2 id="map-title">Map</h2>
 				<div id="map"></div>
-				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: buy, refit and repair ships there. Select a system for its details.</p>
+				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there. Select a system for its details.</p>
 				<p class="muted map-key">Each arrowhead is the base chance of a jump that way: a 2d6 roll of that or less gets there. Your crew and Safe jump add to it. Green marks the three highest values on the map, red the three lowest.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
@@ -1106,6 +1106,7 @@
 	import {
 		BUY_BUTTON,
 		REFIT_NOTE,
+		REPAIR_NOTE,
 		HULL_COLUMNS,
 		fitCheck,
 		hullRows,
@@ -1862,7 +1863,7 @@
 		fleetMessageKey = text ? key : null;
 	}
 
-	/** E09-S06-2: Sell, with a confirm step naming what happens to the cargo, and refits at a shipyard; only while investing. */
+	/** E09-S06-2: Sell, with a confirm step naming what happens to the cargo, refits in port (R65) and repair at a shipyard (R79); only while investing. */
 	function shipActions(game, ship, index) {
 		const shipyard = shipyardOf(game);
 		if (!canBuy(game) || !shipyard) {
@@ -1883,14 +1884,16 @@
 			}));
 		const { add, remove } = refitOptions(shipyard, own);
 		const refit = [];
+		if (own.repairCost > 0) {
+			// R79: one action repairs the hull and every damaged module, only at a shipyard.
+			refit.push(own.canRepair
+				? element('div', { class: 'fleet-ship__row' },
+					shipButton('quiet-button', `Repair all damage (${own.repairCost} HT)`, () => repairShip(game, own)))
+				: element('p', { class: 'muted' }, REPAIR_NOTE));
+		}
 		if (!own.canRefit) {
 			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
 		} else {
-			if (own.repairCost > 0) {
-				// R79: one action repairs the hull and every damaged module.
-				refit.push(element('div', { class: 'fleet-ship__row' },
-					shipButton('quiet-button', `Repair all damage (${own.repairCost} HT)`, () => repairShip(game, own))));
-			}
 			if (add.length) {
 				const id = `fleet-add-${index}`; // the ship's place, not its name: two names can't collide
 				const select = element('select', { class: 'control', id },
@@ -1905,7 +1908,7 @@
 			refit.push(...remove.map(option => element('div', { class: 'fleet-ship__row' },
 				shipButton('quiet-button', `Remove one ${option.name} (+${option.refund} HT)`, () => refitShip(game, own, 'DELETE', option.id, option)))));
 		}
-		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Shipyard'), sale, ...refit)];
+		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Sell or refit'), sale, ...refit)];
 	}
 
 	function shipButton(className, text, onClick) {

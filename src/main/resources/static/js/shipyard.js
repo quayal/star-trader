@@ -10,7 +10,8 @@ export const NAME_CHARACTERS_ERROR = 'Use letters, digits, spaces, hyphens, apos
 export const LAST_TURN_WARNING = 'This ship would never leave the yard: the game ends first.';
 export const SECOND_LAST_TURN_WARNING = 'This ship would leave the yard only in the last Investment, too late to jump.';
 export const BUY_BUTTON = 'Buy ship';
-export const REFIT_NOTE = 'Refit at a shipyard: in the yard, or in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
+export const REFIT_NOTE = 'Fit or remove modules in port, or while the ship is still in the yard.';
+export const REPAIR_NOTE = 'Repair at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
 
 /** The goods in the server's order, which a sold ship's cargo goes into the warehouse in (R66, `Goods` order). */
 const GOODS_ORDER = ['CHIPS', 'FOOD', 'ISO', 'POLY'];
@@ -215,9 +216,9 @@ export function soldText(outcome, shipName, saleValue) {
 }
 
 /**
- * R65: what the viewer can do to [ship] at a shipyard: the modules they can add (those for sale that still fit, Safe jump
+ * R65: what the viewer can do to [ship] in port or in the yard: the modules they can add (those for sale that still fit, Safe jump
  * only without one), each with its cost at the ship's crew class, and those they can remove, each with what it pays
- * back. Empty when the ship isn't at a shipyard or the shipyard isn't open to them.
+ * back. Empty when the ship can't be refitted where it is, or the shipyard catalogue isn't open to them.
  */
 export function refitOptions(shipyard, ship) {
 	if (!shipyard || !ship.canRefit) {

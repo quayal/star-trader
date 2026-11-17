@@ -147,8 +147,8 @@ describe('the map', () => {
 	});
 
 	it('says a system has a shipyard (R60)', () => {
-		assert.equal(SHIPYARD_TEXT, 'Shipyard: buy, refit and repair ships here.');
-		assert.match(systemAccessibleName(game, { ...tauCeti, shipyard: true }, 'ada'), /price likely to rise\. Shipyard: buy, refit and repair ships here\. 1 of your ships/);
+		assert.equal(SHIPYARD_TEXT, 'Shipyard: build and repair ships here.');
+		assert.match(systemAccessibleName(game, { ...tauCeti, shipyard: true }, 'ada'), /price likely to rise\. Shipyard: build and repair ships here\. 1 of your ships/);
 	});
 });
 
