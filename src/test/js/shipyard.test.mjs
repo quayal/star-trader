@@ -6,8 +6,10 @@ import {
 	NAME_CHARACTERS_ERROR,
 	NAME_ERROR,
 	SECOND_LAST_TURN_WARNING,
+	HULL_COLUMNS,
 	canSuggest,
 	fitCheck,
+	hullRows,
 	lateBuyWarning,
 	moduleList,
 	refitOptions,
@@ -23,9 +25,9 @@ import {
 const SHIPYARD = {
 	shipyards: [{ system: 'TAU_CETI', systemName: 'Tau Ceti' }],
 	hulls: [
-		{ id: 'CLARINET', name: 'Clarinet', price: 160, moduleCapacity: 5, crew: 1, cargoSpaces: 0, aerodynamic: false },
-		{ id: 'CORCO_GAMMA', name: 'Corco Gamma', price: 80, moduleCapacity: 2, crew: 1, cargoSpaces: 0, aerodynamic: true },
-		{ id: 'LEVIATHAN', name: 'Leviathan', price: 250, moduleCapacity: 18, crew: 4, cargoSpaces: 6, aerodynamic: false },
+		{ id: 'CLARINET', name: 'Clarinet', price: 160, moduleCapacity: 5, crew: 1, cargoSpaces: 0, weapons: 3, shields: 2, intercept: 2, repairCost: 20, aerodynamic: false },
+		{ id: 'CORCO_GAMMA', name: 'Corco Gamma', price: 80, moduleCapacity: 2, crew: 1, cargoSpaces: 0, weapons: 2, shields: 1, intercept: 1, repairCost: 10, aerodynamic: true },
+		{ id: 'LEVIATHAN', name: 'Leviathan', price: 250, moduleCapacity: 18, crew: 4, cargoSpaces: 6, weapons: 1, shields: 1, intercept: 1, repairCost: 20, aerodynamic: false },
 	],
 	modules: [
 		{ id: 'SAFE_JUMP', name: 'Safe jump', price: 10, crew: 0, cargoSpaces: 0, weapons: 0, passengers: 0, takesModuleCapacity: false },
@@ -55,6 +57,27 @@ function game({ cargo = {}, warehouse = null, turn = 3, turns = 20 } = {}) {
 		},
 	};
 }
+
+describe('hullRows', () => {
+	it('lists every hull for sale with its characteristics under the columns, and marks the picked one (R51)', () => {
+		const rows = hullRows(SHIPYARD, 'CORCO_GAMMA');
+
+		assert.deepEqual(HULL_COLUMNS, ['Price', 'Modules', 'Cargo', 'Weapons', 'Shields', 'Intercept', 'Crew', 'Repair']);
+		assert.deepEqual(rows.map(row => [row.id, row.selected]), [['CLARINET', false], ['CORCO_GAMMA', true], ['LEVIATHAN', false]]);
+		assert.deepEqual(rows[2].cells, ['250 HT', '18', '6', '1', '1', '1', '4', '20 HT']);
+	});
+
+	it('names a hull\'s flags in words, never by colour alone (R56)', () => {
+		const rows = hullRows(SHIPYARD, 'CLARINET');
+
+		assert.deepEqual(rows[1].flags, ['Aerodynamic']);
+		assert.deepEqual(rows[0].flags, []);
+	});
+
+	it('is empty when the viewer cannot buy now', () => {
+		assert.deepEqual(hullRows(null, 'CLARINET'), []);
+	});
+});
 
 describe('shipCost', () => {
 	it('adds the hull, every module and the crew at its class (R61)', () => {
