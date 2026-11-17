@@ -36,6 +36,12 @@ data class Game(
 	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
 
 	/**
+	 * The log entries after the first [count], for a reader who already has those: the log only ever grows at its end. The
+	 * whole log when [count] isn't a number of entries this log has, so a reader who is out of step starts over.
+	 */
+	fun logAfter(count: Int): List<LogEntry> = if (count in 0..log.size) log.drop(count) else log
+
+	/**
 	 * Closes joining and sets every player up (R40, R41): 300 HT and two empty ships at the Ports of two
 	 * different systems from [picker], then turn 1 Bidding. Only the creator may start, once, with 2+ players.
 	 */
@@ -215,6 +221,18 @@ data class Game(
 	}
 
 	/**
+	 * [email] moves [units] of [goods] between their ship [shipName] in port and their warehouse there, into [to] (R58):
+	 * [Player.moveCargo] checks and applies it. In any phase of a running game and whoever's turn it is, since a move
+	 * changes nothing anyone else decides on: what the player holds at that system stays the same (R49). Cargo is private
+	 * (R29), so nothing is logged.
+	 */
+	fun moveCargo(email: String, shipName: String?, goods: Goods, units: Int, to: CargoDestination): Game {
+		val player = playerOf(email)
+		runningTurn()
+		return copy(players = replace(player.moveCargo(shipName, goods, units, to)))
+	}
+
+	/**
 	 * Records that [email] is done bidding (R17). Bidding closes the moment the last player signals done (D09), rolling
 	 * the initiative order with [dice]; a signal after that is refused (A04).
 	 */
@@ -244,6 +262,17 @@ data class Game(
 		val current = runningTurn()
 		current.requireBidding()
 		return copy(turn = current.placeOffer(player.offer(system, goods, type, price)))
+	}
+
+	/**
+	 * Withdraws [email]'s offer on [goods] at [system] while Bidding is open (R59); withdrawing one they don't have
+	 * changes nothing. After Bidding closed it's refused as such (A04).
+	 */
+	fun withdrawOffer(email: String, system: StarSystem, goods: Goods): Game {
+		playerOf(email)
+		val current = runningTurn()
+		current.requireBidding()
+		return copy(turn = current.withdrawOffer(email, system, goods))
 	}
 
 	/**

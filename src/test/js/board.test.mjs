@@ -40,7 +40,7 @@ const game = {
 	status: 'RUNNING',
 	players: [
 		{
-			email: 'ada@example.com',
+			id: 'ada',
 			corporationName: 'Orion Freight',
 			ships: [
 				{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' },
@@ -49,7 +49,7 @@ const game = {
 			marketPositions: [{ system: 'TAU_CETI', goods: 'POLY', tier: 'WHOLESALER' }],
 		},
 		{
-			email: 'grace@example.com',
+			id: 'grace',
 			corporationName: 'Vega Lines',
 			ships: [
 				{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PLANET' },
@@ -136,7 +136,7 @@ describe('the map', () => {
 
 	it('puts every good, its price and its market label in words in the accessible name', () => {
 		assert.equal(
-			systemAccessibleName(game, tauCeti, 'ada@example.com'),
+			systemAccessibleName(game, tauCeti, 'ada'),
 			'Tau Ceti: ISO 4 HT, moderate demand, price may rise; POLY 6 HT, high demand, price likely to rise. '
 				+ '1 of your ships, 1 other ship. Open system details.',
 		);
@@ -145,12 +145,12 @@ describe('the map', () => {
 
 describe('ships under a system (S02-4)', () => {
 	it('shows your ships by name first and other players by corporation initials', () => {
-		assert.equal(shipsUnderText(game, 'TAU_CETI', 'ada@example.com'), '■ Wayfarer  □ VL');
-		assert.equal(shipsUnderText(game, 'TAU_CETI', 'grace@example.com'), '■ Meridian  □ OF');
+		assert.equal(shipsUnderText(game, 'TAU_CETI', 'ada'), '■ Wayfarer  □ VL');
+		assert.equal(shipsUnderText(game, 'TAU_CETI', 'grace'), '■ Meridian  □ OF');
 	});
 
 	it('says "no ships" for an empty system', () => {
-		assert.equal(shipsUnderText(game, 'MU_HERCULIS', 'ada@example.com'), 'no ships');
+		assert.equal(shipsUnderText(game, 'MU_HERCULIS', 'ada'), 'no ships');
 	});
 
 	it('takes up to three initials', () => {
@@ -163,14 +163,14 @@ describe('ships under a system (S02-4)', () => {
 
 describe('Your fleet (S02-5)', () => {
 	it('lists each of your ships with system, location, cargo and cargo space used', () => {
-		assert.deepEqual(fleet(game, 'ada@example.com').map(fleetLine), [
+		assert.deepEqual(fleet(game, 'ada').map(fleetLine), [
 			'Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used',
 			'Lantern — Beta Hydri · Space — Empty · cargo 0 / 10 used',
 		]);
 	});
 
 	it('links each entry to its system', () => {
-		assert.deepEqual(fleet(game, 'ada@example.com').map(entry => entry.systemId), ['TAU_CETI', 'BETA_HYDRI']);
+		assert.deepEqual(fleet(game, 'ada').map(entry => entry.systemId), ['TAU_CETI', 'BETA_HYDRI']);
 	});
 
 	it('leaves out goods with no units', () => {
@@ -181,7 +181,7 @@ describe('Your fleet (S02-5)', () => {
 
 describe('System details locations (S02-7)', () => {
 	it('gives each location its statistics and its ships', () => {
-		const [port, space, planet] = locations(game, tauCeti, 'ada@example.com');
+		const [port, space, planet] = locations(game, tauCeti, 'ada');
 		assert.deepEqual([port.name, port.stats], ['Port', 'Class 4 · Legal system 2']);
 		assert.deepEqual([space.name, space.stats], ['Space', 'Police 3']);
 		assert.deepEqual([planet.name, planet.stats], ['Planet', 'Security 4']);
@@ -190,7 +190,7 @@ describe('System details locations (S02-7)', () => {
 	});
 
 	it("names another player's ship and its owner, never its cargo", () => {
-		const planet = locations(game, tauCeti, 'ada@example.com')[2];
+		const planet = locations(game, tauCeti, 'ada')[2];
 		assert.deepEqual(planet.ships.map(ship => ship.text), ['□ Meridian — Vega Lines']);
 	});
 });

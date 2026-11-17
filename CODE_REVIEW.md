@@ -2,13 +2,13 @@
 
 This document is the repo's own review rules, applied automatically by the `om-code-review` skill (and therefore `om-auto-review-pr`) in addition to its built-in checklist. It complements, not replaces, any `reviewChecklist` path set in `.ai/agentic.config.json` — here that's `.ai/engineering-standards.md` itself, which is the canonical source for the rules below; read it for the full rationale.
 
-Stack: Spring Boot 4 + Kotlin 2.3 (JVM 17), ktlint-enforced style, JUnit 5 + AssertJ for tests, a static HTML/JS frontend served from `src/main/resources/static`. No database yet — persistence is in-memory, pending the document-store decision (D02) in `.ai/specs/product-brief.md`.
+Stack: Spring Boot 4 + Kotlin 2.3 (JVM 17), ktlint-enforced style, JUnit 5 + AssertJ for tests, a static HTML/JS frontend served from `src/main/resources/static`. Games and login sessions are stored in DynamoDB (`game/adapter/dynamodb`, `login/adapter/dynamodb`; D02 in `.ai/specs/product-brief.md`); one-time sign-in codes are kept in memory.
 
 ## Review priorities, in order
 
-1. **Correctness of game rules.** Trade resolution (`TradeDesk`, `BestOfferCalculator`, `SupplyDemand`, `DiceRoller`) encodes the board game's actual rules (R03 in the product brief). A change here that doesn't match the original game's rule, or that isn't covered by a test proving the rule, blocks.
-2. **Confidential-data scoping.** Per the product brief (R02, A05), any endpoint or query that returns one player's private state (trade offers, agents, secret opportunities) must check the caller is that player in that game — not just that they're authenticated. This repo has no auth/session layer yet; once one lands, its absence here is a blocker, not a nit.
-3. **No unscoped/global state.** Engineering standard #11: all game state must be keyed by game id, even before persistence exists. `TradeOfferBook`/`InMemoryTradeOfferBook` are pre-multi-game and already flagged in the product brief as not meeting this — don't let *new* state follow the same pattern; existing instances are tracked work, not something every unrelated PR must fix.
+1. **Correctness of game rules.** A game's Trading resolves in `game/Resolution` (with `Offer`, `Trade`, `Wholesale`, `PositionRoll` and `trading/SupplyDemand`), which encodes the board game's actual rules (R03, R34–R38 in the product brief). `trading/TradeDesk`, `BestOfferCalculator` and `DiceRoller` are the first attempt's resolution; no game uses them (the `game` package imports only `Goods`, `OfferType`, `StarSystem` and `SupplyDemand` from `trading`). A change here that doesn't match the original game's rule, or that isn't covered by a test proving the rule, blocks.
+2. **Confidential-data scoping.** Per the product brief (R02, A05), any endpoint or query that returns one player's private state (trade offers, agents, secret opportunities) must check the caller is that player in that game — not just that they're authenticated. Sessions exist (D03): every game endpoint resolves the caller from their session, `GamePollingService` refuses a caller who isn't in the game, and a response carries private state only under `you`, built for the caller. A new endpoint or field that skips either check is a blocker, not a nit. No response carries a player's email (`PlayerIds`).
+3. **No unscoped/global state.** Engineering standard #11: all game state must be keyed by game id, even before persistence exists. `TradeOfferBook`/`InMemoryTradeOfferBook` are pre-multi-game, already flagged in the product brief as not meeting this, and no longer used by any endpoint — don't let *new* state follow the same pattern.
 4. **Atomicity of state transitions.** Standard #9: a state change reachable from more than one path (a player action racing a phase timer, for example) must be a single atomic/idempotent operation, never read-decide-write split across steps.
 5. **Contract surfaces.** Check changes against `BACKWARD_COMPATIBILITY.md`.
 
@@ -28,6 +28,7 @@ Stack: Spring Boot 4 + Kotlin 2.3 (JVM 17), ktlint-enforced style, JUnit 5 + Ass
   - a class that keeps growing story by story. If a change makes `Game` (or any class) noticeably longer, check whether the new logic belongs to a part.
   `Game` keeps only what spans its parts: membership, whose turn it is, the log, and messages that name other players.
 - **Naming** (standard #5): game vocabulary (`TradeOffer`, `StarSystem`, `Goods`) over generic terms (`Item`, `Manager`, `Handler`); immutable data (`val`, `data class`) by default.
+- **Refusals map to HTTP statuses in one place**: `GameExceptionAdvice`. A new refusal type is added there, not caught in an endpoint; a `try`/`catch` in `GameController` that turns a game exception into a status needs a stated reason (today only `POST /games`).
 - **ktlint clean**: `./gradlew build` runs `ktlintCheck` as part of `check`; a PR with style violations fails the gate before a human needs to comment on formatting.
 - **No speculative abstraction** (standard #0/#5): flag a port/adapter split, interface, or configuration knob introduced for a need that doesn't exist yet. Prefer the simplest thing that passes its tests.
 

@@ -96,6 +96,36 @@ export function gameOverLink(id) {
 	return `#game/${encodeURIComponent(id)}/game-over`;
 }
 
+/**
+ * D15 (E08-S03): the screen to open because [game] has moved on since [previous], the last state this page drew of it,
+ * or null when it hasn't. A new phase or turn is played on 'game' (the Deck: Bidding and Ship-jumps), 'trading' or
+ * 'infrastructure' (Investment), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
+ * load (no previous, or another game's) never counts, so a reload doesn't pull the player away from where they opened.
+ */
+export function screenForPhaseChange(previous, game) {
+	if (!previous || previous.id !== game.id || game.status === 'LOBBY') {
+		return null;
+	}
+	if (previous.status === game.status && previous.turn?.number === game.turn?.number && previous.turn?.phase === game.turn?.phase) {
+		return null;
+	}
+	if (game.status === 'FINISHED') {
+		return 'over';
+	}
+	return { TRADING: 'trading', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+}
+
+/**
+ * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the bid's in Bidding, the
+ * turn order's in Ship-jumps; null in any other phase.
+ */
+export function deckHeadingFor(game) {
+	if (game.status !== 'RUNNING') {
+		return null;
+	}
+	return { BIDDING: 'bid-title', SHIP_JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
+}
+
 /** The length as a number, or the error the server would give (GameCreationService). */
 export function validateTurns(raw) {
 	const text = String(raw ?? '').trim();
@@ -114,11 +144,11 @@ export function gameLink(origin, id) {
 	return `${origin}/#game/${encodeURIComponent(id)}`;
 }
 
-/** What the lobby shows to the player with [myEmail]. Corporation names only: emails stay off screen. */
-export function lobbyState(game, myEmail) {
-	const isCreator = game.creatorEmail === myEmail;
+/** What the lobby shows to the player with [myId]. Corporation names only: ids stay off screen. */
+export function lobbyState(game, myId) {
+	const isCreator = game.creatorId === myId;
 	const enoughPlayers = game.players.length >= MIN_PLAYERS_TO_START;
-	const creator = game.players.find(p => p.email === game.creatorEmail);
+	const creator = game.players.find(p => p.id === game.creatorId);
 	return {
 		isCreator,
 		corporationNames: game.players.map(p => p.corporationName),

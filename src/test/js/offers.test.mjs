@@ -17,9 +17,11 @@ import {
 	placedText,
 	refusalText,
 	validatePrice,
+	withdrawLabel,
+	withdrawnText,
 } from '../../main/resources/static/js/offers.js';
 
-const ME = 'me@example.com';
+const ME = 'me';
 
 function game({ offers = [], positions = [], phase = 'BIDDING', ships = [] } = {}) {
 	return {
@@ -30,8 +32,8 @@ function game({ offers = [], positions = [], phase = 'BIDDING', ships = [] } = {
 			{ id: 'GAMMA_LEPORIS', name: 'Gamma Leporis', market: [{ goods: 'POLY' }] },
 		],
 		players: [
-			{ email: ME, ships, marketPositions: positions },
-			{ email: 'other@example.com', ships: [{ name: 'Corvid', system: 'GAMMA_LEPORIS' }], marketPositions: [] },
+			{ id: ME, ships, marketPositions: positions },
+			{ id: 'other', ships: [{ name: 'Corvid', system: 'GAMMA_LEPORIS' }], marketPositions: [] },
 		],
 		you: { money: 300, ships: [], offers },
 	};
@@ -108,6 +110,12 @@ describe('texts', () => {
 
 		assert.equal(offerText(offer), 'Sell POLY at 12 HT');
 		assert.equal(placedText(offer, 'Tau Ceti'), 'Offer placed: Sell POLY at 12 HT, Tau Ceti. Hidden from other players until Trading.');
+	});
+
+	it('names the withdraw button and its result after the offer and its system (R59)', () => {
+		const offer = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'FOOD', type: 'BUY', price: 12 };
+		assert.equal(withdrawLabel(offer), 'Withdraw offer: Buy FOOD at 12 HT, Tau Ceti');
+		assert.equal(withdrawnText(offer), 'Offer withdrawn: Buy FOOD at 12 HT, Tau Ceti.');
 	});
 
 	it('says the empty list differently once Bidding has closed', () => {

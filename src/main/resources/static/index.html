@@ -168,6 +168,22 @@
 		.offer-notes p { margin: 0; }
 		.offer-list { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-group); }
 		.offer-list .trade { padding: 0 var(--space-hairline); border-radius: var(--radius-control); }
+		.offer-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); }
+		/* R59: the small × that withdraws an offer while Bidding is open; sized like the queue arrows (a 32 px target). */
+		.offer-row__withdraw {
+			flex: none;
+			min-width: 32px;
+			min-height: 32px;
+			border: var(--border-width) solid var(--border-control);
+			border-radius: var(--radius-control);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			font-size: var(--text-value);
+			line-height: 1;
+			cursor: pointer;
+		}
+		.offer-row__withdraw:hover:not(:disabled) { border-color: var(--accent-selected); }
+		.offer-row__withdraw:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
 		.system__body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: var(--space-panel); align-items: start; }
 		.system__main { display: grid; gap: var(--space-panel); }
 		.system__body > [hidden] { display: none; }
@@ -295,6 +311,8 @@
 		.queue li.is-over { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
 		.queue__grip { color: var(--text-muted); }
 		.queue__label { flex: 1; }
+		/* E08-S01: the viewer's own offer on a good, under its name. */
+		.queue__offer { display: block; font-size: var(--text-caption); color: var(--text-muted); }
 		.queue__move {
 			min-width: 32px;
 			min-height: 32px;
@@ -465,7 +483,7 @@
 				</section>
 				<!-- E04-S01: from Ship-jumps on. Static markup, updated on render, so the chosen place and focus survive the poll. -->
 				<section class="panel" id="turn-order-panel" aria-labelledby="turn-order-title" hidden>
-					<h2 id="turn-order-title">Turn order</h2>
+					<h2 id="turn-order-title" tabindex="-1">Turn order</h2>
 					<p class="muted" id="turn-order-note"></p>
 					<ol class="player-list" id="turn-order-list"></ol>
 					<form class="offer-form pick-form" id="pick-form" novalidate hidden>
@@ -507,7 +525,7 @@
 				</section>
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
 				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
-					<h2 id="bid-title">Bid for initiative</h2>
+					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
 					<form class="offer-form" id="bid-form" novalidate>
 						<div>
 							<label class="field-label" for="bid-amount">Your bid (HT)</label>
@@ -527,6 +545,7 @@
 				<section class="panel" id="your-offers-panel" aria-labelledby="your-offers-title">
 					<h2 id="your-offers-title">Your offers this turn</h2>
 					<ul class="offer-list" id="your-offers"></ul>
+					<p class="message" id="your-offers-message" role="status" tabindex="-1" hidden></p>
 					<p class="muted">Only you can see these until Trading resolves them.</p>
 				</section>
 			</div>
@@ -558,6 +577,8 @@
 			<h2 class="system__title" id="fleet-panel-title" tabindex="-1">Fleet</h2>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
+			<!-- E08-S02-9: for a player with a warehouse; the form is on Infrastructure. -->
+			<p id="fleet-cargo" hidden><a class="link" id="fleet-cargo-link" href="/"></a></p>
 		</div>
 
 		<!-- s09 (E05-S08): Game over, once the last turn's Trading has resolved its last good. -->
@@ -643,6 +664,38 @@
 					</div>
 					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
 					<p class="message" id="units-message" role="status"></p>
+				</form>
+			</section>
+			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
+			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
+				<h2 id="cargo-title">Move goods</h2>
+				<p class="muted" id="cargo-intro"></p>
+				<p id="cargo-none"></p>
+				<form class="offer-form" id="cargo-form" novalidate>
+					<div>
+						<label class="field-label" for="cargo-ship">Ship in port</label>
+						<select class="control" id="cargo-ship" aria-describedby="cargo-warehouse"></select>
+						<p class="message muted" id="cargo-warehouse"></p>
+					</div>
+					<fieldset class="offer-type">
+						<legend class="field-label">Direction</legend>
+						<div class="choices">
+							<label class="choice"><input type="radio" name="cargo-to" value="SHIP" checked>Warehouse to ship</label>
+							<label class="choice"><input type="radio" name="cargo-to" value="WAREHOUSE">Ship to warehouse</label>
+						</div>
+					</fieldset>
+					<div>
+						<label class="field-label" for="cargo-goods">Goods</label>
+						<select class="control" id="cargo-goods"></select>
+					</div>
+					<div>
+						<label class="field-label" for="cargo-units">Units</label>
+						<input class="control price-input" id="cargo-units" inputmode="numeric" aria-describedby="cargo-hint cargo-error">
+						<p class="message muted" id="cargo-hint" role="status"></p>
+						<p class="message message--error field-error" id="cargo-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="cargo-button" type="submit"></button></div>
+					<p class="message" id="cargo-message" role="status"></p>
 				</form>
 			</section>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
@@ -750,6 +803,8 @@
 					<h2 id="queue-title">Remaining goods</h2>
 					<p class="muted" id="queue-note"></p>
 					<ol class="queue" id="queue-list"></ol>
+					<!-- E08-S01-4: what the marks on the goods are, and who sees them (R17). -->
+					<p class="muted" id="queue-offers-note"></p>
 					<p class="visually-hidden" id="queue-announce" role="status"></p>
 				</section>
 			</div>
@@ -861,8 +916,22 @@
 		fleetLink,
 		infrastructureLink,
 		validateTurns,
+		screenForPhaseChange,
+		deckHeadingFor,
 	} from './js/game.js';
-	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, gameJustEnded, isOver, standingRows, winnerText } from './js/game-over.js';
+	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
+	import {
+		FLEET_MOVE_LINK,
+		MOVE_BUTTON,
+		MOVE_INTRO,
+		NO_SHIP_IN_PORT_TEXT,
+		canMoveCargo,
+		cargoPlaces,
+		movableGoods,
+		moveHint,
+		movedText as cargoMovedText,
+		validateMove,
+	} from './js/cargo.js';
 	import {
 		DICTATOR_HELP,
 		awaitingDictator,
@@ -882,20 +951,26 @@
 		orderedBy,
 		queueBody,
 		queueNote,
+		queueOffersNote,
+		yourOffer,
+		isDictatorOf,
+		DICTATOR_MARK,
+		GO_TO_TRADING,
 		resolutionTitle,
 		resolver,
 		sameOrder,
 		tradeForm,
 		wholesaleForm,
-		tradingJustStarted,
 		tradingStatus,
 		validateTrade,
 	} from './js/trading.js';
-	import { EMPTY_LOG_TEXT, foldKey, logTurns } from './js/log.js';
+	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
 		FINISH_BUTTON,
+		GO_TO_DECK,
+		deckDecisionText,
 		JUMP_BUTTON,
 		JUMP_TITLE,
 		JUMPING_NOW,
@@ -943,6 +1018,8 @@
 		offerChoices,
 		showsYourOffers,
 		placedText,
+		withdrawLabel,
+		withdrawnText,
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
@@ -977,7 +1054,6 @@
 		goodsOptionLabel,
 		investFactories,
 		investSystems,
-		investmentJustStarted,
 		isCollecting,
 		isInvestmentClosedRefusal,
 		isInvesting,
@@ -999,6 +1075,8 @@
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
 		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'game-over-panel'];
 	let session = null;
+	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
+	let viewerId = null;
 	let marketLoaded = false;
 	let pollTimer = null;
 	let currentGameId = null;
@@ -1007,6 +1085,8 @@
 	// The last state a poll returned, and when: kept on screen when a poll fails (S02-12, D01).
 	let lastGame = null;
 	let lastLoadedAt = 0;
+	// The log of the game last drawn, { id, entries }: the poll asks only for the entries after these (log.js).
+	let knownLog = null;
 	// What the board was last drawn from; an unchanged poll doesn't redraw, so focus stays where the player put it.
 	let renderedKey = null;
 	// Set when the player opens System details, so its heading takes focus once (S02-6).
@@ -1020,6 +1100,8 @@
 	let focusInfrastructureTitle = false;
 	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
 	let focusFleetTitle = false;
+	// Set when a phase change opens the Deck (E08-S03-4), so the heading of the panel that phase needs takes focus once.
+	let focusDeckHeading = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
 	const foldedTurns = new Set();
 
@@ -1258,9 +1340,10 @@
 	async function poll() {
 		const id = currentGameId;
 		const generation = pollGeneration;
+		const known = knownLog; // as it was when the poll was sent: the answer follows on from this
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(id)}`);
+			response = await api(`/api/games/${encodeURIComponent(id)}${logAfterQuery(known, id)}`);
 		} catch {
 			response = null;
 		}
@@ -1297,6 +1380,13 @@
 			pollFailed(id);
 			return;
 		}
+		const log = mergeLog(known, game);
+		if (log === null) {
+			knownLog = null; // out of step with the server: ask again for the whole log
+			poll();
+			return;
+		}
+		game = { ...game, log, logOffset: 0 }; // every screen sees a whole log
 		rememberGame(id);
 		hideStale();
 		render(game, true, true);
@@ -1356,21 +1446,17 @@
 	 */
 	function render(game, fresh = true, fromPoll = false) {
 		noteProgress(game, fromPoll);
-		// S01-1: every player is taken to Trading when it starts, whether a poll or their own last landing brought it.
-		const openTrading = tradingJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'trading';
-		// E06-S08-2: every player is taken to Infrastructure when Investment starts, once; going back to another screen sticks.
-		const openInfrastructure = investmentJustStarted(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'infrastructure';
-		// S08-2: every player is taken to Game over when the game ends, by a poll or by their own last answer.
-		const openGameOver = gameJustEnded(lastGame, game) && game.id === currentGameId && parseRoute(location.hash).view !== 'over';
+		// D15 (E08-S03): when the phase or the turn changes, by a poll or the player's own action, every player is taken to
+		// the screen it's played on, once: the Deck for Bidding and Ship-jumps, Trading (E05-S01-1), Infrastructure for
+		// Investment (E06-S08-2), Game over (E05-S08-2). Going to another screen afterwards sticks until the next change.
+		const screen = game.id === currentGameId ? screenForPhaseChange(lastGame, game) : null;
 		lastGame = game;
-		if (openTrading) {
-			location.hash = tradingLink(game.id); // route() redraws on hashchange
-		}
-		if (openInfrastructure) {
-			location.hash = infrastructureLink(game.id);
-		}
-		if (openGameOver) {
-			location.hash = gameOverLink(game.id);
+		knownLog = { id: game.id, entries: game.log };
+		viewerId = game.you?.id ?? null;
+		if (screen !== null && screen !== parseRoute(location.hash).view) {
+			focusDeckHeading = screen === 'game';
+			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
+			location.hash = link(game.id); // read at once by renderRunning below; route() redraws on hashchange
 		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -1395,7 +1481,7 @@
 		$('nav-fleet').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
-		const state = lobbyState(game, session.email);
+		const state = lobbyState(game, viewerId);
 		setTitle('Lobby', 'Waiting for players to join.');
 		$('lobby-length').textContent = lengthText(game.turns);
 		const link = gameLink(location.origin, game.id);
@@ -1415,7 +1501,7 @@
 		const { view, systemId } = parseRoute(location.hash);
 		// The top bar (S01-1, R29, S04-3, S05-5): the initiative order joins the money once Bidding has closed.
 		const order = initiativeText(game);
-		setTitle(phaseText(game, session.email), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
+		setTitle(phaseText(game, viewerId), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
 		$('nav-log').href = logLink(game.id);
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
@@ -1432,7 +1518,7 @@
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		views.game.classList.add('view--wide');
-		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log]);
+		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
 		const changed = key !== renderedKey;
 		renderedKey = key;
 		if (view === 'system') {
@@ -1476,6 +1562,9 @@
 		if (view === 'fleet') {
 			if (changed) {
 				renderFleet(game); // S03-8: with the regular poll
+				$('fleet-cargo').hidden = !canMoveCargo(game); // E08-S02-9
+				$('fleet-cargo-link').href = infrastructureLink(game.id);
+				$('fleet-cargo-link').textContent = FLEET_MOVE_LINK;
 			}
 			showPanels('fleet-panel');
 			if (focusFleetTitle) {
@@ -1515,6 +1604,13 @@
 		updateTurnOrder(game);
 		updateJumpForm(game);
 		showPanels('deck-panel');
+		if (focusDeckHeading) {
+			focusDeckHeading = false;
+			const heading = $(deckHeadingFor(game) ?? '');
+			if (heading && !heading.closest('[hidden]')) {
+				heading.focus(); // E08-S03-4: the panel this phase needs
+			}
+		}
 	}
 
 	function element(tag, attributes = {}, ...children) {
@@ -1549,7 +1645,7 @@
 
 	function renderDeck(game) {
 		renderMap(game);
-		$('fleet-list').replaceChildren(...fleet(game, session.email).map(ship => element('li', {},
+		$('fleet-list').replaceChildren(...fleet(game, viewerId).map(ship => element('li', {},
 			element('strong', {}, ship.name), ' \u2014 ',
 			element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.systemName),
 			` \u00b7 ${ship.location} \u2014 `,
@@ -1566,7 +1662,7 @@
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
 	function renderFleet(game) {
-		const ships = fleetShips(game, session.email);
+		const ships = fleetShips(game, viewerId);
 		if (ships.length === 0) {
 			$('fleet-ships').replaceChildren(element('p', { class: 'empty' }, NO_SHIPS_TEXT));
 			return;
@@ -1616,7 +1712,7 @@
 		$('game-over-note').textContent = over ? CASH_ONLY_TEXT : '';
 		$('game-over-note').hidden = !over;
 		$('game-over-log').href = logLink(game.id);
-		$('game-over-rows').replaceChildren(...standingRows(game, session.email).map(row => element('tr', {},
+		$('game-over-rows').replaceChildren(...standingRows(game, viewerId).map(row => element('tr', {},
 			element('td', { class: 'num' }, String(row.place)),
 			element('td', {}, row.corporation,
 				...(row.you ? [element('span', { class: 'muted' }, ' (you)')] : []),
@@ -1662,16 +1758,19 @@
 			queueDraft = null;
 		}
 		const trading = isTrading(game);
-		const status = tradingStatus(game, session.email); // S01-7, S01-8, E05-S07-1
+		const status = tradingStatus(game, viewerId); // S01-7, S01-8, E05-S07-1
 		if ($('trading-status').textContent !== status) {
 			$('trading-status').textContent = status;
 		}
 		renderResolution(game);
 		const goods = trading ? shownQueue(game) : [];
-		const editable = orderedBy(game) === session.email;
+		const editable = orderedBy(game) === viewerId;
 		$('queue-panel').hidden = goods.length === 0;
-		$('queue-note').textContent = queueNote(game, session.email);
-		const listKey = JSON.stringify([game.id, editable, goods]);
+		$('queue-note').textContent = queueNote(game, viewerId);
+		$('queue-offers-note').textContent = queueOffersNote(game);
+		// E08-S01: the viewer's own offers mark their goods, so the list is drawn again when they change (a new turn's).
+		const positions = game.players.find(player => player.id === viewerId)?.marketPositions ?? [];
+		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? [], positions]);
 		if (listKey !== queueListKey) {
 			queueListKey = listKey;
 			drawQueue(game, goods, editable);
@@ -1679,7 +1778,7 @@
 		// S01-4: the first in initiative keeps the button while goods remain; it waits, disabled, for the Dictator, and
 		// the status line above it says whom for.
 		$('resolve-row').hidden = !(editable && (game.turn.tradingQueue ?? []).length > 0);
-		$('resolve-button').disabled = resolving || resolver(game) !== session.email;
+		$('resolve-button').disabled = resolving || resolver(game) !== viewerId;
 	}
 
 	// The good the Dictator form was last set up for (dictatorFormKey), so a poll keeps what was typed and a new good,
@@ -1719,7 +1818,7 @@
 			$('resolution-counter').dataset.key = linesKey;
 			$('resolution-counter').replaceChildren(...lines.map(line => element('li', {}, line)));
 		}
-		const question = dictatorQuestion(game, session.email);
+		const question = dictatorQuestion(game, viewerId);
 		const key = dictatorFormKey(game);
 		if (key !== dictatorKey) {
 			dictatorKey = key;
@@ -1745,7 +1844,7 @@
 	function renderTradeForm(game) {
 		const goodKey = dictatorFormKey(game);
 		const chosen = wholesaleChoice?.key === goodKey ? wholesaleChoice.type : null;
-		const form = tradeForm(game, session.email) ?? wholesaleForm(game, session.email, chosen);
+		const form = tradeForm(game, viewerId) ?? wholesaleForm(game, viewerId, chosen);
 		$('trade-form').hidden = form === null;
 		if (form === null) {
 			shownTrade = null;
@@ -1964,8 +2063,14 @@
 		$('queue-list').setAttribute('aria-label', editable ? 'Remaining goods, in order. Drag to reorder, or use the arrows.' : 'Remaining goods, in order');
 		$('queue-list').replaceChildren(...goods.map((good, index) => {
 			const label = goodLabel(good);
+			// E08-S01-1: the viewer's own offer on this good, theirs alone until it resolves (R17).
+			const offer = yourOffer(game, good);
+			const mark = offer ? [element('span', { class: 'queue__offer' }, 'Your offer: ',
+				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`)]
+				// A Dictator has no offer yet: they place it when the good resolves (R38), which matters for the order too.
+				: isDictatorOf(game, good, viewerId) ? [element('span', { class: 'queue__offer' }, DICTATOR_MARK)] : [];
 			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
-				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods));
+				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ...mark);
 			if (!editable) {
 				return element('li', {}, name);
 			}
@@ -2105,10 +2210,16 @@
 		poll();
 	}
 
-	/** S01-9: on any screen but Trading, a decision the game waits on you for says so, with a link to Trading. */
+	/**
+	 * S01-9: a decision the game waits on you for says so on every screen but the one it's made on, with a link there:
+	 * Trading for a Trading decision, the Deck for your pick of a place or your jump slot.
+	 */
 	function updateDecisionAlert(game, view) {
-		const text = view === 'trading' ? '' : decisionText(game, session.email);
-		$('decision-link').href = tradingLink(game.id);
+		const trading = view === 'trading' ? '' : decisionText(game, viewerId);
+		const deck = view === 'game' ? '' : deckDecisionText(game, viewerId);
+		const text = trading || deck;
+		$('decision-link').href = trading ? tradingLink(game.id) : deckLink(game.id);
+		$('decision-link').textContent = trading ? GO_TO_TRADING : GO_TO_DECK;
 		if (text) {
 			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
 		}
@@ -2149,18 +2260,74 @@
 
 	const TYPE_NAMES = { BUY: 'Buy', SELL: 'Sell' };
 
+	/** The turn and phase the "Your offers" message is about; once Bidding closes or a turn ends, it's cleared. */
+	let yourOffersMessageKey = null;
+
 	/** S03-6: the player's own offers this turn, each linking to its system (s02). */
 	function renderYourOffers(game) {
 		$('your-offers-panel').hidden = !showsYourOffers(game); // E05-S08-6: no stale offers after the game ends
 		const offers = game.you?.offers ?? [];
 		const bid = bidLine(game); // S05-2: the bid sits with the offers, just as private
+		const messageKey = `${game.id}/${game.turn?.number}/${game.turn?.phase}`;
+		if (yourOffersMessageKey !== messageKey) {
+			yourOffersMessageKey = messageKey;
+			setYourOffersMessage('', false); // a withdrawal from an earlier phase, turn or game is stale
+		}
+		const withdrawable = isBidding(game); // R59: offers are final once Bidding closes
 		$('your-offers').replaceChildren(...(bid ? [element('li', {}, bid)] : []), ...(offers.length
-			? offers.map(offer => element('li', {},
-				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
-				element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
-				` at ${offer.price} HT \u2014 `,
-				element('a', { class: 'link', href: systemLink(game.id, offer.system) }, offer.systemName)))
+			? offers.map(offer => element('li', { class: 'offer-row' },
+				element('span', {},
+					element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, TYPE_NAMES[offer.type] ?? offer.type), ' ',
+					element('span', { class: `good good--${offer.goods.toLowerCase()}` }, offer.goods),
+					` at ${offer.price} HT \u2014 `,
+					element('a', { class: 'link', href: systemLink(game.id, offer.system) }, offer.systemName)),
+				...(withdrawable ? [withdrawButton(offer)] : [])))
 			: [element('li', { class: 'muted' }, noOffersText(game))]));
+	}
+
+	function setYourOffersMessage(text, error) {
+		const message = $('your-offers-message');
+		message.textContent = text;
+		message.className = error ? 'message message--error' : 'message message--success';
+		message.hidden = !text; // an empty line would still take up space under the list
+	}
+
+	/** R59: the × that withdraws [offer]. */
+	function withdrawButton(offer) {
+		const button = element('button', { class: 'offer-row__withdraw', type: 'button', 'aria-label': withdrawLabel(offer), title: 'Withdraw offer' }, '\u00d7');
+		button.addEventListener('click', () => withdrawOffer(offer, button));
+		return button;
+	}
+
+	async function withdrawOffer(offer, button) {
+		const gameId = currentGameId;
+		setYourOffersMessage('', false);
+		button.disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/offers/${encodeURIComponent(offer.system)}/${encodeURIComponent(offer.goods)}`, { method: 'DELETE' });
+		} catch {
+			button.disabled = false;
+			setYourOffersMessage(UNREACHABLE, true);
+			return;
+		}
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response.ok) {
+			render(await response.json()); // the row goes, and the offer form lists the good again
+			setYourOffersMessage(withdrawnText(offer), false);
+			$('your-offers-message').focus(); // the button is gone; keep focus with the list
+			return;
+		}
+		const message = await errorText(response, '');
+		button.disabled = false;
+		setYourOffersMessage(refusalText(response.status, message, "The offer couldn't be withdrawn."), true);
+		if (isClosedRefusal(response.status, message)) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
+			poll(); // the page catches up with the close, and the × buttons go
+		}
 	}
 
 	/**
@@ -2172,6 +2339,7 @@
 		const form = {
 			prefix,
 			closedKey: null, // `${gameId}/${turn}` of a refused offer (S03-7); see updateOfferForm
+			turnKey: null, // `${gameId}/${turn}` the form last showed; its status line belongs to that turn only
 			system: withSystem ? element('select', { class: 'control', id: id('system') }) : null,
 			systemId: null,
 			goods: element('select', { class: 'control', id: id('goods'), 'aria-describedby': id('notes') }),
@@ -2249,6 +2417,12 @@
 			form.message.textContent = '';
 			form.price.value = '';
 		}
+		const turnKey = `${game.id}/${game.turn?.number}`;
+		if (form.turnKey !== turnKey) {
+			form.turnKey = turnKey;
+			form.message.textContent = ''; // "Offer placed" from an earlier turn or another game is stale
+			setPriceError(form, '');
+		}
 		panel.hidden = !isBidding(game);
 		if (panel.hidden) {
 			return;
@@ -2261,7 +2435,7 @@
 			form.systemId = systemId;
 			form.message.textContent = ''; // a status about another system doesn't belong here
 		}
-		const { goods, notes } = offerChoices(game, systemId, session.email);
+		const { goods, notes } = offerChoices(game, systemId, viewerId);
 		// Only rebuilt when it changes: replacing the options on every poll would close an open dropdown.
 		if ([...form.goods.options].map(option => option.value).join() !== goods.join()) {
 			const selected = form.goods.value;
@@ -2276,7 +2450,7 @@
 		setControlsDisabled(form, false);
 		form.fields.hidden = goods.length === 0; // the notes say why
 		if (form.warning) {
-			form.warning.hidden = goods.length === 0 || hasShipAt(game, systemId, session.email);
+			form.warning.hidden = goods.length === 0 || hasShipAt(game, systemId, viewerId);
 		}
 	}
 
@@ -2466,7 +2640,7 @@
 		if (progressSeen?.gameId !== game.id) {
 			$('progress-announce').textContent = ''; // another game's news doesn't belong here (lesson 2026-11-04)
 		}
-		const text = announce ? progressText(progressSeen, game, session.email) : '';
+		const text = announce ? progressText(progressSeen, game, viewerId) : '';
 		progressSeen = progressSnapshot(game, progressSeen);
 		if (!text) {
 			return;
@@ -2523,7 +2697,7 @@
 			turnOrderShown = { gameTurn, texts: items.map(item => item.textContent) };
 			$('turn-order-list').replaceChildren(...items);
 		}
-		const free = freePlaces(game, session.email);
+		const free = freePlaces(game, viewerId);
 		$('pick-form').hidden = free.length === 0;
 		const choicesKey = JSON.stringify([game.id, game.turn?.number, free]);
 		if (free.length && choicesKey !== pickChoicesKey) {
@@ -2536,7 +2710,7 @@
 				return element('label', { class: 'choice' }, radio, ordinal(place));
 			}));
 		}
-		const youAct = youActText(game, session.email);
+		const youAct = youActText(game, viewerId);
 		if (youAct && !$('pick-message').classList.contains('message--error')) {
 			setPickMessage(youAct, false);
 		}
@@ -2616,7 +2790,7 @@
 			setJumpMessage('', false); // another game's or turn's message doesn't belong here
 			setJumpError('');
 		}
-		const ships = game.status === 'RUNNING' ? shipsToJump(game, session.email) : [];
+		const ships = game.status === 'RUNNING' ? shipsToJump(game, viewerId) : [];
 		$('jump-panel').hidden = ships.length === 0;
 		if (!ships.length) {
 			return;
@@ -2728,7 +2902,7 @@
 
 	/** S03-1/2/6: open the dialog for the ship you jumped until you confirm where it ends up; Port pre-selected. */
 	function updateLanding(game) {
-		const landing = game.status === 'RUNNING' ? landingFor(game, session.email) : null;
+		const landing = game.status === 'RUNNING' ? landingFor(game, viewerId) : null;
 		if (!landing) {
 			closeLanding(); // landed (here or in another tab), or nothing to land
 			return;
@@ -2883,8 +3057,8 @@
 		}
 		const bidding = isBidding(game);
 		const collecting = isCollecting(game);
-		$('done-button').hidden = !bidding || isDone(game, session.email);
-		const text = bidding && isDone(game, session.email) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
+		$('done-button').hidden = !bidding || isDone(game, viewerId);
+		const text = bidding && isDone(game, viewerId) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -2943,12 +3117,12 @@
 
 	/** S08-3, S08-4, S08-6: the status line, the done button, the Collect panel and the owned warehouses and factories. */
 	function renderInfrastructure(game, changed) {
-		const state = infrastructureState(game, session.email);
+		const state = infrastructureState(game, viewerId);
 		const turnKey = `${game.id}/${game.turn.number}`;
 		if (infraMessageKey !== null && infraMessageKey !== turnKey) {
 			setInfraMessage('', false, null);
 		}
-		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, session.email);
+		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, viewerId);
 		if ($('infrastructure-status').textContent !== status) {
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -2960,9 +3134,10 @@
 		updateCollectForm(game);
 		updateBlocksForm(game);
 		updateUnitsForm(game);
+		updateCargoForm(game);
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
-			const factories = ownFactoryRows(game, session.email);
+			const factories = ownFactoryRows(game, viewerId);
 			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', {},
 				element('th', { scope: 'row' }, row.systemName),
 				element('td', { class: 'num' }, String(row.blocks)),
@@ -3092,6 +3267,166 @@
 		setBlocksMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E08-S02: moving goods between a ship in port and a warehouse (R58) ──
+
+	// What the pickers were drawn from, and for which game: they're drawn again only when a ship or a warehouse changes,
+	// so a pick survives the poll, and a new game starts afresh (lesson 2026-11-04: a select's kept choice is keyed by game).
+	let shownCargoKey = null;
+	let shownCargoGame = null;
+	let cargoMessageKey = null;
+	let submittingCargo = false;
+
+	function cargoTo() {
+		return document.querySelector('input[name="cargo-to"]:checked').value;
+	}
+
+	/** The picked ship's place, or undefined when the list changed under the pick. */
+	function pickedPlace(game) {
+		return cargoPlaces(game, viewerId).find(place => place.ship.name === $('cargo-ship').value);
+	}
+
+	function setCargoError(text) {
+		$('cargo-error').textContent = text;
+		if (text) {
+			$('cargo-units').setAttribute('aria-invalid', 'true');
+		} else {
+			$('cargo-units').removeAttribute('aria-invalid');
+		}
+	}
+
+	function setCargoMessage(text, error, key) {
+		$('cargo-message').textContent = text;
+		$('cargo-message').className = error ? 'message message--error' : 'message message--success';
+		cargoMessageKey = text ? key : null;
+	}
+
+	/** How many units can move, under the Units field; with nothing to move the button waits. */
+	function updateCargoHint(game) {
+		const place = pickedPlace(game);
+		const text = place ? moveHint(place, $('cargo-goods').value, cargoTo()) : '';
+		if ($('cargo-hint').textContent !== text) {
+			$('cargo-hint').textContent = text; // only on a change, so the live region isn't re-announced every poll
+		}
+		$('cargo-button').disabled = submittingCargo || !place || $('cargo-goods').options.length === 0;
+	}
+
+	/** The goods the source holds, for the picked ship and direction; the picked good is kept while it's still there. */
+	function fillCargoGoods(game) {
+		const place = pickedPlace(game);
+		const chosen = $('cargo-goods').value;
+		const goods = place ? movableGoods(place, cargoTo()) : [];
+		$('cargo-goods').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, `${entry.goods} \u2014 ${entry.units} u`)));
+		if (goods.some(entry => entry.goods === chosen)) {
+			$('cargo-goods').value = chosen;
+		}
+		$('cargo-warehouse').textContent = place?.warehouseLabel ?? '';
+		updateCargoHint(game);
+	}
+
+	/** S02-7, S02-8: the panel for a player with a warehouse, in every phase; the form while a ship of theirs is in port there. */
+	function updateCargoForm(game) {
+		const panel = $('cargo-panel');
+		panel.hidden = !canMoveCargo(game);
+		if (cargoMessageKey !== null && cargoMessageKey !== game.id) {
+			setCargoMessage('', false, null);
+		}
+		if (panel.hidden) {
+			shownCargoKey = null;
+			return;
+		}
+		$('cargo-intro').textContent = MOVE_INTRO;
+		$('cargo-button').textContent = MOVE_BUTTON;
+		const places = cargoPlaces(game, viewerId);
+		$('cargo-form').hidden = places.length === 0;
+		$('cargo-none').textContent = places.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
+		if (places.length === 0) {
+			shownCargoKey = null;
+			return;
+		}
+		const key = JSON.stringify([game.id, places]);
+		if (key !== shownCargoKey) {
+			const sameGame = shownCargoKey !== null && shownCargoGame === game.id;
+			const chosen = sameGame ? $('cargo-ship').value : null;
+			$('cargo-ship').replaceChildren(...places.map(place => element('option', { value: place.ship.name }, place.label)));
+			if (places.some(place => place.ship.name === chosen)) {
+				$('cargo-ship').value = chosen;
+			}
+			if (!sameGame) {
+				$('cargo-units').value = ''; // another game's, or the form was away: nothing typed carries over
+				setCargoError('');
+			}
+			shownCargoKey = key;
+			shownCargoGame = game.id;
+			fillCargoGoods(game);
+		}
+		updateCargoHint(game);
+	}
+
+	// Another ship or direction changes what can move; typing again clears a shown error, which was about what was there before.
+	$('cargo-ship').addEventListener('change', () => {
+		setCargoError('');
+		fillCargoGoods(lastGame);
+	});
+	document.querySelectorAll('input[name="cargo-to"]').forEach(radio => radio.addEventListener('change', () => {
+		setCargoError('');
+		fillCargoGoods(lastGame);
+	}));
+	$('cargo-goods').addEventListener('change', () => {
+		setCargoError('');
+		updateCargoHint(lastGame);
+	});
+	$('cargo-units').addEventListener('input', () => setCargoError(''));
+
+	/** S02-2: checked here first, then by the server; the answer redraws the screen with what each now holds. */
+	$('cargo-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		const place = game ? pickedPlace(game) : undefined;
+		if (!place) {
+			return;
+		}
+		const goods = $('cargo-goods').value;
+		const to = cargoTo();
+		const checked = validateMove(place, goods, to, $('cargo-units').value);
+		setCargoError(checked.error ?? '');
+		if (checked.error) {
+			$('cargo-units').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		submittingCargo = true;
+		$('cargo-button').disabled = true;
+		setCargoMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/cargo/moves`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked.body) });
+		} catch {
+			response = null;
+		}
+		submittingCargo = false;
+		$('cargo-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			setCargoMessage(cargoMovedText(place, goods, checked.body.units, to), false, gameId);
+			$('cargo-units').value = '';
+			render(await response.json());
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			setCargoError(message);
+			$('cargo-units').focus();
+			return;
+		}
+		setCargoMessage(message, true, gameId);
+		if (response) {
+			repollNow(); // e.g. the ship has left port, or the game is over: the screen catches up
 		}
 	});
 
@@ -3364,7 +3699,7 @@
 			const node = svgElement('a', {
 				href: systemLink(game.id, system.id),
 				class: 'map-node',
-				'aria-label': systemAccessibleName(game, system, session.email),
+				'aria-label': systemAccessibleName(game, system, viewerId),
 			});
 			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
 			node.append(svgElement('text', { x, y: y - NODE_RADIUS - 12, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));
@@ -3383,7 +3718,7 @@
 				line.append(level);
 				node.append(line);
 			});
-			const labels = shipsAt(game, system.id, session.email).map(ship => ship.label);
+			const labels = shipsAt(game, system.id, viewerId).map(ship => ship.label);
 			const rows = [];
 			for (let i = 0; i < labels.length; i += 2) {
 				rows.push(labels.slice(i, i + 2).join('  '));
@@ -3410,7 +3745,7 @@
 	function renderSystem(game, system) {
 		$('system-title').textContent = system.name;
 		$('system-back').href = deckLink(game.id);
-		$('system-locations').replaceChildren(...locations(game, system, session.email).map(place => element('div', { class: 'place' },
+		$('system-locations').replaceChildren(...locations(game, system, viewerId).map(place => element('div', { class: 'place' },
 			element('h3', {}, place.name),
 			element('p', { class: 'muted' }, place.stats),
 			element('ul', {}, ...(place.ships.length

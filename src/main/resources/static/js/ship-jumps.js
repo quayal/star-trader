@@ -28,15 +28,15 @@ export function jumper(game) {
 		return null;
 	}
 	const done = game.turn.doneJumping ?? [];
-	return places(game).find(email => email !== null && !done.includes(email)) ?? null;
+	return places(game).find(playerId => playerId !== null && !done.includes(playerId)) ?? null;
 }
 
-function corporation(game, email) {
-	return game.players.find(p => p.email === email)?.corporationName ?? email;
+function corporation(game, playerId) {
+	return game.players.find(p => p.id === playerId)?.corporationName ?? playerId;
 }
 
 /** S02-1, S02-9: the top bar's addition once the order is set, "" before and outside Ship-jumps. */
-export function jumpingText(game, email) {
+export function jumpingText(game, playerId) {
 	if (!orderIsSet(game)) {
 		return '';
 	}
@@ -44,7 +44,24 @@ export function jumpingText(game, email) {
 	if (who === null) {
 		return 'all jumps done';
 	}
-	return who === email ? 'your jumps' : `${corporation(game, who)} is jumping`;
+	return who === playerId ? 'your jumps' : `${corporation(game, who)} is jumping`;
+}
+
+export const GO_TO_DECK = 'Go to the Deck';
+
+/**
+ * The step on the Deck the game waits on [playerId] for, as the decision alert's text on other screens, or "" when there's
+ * none: their pick of a place in the turn order (E04-S01), or their jump slot (E04-S02). A ship waiting to land needs
+ * no alert: its dialog opens on every screen (E04-S03).
+ */
+export function deckDecisionText(game, playerId) {
+	if (!playerId) {
+		return '';
+	}
+	if (picker(game) === playerId) {
+		return 'Your decision is needed: choose your place in the turn order.';
+	}
+	return jumper(game) === playerId ? "Your decision is needed: it's your turn to jump your ships, or to finish jumping." : '';
 }
 
 /** S02-1: per turn-order place, "jumping now", "done" or "" (also "" for every place before the order is set). */
@@ -54,19 +71,19 @@ export function slotStatuses(game) {
 	}
 	const who = jumper(game);
 	const done = game.turn.doneJumping ?? [];
-	return places(game).map(email => (email === who ? JUMPING_NOW : done.includes(email) ? SLOT_DONE : ''));
+	return places(game).map(playerId => (playerId === who ? JUMPING_NOW : done.includes(playerId) ? SLOT_DONE : ''));
 }
 
 /**
- * S02-2: the ships the player with [email] may still jump during their slot, with where each is now; [] when it
+ * S02-2: the ships the player with [playerId] may still jump during their slot, with where each is now; [] when it
  * isn't their slot.
  */
-export function shipsToJump(game, email) {
-	if (jumper(game) !== email) {
+export function shipsToJump(game, playerId) {
+	if (jumper(game) !== playerId) {
 		return [];
 	}
 	const jumped = game.turn.jumpedShips ?? [];
-	const ships = game.players.find(p => p.email === email)?.ships ?? [];
+	const ships = game.players.find(p => p.id === playerId)?.ships ?? [];
 	return ships.filter(ship => !jumped.includes(ship.name));
 }
 

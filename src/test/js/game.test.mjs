@@ -17,15 +17,17 @@ import {
 	infrastructureLink,
 	turnText,
 	validateTurns,
+	screenForPhaseChange,
+	deckHeadingFor,
 } from '../../main/resources/static/js/game.js';
 
 const lobby = {
 	id: 'g-1',
 	turns: 5,
 	status: 'LOBBY',
-	creatorEmail: 'ada@example.com',
+	creatorId: 'ada',
 	players: [
-		{ email: 'ada@example.com', name: 'Ada', corporationName: 'Orion Freight', ships: [] },
+		{ id: 'ada', name: 'Ada', corporationName: 'Orion Freight', ships: [] },
 	],
 	turn: null,
 	log: [],
@@ -34,7 +36,7 @@ const lobby = {
 
 const withGrace = {
 	...lobby,
-	players: [...lobby.players, { email: 'grace@example.com', name: 'Grace', corporationName: 'Vega Lines', ships: [] }],
+	players: [...lobby.players, { id: 'grace', name: 'Grace', corporationName: 'Vega Lines', ships: [] }],
 };
 
 describe('parseRoute', () => {
@@ -134,19 +136,19 @@ describe('gameLink', () => {
 
 describe('lobbyState', () => {
 	it('lets the creator start only with 2 or more players, saying why not', () => {
-		assert.deepEqual(lobbyState(lobby, 'ada@example.com'), {
+		assert.deepEqual(lobbyState(lobby, 'ada'), {
 			isCreator: true,
 			corporationNames: ['Orion Freight'],
 			canStart: false,
 			startBlockedReason: 'At least 2 players are needed to start',
 			waitingText: null,
 		});
-		assert.equal(lobbyState(withGrace, 'ada@example.com').canStart, true);
-		assert.equal(lobbyState(withGrace, 'ada@example.com').startBlockedReason, null);
+		assert.equal(lobbyState(withGrace, 'ada').canStart, true);
+		assert.equal(lobbyState(withGrace, 'ada').startBlockedReason, null);
 	});
 
 	it('tells everyone else who they are waiting for', () => {
-		const state = lobbyState(withGrace, 'grace@example.com');
+		const state = lobbyState(withGrace, 'grace');
 
 		assert.equal(state.isCreator, false);
 		assert.equal(state.canStart, false);
@@ -176,5 +178,54 @@ describe('shipLine', () => {
 			shipLine({ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' }),
 			'Wayfarer — Tau Ceti · Port',
 		);
+	});
+});
+
+describe('the screen follows the phase (D15, E08-S03)', () => {
+	const at = (phase, { number = 3, status = 'RUNNING', id = 'g-1' } = {}) => ({ id, status, turn: { number, phase } });
+
+	it('opens the Deck when Ship-jumps starts (S03-1)', () => {
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('SHIP_JUMPS')), 'game');
+	});
+
+	it("opens the Deck when Investment closes and the next turn's Bidding starts (S03-2)", () => {
+		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('BIDDING', { number: 4 })), 'game');
+	});
+
+	it('opens Trading, Infrastructure and Game over as before (S03-3)', () => {
+		assert.equal(screenForPhaseChange(at('SHIP_JUMPS'), at('TRADING')), 'trading');
+		assert.equal(screenForPhaseChange(at('TRADING'), at('INVESTMENT')), 'infrastructure');
+		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('INVESTMENT', { status: 'FINISHED' })), 'over');
+	});
+
+	it('follows a change that skipped a state between two polls', () => {
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('TRADING')), 'trading');
+		assert.equal(screenForPhaseChange(at('TRADING'), at('BIDDING', { number: 4 })), 'game');
+	});
+
+	it('counts the same phase of a later turn as a change', () => {
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('BIDDING', { number: 4 })), 'game');
+	});
+
+	it('opens the Deck when the game starts', () => {
+		assert.equal(screenForPhaseChange({ id: 'g-1', status: 'LOBBY', turn: null }, at('BIDDING', { number: 1 })), 'game');
+	});
+
+	it('opens nothing while the phase goes on, or once the game stays over (S03-5)', () => {
+		assert.equal(screenForPhaseChange(at('TRADING'), at('TRADING')), null);
+		assert.equal(screenForPhaseChange(at('INVESTMENT', { status: 'FINISHED' }), at('INVESTMENT', { status: 'FINISHED' })), null);
+	});
+
+	it("opens nothing for the first state seen, another game's state, or a lobby (S03-5)", () => {
+		assert.equal(screenForPhaseChange(null, at('TRADING')), null);
+		assert.equal(screenForPhaseChange(at('SHIP_JUMPS', { id: 'g-2' }), at('TRADING')), null);
+		assert.equal(screenForPhaseChange({ id: 'g-1', status: 'LOBBY', turn: null }, { id: 'g-1', status: 'LOBBY', turn: null }), null);
+	});
+
+	it('names the Deck heading the phase needs (S03-4)', () => {
+		assert.equal(deckHeadingFor(at('BIDDING')), 'bid-title');
+		assert.equal(deckHeadingFor(at('SHIP_JUMPS')), 'turn-order-title');
+		assert.equal(deckHeadingFor(at('TRADING')), null);
+		assert.equal(deckHeadingFor(at('INVESTMENT', { status: 'FINISHED' })), null);
 	});
 });

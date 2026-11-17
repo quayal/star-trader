@@ -42,20 +42,20 @@ const dagger = {
 const game = {
 	players: [
 		{
-			email: 'ada@example.com',
+			id: 'ada',
 			ships: [
 				{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' },
 				{ name: 'Lantern', system: 'MU_HERCULIS', systemName: 'Mu Herculis', location: 'SPACE' },
 			],
 		},
-		{ email: 'grace@example.com', ships: [{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PLANET' }] },
+		{ id: 'grace', ships: [{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PLANET' }] },
 	],
 	you: { ships: [wayfarer, dagger] },
 };
 
 describe('fleetShips', () => {
 	it('lists only my ships, each with its hull, modules, stats, position and cargo (S03-2, S03-3, S03-5)', () => {
-		const ships = fleetShips(game, 'ada@example.com');
+		const ships = fleetShips(game, 'ada');
 
 		assert.deepEqual(ships.map(ship => ship.name), ['Wayfarer', 'Lantern']);
 		assert.deepEqual(ships[0], {
@@ -88,7 +88,7 @@ describe('fleetShips', () => {
 	});
 
 	it('says a ship with no cargo spaces can carry no POLY or ISO, and still lists what it holds (S03-5)', () => {
-		const lantern = fleetShips(game, 'ada@example.com')[1];
+		const lantern = fleetShips(game, 'ada')[1];
 
 		assert.equal(lantern.cargo.note, NO_CARGO_SPACE_TEXT);
 		assert.equal(lantern.cargo.note, 'No cargo space — fit Cargo modules to carry POLY or ISO');
@@ -98,7 +98,7 @@ describe('fleetShips', () => {
 	});
 
 	it('labels a military and aerodynamic hull and a military module in words (S03-4)', () => {
-		const lantern = fleetShips(game, 'ada@example.com')[1];
+		const lantern = fleetShips(game, 'ada')[1];
 
 		assert.deepEqual(lantern.hull, { name: 'Dagger', flags: ['Military: illegal to possess', 'Aerodynamic: easier landing'] });
 		assert.deepEqual(lantern.modules[0].flags, [MILITARY_LABEL]);
@@ -108,18 +108,18 @@ describe('fleetShips', () => {
 	it('never fills the meter past full for a ship holding more than its spaces', () => {
 		const over = { ...game, you: { ships: [{ ...wayfarer, cargoUsed: 10 }] } };
 
-		assert.equal(fleetShips(over, 'ada@example.com')[0].cargo.fill, '100%');
+		assert.equal(fleetShips(over, 'ada')[0].cargo.fill, '100%');
 	});
 
 	it('is empty for a player with no ships, and for someone who is not in the game (S03-8)', () => {
-		assert.deepEqual(fleetShips({ players: [{ email: 'ada@example.com', ships: [] }], you: { ships: [] } }, 'ada@example.com'), []);
-		assert.deepEqual(fleetShips(game, 'stranger@example.com'), []);
-		assert.deepEqual(fleetShips({ ...game, you: null }, 'ada@example.com'), []);
+		assert.deepEqual(fleetShips({ players: [{ id: 'ada', ships: [] }], you: { ships: [] } }, 'ada'), []);
+		assert.deepEqual(fleetShips(game, 'stranger'), []);
+		assert.deepEqual(fleetShips({ ...game, you: null }, 'ada'), []);
 		assert.equal(NO_SHIPS_TEXT, 'You have no ships');
 	});
 
 	it("shows nothing of another player's ships (S03-6)", () => {
-		assert.deepEqual(fleetShips(game, 'grace@example.com'), []);
+		assert.deepEqual(fleetShips(game, 'grace'), []);
 	});
 });
 

@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
+import dev.adriangrzebyk.trader.game.CargoDestination
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -40,34 +41,44 @@ data class CreateGameRequestDto(val turns: BigDecimal? = null) {
  * One player's view of a game: public state for everyone, plus [you] with what only the viewer may see (R29, their
  * ships' cargo, S02-7, and their own offers, R17). [board] is the six systems with this game's prices, which Trading
  * moves (E05-S05, R35). [result] is null until the game is over, then every player's final money and the winners for
- * everyone (E05-S08, R39: the one exception to R29).
+ * everyone (E05-S08, R39: the one exception to R29). [log] is the whole log from its [logOffset]th entry on: 0, so all of
+ * it, unless the poll asked for the entries after the ones it has.
  */
 data class GameResponseDto(
 	val id: String,
 	val turns: Int,
 	val status: String,
-	val creatorEmail: String,
+	val creatorId: String,
 	val players: List<PlayerResponseDto>,
 	val turn: TurnResponseDto?,
 	val log: List<LogEntryResponseDto>,
+	val logOffset: Int,
 	val board: List<SystemResponseDto>,
 	val result: GameResultResponseDto?,
 	val you: YouResponseDto?
 ) {
 
-	/** Only [viewerEmail]'s own money goes into the response; null [you] for a viewer who isn't a player. */
-	constructor(game: Game, viewerEmail: String) : this(
+	/**
+	 * Only [viewerEmail]'s own money goes into the response; null [you] for a viewer who isn't a player. [logAfter] is how
+	 * many log entries the viewer already has ([Game.logAfter]); 0 sends them all.
+	 */
+	constructor(game: Game, viewerEmail: String, logAfter: Int = 0) : this(game, viewerEmail, logAfter, PlayerIds(game))
+
+	/** As above, with the game's [ids]: every player is named by their id, never their email ([PlayerIds]). */
+	private constructor(game: Game, viewerEmail: String, logAfter: Int, ids: PlayerIds) : this(
 		game.id,
 		game.turns,
 		game.status.name,
-		game.creatorEmail,
-		game.players.map { PlayerResponseDto(it) },
-		game.turn?.let { TurnResponseDto(it) },
-		game.log.map { LogEntryResponseDto(it) },
+		ids.of(game.creatorEmail),
+		game.players.map { PlayerResponseDto(it, ids) },
+		game.turn?.let { TurnResponseDto(it, ids) },
+		game.logAfter(logAfter).map { LogEntryResponseDto(it) },
+		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
-		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it) },
+		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it, ids) },
 		game.players.firstOrNull { it.email == viewerEmail }?.let {
 			YouResponseDto(
+				ids.of(it.email),
 				it,
 				game.turn?.offersOf(it.email).orEmpty(),
 				game.turn?.bidOf(it.email),
@@ -81,26 +92,29 @@ data class GameResponseDto(
 }
 
 /**
- * A finished game's result (E05-S08-2, S08-3), public: every player, most money first, and the emails of the winners,
+ * A finished game's result (E05-S08-2, S08-3), public: every player, most money first, and the ids of the winners,
  * several when they tie on money (S08-4). Only built for a finished game: until then money is private (R29).
  */
 data class GameResultResponseDto(val standings: List<StandingResponseDto>, val winners: List<String>) {
 
-	constructor(game: Game) : this(game.standings().map { StandingResponseDto(it) }, game.winners().map { it.email })
+	constructor(game: Game, ids: PlayerIds) : this(
+		game.standings().map { StandingResponseDto(it, ids) },
+		game.winners().map { ids.of(it.email) }
+	)
 }
 
 /** One player's final money (R39: cash only), shown to everyone once the game is over (S08-3). */
-data class StandingResponseDto(val email: String, val corporationName: String, val money: Int) {
+data class StandingResponseDto(val id: String, val corporationName: String, val money: Int) {
 
-	constructor(player: Player) : this(player.email, player.corporationName, player.money)
+	constructor(player: Player, ids: PlayerIds) : this(ids.of(player.email), player.corporationName, player.money)
 }
 
 /**
- * Public: no money and no cargo here, ever (R29, S02-7). Market positions are public (R28), and so are warehouses and
+ * Public: no money and no cargo here, ever (R29, S02-7), and no email: a player is named by their [id] ([PlayerIds]). Market positions are public (R28), and so are warehouses and
  * factories (R50, E06-S02-2).
  */
 data class PlayerResponseDto(
-	val email: String,
+	val id: String,
 	val name: String,
 	val corporationName: String,
 	val ships: List<ShipResponseDto>,
@@ -109,8 +123,8 @@ data class PlayerResponseDto(
 	val factories: List<FactoryResponseDto>
 ) {
 
-	constructor(player: Player) : this(
-		player.email,
+	constructor(player: Player, ids: PlayerIds) : this(
+		ids.of(player.email),
 		player.name,
 		player.corporationName,
 		player.ships.map { ShipResponseDto(it) },
@@ -178,7 +192,7 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
 
 /**
  * Public: who is done bidding is shared, so everyone sees who the game is waiting for (D09), and so is the initiative
- * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each an email or null while
+ * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each a player's id or null while
  * free (R26); empty during Bidding. [jumpedShips] names the ships that jumped this turn and [doneJumping] the players
  * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
  * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
@@ -204,27 +218,27 @@ data class TurnResponseDto(
 	val collected: List<String>
 ) {
 
-	constructor(turn: Turn) : this(
+	constructor(turn: Turn, ids: PlayerIds) : this(
 		turn.number,
 		turn.phase.name,
-		turn.doneBidding,
-		turn.initiative,
-		turn.turnOrder(),
+		ids.ofAll(turn.doneBidding),
+		ids.ofAll(turn.initiative),
+		turn.turnOrder().map { email -> email?.let { ids.of(it) } },
 		turn.jumpedShips,
-		turn.doneJumping,
+		ids.ofAll(turn.doneJumping),
 		turn.landingShip,
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
-		turn.resolution?.let { ResolutionResponseDto(it) },
-		turn.doneInvesting,
-		turn.collected
+		turn.resolution?.let { ResolutionResponseDto(it, ids) },
+		ids.ofAll(turn.doneInvesting),
+		ids.ofAll(turn.collected)
 	)
 }
 
 /**
  * The good resolving now, or the last one resolved (E05-S02). Public: [offers] are disclosed to everyone once the good
- * starts resolving (S02-1), the Dictator's last if they placed one. [dictator] is the email of the good's Dictator at
- * that system, or null; [awaitingDictator] is that email while they still decide (R38, D09), else null; [finished] says
+ * starts resolving (S02-1), the Dictator's last if they placed one. [dictator] is the id of the good's Dictator at
+ * that system, or null; [awaitingDictator] is that id while they still decide (R38, D09), else null; [finished] says
  * whether anything is left to decide. [startingCounter] is the good's S/D plus the roll, null until the counter starts
  * once nobody is asked (E05-S03-1); [trades] are the offers the counter reached, in order (S03-2 to S03-5, E05-S04).
  * [awaitingTrade] is the offer whose player the game waits for to choose an amount, with the counter's max, else null
@@ -248,20 +262,20 @@ data class ResolutionResponseDto(
 	val wholesales: List<WholesaleResponseDto>
 ) {
 
-	constructor(resolution: Resolution) : this(
+	constructor(resolution: Resolution, ids: PlayerIds) : this(
 		MarketGoodResponseDto(resolution.good),
-		resolution.offers.map { DisclosedOfferResponseDto(it) },
-		resolution.dictator,
-		resolution.awaitingDictator(),
+		resolution.offers.map { DisclosedOfferResponseDto(it, ids) },
+		resolution.dictator?.let { ids.of(it) },
+		resolution.awaitingDictator()?.let { ids.of(it) },
 		resolution.isFinished(),
 		resolution.startingCounter,
-		resolution.trades.map { TradeResponseDto(it) },
-		resolution.awaitingTrade()?.let { AwaitingTradeResponseDto(it) },
+		resolution.trades.map { TradeResponseDto(it, ids) },
+		resolution.awaitingTrade()?.let { AwaitingTradeResponseDto(it, ids) },
 		resolution.startPrice,
 		resolution.newPrice(),
-		resolution.wholesalers,
-		resolution.awaitingWholesaler(),
-		resolution.wholesales.map { WholesaleResponseDto(it, resolution.wholesaleRole(it.playerEmail)) }
+		ids.ofAll(resolution.wholesalers),
+		resolution.awaitingWholesaler()?.let { ids.of(it) },
+		resolution.wholesales.map { WholesaleResponseDto(it, resolution.wholesaleRole(it.playerEmail), ids) }
 	)
 }
 
@@ -269,9 +283,15 @@ data class ResolutionResponseDto(
  * An answer in the wholesale step, public (E05-S05-5): whose, as Dictator or Wholesaler ([role]), Buy or Sell ([type],
  * null for a pass), the units (0 for a pass) and the new price they traded at.
  */
-data class WholesaleResponseDto(val playerEmail: String, val role: String, val type: String?, val units: Int, val price: Int) {
+data class WholesaleResponseDto(val playerId: String, val role: String, val type: String?, val units: Int, val price: Int) {
 
-	constructor(wholesale: Wholesale, role: String) : this(wholesale.playerEmail, role, wholesale.type?.name, wholesale.units, wholesale.price)
+	constructor(wholesale: Wholesale, role: String, ids: PlayerIds) : this(
+		ids.of(wholesale.playerEmail),
+		role,
+		wholesale.type?.name,
+		wholesale.units,
+		wholesale.price
+	)
 }
 
 /**
@@ -280,7 +300,7 @@ data class WholesaleResponseDto(val playerEmail: String, val role: String, val t
  * [positionRoll] is the market-position roll a trade of 6 or more units made, else null (R43, E05-S06-4).
  */
 data class TradeResponseDto(
-	val playerEmail: String,
+	val playerId: String,
 	val type: String,
 	val price: Int,
 	val marketMax: Int,
@@ -288,38 +308,47 @@ data class TradeResponseDto(
 	val positionRoll: PositionRollResponseDto?
 ) {
 
-	constructor(trade: Trade) : this(
-		trade.offer.playerEmail,
+	constructor(trade: Trade, ids: PlayerIds) : this(
+		ids.of(trade.offer.playerEmail),
 		trade.offer.type.name,
 		trade.offer.price,
 		trade.marketMax,
 		trade.units,
-		trade.positionRoll?.let { PositionRollResponseDto(it) }
+		trade.positionRoll?.let { PositionRollResponseDto(it, ids) }
 	)
 }
 
 /**
  * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds now ([promotedTo], null for no change),
- * and the email of the Dictator it demoted to Wholesaler, if any (S06-3).
+ * and the id of the Dictator it demoted to Wholesaler, if any (S06-3).
  */
 data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>) {
 
-	constructor(positionRoll: PositionRoll) : this(positionRoll.roll, positionRoll.promotedTo?.name, positionRoll.demoted)
+	constructor(positionRoll: PositionRoll, ids: PlayerIds) : this(
+		positionRoll.roll,
+		positionRoll.promotedTo?.name,
+		ids.ofAll(positionRoll.demoted)
+	)
 }
 
 /**
  * The offer whose player the game waits for (E05-S04-1, D09), public: whose, Buy or Sell, its price, and [maxUnits], the
  * most the counter allows. That player's own max, after money and cargo, is only in [YouResponseDto.tradeMax] (R29).
  */
-data class AwaitingTradeResponseDto(val playerEmail: String, val type: String, val price: Int, val maxUnits: Int) {
+data class AwaitingTradeResponseDto(val playerId: String, val type: String, val price: Int, val maxUnits: Int) {
 
-	constructor(trade: AwaitedTrade) : this(trade.offer.playerEmail, trade.offer.type.name, trade.offer.price, trade.marketMax)
+	constructor(trade: AwaitedTrade, ids: PlayerIds) : this(
+		ids.of(trade.offer.playerEmail),
+		trade.offer.type.name,
+		trade.offer.price,
+		trade.marketMax
+	)
 }
 
 /** An offer once its good resolves, which every player may see (S02-1): whose, Buy or Sell, and its price. */
-data class DisclosedOfferResponseDto(val playerEmail: String, val type: String, val price: Int) {
+data class DisclosedOfferResponseDto(val playerId: String, val type: String, val price: Int) {
 
-	constructor(offer: Offer) : this(offer.playerEmail, offer.type.name, offer.price)
+	constructor(offer: Offer, ids: PlayerIds) : this(ids.of(offer.playerEmail), offer.type.name, offer.price)
 }
 
 /** One good at one system, as Trading resolves it: [system] and [goods] are the constants, [systemName] for display. */
@@ -335,7 +364,7 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
 }
 
 /**
- * Only for the viewer: their money (R29), what their own ships and warehouses carry (S02-5, R49), their own offers this turn (R17), their
+ * Only for the viewer: their [id], which names them in everything public ([PlayerIds]), their money (R29), what their own ships and warehouses carry (S02-5, R49), their own offers this turn (R17), their
  * own initiative bid this turn, or null if they haven't placed one (R29), and [tradeMax], the most they may trade now
  * when the game waits for their amount (E05-S04-1), after their money and cargo (R12, R10), 0 when that leaves nothing
  * (S04-5), else null. [wholesaleMax] is the same for the wholesale step when it waits for them (R37, E05-S05-4), else
@@ -344,6 +373,7 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
  * already confirmed, or no factories (S03-6). [invest] is what they may buy while they can (E06-S04), else null.
  */
 data class YouResponseDto(
+	val id: String,
 	val money: Int,
 	val ships: List<YourShipResponseDto>,
 	val offers: List<YourOfferResponseDto>,
@@ -362,6 +392,7 @@ data class YouResponseDto(
 	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs.
 	 */
 	constructor(
+		id: String,
 		player: Player,
 		offers: List<Offer>,
 		bid: InitiativeBid?,
@@ -370,6 +401,7 @@ data class YouResponseDto(
 		investing: Boolean,
 		prices: MarketPrices
 	) : this(
+		id,
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
 		offers.map { YourOfferResponseDto(it) },
@@ -473,6 +505,23 @@ data class BuyUnitsRequestDto(val system: String? = null, val goods: String? = n
 
 	/** The units as a whole number, or null when missing or not whole. */
 	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+/**
+ * A move of goods between one of the caller's ships in port and their warehouse there (R58, E08-S02): [units] of [goods]
+ * out of or into [ship], [to] the `WAREHOUSE` or the `SHIP`. Names are checked here; [units] is a [BigDecimal] so 2.5
+ * reaches a message instead of being rounded.
+ */
+data class MoveCargoRequestDto(val ship: String? = null, val goods: String? = null, val units: BigDecimal? = null, val to: String? = null) {
+
+	/** The good, or null when it's missing or isn't one. */
+	fun goodsConstant(): Goods? = Goods.entries.firstOrNull { it.name == goods }
+
+	/** The units as a whole number, or null when missing or not whole. */
+	fun wholeUnits(): Int? = units?.let { runCatching { it.intValueExact() }.getOrNull() }
+
+	/** Where the goods go, or null when it's missing or isn't `WAREHOUSE` or `SHIP`. */
+	fun destination(): CargoDestination? = CargoDestination.entries.firstOrNull { it.name == to }
 }
 
 /**

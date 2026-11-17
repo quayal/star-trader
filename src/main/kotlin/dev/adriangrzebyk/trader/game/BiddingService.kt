@@ -22,6 +22,13 @@ class BiddingService(private val gameStore: GameStore, private val dice: Dice) {
 		gameStore.update(gameId) { it.placeOffer(callerEmail, system, goods, type, price) }
 
 	/**
+	 * Withdraws [callerEmail]'s offer on [goods] at [system] inside [GameStore.update], so a withdrawal that arrives as
+	 * Bidding closes is either applied before the close or refused after it (A04, R59).
+	 */
+	fun withdrawOffer(gameId: String, callerEmail: String, system: StarSystem, goods: Goods): Game =
+		gameStore.update(gameId) { it.withdrawOffer(callerEmail, system, goods) }
+
+	/**
 	 * Places or changes [callerEmail]'s secret initiative bid inside [GameStore.update], so a bid that arrives as the
 	 * last "done" closes Bidding is either counted in the close or refused after it, never lost silently (A04).
 	 */

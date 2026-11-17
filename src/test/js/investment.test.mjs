@@ -30,7 +30,6 @@ import {
 	investFactories,
 	investSystems,
 	infrastructureStatusText,
-	investmentJustStarted,
 	isInvesting,
 	isInvestmentClosedRefusal,
 	ownFactoryRows,
@@ -47,7 +46,7 @@ import {
 } from '../../main/resources/static/js/investment.js';
 import { phaseText } from '../../main/resources/static/js/bidding.js';
 
-const ME = 'me@example.com';
+const ME = 'me';
 
 function game({ phase = 'INVESTMENT', doneInvesting = [], status = 'RUNNING' } = {}) {
 	return {
@@ -55,9 +54,9 @@ function game({ phase = 'INVESTMENT', doneInvesting = [], status = 'RUNNING' } =
 		turns: 20,
 		turn: { number: 4, phase, doneBidding: [], doneInvesting },
 		players: [
-			{ email: 'vega@example.com', corporationName: 'Vega Lines' },
-			{ email: ME, corporationName: 'Orion Freight' },
-			{ email: 'kessler@example.com', corporationName: 'Kessler Cargo' },
+			{ id: 'vega', corporationName: 'Vega Lines' },
+			{ id: ME, corporationName: 'Orion Freight' },
+			{ id: 'kessler', corporationName: 'Kessler Cargo' },
 		],
 	};
 }
@@ -73,7 +72,7 @@ describe('isInvesting', () => {
 describe('isDoneInvesting', () => {
 	it('is true only for a player in the done list during Investment', () => {
 		assert.equal(isDoneInvesting(game({ doneInvesting: [ME] }), ME), true);
-		assert.equal(isDoneInvesting(game({ doneInvesting: ['vega@example.com'] }), ME), false);
+		assert.equal(isDoneInvesting(game({ doneInvesting: ['vega'] }), ME), false);
 		assert.equal(isDoneInvesting(game({ phase: 'BIDDING', doneInvesting: [ME] }), ME), false);
 	});
 });
@@ -84,7 +83,7 @@ describe('waitingForInvesting (E06-S01-3)', () => {
 	});
 
 	it('leaves out players who signalled done, you included', () => {
-		assert.deepEqual(waitingForInvesting(game({ doneInvesting: ['vega@example.com'] }), ME), ['you', 'Kessler Cargo']);
+		assert.deepEqual(waitingForInvesting(game({ doneInvesting: ['vega'] }), ME), ['you', 'Kessler Cargo']);
 		assert.deepEqual(waitingForInvesting(game({ doneInvesting: [ME] }), ME), ['Vega Lines', 'Kessler Cargo']);
 	});
 
@@ -253,25 +252,6 @@ describe('validateCollect (S03-5)', () => {
 describe('the Infrastructure screen (E06-S08)', () => {
 	const withYou = (extra, options) => ({ id: 'g-1', ...game(options), ...extra });
 
-	describe('investmentJustStarted (S08-2)', () => {
-		it('is true when the turn moves from Trading into Investment', () => {
-			assert.equal(investmentJustStarted(withYou({}, { phase: 'TRADING' }), withYou({})), true);
-		});
-
-		it('is true for the same phase of a later turn', () => {
-			const next = withYou({});
-			next.turn = { ...next.turn, number: 5 };
-			assert.equal(investmentJustStarted(withYou({}), next), true);
-		});
-
-		it('is false while Investment goes on, for the first state seen, for another game and outside Investment', () => {
-			assert.equal(investmentJustStarted(withYou({}), withYou({})), false);
-			assert.equal(investmentJustStarted(null, withYou({})), false);
-			assert.equal(investmentJustStarted({ ...withYou({}, { phase: 'TRADING' }), id: 'g-2' }, withYou({})), false);
-			assert.equal(investmentJustStarted(withYou({}, { phase: 'BIDDING' }), withYou({}, { phase: 'TRADING' })), false);
-		});
-	});
-
 	describe('infrastructureState (S08-3, S08-4, S08-6)', () => {
 		it('is closed outside Investment, whatever the viewer has', () => {
 			assert.equal(infrastructureState(withYou({ you: { collect: null } }, { phase: 'TRADING' }), ME), 'closed');
@@ -290,12 +270,12 @@ describe('the Infrastructure screen (E06-S08)', () => {
 
 	describe('infrastructureStatusText (S08-4)', () => {
 		it('says who the game still waits for once the viewer is done', () => {
-			const done = withYou({ you: { collect: null } }, { doneInvesting: [ME, 'vega@example.com'] });
+			const done = withYou({ you: { collect: null } }, { doneInvesting: [ME, 'vega'] });
 			assert.equal(infrastructureStatusText(done, ME), 'You signalled done investing. Waiting for Kessler Cargo.');
 		});
 
 		it('says only that the viewer is done when nobody else is left', () => {
-			const all = withYou({ you: { collect: null } }, { doneInvesting: [ME, 'vega@example.com', 'kessler@example.com'] });
+			const all = withYou({ you: { collect: null } }, { doneInvesting: [ME, 'vega', 'kessler'] });
 			assert.equal(infrastructureStatusText(all, ME), 'You signalled done investing');
 		});
 
@@ -336,15 +316,15 @@ describe('the Infrastructure screen (E06-S08)', () => {
 				...game(),
 				board,
 				players: [
-					{ email: 'vega@example.com', factories: [{ system: 'MU_HERCULIS', goods: 'CHIPS', size: 3 }] },
-					{ email: ME, factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 6 }] },
+					{ id: 'vega', factories: [{ system: 'MU_HERCULIS', goods: 'CHIPS', size: 3 }] },
+					{ id: ME, factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 6 }] },
 				],
 			}, ME);
 			assert.deepEqual(rows, [{ systemName: 'Tau Ceti', goods: 'ISO', size: 6 }]);
 		});
 
 		it('is empty for a viewer with none', () => {
-			assert.deepEqual(ownFactoryRows({ ...game(), board, players: [{ email: ME, factories: [] }] }, ME), []);
+			assert.deepEqual(ownFactoryRows({ ...game(), board, players: [{ id: ME, factories: [] }] }, ME), []);
 		});
 	});
 });

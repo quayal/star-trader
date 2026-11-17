@@ -56,11 +56,11 @@ export function moduleRows(modules) {
 }
 
 /**
- * S03-2 to S03-5: each of [myEmail]'s ships in [game] as the Fleet tab shows it. Empty for a player with no ships
+ * S03-2 to S03-5: each of [myId]'s ships in [game] as the Fleet tab shows it. Empty for a player with no ships
  * (S03-8), and for anyone whose own ships weren't sent.
  */
-export function fleetShips(game, myEmail) {
-	const me = game.players.find(player => player.email === myEmail);
+export function fleetShips(game, myId) {
+	const me = game.players.find(player => player.id === myId);
 	const ownByName = Object.fromEntries((game.you?.ships ?? []).map(ship => [ship.name, ship]));
 	return (me?.ships ?? []).filter(ship => ownByName[ship.name]?.hull).map(ship => {
 		const own = ownByName[ship.name];

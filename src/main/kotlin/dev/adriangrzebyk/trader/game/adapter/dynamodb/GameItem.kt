@@ -2,12 +2,15 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketPrices
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /**
  * A [Game] as its DynamoDB item: one item per game, nested objects as maps and lists, each written by its own
- * class ([PlayerItem], [TurnItem], [LogEntryItem]), plus the [version] the store's optimistic update checks.
+ * class ([PlayerItem], [TurnItem]), plus the [version] the store's optimistic update checks. The game's log isn't in
+ * it: each turn's entries are a [LogTurnItem] of their own, so no item grows with the length of the game, and this one
+ * only lists which turns have one ([logTurns]).
  * Every field is mapped by name, so a field added to the domain doesn't compile here until it's read back;
  * [GameItemTest]'s round trip then catches a field that isn't written (engineering standards §12).
  */
@@ -27,7 +30,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 					AttributeValue.fromM(MarketPriceItem(good, price).attributes)
 				}
 			),
-			LOG to AttributeValue.fromL(game.log.map { LogEntryItem(it).attribute }),
+			LOG_TURNS to AttributeValue.fromL(game.log.map { it.turn }.distinct().map { number(it) }),
 			VERSION to number(version)
 		)
 	)
@@ -35,7 +38,14 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 	val version: Long
 		get() = attributes.attribute(VERSION).n().toLong()
 
-	fun toGame(): Game = Game(
+	/** The turns of this game's log that are stored as a [LogTurnItem]; none for a game saved with its log inside the item. */
+	fun logTurns(): List<Int> = attributes[LOG_TURNS]?.l().orEmpty().map { it.n().toInt() }
+
+	/**
+	 * The game, with [storedLog], the entries of its [LogTurnItem]s in turn order. A game saved before the log moved out
+	 * still has it inside the item (`log`) and no log items; its next save moves it (BACKWARD_COMPATIBILITY.md §7).
+	 */
+	fun toGame(storedLog: List<LogEntry>): Game = Game(
 		id = attributes.attribute(ID).s(),
 		turns = attributes.attribute(TURNS).n().toInt(),
 		status = GameStatus.valueOf(attributes.attribute(STATUS).s()),
@@ -46,7 +56,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		prices = MarketPrices(
 			MarketPrices.board().prices + attributes[PRICES]?.l().orEmpty().map { MarketPriceItem(it.m()) }.associate { it.good() to it.price() }
 		),
-		log = attributes.attribute(LOG).l().map { LogEntryItem(it).toLogEntry() }
+		log = attributes[INLINE_LOG]?.l().orEmpty().map { LogEntryItem(it).toLogEntry() } + storedLog
 	)
 
 	companion object {
@@ -58,6 +68,9 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		private const val PLAYERS = "players"
 		private const val TURN = "turn"
 		private const val PRICES = "prices"
-		private const val LOG = "log"
+		private const val LOG_TURNS = "logTurns"
+
+		/** Where the whole log was kept before it moved to [LogTurnItem]s; only read, never written. */
+		private const val INLINE_LOG = "log"
 	}
 }

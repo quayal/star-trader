@@ -1,6 +1,6 @@
 /*
  * Pure helpers for picking places in the turn order (E04-S01) on the Deck (s01) and in the top bar. They read
- * `turn.initiative` and `turn.turnOrder` (one entry per place, an email or null while free) from GET /api/games/{id}
+ * `turn.initiative` and `turn.turnOrder` (one entry per place, an playerId or null while free) from GET /api/games/{id}
  * (BACKWARD_COMPATIBILITY.md §6). Everything here is public (R26).
  */
 
@@ -26,40 +26,40 @@ export function picker(game) {
 	if (game.status !== 'RUNNING' || game.turn?.phase !== 'SHIP_JUMPS' || places(game).length === 0) {
 		return null;
 	}
-	return (game.turn.initiative ?? []).find(email => !places(game).includes(email)) ?? null;
+	return (game.turn.initiative ?? []).find(playerId => !places(game).includes(playerId)) ?? null;
 }
 
-function corporation(game, email) {
-	return game.players.find(p => p.email === email)?.corporationName ?? email;
+function corporation(game, playerId) {
+	return game.players.find(p => p.id === playerId)?.corporationName ?? playerId;
 }
 
 /** S01-2: the top bar's addition while someone picks, "" otherwise. */
-export function pickingText(game, email) {
+export function pickingText(game, playerId) {
 	const who = picker(game);
 	if (who === null) {
 		return '';
 	}
-	return who === email ? 'choose your place in the turn order' : `${corporation(game, who)} is choosing their place in the turn order`;
+	return who === playerId ? 'choose your place in the turn order' : `${corporation(game, who)} is choosing their place in the turn order`;
 }
 
 /** S01-3: every place with who holds it, "—" for a free one. Empty during Bidding. */
 export function turnOrderRows(game) {
-	return places(game).map((email, index) => ({
+	return places(game).map((playerId, index) => ({
 		place: ordinal(index + 1),
-		holder: email === null ? FREE_PLACE : corporation(game, email),
+		holder: playerId === null ? FREE_PLACE : corporation(game, playerId),
 	}));
 }
 
-/** S01-4: the free places (1 = first) the player with [email] may pick from, or [] when it isn't their pick. */
-export function freePlaces(game, email) {
-	if (picker(game) !== email) {
+/** S01-4: the free places (1 = first) the player with [playerId] may pick from, or [] when it isn't their pick. */
+export function freePlaces(game, playerId) {
+	if (picker(game) !== playerId) {
 		return [];
 	}
 	return places(game).flatMap((holder, index) => (holder === null ? [index + 1] : []));
 }
 
 /** S01-4: "You act 2nd this turn." once the player has a place, "" before. */
-export function youActText(game, email) {
-	const index = places(game).indexOf(email);
+export function youActText(game, playerId) {
+	const index = places(game).indexOf(playerId);
 	return index === -1 ? '' : `You act ${ordinal(index + 1)} this turn.`;
 }

@@ -1,6 +1,6 @@
 /*
  * Pure helpers for Game over (s09, E05-S08): every player's final money, most first, and the winners. They read
- * `status` and `result` ({ standings: [{ email, corporationName, money }], winners: [email] }) from GET /api/games/{id};
+ * `status` and `result` ({ standings: [{ playerId, corporationName, money }], winners: [playerId] }) from GET /api/games/{id};
  * the server sends `result` only once the game is over, the one point where money isn't private (R39, R29).
  */
 
@@ -32,7 +32,7 @@ export function winnerText(game) {
 		return '';
 	}
 	const { standings, winners } = game.result;
-	const won = standings.filter(s => winners.includes(s.email));
+	const won = standings.filter(s => winners.includes(s.id));
 	if (won.length === 0) {
 		return '';
 	}
@@ -41,9 +41,9 @@ export function winnerText(game) {
 
 /**
  * S08-2, S08-3: the final standings as s09 lists them, most money first: place (players tied on money share it),
- * corporation, money, and whether they won and are the viewer [email]. Empty before the game is over.
+ * corporation, money, and whether they won and are the viewer [playerId]. Empty before the game is over.
  */
-export function standingRows(game, email) {
+export function standingRows(game, playerId) {
 	if (!isOver(game) || !game.result) {
 		return [];
 	}
@@ -52,15 +52,7 @@ export function standingRows(game, email) {
 		place: standings.findIndex(s => s.money === standing.money) + 1,
 		corporation: standing.corporationName,
 		money: moneyText(standing.money),
-		winner: winners.includes(standing.email),
-		you: standing.email === email,
+		winner: winners.includes(standing.id),
+		you: standing.id === playerId,
 	}));
-}
-
-/**
- * S08-2: whether [game] has just ended, as seen after [previous] (the last state this page drew of the same game), so
- * every player is taken to Game over. A first load (no previous, or another game's) never counts.
- */
-export function gameJustEnded(previous, game) {
-	return Boolean(previous) && previous.id === game.id && !isOver(previous) && isOver(game);
 }

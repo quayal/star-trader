@@ -17,8 +17,8 @@ function game({ phase = 'BIDDING', status = 'RUNNING', bid = null, initiative = 
 		status,
 		turn: { number: 1, phase, doneBidding: [], initiative },
 		players: [
-			{ email: 'me@example.com', corporationName: 'Orion Freight' },
-			{ email: 'vega@example.com', corporationName: 'Vega Lines' },
+			{ id: 'me', corporationName: 'Orion Freight' },
+			{ id: 'vega', corporationName: 'Vega Lines' },
 		],
 		you: { money: 300, offers: [], bid },
 	};
@@ -77,7 +77,7 @@ describe('bidPlacedText', () => {
 
 describe('initiativeText', () => {
 	it('names the order by corporation from Ship-jumps on', () => {
-		const order = ['vega@example.com', 'me@example.com'];
+		const order = ['vega', 'me'];
 		assert.equal(initiativeText(game({ phase: 'SHIP_JUMPS', initiative: order })), 'Initiative: Vega Lines → Orion Freight');
 		assert.equal(initiativeText(game({ phase: 'TRADING', initiative: order })), 'Initiative: Vega Lines → Orion Freight');
 	});

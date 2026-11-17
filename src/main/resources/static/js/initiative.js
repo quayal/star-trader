@@ -1,7 +1,7 @@
 /*
  * Pure helpers for the initiative bid (E03-S05) on the Deck (s01) and the initiative order in the top bar. They read
  * the game shape from GET /api/games/{id} (BACKWARD_COMPATIBILITY.md §6): the caller's own bid is `you.bid` and the
- * order is `turn.initiative` (emails); nobody else's bid or money is ever sent (R29).
+ * order is `turn.initiative` (ids); nobody else's bid or money is ever sent (R29).
  */
 
 import { isBidding } from './offers.js';
@@ -56,6 +56,6 @@ export function initiativeText(game) {
 	if (isBidding(game) || order.length === 0) {
 		return null;
 	}
-	const names = order.map(email => game.players.find(p => p.email === email)?.corporationName ?? email);
+	const names = order.map(playerId => game.players.find(p => p.id === playerId)?.corporationName ?? playerId);
 	return `Initiative: ${names.join(' → ')}`;
 }
