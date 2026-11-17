@@ -2016,26 +2016,17 @@ class GameControllerTest {
 
 	@Test
 	fun shouldTakeAnInterceptionDecisionOnlyFromAPlayerWhoIsAsked() {
-		// E10-S02-2, S02-5
+		// E10-S02-2, S02-5. The jump is a move within the ship's own system (R69), which never fails, so real dice can't spoil it.
 		val (first, second, gameId) = orderedGame("interception")
 		val (ours, theirs) = firstShipsOf(gameId, first, second)
+		val home = gameStore.find(gameId)!!.players.flatMap { it.ships }.first { it.name == ours }.system
 		gameStore.update(gameId) { game ->
 			val waiting = game.players.map { player ->
-				player.copy(
-					ships = player.ships.map {
-						if (it.name ==
-							theirs
-						) {
-							it.copy(system = StarSystem.TAU_CETI, location = ShipLocation.SPACE)
-						} else {
-							it
-						}
-					}
-				)
+				player.copy(ships = player.ships.map { if (it.name == theirs) it.copy(system = home, location = ShipLocation.SPACE) else it })
 			}
 			game.copy(players = waiting)
 		}
-		val arrived = jumpShip("token-$first", gameId, """{"ship": "$ours", "destination": "TAU_CETI"}""")
+		val arrived = jumpShip("token-$first", gameId, """{"ship": "$ours", "destination": "${home.name}"}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(arrived.turn!!.interception!!.awaiting).containsExactly(idOf(gameId, second))

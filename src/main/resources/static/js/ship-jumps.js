@@ -109,6 +109,10 @@ export function shipOptionText(ship) {
  * "Chance of success: 58% (2d6 roll of 7 or less)", or "" with no ship, for its own system or for someone else's ship.
  */
 export function jumpChanceText(game, shipName, destination) {
+	const here = game.players?.flatMap(p => p.ships).find(ship => ship.name === shipName)?.system;
+	if (here && here === destination && game.you?.ships?.some(ship => ship.name === shipName)) {
+		return 'Moves into Space here: always succeeds.';
+	}
 	const chance = game.you?.ships?.find(ship => ship.name === shipName)?.jumpChances?.[destination];
 	if (!chance) {
 		return '';

@@ -143,8 +143,11 @@ describe('jumpChanceText (R68)', () => {
 		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'BETA_HYDRI'), 'Chance of success: 100%');
 	});
 
-	it("shows nothing for the ship's own system, someone else's ship, or a game without your ships", () => {
-		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'TAU_CETI'), '');
+	it("says a move within the ship's own system always succeeds (R69)", () => {
+		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'TAU_CETI'), 'Moves into Space here: always succeeds.');
+	});
+
+	it("shows nothing for someone else's ship, or a game without your ships", () => {
 		assert.equal(jumpChanceText(withChances, 'Meridian', 'TAU_CETI'), '');
 		assert.equal(jumpChanceText(game(), 'Wayfarer', 'MU_HERCULIS'), '');
 	});

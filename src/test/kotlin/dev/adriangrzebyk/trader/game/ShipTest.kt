@@ -273,8 +273,10 @@ class ShipTest {
 		emptyList()
 	)
 
-	private fun ship(hull: Hull, vararg modules: Module) =
-		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS, null, 0, emptyList())
+	private fun ship(hull: Hull, vararg modules: Module) = Ship(
+		"Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS,
+		null, 0, emptyList()
+	)
 
 	// R68: base chance + crew (A +5, B +3, C +1, D +0) + Safe jump (+2).
 	@Test
@@ -296,6 +298,11 @@ class ShipTest {
 		assertThat(chances.keys).containsExactlyElementsOf(StarSystem.entries - StarSystem.GAMMA_LEPORIS)
 	}
 
-	private fun crewed(crewClass: CrewClass) =
-		Ship("Kestrel", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT, emptyMap(), Hull.CLARINET, listOf(Module.CARGO), crewClass, null, 0, emptyList())
+	private fun crewed(crewClass: CrewClass) = Ship(
+		"Kestrel", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT, emptyMap(), Hull.CLARINET,
+		listOf(
+			Module.CARGO
+		),
+		crewClass, null, 0, emptyList()
+	)
 }
