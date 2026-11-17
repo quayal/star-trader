@@ -117,40 +117,52 @@ data class Player(
 	}
 
 	/**
-	 * This player after moving [units] of [goods] between their ship [shipName] and their warehouse at that ship's system,
-	 * into [to] (R58). The ship must be theirs and in port, and they need a warehouse there. Unlike a buy, a move never
-	 * loses goods: it is refused when the source holds fewer than [units], or when the destination has too little free
-	 * cargo space for them (POLY and ISO; CHIPS and FOOD always fit, R42).
+	 * This player after moving [units] of [goods] [from] one of their holders [to] another in the same port (R58, revised
+	 * 2026-11-17): two of their ships in port at the same system, or a ship in port and their warehouse there, either way.
+	 * Unlike a buy, a move never loses goods: it is refused when the source holds fewer than [units], or when the
+	 * destination has too little free cargo space for them (POLY and ISO; CHIPS and FOOD always fit, R42).
 	 */
-	fun moveCargo(shipName: String?, goods: Goods, units: Int, to: CargoDestination): Player {
-		val ship = ship(shipName) ?: throw InvalidCargoMoveException("Choose one of your ships.")
-		if (!ship.isInPort()) {
-			throw InvalidCargoMoveException("${ship.name} isn't in port. Goods move only between a ship in port and your warehouse there.")
-		}
-		val warehouse = warehouseAt(ship.system)
-			?: throw InvalidCargoMoveException("You have no warehouse at ${ship.system.displayName}.")
+	fun moveCargo(from: CargoHolder, to: CargoHolder, goods: Goods, units: Int): Player {
+		val (source, destination) = cargoHolds(from, to)
 		if (units < 1) {
 			throw InvalidCargoMoveException("Enter a whole number of units, 1 or more.")
 		}
-		val warehouseName = "Your warehouse at ${ship.system.displayName}"
-		val (source, held) = when (to) {
-			CargoDestination.WAREHOUSE -> ship.name to ship.holding(goods)
-			CargoDestination.SHIP -> warehouseName to warehouse.holding(goods)
+		if (units > source.holding(goods)) {
+			throw InvalidCargoMoveException("${source.cargoName()} has only ${source.holding(goods)} ${goods.name}.")
 		}
-		if (units > held) {
-			throw InvalidCargoMoveException("$source has only $held ${goods.name}.")
-		}
-		val (destination, room) = when (to) {
-			CargoDestination.WAREHOUSE -> warehouseName to warehouse.unitsThatFit(goods, units)
-			CargoDestination.SHIP -> ship.name to ship.unitsThatFit(goods, units)
-		}
+		val room = destination.unitsThatFit(goods, units)
 		if (room < units) {
-			throw InvalidCargoMoveException("$destination has room for only $room more ${goods.name}.")
+			throw InvalidCargoMoveException("${destination.cargoName()} has room for only $room more ${goods.name}.")
 		}
-		return when (to) {
-			CargoDestination.WAREHOUSE -> withShip(ship.unload(goods, units)).withWarehouse(warehouse.load(goods, units))
-			CargoDestination.SHIP -> withWarehouse(warehouse.unload(goods, units)).withShip(ship.load(goods, units))
+		return withCargoHold(source.unload(goods, units)).withCargoHold(destination.load(goods, units))
+	}
+
+	/**
+	 * The ship or warehouse at each end of a move [from] [to] (R58): at least one end is one of this player's ships, every
+	 * ship named is in port, two ships are different and in the same port, and a warehouse end is theirs in that port.
+	 */
+	private fun cargoHolds(from: CargoHolder, to: CargoHolder): Pair<CargoHold, CargoHold> {
+		if (from is CargoHolder.Ship && from == to) {
+			throw InvalidCargoMoveException("Choose two different ships.")
 		}
+		val (fromShip, toShip) = listOf(from, to).map { (it as? CargoHolder.Ship)?.let { named -> shipInPortForCargo(named.name) } }
+		val port = (fromShip ?: toShip)?.system ?: throw InvalidCargoMoveException("Choose one of your ships.")
+		if (fromShip != null && toShip != null && !toShip.isInPortAt(port)) {
+			throw InvalidCargoMoveException("${fromShip.name} and ${toShip.name} aren't in the same port.")
+		}
+		val warehouse by lazy {
+			warehouseAt(port) ?: throw InvalidCargoMoveException("You have no warehouse at ${port.displayName}.")
+		}
+		return (fromShip ?: warehouse) to (toShip ?: warehouse)
+	}
+
+	/** This player's ship [name], refused when it isn't theirs or isn't in port (R58). */
+	private fun shipInPortForCargo(name: String?): Ship {
+		val ship = ship(name) ?: throw InvalidCargoMoveException("Choose one of your ships.")
+		if (!ship.isInPort()) {
+			throw InvalidCargoMoveException("${ship.name} isn't in port. Goods move only between your ships and warehouse in the same port.")
+		}
+		return ship
 	}
 
 	/** This player's factory for [goods] at [system], if they have one (R46). */
@@ -432,6 +444,12 @@ data class Player(
 
 	/** Where this player trades from at [system], for a message: "ships in port", or "ships in port or warehouse" with a warehouse there (R49). */
 	private fun holdingPlaces(system: StarSystem): String = if (warehouseAt(system) == null) "ships in port" else "ships in port or warehouse"
+
+	/** This player with [hold], one of their ships or warehouses, in place of the one it was. */
+	private fun withCargoHold(hold: CargoHold): Player = when (hold) {
+		is Ship -> withShip(hold)
+		is Warehouse -> withWarehouse(hold)
+	}
 
 	private fun withShip(ship: Ship): Player = copy(ships = ships.map { if (it.name == ship.name) ship else it })
 

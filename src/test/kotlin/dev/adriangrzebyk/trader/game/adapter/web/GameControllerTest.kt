@@ -2170,7 +2170,7 @@ class GameControllerTest {
 		val (creator, _, gameId) = gameWithAWarehouse("cargo-load")
 		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
 
-		val moved = moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 4, "to": "SHIP"}""").expectStatus().isOk
+		val moved = moveCargo(creator, gameId, """{"to": "$ship", "goods": "ISO", "units": 4}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(moved.turn!!.phase).isEqualTo("BIDDING")
@@ -2185,11 +2185,41 @@ class GameControllerTest {
 		val (creator, _, gameId) = gameWithAWarehouse("cargo-unload")
 		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
 
-		val moved = moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 3, "to": "WAREHOUSE"}""").expectStatus().isOk
+		val moved = moveCargo(creator, gameId, """{"from": "$ship", "goods": "ISO", "units": 3}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(moved.you!!.ships.single { it.name == ship }.cargo).isEmpty()
 		assertThat(moved.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 9))
+	}
+
+	@Test
+	fun shouldMoveGoodsBetweenTwoShipsInTheSamePort() {
+		// R58, revised 2026-11-17: ship to ship, with no warehouse involved
+		val (creator, _, gameId) = gameWithAWarehouse("cargo-ship-to-ship")
+		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map { player ->
+					if (player.email !=
+						game.creatorEmail
+					) {
+						player
+					} else {
+						player.copy(ships = player.ships + Ship.emptyAt("Comet", StarSystem.TAU_CETI, ShipLocation.PORT))
+					}
+				}
+			)
+		}
+
+		val moved = moveCargo(creator, gameId, """{"from": "$ship", "to": "Comet", "goods": "ISO", "units": 2}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(moved.you!!.ships.single { it.name == ship }.cargo).isEqualTo(mapOf("ISO" to 1))
+		assertThat(moved.you!!.ships.single { it.name == "Comet" }.cargo).isEqualTo(mapOf("ISO" to 2))
+		assertThat(moved.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 6))
+		moveCargo(creator, gameId, """{"from": "$ship", "to": "$ship", "goods": "ISO", "units": 1}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose two different ships.")
 	}
 
 	@Test
@@ -2199,7 +2229,7 @@ class GameControllerTest {
 		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
 		val before = pollGame(joiner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 4, "to": "SHIP"}""").expectStatus().isOk
+		moveCargo(creator, gameId, """{"to": "$ship", "goods": "ISO", "units": 4}""").expectStatus().isOk
 
 		val after = pollGame(joiner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(after).isEqualTo(before)
@@ -2212,13 +2242,13 @@ class GameControllerTest {
 		val stored = gameStore.find(gameId)!!
 		val ship = stored.players.first().ships[0].name
 
-		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 7, "to": "SHIP"}""")
+		moveCargo(creator, gameId, """{"to": "$ship", "goods": "ISO", "units": 7}""")
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("Your warehouse at Tau Ceti has only 6 ISO.")
-		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 6, "to": "SHIP"}""")
+		moveCargo(creator, gameId, """{"to": "$ship", "goods": "ISO", "units": 6}""")
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("$ship has room for only 5 more ISO.")
-		moveCargo(joiner, gameId, """{"ship": "$ship", "goods": "ISO", "units": 1, "to": "WAREHOUSE"}""")
+		moveCargo(joiner, gameId, """{"from": "$ship", "goods": "ISO", "units": 1}""")
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("Choose one of your ships.")
 
@@ -2229,20 +2259,19 @@ class GameControllerTest {
 	fun shouldRefuseACargoMoveThatIsNotWellFormed() {
 		val (creator, _, gameId) = gameWithAWarehouse("cargo-malformed")
 		val ship = gameStore.find(gameId)!!.players.first().ships[0].name
-		val message = "Choose a ship, a good, where it goes and a whole number of units, 1 or more."
+		val message = "Choose where the goods come from and go, a good and a whole number of units, 1 or more."
 
 		for (
 		body in listOf(
-			"""{"ship": "$ship", "goods": "ISO", "units": 2.5, "to": "SHIP"}""",
-			"""{"ship": "$ship", "goods": "GOLD", "units": 1, "to": "SHIP"}""",
-			"""{"ship": "$ship", "goods": "ISO", "units": 1, "to": "PLANET"}""",
-			"""{"ship": "$ship", "goods": "ISO", "to": "SHIP"}""",
+			"""{"to": "$ship", "goods": "ISO", "units": 2.5}""",
+			"""{"to": "$ship", "goods": "GOLD", "units": 1}""",
+			"""{"to": "$ship", "goods": "ISO"}""",
 			"{}"
 		)
 		) {
 			moveCargo(creator, gameId, body).expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo(message)
 		}
-		moveCargo(creator, gameId, """{"ship": "$ship", "goods": "ISO", "units": 0, "to": "SHIP"}""")
+		moveCargo(creator, gameId, """{"to": "$ship", "goods": "ISO", "units": 0}""")
 			.expectStatus().isBadRequest
 			.expectBody(String::class.java).isEqualTo("Enter a whole number of units, 1 or more.")
 	}
@@ -2251,7 +2280,7 @@ class GameControllerTest {
 	fun shouldRefuseACargoMoveFromAnyoneButAPlayerOfARunningGame() {
 		// E08-S02-4
 		val (_, _, gameId) = gameWithAWarehouse("cargo-access")
-		val body = """{"ship": "Wayfarer", "goods": "ISO", "units": 1, "to": "SHIP"}"""
+		val body = """{"to": "Wayfarer", "goods": "ISO", "units": 1}"""
 		val outsider = signIn("cargo-outsider@example.com")
 		val lobby = createdGame(outsider)
 
