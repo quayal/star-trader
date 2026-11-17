@@ -122,7 +122,7 @@ class WholeGameTest {
 		assertThat(doneInvesting(host, guest, gameId).turn!!.number).isEqualTo(3)
 
 		// Turn 3, Bidding: last turn's output is loaded onto the ship in port (R58), and offered for sale at Mu Herculis.
-		val loaded = post(host, "/api/games/$gameId/cargo/moves", """{"ship": "$wayfarer", "goods": "ISO", "units": 3, "to": "SHIP"}""")
+		val loaded = post(host, "/api/games/$gameId/cargo/moves", """{"to": "$wayfarer", "goods": "ISO", "units": 3}""")
 		assertThat(loaded.you!!.ships.first().cargo).isEqualTo(mapOf("ISO" to 3))
 		assertThat(loaded.you!!.warehouses.single().cargo).isEmpty()
 		val isoAtMu = loaded.board.single { it.id == "MU_HERCULIS" }.market.single { it.goods == "ISO" }.price

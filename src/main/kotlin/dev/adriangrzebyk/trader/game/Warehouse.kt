@@ -9,7 +9,7 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * its owner like a ship's (R29); the owner's collected output goes into it (R47). The warehouse itself is public, like
  * the board (R50). It counts as presence for Trading, and loads and unloads like a ship does (R49).
  */
-data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goods, Int>) {
+data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goods, Int>) : CargoHold {
 
 	init {
 		require(blocks >= 1) { "A warehouse has at least one block." }
@@ -24,8 +24,10 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	/** This warehouse with [count] more blocks (R45): what it holds stays. */
 	fun addBlocks(count: Int): Warehouse = copy(blocks = blocks + count)
 
+	override fun cargoName(): String = "Your warehouse at ${system.displayName}"
+
 	/** How many units of [goods] this warehouse holds. */
-	fun holding(goods: Goods): Int = cargo[goods] ?: 0
+	override fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
 	/** Free cargo spaces, never below 0. */
 	private fun freeCargoSpaces(): Int = (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
@@ -34,7 +36,7 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	fun freeSpacesFor(goods: Goods): Int? = if (goods.takesCargoSpace) freeCargoSpaces() else null
 
 	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
-	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
+	override fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
 
 	/**
 	 * This warehouse after taking in the cargo of [ship], sold here (R66): each good in goods order, as far as it fits
@@ -43,10 +45,10 @@ data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goo
 	fun storeCargoOf(ship: Ship): Warehouse = Goods.entries.fold(this) { warehouse, goods -> warehouse.load(goods, ship.holding(goods)) }
 
 	/** This warehouse after storing or loading [units] of [goods]: what fits ([unitsThatFit]); the rest is lost (R16, R47, R49). */
-	fun load(goods: Goods, units: Int): Warehouse = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
+	override fun load(goods: Goods, units: Int): Warehouse = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
 
 	/** This warehouse after unloading [units] of [goods] it sold (R10), refused when it holds fewer. */
-	fun unload(goods: Goods, units: Int): Warehouse {
+	override fun unload(goods: Goods, units: Int): Warehouse {
 		if (units > holding(goods)) {
 			throw InvalidTradeException("Your warehouse at ${system.displayName} has only ${holding(goods)} ${goods.name}.")
 		}

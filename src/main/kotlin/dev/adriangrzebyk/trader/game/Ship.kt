@@ -23,7 +23,7 @@ data class Ship(
 	val boughtOnTurn: Int?,
 	val hullDamage: Int,
 	val damagedModules: List<Module>
-) {
+) : CargoHold {
 
 	init {
 		hull.checkFits(modules)
@@ -239,23 +239,25 @@ data class Ship(
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
 	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
 
+	override fun cargoName(): String = name
+
 	/** How many units of [goods] this ship carries. */
-	fun holding(goods: Goods): Int = cargo[goods] ?: 0
+	override fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
 	/** The free cargo spaces that matter for [goods] (R42): the free space for POLY and ISO, null for CHIPS and FOOD, which take none. */
 	fun freeSpacesFor(goods: Goods): Int? = if (goods.takesCargoSpace) freeCargoSpaces() else null
 
 	/** How many of [units] of [goods] fit (R42): POLY and ISO up to the free cargo space, CHIPS and FOOD all. */
-	fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
+	override fun unitsThatFit(goods: Goods, units: Int): Int = freeSpacesFor(goods)?.let { minOf(units, it) } ?: units
 
 	/** Free cargo spaces (R42), never below 0, even for a ship that somehow carries more than it holds. */
 	private fun freeCargoSpaces(): Int = (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
 
 	/** This ship after loading [units] of [goods] it bought: what fits ([unitsThatFit]); the rest is lost (R16, R42). */
-	fun load(goods: Goods, units: Int): Ship = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
+	override fun load(goods: Goods, units: Int): Ship = withCargo(goods, holding(goods) + unitsThatFit(goods, units))
 
 	/** This ship after unloading [units] of [goods] it sold (R10), refused when it holds fewer. */
-	fun unload(goods: Goods, units: Int): Ship {
+	override fun unload(goods: Goods, units: Int): Ship {
 		if (units > holding(goods)) {
 			throw InvalidTradeException("$name has only ${holding(goods)} ${goods.name}.")
 		}

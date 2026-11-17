@@ -4,7 +4,9 @@ import { describe, it } from 'node:test';
 import {
 	MOVE_WHOLE_NUMBER,
 	canMoveCargo,
-	cargoPlaces,
+	cargoHolders,
+	destinationsFor,
+	hasWarehouse,
 	movableGoods,
 	moveHint,
 	moveMax,
@@ -15,11 +17,14 @@ import {
 const ME = 'me';
 
 // Wayfarer is in port at Tau Ceti with 3 ISO and 5 CHIPS (8 spaces, 3 used); the warehouse there holds 6 ISO and 2 FOOD.
+// Lantern is in port at Mu Herculis, alone. With `comet`, Comet is in port at Tau Ceti too, empty.
 function game({
 	status = 'RUNNING',
 	location = 'PORT',
 	shipCargo = { ISO: 3, CHIPS: 5 },
 	shipUsed = 3,
+	comet = false,
+	cometLocation = 'PORT',
 	warehouses = [{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 1, cargoSpaces: 10, cargo: { ISO: 6, FOOD: 2 }, cargoUsed: 6 }],
 } = {}) {
 	return {
@@ -31,6 +36,7 @@ function game({
 				ships: [
 					{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location },
 					{ name: 'Lantern', system: 'MU_HERCULIS', systemName: 'Mu Herculis', location: 'PORT' },
+					...(comet ? [{ name: 'Comet', system: 'TAU_CETI', systemName: 'Tau Ceti', location: cometLocation }] : []),
 				],
 			},
 			{ id: 'vega', ships: [{ name: 'Meridian', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' }] },
@@ -39,120 +45,147 @@ function game({
 			ships: [
 				{ name: 'Wayfarer', cargo: shipCargo, cargoUsed: shipUsed, cargoSpaces: 8 },
 				{ name: 'Lantern', cargo: {}, cargoUsed: 0, cargoSpaces: 8 },
+				...(comet ? [{ name: 'Comet', cargo: {}, cargoUsed: 0, cargoSpaces: 8 }] : []),
 			],
 			warehouses,
 		},
 	};
 }
 
-const place = (options) => cargoPlaces(game(options), ME)[0];
+const holders = options => cargoHolders(game(options), ME);
+const holder = (key, options) => holders(options).find(entry => entry.key === key);
+const ship = options => holder('ship:Wayfarer', options);
+const warehouse = options => holder('warehouse:TAU_CETI', options);
+const comet = options => holder('ship:Comet', { comet: true, ...options });
 
-describe('moving goods between a ship in port and a warehouse (R58, E08-S02)', () => {
-	describe('canMoveCargo', () => {
-		it('is true in a running game for a player with a warehouse', () => {
+describe('moving goods between two holders in the same port (R58, E08-S02, revised 2026-11-17)', () => {
+	describe('canMoveCargo and hasWarehouse', () => {
+		it('shows the panel in a running game for a player in it, warehouse or not', () => {
 			assert.equal(canMoveCargo(game()), true);
-		});
-
-		it('is false with no warehouse, once the game is over, and for a viewer with nothing of their own', () => {
-			assert.equal(canMoveCargo(game({ warehouses: [] })), false);
+			assert.equal(canMoveCargo(game({ warehouses: [] })), true);
 			assert.equal(canMoveCargo(game({ status: 'FINISHED' })), false);
 			assert.equal(canMoveCargo({ ...game(), you: null }), false);
 		});
+
+		it('points Infrastructure to Fleet only for a player with a warehouse', () => {
+			assert.equal(hasWarehouse(game()), true);
+			assert.equal(hasWarehouse(game({ warehouses: [] })), false);
+		});
 	});
 
-	describe('cargoPlaces (S02-7)', () => {
-		it("lists the viewer's ships in port at a system where they have a warehouse", () => {
-			const places = cargoPlaces(game(), ME);
-			assert.equal(places.length, 1); // Lantern is in port at Mu Herculis, where there is no warehouse
-			assert.equal(places[0].ship.name, 'Wayfarer');
-			assert.equal(places[0].system, 'TAU_CETI');
-			assert.equal(places[0].label, 'Wayfarer at Tau Ceti \u2014 ISO 3, CHIPS 5 \u00b7 cargo 3 / 8 used');
-			assert.equal(places[0].warehouseLabel, 'Warehouse at Tau Ceti \u2014 ISO 6, FOOD 2 \u00b7 cargo 6 / 10 used');
+	describe('cargoHolders (S02-7)', () => {
+		it('lists a ship in port with the warehouse at its system', () => {
+			const listed = holders();
+			assert.deepEqual(listed.map(entry => entry.key), ['ship:Wayfarer', 'warehouse:TAU_CETI']);
+			assert.equal(listed[0].label, 'Wayfarer at Tau Ceti — ISO 3, CHIPS 5 · cargo 3 / 8 used');
+			assert.equal(listed[1].label, 'Warehouse at Tau Ceti — ISO 6, FOOD 2 · cargo 6 / 10 used');
+			assert.equal(listed[1].name, 'Your warehouse at Tau Ceti');
 		});
 
-		it('leaves out a ship in Space or on the Planet', () => {
-			assert.deepEqual(cargoPlaces(game({ location: 'SPACE' }), ME), []);
-			assert.deepEqual(cargoPlaces(game({ location: 'PLANET' }), ME), []);
+		it('lists two ships in the same port, with no warehouse there', () => {
+			assert.deepEqual(holders({ comet: true, warehouses: [] }).map(entry => entry.key), ['ship:Wayfarer', 'ship:Comet']);
 		});
 
-		it("never lists another player's ship, and nothing without a warehouse", () => {
-			assert.equal(cargoPlaces(game(), ME).some(entry => entry.ship.name === 'Meridian'), false);
-			assert.deepEqual(cargoPlaces(game({ warehouses: [] }), ME), []);
+		it('lists the warehouse once however many ships are in its port', () => {
+			assert.deepEqual(holders({ comet: true }).map(entry => entry.key), ['ship:Wayfarer', 'warehouse:TAU_CETI', 'ship:Comet']);
 		});
 
-		it('says "empty" for a ship or warehouse holding nothing', () => {
-			const empty = place({ shipCargo: {}, shipUsed: 0 });
-			assert.equal(empty.label, 'Wayfarer at Tau Ceti \u2014 empty \u00b7 cargo 0 / 8 used');
+		it('leaves out a ship alone in its port, and one in Space or on the Planet', () => {
+			// Lantern is alone at Mu Herculis
+			assert.equal(holders().some(entry => entry.ship === 'Lantern'), false);
+			assert.deepEqual(holders({ location: 'SPACE' }), []);
+			assert.deepEqual(holders({ location: 'PLANET' }), []);
+			assert.deepEqual(holders({ comet: true, cometLocation: 'SPACE', warehouses: [] }), []);
+		});
+
+		it("never lists another player's ship", () => {
+			assert.equal(holders({ comet: true }).some(entry => entry.ship === 'Meridian'), false);
+		});
+
+		it('says "empty" for a holder with nothing in it', () => {
+			assert.equal(ship({ shipCargo: {}, shipUsed: 0 }).label, 'Wayfarer at Tau Ceti — empty · cargo 0 / 8 used');
+		});
+	});
+
+	describe('destinationsFor', () => {
+		it('is every other holder in the same port', () => {
+			const listed = holders({ comet: true });
+			assert.deepEqual(destinationsFor(listed, listed[0]).map(entry => entry.key), ['warehouse:TAU_CETI', 'ship:Comet']);
+			assert.deepEqual(destinationsFor(listed, listed[1]).map(entry => entry.key), ['ship:Wayfarer', 'ship:Comet']);
+			assert.deepEqual(destinationsFor(listed, undefined), []);
 		});
 	});
 
 	describe('movableGoods', () => {
-		it('lists what the source holds: the warehouse for a move to the ship, the ship for a move to the warehouse', () => {
-			assert.deepEqual(movableGoods(place(), 'SHIP'), [{ goods: 'ISO', units: 6 }, { goods: 'FOOD', units: 2 }]);
-			assert.deepEqual(movableGoods(place(), 'WAREHOUSE'), [{ goods: 'ISO', units: 3 }, { goods: 'CHIPS', units: 5 }]);
+		it('lists what the source holds', () => {
+			assert.deepEqual(movableGoods(warehouse()), [{ goods: 'ISO', units: 6 }, { goods: 'FOOD', units: 2 }]);
+			assert.deepEqual(movableGoods(ship()), [{ goods: 'ISO', units: 3 }, { goods: 'CHIPS', units: 5 }]);
 		});
 
-		it('is empty for a source holding nothing', () => {
-			assert.deepEqual(movableGoods(place({ shipCargo: {}, shipUsed: 0 }), 'WAREHOUSE'), []);
+		it('is empty for a source holding nothing, or none', () => {
+			assert.deepEqual(movableGoods(ship({ shipCargo: {}, shipUsed: 0 })), []);
+			assert.deepEqual(movableGoods(undefined), []);
 		});
 	});
 
 	describe('moveMax and moveHint', () => {
 		it("caps POLY and ISO by the destination's free cargo space (R42)", () => {
 			// the warehouse holds 6 ISO, the ship has 5 free spaces
-			assert.equal(moveMax(place(), 'ISO', 'SHIP'), 5);
-			assert.equal(moveHint(place(), 'ISO', 'SHIP'), 'Up to 5 u: Wayfarer has 5 free cargo spaces.');
+			assert.equal(moveMax(warehouse(), ship(), 'ISO'), 5);
+			assert.equal(moveHint(warehouse(), ship(), 'ISO'), 'Up to 5 u: Wayfarer has 5 free cargo spaces.');
 		});
 
 		it('is everything the source holds when it all fits', () => {
-			// the ship holds 3 ISO, the warehouse has 4 free spaces
-			assert.equal(moveMax(place(), 'ISO', 'WAREHOUSE'), 3);
-			assert.equal(moveHint(place(), 'ISO', 'WAREHOUSE'), 'Up to 3 u.');
+			assert.equal(moveMax(ship(), warehouse(), 'ISO'), 3);
+			assert.equal(moveHint(ship(), warehouse(), 'ISO'), 'Up to 3 u.');
+			assert.equal(moveHint(ship({ comet: true }), comet(), 'ISO'), 'Up to 3 u.');
 		});
 
 		it('never caps CHIPS and FOOD, which take no space', () => {
-			const full = place({ shipCargo: { ISO: 8 }, shipUsed: 8 });
-			assert.equal(moveMax(full, 'FOOD', 'SHIP'), 2);
-			assert.equal(moveHint(full, 'FOOD', 'SHIP'), 'Up to 2 u.');
+			const full = { shipCargo: { ISO: 8 }, shipUsed: 8 };
+			assert.equal(moveMax(warehouse(full), ship(full), 'FOOD'), 2);
 		});
 
 		it('says when the destination is full or the source has nothing', () => {
-			const full = place({ shipCargo: { ISO: 8 }, shipUsed: 8 });
-			assert.equal(moveHint(full, 'ISO', 'SHIP'), 'Wayfarer has no free cargo space for ISO.');
-			assert.equal(moveHint(place({ shipCargo: {}, shipUsed: 0 }), '', 'WAREHOUSE'), 'Wayfarer holds nothing to move.');
-			assert.equal(moveHint(place(), 'POLY', 'SHIP'), 'Your warehouse at Tau Ceti holds nothing to move.');
+			const full = { shipCargo: { ISO: 8 }, shipUsed: 8 };
+			assert.equal(moveHint(warehouse(full), ship(full), 'ISO'), 'Wayfarer has no free cargo space for ISO.');
+			assert.equal(moveHint(ship({ shipCargo: {}, shipUsed: 0 }), warehouse(), ''), 'Wayfarer holds nothing to move.');
+			assert.equal(moveHint(warehouse(), ship(), 'POLY'), 'Your warehouse at Tau Ceti holds nothing to move.');
+			assert.equal(moveHint(undefined, ship(), 'ISO'), '');
 		});
 
 		it('uses the singular for one free space', () => {
-			const nearlyFull = place({ shipCargo: { ISO: 7 }, shipUsed: 7 });
-			assert.equal(moveHint(nearlyFull, 'ISO', 'SHIP'), 'Up to 1 u: Wayfarer has 1 free cargo space.');
+			const nearlyFull = { shipCargo: { ISO: 7 }, shipUsed: 7 };
+			assert.equal(moveHint(warehouse(nearlyFull), ship(nearlyFull), 'ISO'), 'Up to 1 u: Wayfarer has 1 free cargo space.');
 		});
 	});
 
 	describe('validateMove (S02-2)', () => {
-		it('builds the request for a move that can be made', () => {
-			assert.deepEqual(validateMove(place(), 'ISO', 'SHIP', ' 4 '), { body: { ship: 'Wayfarer', goods: 'ISO', units: 4, to: 'SHIP' } });
-			assert.deepEqual(validateMove(place(), 'CHIPS', 'WAREHOUSE', '5'), { body: { ship: 'Wayfarer', goods: 'CHIPS', units: 5, to: 'WAREHOUSE' } });
+		it('builds the request, leaving the warehouse end out', () => {
+			assert.deepEqual(validateMove(warehouse(), ship(), 'ISO', ' 4 '), { body: { goods: 'ISO', units: 4, to: 'Wayfarer' } });
+			assert.deepEqual(validateMove(ship(), warehouse(), 'CHIPS', '5'), { body: { goods: 'CHIPS', units: 5, from: 'Wayfarer' } });
+			assert.deepEqual(validateMove(ship({ comet: true }), comet(), 'ISO', '2'), { body: { goods: 'ISO', units: 2, from: 'Wayfarer', to: 'Comet' } });
 		});
 
 		it('refuses anything but a whole number, 1 or more', () => {
 			for (const text of ['', '0', '-1', '2.5', 'two']) {
-				assert.deepEqual(validateMove(place(), 'ISO', 'SHIP', text), { error: MOVE_WHOLE_NUMBER });
+				assert.deepEqual(validateMove(warehouse(), ship(), 'ISO', text), { error: MOVE_WHOLE_NUMBER });
 			}
 		});
 
 		it('refuses more than the source holds, with the message the server gives', () => {
-			assert.deepEqual(validateMove(place(), 'ISO', 'WAREHOUSE', '4'), { error: 'Wayfarer has only 3 ISO.' });
-			assert.deepEqual(validateMove(place(), 'FOOD', 'SHIP', '3'), { error: 'Your warehouse at Tau Ceti has only 2 FOOD.' });
+			assert.deepEqual(validateMove(ship(), warehouse(), 'ISO', '4'), { error: 'Wayfarer has only 3 ISO.' });
+			assert.deepEqual(validateMove(warehouse(), ship(), 'FOOD', '3'), { error: 'Your warehouse at Tau Ceti has only 2 FOOD.' });
 		});
 
 		it('refuses more than fits rather than losing goods', () => {
-			assert.deepEqual(validateMove(place(), 'ISO', 'SHIP', '6'), { error: 'Wayfarer has room for only 5 more ISO.' });
+			assert.deepEqual(validateMove(warehouse(), ship(), 'ISO', '6'), { error: 'Wayfarer has room for only 5 more ISO.' });
 		});
 	});
 
 	it('says what was moved, from where to where', () => {
-		assert.equal(movedText(place(), 'ISO', 4, 'SHIP'), 'Moved 4 ISO from your warehouse at Tau Ceti to Wayfarer.');
-		assert.equal(movedText(place(), 'CHIPS', 5, 'WAREHOUSE'), 'Moved 5 CHIPS from Wayfarer to your warehouse at Tau Ceti.');
+		assert.equal(movedText(warehouse(), ship(), 'ISO', 4), 'Moved 4 ISO from your warehouse at Tau Ceti to Wayfarer.');
+		assert.equal(movedText(ship(), warehouse(), 'CHIPS', 5), 'Moved 5 CHIPS from Wayfarer to your warehouse at Tau Ceti.');
+		assert.equal(movedText(ship({ comet: true }), comet(), 'ISO', 2), 'Moved 2 ISO from Wayfarer to Comet.');
 	});
 });

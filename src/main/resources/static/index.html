@@ -334,6 +334,9 @@
 		.fleet #ship-panel { display: grid; gap: var(--space-related); }
 		.fleet #ship-panel p:empty, .fleet p#ship-closed:empty { display: none; }
 		.fleet #ship-panel[hidden] { display: none; } /* after the rule above, which sets display */
+		.fleet #cargo-panel { display: grid; gap: var(--space-related); max-width: 960px; }
+		.fleet #cargo-panel p:empty { display: none; }
+		.fleet #cargo-panel[hidden], .fleet #cargo-form[hidden] { display: none; } /* after the rules above, which set display */
 		.ship-buy { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: var(--space-between-groups); align-items: start; }
 		@media (max-width: 1100px) {
 			.ship-buy { grid-template-columns: minmax(0, 1fr); }
@@ -679,8 +682,34 @@
 			<p class="message" id="fleet-message" role="status" tabindex="-1" hidden></p>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
-			<!-- E08-S02-9: for a player with a warehouse; the form is on Infrastructure. -->
-			<p id="fleet-cargo" hidden><a class="link" id="fleet-cargo-link" href="/"></a></p>
+			<!-- E08-S02 (R58, revised 2026-11-17): between two ships in the same port, or a ship and the warehouse there, in every phase. Static markup, so the picks and the typed number survive the poll. -->
+			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
+				<h2 id="cargo-title">Move goods</h2>
+				<p class="muted" id="cargo-intro"></p>
+				<p id="cargo-none"></p>
+				<form class="offer-form" id="cargo-form" novalidate>
+					<div>
+						<label class="field-label" for="cargo-from">From</label>
+						<select class="control" id="cargo-from"></select>
+					</div>
+					<div>
+						<label class="field-label" for="cargo-to">To</label>
+						<select class="control" id="cargo-to"></select>
+					</div>
+					<div>
+						<label class="field-label" for="cargo-goods">Goods</label>
+						<select class="control" id="cargo-goods"></select>
+					</div>
+					<div>
+						<label class="field-label" for="cargo-units">Units</label>
+						<input class="control price-input" id="cargo-units" inputmode="numeric" aria-describedby="cargo-hint cargo-error">
+						<p class="message muted" id="cargo-hint" role="status"></p>
+						<p class="message message--error field-error" id="cargo-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="cargo-button" type="submit"></button></div>
+					<p class="message" id="cargo-message" role="status"></p>
+				</form>
+			</section>
 			<!-- Why there is no buy form now: output to place first, or not Investment. -->
 			<p class="muted" id="ship-closed"></p>
 			<!-- E09-S06-1 (R61), on Fleet since 2026-11-17 beside the ships the player has: static markup, so the typed name, the picks and the counts survive the poll. -->
@@ -823,38 +852,8 @@
 					<p class="message" id="units-message" role="status"></p>
 				</form>
 			</section>
-			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
-			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
-				<h2 id="cargo-title">Move goods</h2>
-				<p class="muted" id="cargo-intro"></p>
-				<p id="cargo-none"></p>
-				<form class="offer-form" id="cargo-form" novalidate>
-					<div>
-						<label class="field-label" for="cargo-ship">Ship in port</label>
-						<select class="control" id="cargo-ship" aria-describedby="cargo-warehouse"></select>
-						<p class="message muted" id="cargo-warehouse"></p>
-					</div>
-					<fieldset class="offer-type">
-						<legend class="field-label">Direction</legend>
-						<div class="choices">
-							<label class="choice"><input type="radio" name="cargo-to" value="SHIP" checked>Warehouse to ship</label>
-							<label class="choice"><input type="radio" name="cargo-to" value="WAREHOUSE">Ship to warehouse</label>
-						</div>
-					</fieldset>
-					<div>
-						<label class="field-label" for="cargo-goods">Goods</label>
-						<select class="control" id="cargo-goods"></select>
-					</div>
-					<div>
-						<label class="field-label" for="cargo-units">Units</label>
-						<input class="control price-input" id="cargo-units" inputmode="numeric" aria-describedby="cargo-hint cargo-error">
-						<p class="message muted" id="cargo-hint" role="status"></p>
-						<p class="message message--error field-error" id="cargo-error" role="alert"></p>
-					</div>
-					<div><button class="btn" id="cargo-button" type="submit"></button></div>
-					<p class="message" id="cargo-message" role="status"></p>
-				</form>
-			</section>
+			<!-- E08-S02 (R58): moving goods is on the Fleet tab since 2026-11-17; a pointer for a player with a warehouse. -->
+			<p id="cargo-pointer" hidden><a class="link" id="cargo-pointer-link" href="/"></a></p>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
 				<h3 class="field-label" id="own-warehouses-title">Your warehouses</h3>
 				<div class="table-wrap">
@@ -1078,12 +1077,14 @@
 	} from './js/game.js';
 	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
 	import {
-		FLEET_MOVE_LINK,
+		INFRASTRUCTURE_MOVE_LINK,
 		MOVE_BUTTON,
 		MOVE_INTRO,
 		NO_SHIP_IN_PORT_TEXT,
 		canMoveCargo,
-		cargoPlaces,
+		cargoHolders,
+		destinationsFor,
+		hasWarehouse,
 		movableGoods,
 		moveHint,
 		movedText as cargoMovedText,
@@ -1778,11 +1779,7 @@
 			if ($('ship-closed').textContent !== closed) {
 				$('ship-closed').textContent = closed;
 			}
-			if (changed) {
-				$('fleet-cargo').hidden = !canMoveCargo(game); // E08-S02-9
-				$('fleet-cargo-link').href = infrastructureLink(game.id);
-				$('fleet-cargo-link').textContent = FLEET_MOVE_LINK;
-			}
+			updateCargoForm(game); // R58: moving goods sits with the ships it moves between
 			showPanels('fleet-panel');
 			if (focusFleetTitle) {
 				focusFleetTitle = false;
@@ -3778,7 +3775,12 @@
 		if (pointer) {
 			$('ship-pointer-link').href = fleetLink(game.id);
 		}
-		updateCargoForm(game);
+		const cargoPointer = hasWarehouse(game);
+		$('cargo-pointer').hidden = !cargoPointer;
+		if (cargoPointer) {
+			$('cargo-pointer-link').href = fleetLink(game.id);
+			$('cargo-pointer-link').textContent = INFRASTRUCTURE_MOVE_LINK;
+		}
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, viewerId);
@@ -4109,7 +4111,7 @@
 		}
 	});
 
-	// ── E08-S02: moving goods between a ship in port and a warehouse (R58) ──
+	// ── E08-S02: moving goods between two ships in the same port, or a ship and the warehouse there (R58), on Fleet ──
 
 	// What the pickers were drawn from, and for which game: they're drawn again only when a ship or a warehouse changes,
 	// so a pick survives the poll, and a new game starts afresh (lesson 2026-11-04: a select's kept choice is keyed by game).
@@ -4118,13 +4120,12 @@
 	let cargoMessageKey = null;
 	let submittingCargo = false;
 
-	function cargoTo() {
-		return document.querySelector('input[name="cargo-to"]:checked').value;
-	}
-
-	/** The picked ship's place, or undefined when the list changed under the pick. */
-	function pickedPlace(game) {
-		return cargoPlaces(game, viewerId).find(place => place.ship.name === $('cargo-ship').value);
+	/** The picked From and To holders; either is undefined when the list changed under the pick. */
+	function pickedEnds(game) {
+		const holders = cargoHolders(game, viewerId);
+		const from = holders.find(entry => entry.key === $('cargo-from').value);
+		const to = destinationsFor(holders, from).find(entry => entry.key === $('cargo-to').value);
+		return { from, to };
 	}
 
 	function setCargoError(text) {
@@ -4142,30 +4143,39 @@
 		cargoMessageKey = text ? key : null;
 	}
 
+	/** Fills [select] with [entries] by key, keeping [chosen] when it's still there. */
+	function fillHolderSelect(select, entries, chosen) {
+		select.replaceChildren(...entries.map(entry => element('option', { value: entry.key }, entry.label)));
+		if (entries.some(entry => entry.key === chosen)) {
+			select.value = chosen;
+		}
+	}
+
 	/** How many units can move, under the Units field; with nothing to move the button waits. */
 	function updateCargoHint(game) {
-		const place = pickedPlace(game);
-		const text = place ? moveHint(place, $('cargo-goods').value, cargoTo()) : '';
+		const { from, to } = pickedEnds(game);
+		const text = moveHint(from, to, $('cargo-goods').value);
 		if ($('cargo-hint').textContent !== text) {
 			$('cargo-hint').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
-		$('cargo-button').disabled = submittingCargo || !place || $('cargo-goods').options.length === 0;
+		$('cargo-button').disabled = submittingCargo || !from || !to || $('cargo-goods').options.length === 0;
 	}
 
-	/** The goods the source holds, for the picked ship and direction; the picked good is kept while it's still there. */
-	function fillCargoGoods(game) {
-		const place = pickedPlace(game);
+	/** The holders in From's port for To, then the goods From holds; picks are kept while they're still there. */
+	function fillCargoDestinationsAndGoods(game) {
+		const holders = cargoHolders(game, viewerId);
+		const from = holders.find(entry => entry.key === $('cargo-from').value);
+		fillHolderSelect($('cargo-to'), destinationsFor(holders, from), $('cargo-to').value);
 		const chosen = $('cargo-goods').value;
-		const goods = place ? movableGoods(place, cargoTo()) : [];
+		const goods = movableGoods(from);
 		$('cargo-goods').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, `${entry.goods} \u2014 ${entry.units} u`)));
 		if (goods.some(entry => entry.goods === chosen)) {
 			$('cargo-goods').value = chosen;
 		}
-		$('cargo-warehouse').textContent = place?.warehouseLabel ?? '';
 		updateCargoHint(game);
 	}
 
-	/** S02-7, S02-8: the panel for a player with a warehouse, in every phase; the form while a ship of theirs is in port there. */
+	/** S02-7, S02-8: the panel in every phase of a running game; the form while two of the player's holders share a port. */
 	function updateCargoForm(game) {
 		const panel = $('cargo-panel');
 		panel.hidden = !canMoveCargo(game);
@@ -4176,43 +4186,44 @@
 			shownCargoKey = null;
 			return;
 		}
-		$('cargo-intro').textContent = MOVE_INTRO;
-		$('cargo-button').textContent = MOVE_BUTTON;
-		const places = cargoPlaces(game, viewerId);
-		$('cargo-form').hidden = places.length === 0;
-		$('cargo-none').textContent = places.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
-		if (places.length === 0) {
+		if ($('cargo-intro').textContent !== MOVE_INTRO) {
+			$('cargo-intro').textContent = MOVE_INTRO;
+			$('cargo-button').textContent = MOVE_BUTTON;
+		}
+		const holders = cargoHolders(game, viewerId);
+		$('cargo-form').hidden = holders.length === 0;
+		const none = holders.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
+		if ($('cargo-none').textContent !== none) {
+			$('cargo-none').textContent = none;
+		}
+		if (holders.length === 0) {
 			shownCargoKey = null;
 			return;
 		}
-		const key = JSON.stringify([game.id, places]);
+		const key = JSON.stringify([game.id, holders]);
 		if (key !== shownCargoKey) {
 			const sameGame = shownCargoKey !== null && shownCargoGame === game.id;
-			const chosen = sameGame ? $('cargo-ship').value : null;
-			$('cargo-ship').replaceChildren(...places.map(place => element('option', { value: place.ship.name }, place.label)));
-			if (places.some(place => place.ship.name === chosen)) {
-				$('cargo-ship').value = chosen;
-			}
+			fillHolderSelect($('cargo-from'), holders, sameGame ? $('cargo-from').value : null);
 			if (!sameGame) {
 				$('cargo-units').value = ''; // another game's, or the form was away: nothing typed carries over
 				setCargoError('');
 			}
 			shownCargoKey = key;
 			shownCargoGame = game.id;
-			fillCargoGoods(game);
+			fillCargoDestinationsAndGoods(game);
 		}
 		updateCargoHint(game);
 	}
 
-	// Another ship or direction changes what can move; typing again clears a shown error, which was about what was there before.
-	$('cargo-ship').addEventListener('change', () => {
+	// Another holder changes what can move; typing again clears a shown error, which was about what was there before.
+	$('cargo-from').addEventListener('change', () => {
 		setCargoError('');
-		fillCargoGoods(lastGame);
+		fillCargoDestinationsAndGoods(lastGame);
 	});
-	document.querySelectorAll('input[name="cargo-to"]').forEach(radio => radio.addEventListener('change', () => {
+	$('cargo-to').addEventListener('change', () => {
 		setCargoError('');
-		fillCargoGoods(lastGame);
-	}));
+		updateCargoHint(lastGame);
+	});
 	$('cargo-goods').addEventListener('change', () => {
 		setCargoError('');
 		updateCargoHint(lastGame);
@@ -4223,13 +4234,12 @@
 	$('cargo-form').addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const game = lastGame;
-		const place = game ? pickedPlace(game) : undefined;
-		if (!place) {
+		const { from, to } = game ? pickedEnds(game) : {};
+		if (!from || !to) {
 			return;
 		}
 		const goods = $('cargo-goods').value;
-		const to = cargoTo();
-		const checked = validateMove(place, goods, to, $('cargo-units').value);
+		const checked = validateMove(from, to, goods, $('cargo-units').value);
 		setCargoError(checked.error ?? '');
 		if (checked.error) {
 			$('cargo-units').focus();
@@ -4252,7 +4262,7 @@
 			return;
 		}
 		if (response?.ok) {
-			setCargoMessage(cargoMovedText(place, goods, checked.body.units, to), false, gameId);
+			setCargoMessage(cargoMovedText(from, to, goods, checked.body.units), false, gameId);
 			$('cargo-units').value = '';
 			render(await response.json());
 			return;

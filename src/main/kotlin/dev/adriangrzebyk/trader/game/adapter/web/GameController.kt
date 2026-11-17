@@ -285,10 +285,11 @@ class GameController(
 	}
 
 	/**
-	 * The player moves goods between one of their ships in port and their warehouse there (R58, E08-S02): `{ ship, goods,
-	 * units, to }`, in any phase of a running game. `400` for an unknown good or destination, units that aren't a whole
-	 * number, and a move the rules refuse (not their ship, not in port, no warehouse there, more than the source holds or
-	 * than fits); `409` before the game starts and once it's over; `403`, `404` and `401` as for the other actions.
+	 * The player moves goods between two of their holders in the same port (R58, E08-S02, revised 2026-11-17): `{ from,
+	 * to, goods, units }`, each end a ship's name or left out for their warehouse there, in any phase of a running game.
+	 * `400` for an unknown good, units that aren't a whole number, and a move the rules refuse (not their ship, not in
+	 * port, ships in different ports, no warehouse there, more than the source holds or than fits); `409` before the game
+	 * starts and once it's over; `403`, `404` and `401` as for the other actions.
 	 */
 	@PostMapping("/games/{id}/cargo/moves")
 	fun moveCargo(
@@ -300,11 +301,13 @@ class GameController(
 		val move = request ?: MoveCargoRequestDto()
 		val goods = move.goodsConstant()
 		val units = move.wholeUnits()
-		val to = move.destination()
-		if (goods == null || units == null || to == null) {
-			throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a ship, a good, where it goes and a whole number of units, 1 or more.")
+		if (goods == null || units == null) {
+			throw ResponseStatusException(
+				HttpStatus.BAD_REQUEST,
+				"Choose where the goods come from and go, a good and a whole number of units, 1 or more."
+			)
 		}
-		val game = cargoService.move(id, session.email, move.ship, goods, units, to)
+		val game = cargoService.move(id, session.email, move.source(), move.destination(), goods, units)
 
 		return GameResponseDto(game, session.email)
 	}

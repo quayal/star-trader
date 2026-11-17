@@ -295,15 +295,15 @@ data class Game(
 	}
 
 	/**
-	 * [email] moves [units] of [goods] between their ship [shipName] in port and their warehouse there, into [to] (R58):
+	 * [email] moves [units] of [goods] [from] one of their ships or warehouse [to] another in the same port (R58):
 	 * [Player.moveCargo] checks and applies it. In any phase of a running game and whoever's turn it is, since a move
 	 * changes nothing anyone else decides on: what the player holds at that system stays the same (R49). Cargo is private
 	 * (R29), so nothing is logged.
 	 */
-	fun moveCargo(email: String, shipName: String?, goods: Goods, units: Int, to: CargoDestination): Game {
+	fun moveCargo(email: String, from: CargoHolder, to: CargoHolder, goods: Goods, units: Int): Game {
 		val player = playerOf(email)
 		runningTurn()
-		return copy(players = replace(player.moveCargo(shipName, goods, units, to)))
+		return copy(players = replace(player.moveCargo(from, to, goods, units)))
 	}
 
 	/**
