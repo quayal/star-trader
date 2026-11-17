@@ -320,6 +320,31 @@
 		.ship-modules__grid label { display: flex; gap: var(--space-group); align-items: center; justify-content: space-between; }
 		.ship-modules__grid .control { width: 72px; }
 		.ship-cost { margin: 0; font-family: var(--font-display); }
+		/* R51: the hull comparison sits next to the buy form, under it on a narrow screen. */
+		.infrastructure { max-width: 1200px; }
+		.infrastructure > :not(#ship-panel) { max-width: 720px; }
+		.ship-buy { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: var(--space-between-groups); align-items: start; }
+		@media (max-width: 1100px) {
+			.ship-buy { grid-template-columns: minmax(0, 1fr); }
+		}
+		.ship-hulls { display: grid; gap: var(--space-group); min-width: 0; }
+		.ship-hulls h3 { margin: 0; }
+		.ship-hulls__table { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
+		.ship-hulls .data-table td, .ship-hulls .data-table th { padding: var(--space-hairline) var(--space-group); white-space: nowrap; }
+		.ship-hulls tr.is-selected { background: var(--surface-raised); box-shadow: inset var(--space-hairline) 0 0 var(--accent-selected); }
+		.ship-hulls tr.is-selected .hull-pick { color: var(--accent-selected); }
+		.hull-pick {
+			padding: 0;
+			border: none;
+			background: none;
+			color: var(--text-primary);
+			font-family: var(--font-display);
+			font-size: var(--text-body);
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.hull-pick:hover { color: var(--accent-selected); }
+		.ship-hulls__name { display: grid; justify-items: start; gap: var(--space-hairline); }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
@@ -728,6 +753,7 @@
 				<h2 id="ship-title">Buy a ship</h2>
 				<p class="muted">It waits a turn in the shipyard, leaves it in next turn’s Investment, and makes its first jump the turn after. Refit and sell your ships on the Fleet tab.</p>
 				<p class="message message--warn" id="ship-late" role="status"></p>
+				<div class="ship-buy">
 				<form class="offer-form" id="ship-form" novalidate>
 					<div>
 						<label class="field-label" for="ship-name">Name</label>
@@ -760,6 +786,18 @@
 					<div><button class="btn" id="ship-button" type="submit">Buy ship</button></div>
 					<p class="message" id="ship-message" role="status"></p>
 				</form>
+				<!-- R51: every hull for sale side by side; picking a row picks that hull in the form. -->
+				<div class="ship-hulls">
+					<h3 class="field-label" id="ship-hulls-title">Hulls for sale</h3>
+					<div class="ship-hulls__table" role="region" tabindex="0" aria-labelledby="ship-hulls-title">
+						<table class="data-table">
+							<thead><tr id="ship-hulls-head"></tr></thead>
+							<tbody id="ship-hulls-rows"></tbody>
+						</table>
+					</div>
+					<p class="muted">Weapons and shields are the hull’s own; weapon modules add to them. Cargo is built-in space; Cargo modules add more. Repair is what fixing the hull costs. Aerodynamic hulls land on a planet more easily.</p>
+				</div>
+				</div>
 			</section>
 			<!-- E08-S02 (R58): in every phase, for a player with a warehouse. Static markup, so the picks and the typed number survive the poll. -->
 			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
@@ -1064,7 +1102,9 @@
 	import {
 		BUY_BUTTON,
 		REFIT_NOTE,
+		HULL_COLUMNS,
 		fitCheck,
+		hullRows,
 		lateBuyWarning,
 		moduleList,
 		refitOptions,
@@ -3831,6 +3871,28 @@
 				$(id).textContent = text;
 			}
 		}
+		for (const row of $('ship-hulls-rows').children) {
+			const selected = row.dataset.hull === $('ship-hull').value;
+			row.classList.toggle('is-selected', selected);
+			row.querySelector('.hull-pick').setAttribute('aria-pressed', String(selected));
+		}
+	}
+
+	/** R51: the hull comparison, drawn once per turn with the rest of the catalogue; its highlight follows the pick. */
+	function renderHullTable(shipyard) {
+		$('ship-hulls-head').replaceChildren(
+			element('th', { scope: 'col' }, 'Hull'),
+			...HULL_COLUMNS.map(column => element('th', { scope: 'col', class: 'num' }, column)));
+		$('ship-hulls-rows').replaceChildren(...hullRows(shipyard, $('ship-hull').value).map(row => {
+			const pick = element('button', { type: 'button', class: 'hull-pick', 'aria-pressed': String(row.selected) }, row.name);
+			pick.addEventListener('click', () => {
+				$('ship-hull').value = row.id;
+				$('ship-hull').dispatchEvent(new Event('change'));
+			});
+			return element('tr', { 'data-hull': row.id, class: row.selected ? 'is-selected' : '' },
+				element('th', { scope: 'row' }, element('div', { class: 'ship-hulls__name' }, pick, ...flagBadges(row.flags))),
+				...row.cells.map(cell => element('td', { class: 'num' }, cell)));
+		}));
 	}
 
 	function updateShipForm(game) {
@@ -3850,6 +3912,7 @@
 			$('ship-yard').replaceChildren(...shipyard.shipyards.map(yard => element('option', { value: yard.system }, yard.systemName)));
 			$('ship-hull').replaceChildren(...shipyard.hulls.map(hull => element('option', { value: hull.id }, `${hull.name} \u2014 ${hull.price} HT`)));
 			$('ship-hull').value = DEFAULT_SHIP.hull;
+			renderHullTable(shipyard);
 			$('ship-modules').replaceChildren(...shipyard.modules.map(module => {
 				const input = element('input', {
 					class: 'control price-input', id: `ship-mod-${module.id}`, inputmode: 'numeric', 'data-module': module.id,

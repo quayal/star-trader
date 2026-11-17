@@ -16,6 +16,25 @@ export const REFIT_NOTE = 'Refit at a shipyard: in the yard, or in port at Beta 
 const GOODS_ORDER = ['CHIPS', 'FOOD', 'ISO', 'POLY'];
 const TAKES_CARGO_SPACE = new Set(['POLY', 'ISO']);
 
+/** R51: the columns of the hull comparison next to the buy form, after the hull's name. */
+export const HULL_COLUMNS = ['Price', 'Modules', 'Cargo', 'Weapons', 'Shields', 'Intercept', 'Crew', 'Repair'];
+/** R56: the short flag a hull row carries; the note under the table says what it means, so it is never a colour alone. */
+export const AERODYNAMIC_SHORT = 'Aerodynamic';
+
+/**
+ * R51: every hull the shipyard sells as a row of the comparison next to the buy form: its id and name, whether it is the
+ * [selectedId] one, its flags as words (R56, short: the table is narrow) and the cells under [HULL_COLUMNS].
+ */
+export function hullRows(shipyard, selectedId) {
+	return (shipyard?.hulls ?? []).map(hull => ({
+		id: hull.id,
+		name: hull.name,
+		selected: hull.id === selectedId,
+		flags: hull.aerodynamic ? [AERODYNAMIC_SHORT] : [],
+		cells: [`${hull.price} HT`, hull.moduleCapacity, hull.cargoSpaces, hull.weapons, hull.shields, hull.intercept, hull.crew, `${hull.repairCost} HT`].map(String),
+	}));
+}
+
 /** What the shipyard sells, or null when the viewer can't buy now. */
 export function shipyardOf(game) {
 	return game.you?.invest?.shipyard ?? null;
