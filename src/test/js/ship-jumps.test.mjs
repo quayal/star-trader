@@ -12,7 +12,6 @@ import {
 	shipOptionText,
 	shipsToJump,
 	slotStatuses,
-	validateJump,
 } from '../../main/resources/static/js/ship-jumps.js';
 import { phaseText } from '../../main/resources/static/js/bidding.js';
 
@@ -101,15 +100,6 @@ describe('shipsToJump', () => {
 describe('shipOptionText', () => {
 	it('shows the ship with its current system (S02-2)', () => {
 		assert.equal(shipOptionText({ name: 'Wayfarer', systemName: 'Tau Ceti' }), 'Wayfarer (at Tau Ceti)');
-	});
-});
-
-describe('validateJump', () => {
-	it('refuses the system the ship is already at (S02-4)', () => {
-		const ship = { name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti' };
-
-		assert.equal(validateJump(ship, 'TAU_CETI'), 'Wayfarer is already at Tau Ceti. Pick another destination.');
-		assert.equal(validateJump(ship, 'BETA_HYDRI'), '');
 	});
 });
 

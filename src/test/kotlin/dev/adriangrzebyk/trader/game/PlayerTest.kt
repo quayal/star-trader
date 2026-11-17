@@ -120,7 +120,9 @@ class PlayerTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 		val trader = player.copy(ships = listOf(wayfarer, meridian))
 		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 10)

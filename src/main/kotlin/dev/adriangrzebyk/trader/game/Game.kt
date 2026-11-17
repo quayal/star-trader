@@ -247,6 +247,9 @@ data class Game(
 	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
 	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.removeModule(shipName, module) }
 
+	/** [email] repairs all the damage on their ship [shipName] at a shipyard (R79): see [Player.repairShip]. Private, not logged. */
+	fun repairShip(email: String, shipName: String): Game = withInvestment(email, null) { it.repairShip(shipName) }
+
 	/**
 	 * [email] sells their ship [shipName] (R66): see [Player.sellShip]. The sale is public, without the amount (R29); what
 	 * happened to the cargo is private, so isn't logged.
@@ -372,12 +375,16 @@ data class Game(
 	 */
 	fun jumpShip(email: String, shipName: String?, destination: StarSystem?, dice: Dice): Game {
 		val current = jumpSlotOf(email)
+		current.refuseDuringFight()
 		current.refuseWhileAShipWaitsToLand()
 		val player = playerOf(email)
 		val ship = player.ship(shipName)?.takeUnless { current.hasJumped(it) }
 			?: throw InvalidJumpException("Choose one of your ships that hasn't jumped this turn.")
 		if (destination == null) {
 			throw InvalidJumpException("Choose a destination system.")
+		}
+		if (destination == ship.system) {
+			return withShipMovedWithin(player, ship, current)
 		}
 		val roll = dice.twoD6()
 		if (!ship.checkedJumpChanceTo(destination).succeeds(roll)) {
@@ -393,31 +400,227 @@ data class Game(
 			players = replace(moved),
 			turn = current.recordJump(ship),
 			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()} (rolled $roll)")
+		).withInterceptionAsked(ship.name, email, destination)
+	}
+
+	/** [ship] of [player]'s moved into its own system's Space (R69): no route, so no roll; it can be intercepted (R70). */
+	private fun withShipMovedWithin(player: Player, ship: Ship, current: Turn): Game {
+		val moved = player.jumpShip(ship, ship.system)
+		return copy(
+			players = replace(moved),
+			turn = current.recordJump(ship),
+			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(ship.name)).jumpLog()}")
+		).withInterceptionAsked(ship.name, player.email, ship.system)
+	}
+
+	/**
+	 * This game once the players with ships in Space at [system], other than [ownerEmail], are asked whether to intercept
+	 * [shipName], which just arrived there (R70); unchanged when there are none, so the ship lands as before.
+	 */
+	private fun withInterceptionAsked(shipName: String, ownerEmail: String, system: StarSystem): Game {
+		val asked = players.filter { it.email != ownerEmail && it.shipsInSpaceAt(system).isNotEmpty() }.map { it.email }
+		if (asked.isEmpty()) {
+			return this
+		}
+		val current = runningTurn()
+		val text = "Interception: ${asked.joinToString(", ") { corporationOf(it) }} may try to stop $shipName at ${system.displayName}"
+		return copy(
+			turn = current.withInterception(Interception(system, shipName, ownerEmail, asked, emptyList())),
+			log = log + LogEntry(current.number, text)
 		)
 	}
 
 	/**
+	 * [email] decides which one of their ships in Space tries to intercept the ship that just arrived (R70), or none when
+	 * [shipName] is null. Once everyone asked has decided, the tries are rolled with [dice] and logged; a success starts a
+	 * battle (R73).
+	 */
+	fun answerInterception(email: String, shipName: String?, dice: Dice): Game {
+		val player = playerOf(email)
+		val current = runningTurn()
+		val interception = current.interceptionNow()
+		val answered = interception.answer(InterceptionAnswer(email, shipName))
+		val inSpace = player.shipsInSpaceAt(interception.system).map { it.name }
+		if (shipName != null && shipName !in inSpace) {
+			throw InvalidBattleException("Choose one of your ships in Space at ${interception.system.displayName}: ${inSpace.joinToString(", ")}.")
+		}
+		val game = copy(turn = current.withInterception(answered))
+		return if (answered.isDecided()) game.withInterceptionRolled(answered, dice) else game
+	}
+
+	/**
+	 * Every try at [interception] rolled (R70, R71): the ships that tried have used their move (R72); each success holds
+	 * the arriving ship in the battle it starts (R73, R74).
+	 */
+	private fun withInterceptionRolled(interception: Interception, dice: Dice): Game {
+		val current = runningTurn()
+		val arriving = shipNamed(interception.ship)
+		val tries = interception.tries()
+		val events = mutableListOf<String>()
+		val caught = mutableListOf<BattleInterception>()
+		for ((email, name) in tries) {
+			val interceptor = checkNotNull(playerOf(email).ship(name))
+			val ours = dice.d6()
+			val theirs = dice.d6()
+			val success = interceptor.interceptTotal(ours) > arriving.interceptTotal(theirs)
+			if (success) {
+				caught += BattleInterception(arriving.name, interceptor.name)
+			}
+			events +=
+				"Interception: ${interceptor.interceptLog(ours)} vs ${arriving.interceptLog(theirs)}: ${if (success) "intercepted" else "escapes"}"
+		}
+		if (tries.isEmpty()) {
+			events += "Nobody tries to intercept ${interception.ship}"
+		}
+		val decided = copy(
+			turn = current.withInterception(null).recordInterceptors(tries.map { it.second }),
+			log = log + events.map { LogEntry(current.number, it) }
+		)
+		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
+	}
+
+	/** This game with a battle at [system] among every ship in Space there (R73, R80), [interceptions] holding their ships. */
+	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>): Game {
+		val current = runningTurn()
+		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
+		return copy(
+			turn = current.withBattle(Battle.start(system, fighting, interceptions)),
+			log = log + LogEntry(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
+		)
+	}
+
+	/**
+	 * [email] gives this round's [orders] to their ships in the battle (R74), secret until every fighting player has; then
+	 * all of them resolve together with [dice].
+	 */
+	fun giveBattleOrders(email: String, orders: List<BattleOrder>, dice: Dice): Game {
+		playerOf(email)
+		val current = runningTurn()
+		val battle = current.battleNow().giveOrders(email, orders)
+		val game = copy(turn = current.withBattle(battle))
+		return if (battle.isRoundOrdered()) game.withRoundFired(battle, dice) else game
+	}
+
+	/**
+	 * [battle]'s round once every salvo has landed (R74–R77): ships breaking away leave, rocket kills and ships that can't
+	 * survive their hits are destroyed, and the rest of the hits wait for their owners to place them. All of it is logged.
+	 */
+	private fun withRoundFired(battle: Battle, dice: Dice): Game {
+		val current = runningTurn()
+		val leaving = battle.breakingAway().toSet()
+		val salvos = battle.fireOrders().map { order ->
+			val target = checkNotNull(order.target)
+			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, target in leaving, dice)
+		}
+		val rocketKills = salvos.filter { it.destroysTarget() }.map { it.target }.toSet()
+		val hitsByShip = salvos.filter { it.hits > 0 }.groupBy { it.target }.mapValues { (_, hits) -> hits.sumOf { it.hits } }
+		val overwhelmed = hitsByShip.filter { (ship, hits) -> ship !in rocketKills && hits > shipNamed(ship).hitsSurvivable() }.keys
+		val destroyed = rocketKills + overwhelmed
+		val pending = hitsByShip.filterKeys { it !in destroyed }.map { (ship, hits) -> PendingHits(ship, battle.ownerOf(ship), hits) }
+		val events = listOf("Battle at ${battle.system.displayName}, round ${battle.round}") +
+			leaving.map { "$it breaks away" } + salvos.map { it.log() } + destroyed.map { "$it is destroyed" }
+		return copy(
+			players = players.map { player -> destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
+			turn = current.withBattle(battle.afterSalvos(destroyed, pending)),
+			log = log + events.map { LogEntry(current.number, it) }
+		).withBattleMovedOn()
+	}
+
+	/**
+	 * [email] places the hits each of their ships took this round (R76), [placements] by ship name; a ship that can't
+	 * absorb them is destroyed (R77). When nobody has hits left to place, the next round starts or the battle ends.
+	 */
+	fun placeBattleHits(email: String, placements: Map<String, HitPlacement>): Game {
+		val player = playerOf(email)
+		val current = runningTurn()
+		val battle = current.battleNow()
+		val pending = battle.pendingHitsOf(email)
+		if (placements.keys != pending.map { it.ship }.toSet()) {
+			throw InvalidBattleException("Place the hits on each of your ships that took them: ${pending.joinToString(", ") { it.ship }}.")
+		}
+		val hit = pending.fold(player) { owner, hits -> owner.takeHits(hits.ship, hits.hits, placements.getValue(hits.ship)) }
+		val destroyed = pending.map { it.ship }.filter { hit.ship(it) == null }.toSet()
+		return copy(
+			players = replace(hit),
+			turn = current.withBattle(battle.hitsPlaced(email, destroyed)),
+			log = log + destroyed.map { LogEntry(current.number, "$it is destroyed") }
+		).withBattleMovedOn()
+	}
+
+	/**
+	 * [email] places each of their surviving ships from the battle at Port, Planet or Space (R77), [locations] by ship
+	 * name; each is logged as a landing. Once everyone has, the battle is over and the jumps go on.
+	 */
+	fun landAfterBattle(email: String, locations: Map<String, ShipLocation>): Game {
+		val player = playerOf(email)
+		val current = runningTurn()
+		val battle = current.battleNow()
+		val landed = battle.landedBy(email)
+		val survivors = battle.survivorsOf(email)
+		if (locations.keys != survivors.toSet()) {
+			throw InvalidBattleException("Choose where each of your ships from the battle ends up: ${survivors.joinToString(", ")}.")
+		}
+		val placed = locations.entries.fold(player) { owner, (ship, location) -> owner.landShip(ship, location) }
+		val events = survivors.map { "Landing: ${player.corporationName} — ${checkNotNull(placed.ship(it)).landingLog()}" }
+		return copy(
+			players = replace(placed),
+			turn = current.withBattle(landed),
+			log = log + events.map { LogEntry(current.number, it) }
+		).withBattleMovedOn()
+	}
+
+	/**
+	 * This game once its battle moved on: when it's over, that is logged; once every survivor has been placed, the
+	 * battle is gone, the ship that arrived has landed or been destroyed, and the jump slot goes on or ends (S02-6).
+	 */
+	private fun withBattleMovedOn(): Game {
+		val current = runningTurn()
+		val battle = checkNotNull(current.battle)
+		val over = battle.stage == BattleStage.LANDING && battle.done.isEmpty()
+		val events = if (over) listOf(LogEntry(current.number, "The battle at ${battle.system.displayName} is over")) else emptyList()
+		if (!battle.isFinished()) {
+			return copy(log = log + events)
+		}
+		val after = current.withBattle(null).landed()
+		val game = copy(turn = after, log = log + events)
+		val jumper = after.jumper() ?: return game
+		return if (after.haveAllJumped(playerOf(jumper).jumpableShips())) game.endJumpSlot(jumper) else game
+	}
+
+	/** The ship called [name], whoever owns it. */
+	private fun shipNamed(name: String): Ship = players.firstNotNullOf { it.ship(name) }
+
+	/**
 	 * [email] chooses where the ship that just jumped ends up (R30, S03). That finishes the jump; the landing is logged
-	 * (S03-3), and landing the player's last ship ends their slot (S02-6, S03-4).
+	 * (S03-3), and landing the player's last ship ends their slot (S02-6, S03-4). Staying in Space next to other players'
+	 * ships starts a battle instead (R80); the slot goes on once it's over.
 	 */
 	fun landShip(email: String, location: ShipLocation?): Game {
 		val current = jumpSlotOf(email)
+		current.refuseDuringFight()
 		val shipName = current.shipWaitingToLand()
 		if (location == null) {
 			throw InvalidLandingException()
 		}
 		val landed = playerOf(email).landShip(shipName, location)
+		val ship = checkNotNull(landed.ship(shipName))
 		val game = copy(
 			players = replace(landed),
 			turn = current.landed(),
-			log = log + LogEntry(current.number, "Landing: ${landed.corporationName} — ${checkNotNull(landed.ship(shipName)).landingLog()}")
+			log = log + LogEntry(current.number, "Landing: ${landed.corporationName} — ${ship.landingLog()}")
 		)
+		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
+		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
+			return game.withBattleStarted(ship.system, emptyList())
+		}
 		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
 	}
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
 	fun finishJumping(email: String): Game {
-		jumpSlotOf(email).refuseWhileAShipWaitsToLand()
+		val current = jumpSlotOf(email)
+		current.refuseDuringFight()
+		current.refuseWhileAShipWaitsToLand()
 		return endJumpSlot(email)
 	}
 

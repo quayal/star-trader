@@ -288,6 +288,35 @@ data class Player(
 		return if (warehouse == null) sold else sold.withWarehouse(warehouse.storeCargoOf(ship))
 	}
 
+	/**
+	 * This player after repairing all the damage on their ship [shipName] at a shipyard (R79), paying [Ship.repairCost];
+	 * refused when it has none or they can't pay.
+	 */
+	fun repairShip(shipName: String): Player {
+		val ship = shipToRefit(shipName)
+		val repaired = ship.repaired()
+		val cost = ship.repairCost()
+		if (cost > money) {
+			throw InvalidInvestmentException("Repairing ${ship.name} costs $cost HT; you have $money HT.")
+		}
+		return pay(cost).withShip(repaired)
+	}
+
+	/** This player's ships in Space at [system] (R70, R73): those that can intercept there and fight. */
+	fun shipsInSpaceAt(system: StarSystem): List<Ship> = ships.filter { it.isInSpaceAt(system) }
+
+	/**
+	 * This player after their ship [shipName] took [hits] placed as [placement] in a battle (R76); a ship the hits destroy
+	 * is gone with everything aboard (R77).
+	 */
+	fun takeHits(shipName: String, hits: Int, placement: HitPlacement): Player {
+		val hit = checkNotNull(ship(shipName)).takeHits(hits, placement)
+		return if (hit.isDestroyed()) loseShip(shipName) else withShip(hit)
+	}
+
+	/** This player without their ship [shipName], destroyed in a battle with everything aboard (R77). */
+	fun loseShip(shipName: String): Player = copy(ships = ships.filterNot { it.name == shipName })
+
 	/** This player's ships that can jump (R64): every one but those still in the shipyard. */
 	fun jumpableShips(): List<Ship> = ships.filterNot { it.isInShipyard() }
 

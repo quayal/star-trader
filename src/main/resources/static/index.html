@@ -139,6 +139,16 @@
 		.offer-form .message:empty { display: none; }
 		.offer-type { border: 0; padding: 0; margin: 0; }
 		.pick-form[hidden] { display: none; }
+		/* E10: the interception and battle panel on the Deck. */
+		.fight-form[hidden], .fight-panel[hidden], .fight-panel .message:empty, .fight-panel .muted:empty { display: none; }
+		.fight-ships { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-related); }
+		.fight-ships li { display: grid; gap: var(--space-hairline); }
+		.fight-fields { display: grid; gap: var(--space-between-groups); }
+		.fight-fields fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
+		.fight-fields .fight-row { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-group); }
+		.fight-fields .fight-row input.control { width: 4.5em; flex: none; }
+		.fight-fields .fight-row select.control { width: 100%; }
+		.fight-fields .fight-row input[type=checkbox] { flex: none; }
 		#turn-order-panel > #pick-message:empty, #turn-order-panel > #jump-message:empty { margin: 0; } /* stay in the tree, so their text is announced */
 		.jump-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-panel); }
 		/* E04-S03: s05, the landing dialog. A native <dialog> opened with showModal() traps focus and closes on Escape. */
@@ -533,6 +543,18 @@
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
+				<!-- E10: interception and battle, static markup; its form is rebuilt only when what it asks changes. -->
+				<section class="panel fight-panel" id="fight-panel" aria-labelledby="fight-title" hidden>
+					<h2 id="fight-title" tabindex="-1"></h2>
+					<p id="fight-text"></p>
+					<ul class="fight-ships" id="fight-ships"></ul>
+					<form class="offer-form fight-form" id="fight-form" novalidate hidden>
+						<div class="fight-fields" id="fight-fields"></div>
+						<div><button class="btn" id="fight-button" type="submit"></button></div>
+					</form>
+					<p class="muted" id="fight-waiting"></p>
+					<p class="message" id="fight-message" role="status" tabindex="-1"></p>
+				</section>
 				<!-- E04-S02: static markup, updated on render, so the chosen ship and destination survive the poll. -->
 				<section class="panel" id="jump-panel" aria-labelledby="jump-title" hidden>
 					<h2 id="jump-title"></h2>
@@ -1066,8 +1088,33 @@
 		shipOptionText,
 		shipsToJump,
 		slotStatuses,
-		validateJump,
 	} from './js/ship-jumps.js';
+	import {
+		BREAK_AWAY,
+		HITS_BUTTON,
+		HIT_RULES,
+		INTERCEPT_BUTTON,
+		LANDING_BUTTON as BATTLE_LANDING_BUTTON,
+		LOCATIONS,
+		ORDERS_BUTTON,
+		battleShipRows,
+		battleStep,
+		canBreakAway,
+		fightDecisionText,
+		fightTitle,
+		hitParts,
+		hitsText,
+		interceptionBody,
+		interceptionText,
+		interceptors,
+		isFighting,
+		jettisonable,
+		ordersBody,
+		overflow,
+		shipHitsBody,
+		targets,
+		waitingText,
+	} from './js/battle.js';
 	import {
 		DEFAULT_LOCATION,
 		ESCAPE_LOCATION,
@@ -1694,6 +1741,7 @@
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
+		updateFightPanel(game);
 		showPanels('deck-panel');
 		if (focusDeckHeading) {
 			focusDeckHeading = false;
@@ -1789,6 +1837,11 @@
 		if (!own.canRefit) {
 			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
 		} else {
+			if (own.repairCost > 0) {
+				// R79: one action repairs the hull and every damaged module.
+				refit.push(element('div', { class: 'fleet-ship__row' },
+					shipButton('quiet-button', `Repair all damage (${own.repairCost} HT)`, () => repairShip(game, own))));
+			}
 			if (add.length) {
 				const id = `fleet-add-${index}`; // the ship's place, not its name: two names can't collide
 				const select = element('select', { class: 'control', id },
@@ -1811,6 +1864,13 @@
 		button.disabled = fleetBusy;
 		button.addEventListener('click', onClick);
 		return button;
+	}
+
+	/** R79: every bit of the ship's damage repaired; the answer redraws Fleet with its stats and the balance. */
+	async function repairShip(game, ship) {
+		const gameId = currentGameId;
+		const request = api(`/api/games/${encodeURIComponent(gameId)}/investment/ships/${encodeURIComponent(ship.name)}/repair`, { method: 'POST' });
+		await fleetAction(game, request, () => `Repaired ${ship.name} for ${ship.repairCost} HT.`);
 	}
 
 	/** S04-1: one module added or removed; the answer redraws Fleet with the new modules and balance. */
@@ -2436,7 +2496,7 @@
 	 */
 	function updateDecisionAlert(game, view) {
 		const trading = view === 'trading' ? '' : decisionText(game, viewerId);
-		const deck = view === 'game' ? '' : deckDecisionText(game, viewerId);
+		const deck = view === 'game' ? '' : deckDecisionText(game, viewerId) || fightDecisionText(game, viewerId);
 		const text = trading || deck;
 		$('decision-link').href = trading ? tradingLink(game.id) : deckLink(game.id);
 		$('decision-link').textContent = trading ? GO_TO_TRADING : GO_TO_DECK;
@@ -3060,6 +3120,11 @@
 		if ($('landing-dialog').open || $('deck-panel').hidden) {
 			return; // showModal() has put focus in the dialog; off the Deck there's no form to return to
 		}
+		if (isFighting(game)) {
+			setJumpMessage('', false);
+			$('fight-title').focus(); // E10: the jump stopped for an interception; the fight panel says what's next
+			return;
+		}
 		if (!$('jump-panel').hidden) {
 			setJumpMessage(announce, false);
 			$('jump-ship').focus();
@@ -3107,14 +3172,217 @@
 
 	function submitJump(event) {
 		event.preventDefault();
-		const ship = lastGame?.players.flatMap(p => p.ships).find(s => s.name === $('jump-ship').value);
-		const error = validateJump(ship, $('jump-destination').value);
-		setJumpError(error);
-		if (error) {
-			$('jump-destination').focus(); // S02-4
+		setJumpError(''); // R69: any system will do, the ship's own included
+		sendJumpStep('jumps', { ship: $('jump-ship').value, destination: $('jump-destination').value });
+	}
+
+	// ── E10: interception and battle ──
+
+	// What the fight form was last built for, so a poll that changes nothing it asks keeps what the player typed.
+	let fightFormKey = null;
+	// What the form is for now: 'INTERCEPT', 'ORDERS', 'HITS', 'LANDING' or null.
+	let fightStep = null;
+	let fightSending = false;
+	// The game and turn the fight message belongs to (lesson 2026-11-04).
+	let fightMessageKey = null;
+
+	function setFightMessage(text, error) {
+		if ($('fight-message').textContent !== text) {
+			$('fight-message').textContent = text;
+		}
+		$('fight-message').className = error ? 'message message--error' : 'message';
+	}
+
+	/** R70–R78: who fights, what each ship is, and the one form the viewer has to fill now, if any. */
+	function updateFightPanel(game) {
+		const messageKey = `${game.id}/${game.turn?.number}`;
+		if (messageKey !== fightMessageKey) {
+			fightMessageKey = messageKey;
+			setFightMessage('', false);
+		}
+		const fighting = isFighting(game);
+		$('fight-panel').hidden = !fighting;
+		if (!fighting) {
+			fightFormKey = null;
+			fightStep = null;
 			return;
 		}
-		sendJumpStep('jumps', { ship: $('jump-ship').value, destination: $('jump-destination').value });
+		$('fight-title').textContent = fightTitle(game);
+		$('fight-text').textContent = interceptionText(game);
+		const rows = battleShipRows(game);
+		const rowsKey = JSON.stringify(rows);
+		if ($('fight-ships').dataset.key !== rowsKey) {
+			$('fight-ships').dataset.key = rowsKey;
+			$('fight-ships').replaceChildren(...rows.map(row => element('li', {},
+				element('span', {}, element('strong', {}, row.name), ` — ${row.owner}`,
+					...(row.note ? [' ', element('span', { class: row.note.startsWith('intercepted') ? 'badge badge--warn' : 'badge' }, row.note)] : [])),
+				element('span', { class: 'muted' }, `${row.hull}; ${row.stats}`),
+				element('span', { class: 'muted' }, row.modules))));
+		}
+		$('fight-waiting').textContent = waitingText(game, viewerId);
+		const step = interceptors(game).length ? 'INTERCEPT' : battleStep(game, viewerId);
+		const formKey = JSON.stringify([game.id, game.turn.number, step, game.turn.battle?.round, game.turn.battle?.stage,
+			game.you?.interception, game.you?.battle, step === 'HITS' ? game.turn.battle.ships : null, step === 'ORDERS' ? targets(game, viewerId) : null]);
+		$('fight-form').hidden = step === null;
+		fightStep = step;
+		if (formKey === fightFormKey) {
+			return;
+		}
+		fightFormKey = formKey;
+		$('fight-fields').replaceChildren(...fightFields(game, step));
+		updateOverflowNotes();
+		$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
+	}
+
+	/** The form's fields for [step]. Ids are by place, not ship name, so any name is safe in an id. */
+	function fightFields(game, step) {
+		if (step === 'INTERCEPT') {
+			const choice = (value, label, index) => element('label', { class: 'fight-row', for: `fight-intercept-${index}` },
+				element('input', { type: 'radio', name: 'fight-intercept', id: `fight-intercept-${index}`, value, 'data-intercept': '' }), label);
+			const radios = [choice('', 'None: let it pass', 0), ...interceptors(game).map((ship, index) => choice(ship, `Try with ${ship}`, index + 1))];
+			radios[0].querySelector('input').checked = true;
+			return [element('fieldset', {},
+				element('legend', { class: 'field-label' }, 'Intercept it with one of your ships?'),
+				...radios,
+				element('p', { class: 'muted' }, 'The ship that tries gives up its own jump this turn. All your ships in Space here fight if a battle starts.'))];
+		}
+		if (step === 'ORDERS') {
+			const options = targets(game, viewerId);
+			return game.you.battle.fighting.map((ship, index) => {
+				const select = element('select', { class: 'control', id: `fight-target-${index}`, 'data-ship': ship },
+					...options.map(target => element('option', { value: target.name }, `Fire at ${target.label}`)),
+					...(canBreakAway(game, ship) ? [element('option', { value: BREAK_AWAY }, 'Break away')] : []));
+				return element('fieldset', {},
+					element('legend', { class: 'field-label' }, ship),
+					element('div', { class: 'fight-row' }, select,
+						element('label', { class: 'fight-row', for: `fight-rockets-${index}` },
+							element('input', { type: 'checkbox', id: `fight-rockets-${index}`, 'data-rockets': ship }), 'Use rockets')));
+			});
+		}
+		if (step === 'HITS') {
+			return game.you.battle.hitsToPlace.map((pending, index) => {
+				const parts = hitParts(game, pending.ship);
+				const inputs = parts.map(part => element('div', { class: 'fight-row' },
+					element('input', { class: 'control', id: `fight-hit-${index}-${part.key}`, type: 'number', min: '0', max: String(part.max), value: '0', inputmode: 'numeric',
+						'data-hit-ship': pending.ship, 'data-part': part.key }),
+					element('label', { for: `fight-hit-${index}-${part.key}` }, part.label)));
+				const jettison = jettisonable(game, pending.ship).map(({ goods, units }) => element('div', { class: 'fight-row' },
+					element('input', { class: 'control', id: `fight-jettison-${index}-${goods}`, type: 'number', min: '0', max: String(units), value: '0', inputmode: 'numeric',
+						'data-jettison-ship': pending.ship, 'data-goods': goods }),
+					element('label', { for: `fight-jettison-${index}-${goods}` }, `${goods} thrown overboard (of ${units})`)));
+				return element('fieldset', {},
+					element('legend', { class: 'field-label' }, `${pending.ship} — ${hitsText(pending.hits)}`),
+					element('p', { class: 'muted' }, HIT_RULES),
+					...inputs,
+					...(jettison.length ? [element('p', { class: 'muted', 'data-overflow': pending.ship }, ''), ...jettison] : []));
+			});
+		}
+		if (step === 'LANDING') {
+			return game.you.battle.toLand.map((ship, index) => element('div', {},
+				element('label', { class: 'field-label', for: `fight-land-${index}` }, `Where does ${ship} end up?`),
+				element('select', { class: 'control', id: `fight-land-${index}`, 'data-land': ship },
+					...LOCATIONS.map(location => element('option', { value: location.value }, location.label)))));
+		}
+		return [];
+	}
+
+	/** The hits typed for [shipName], by part key. */
+	function typedHits(shipName) {
+		const hits = {};
+		$('fight-fields').querySelectorAll('[data-hit-ship]').forEach(input => {
+			if (input.dataset.hitShip === shipName) {
+				hits[input.dataset.part] = Number(input.value) || 0;
+			}
+		});
+		return hits;
+	}
+
+	/** R76: how much cargo the typed hits throw overboard, said next to the jettison fields. */
+	function updateOverflowNotes() {
+		if (fightStep !== 'HITS' || !lastGame) {
+			return;
+		}
+		$('fight-fields').querySelectorAll('[data-overflow]').forEach(note => {
+			const ship = note.dataset.overflow;
+			const lost = overflow(lastGame, ship, hitParts(lastGame, ship), typedHits(ship));
+			note.textContent = lost ? `These hits leave too little cargo space: throw ${lost} units of POLY and ISO overboard.` : 'No cargo is lost.';
+		});
+	}
+
+	function fightRequest() {
+		const fields = $('fight-fields');
+		if (fightStep === 'INTERCEPT') {
+			return ['interception', interceptionBody([...fields.querySelectorAll('[data-intercept]')].find(radio => radio.checked)?.value)];
+		}
+		if (fightStep === 'ORDERS') {
+			const choices = [...fields.querySelectorAll('[data-ship]')].map(select => ({
+				ship: select.dataset.ship,
+				target: select.value,
+				rockets: [...fields.querySelectorAll('[data-rockets]')].find(box => box.dataset.rockets === select.dataset.ship)?.checked,
+			}));
+			return ['battle/orders', ordersBody(choices)];
+		}
+		if (fightStep === 'HITS') {
+			const ships = lastGame.you.battle.hitsToPlace.map(pending => {
+				const jettison = {};
+				fields.querySelectorAll('[data-jettison-ship]').forEach(input => {
+					if (input.dataset.jettisonShip === pending.ship) {
+						jettison[input.dataset.goods] = Number(input.value) || 0;
+					}
+				});
+				return shipHitsBody(pending.ship, hitParts(lastGame, pending.ship), typedHits(pending.ship), jettison);
+			});
+			return ['battle/hits', { ships }];
+		}
+		return ['battle/landing', { ships: [...fields.querySelectorAll('[data-land]')].map(select => ({ ship: select.dataset.land, location: select.value })) }];
+	}
+
+	const FIGHT_DONE = {
+		INTERCEPT: 'Decision sent.',
+		ORDERS: 'Orders given. They stay secret until everyone has given theirs.',
+		HITS: 'Hits placed.',
+		LANDING: 'Your ships have landed.',
+	};
+
+	async function submitFight(event) {
+		event.preventDefault();
+		if (fightSending || !fightStep) {
+			return;
+		}
+		const gameId = currentGameId;
+		const step = fightStep;
+		const [path, body] = fightRequest();
+		fightSending = true;
+		$('fight-button').disabled = true;
+		setFightMessage('', false);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/ship-jumps/${path}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+		} catch {
+			response = null;
+		}
+		fightSending = false;
+		$('fight-button').disabled = false;
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			render(await response.json());
+			setFightMessage(FIGHT_DONE[step], false);
+			$('fight-message').focus();
+			return;
+		}
+		setFightMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true);
+		$('fight-message').focus();
+		if (response) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1;
+			poll();
+		}
 	}
 
 	// ── E04-S03: the landing dialog (s05) ──
@@ -3249,6 +3517,8 @@
 	$('bid-form').addEventListener('submit', submitBid);
 	$('pick-form').addEventListener('submit', submitPick);
 	$('jump-form').addEventListener('submit', submitJump);
+	$('fight-form').addEventListener('submit', submitFight);
+	$('fight-fields').addEventListener('input', updateOverflowNotes);
 	$('finish-button').addEventListener('click', () => sendJumpStep('finish', null));
 	$('landing-form').addEventListener('submit', event => {
 		event.preventDefault();

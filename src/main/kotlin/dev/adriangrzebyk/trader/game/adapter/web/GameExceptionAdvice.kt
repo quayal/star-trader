@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.GameNotFoundException
+import dev.adriangrzebyk.trader.game.InvalidBattleException
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidCargoMoveException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
@@ -41,6 +42,7 @@ class GameExceptionAdvice {
 	fun forbidden(ex: RuntimeException): ResponseEntity<String> = answer(HttpStatus.FORBIDDEN, ex)
 
 	@ExceptionHandler(
+		InvalidBattleException::class,
 		InvalidBidException::class,
 		InvalidCargoMoveException::class,
 		InvalidCollectException::class,

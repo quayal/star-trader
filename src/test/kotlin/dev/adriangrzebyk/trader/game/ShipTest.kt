@@ -25,7 +25,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(ship.cargoSpacesUsed()).isEqualTo(7)
@@ -42,7 +44,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(ship.cargoSpacesUsed()).isZero()
@@ -56,13 +60,11 @@ class ShipTest {
 	}
 
 	@Test
-	fun shouldRefuseAJumpToTheSystemItIsAlreadyAt() {
-		// S02-4
+	fun shouldMoveIntoSpaceWhenJumpingToTheSystemItIsAlreadyAt() {
+		// R69 (replaces S02-4)
 		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 
-		assertThatThrownBy { ship.jumpTo(StarSystem.TAU_CETI) }
-			.isInstanceOf(InvalidJumpException::class.java)
-			.hasMessage("Wayfarer is already at Tau Ceti. Pick another destination.")
+		assertThat(ship.jumpTo(StarSystem.TAU_CETI)).isEqualTo(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE))
 	}
 
 	@Test
@@ -91,7 +93,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(ship.unitsThatFit(Goods.ISO, 8)).isEqualTo(6)
@@ -109,7 +113,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(full.unitsThatFit(Goods.FOOD, 30)).isEqualTo(30)
@@ -128,7 +134,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(ship.unload(Goods.ISO, 2).cargo).isEqualTo(mapOf(Goods.ISO to 3, Goods.CHIPS to 2))
@@ -147,7 +155,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThatThrownBy { ship.unload(Goods.ISO, 3) }
@@ -166,7 +176,9 @@ class ShipTest {
 				Ship.LEGACY_HULL,
 				Ship.LEGACY_MODULES,
 				Ship.STARTING_CREW_CLASS,
-				null
+				null,
+				0,
+				emptyList()
 			)
 
 		assertThat(overfull.unitsThatFit(Goods.ISO, 3)).isZero()
@@ -256,11 +268,13 @@ class ShipTest {
 		Ship.LEGACY_HULL,
 		Ship.LEGACY_MODULES,
 		Ship.STARTING_CREW_CLASS,
-		null
+		null,
+		0,
+		emptyList()
 	)
 
 	private fun ship(hull: Hull, vararg modules: Module) =
-		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS, null)
+		Ship("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT, emptyMap(), hull, modules.toList(), Ship.STARTING_CREW_CLASS, null, 0, emptyList())
 
 	// R68: base chance + crew (A +5, B +3, C +1, D +0) + Safe jump (+2).
 	@Test
@@ -283,5 +297,5 @@ class ShipTest {
 	}
 
 	private fun crewed(crewClass: CrewClass) =
-		Ship("Kestrel", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT, emptyMap(), Hull.CLARINET, listOf(Module.CARGO), crewClass, null)
+		Ship("Kestrel", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT, emptyMap(), Hull.CLARINET, listOf(Module.CARGO), crewClass, null, 0, emptyList())
 }

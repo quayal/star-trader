@@ -20,7 +20,9 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 			CARGO to AttributeValue.fromM(ship.cargo.entries.associate { (goods, units) -> goods.name to number(units) }),
 			HULL to AttributeValue.fromS(ship.hull.name),
 			MODULES to AttributeValue.fromL(ship.modules.map { AttributeValue.fromS(it.name) }),
-			CREW_CLASS to AttributeValue.fromS(ship.crewClass.name)
+			CREW_CLASS to AttributeValue.fromS(ship.crewClass.name),
+			HULL_DAMAGE to number(ship.hullDamage),
+			DAMAGED_MODULES to AttributeValue.fromL(ship.damagedModules.map { AttributeValue.fromS(it.name) })
 		) + listOfNotNull(ship.boughtOnTurn?.let { BOUGHT_ON_TURN to number(it) })
 	)
 
@@ -35,7 +37,10 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		modules = attributes[MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: Ship.LEGACY_MODULES,
 		// Items saved before E09 have no crew class (every ship was a starting ship, class B, R55) and were never bought.
 		crewClass = attributes[CREW_CLASS]?.s()?.let { CrewClass.valueOf(it) } ?: Ship.STARTING_CREW_CLASS,
-		boughtOnTurn = attributes[BOUGHT_ON_TURN]?.n()?.toInt()
+		boughtOnTurn = attributes[BOUGHT_ON_TURN]?.n()?.toInt(),
+		// Items saved before E10 have no damage: nothing could damage a ship then.
+		hullDamage = attributes[HULL_DAMAGE]?.n()?.toInt() ?: 0,
+		damagedModules = attributes[DAMAGED_MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: emptyList()
 	)
 
 	private companion object {
@@ -47,5 +52,7 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		const val MODULES = "modules"
 		const val CREW_CLASS = "crewClass"
 		const val BOUGHT_ON_TURN = "boughtOnTurn"
+		const val HULL_DAMAGE = "hullDamage"
+		const val DAMAGED_MODULES = "damagedModules"
 	}
 }

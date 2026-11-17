@@ -72,6 +72,8 @@ class WholeGameTest {
 			override fun d2(): Int = if (rolls.getAndIncrement() % 2 == 0) 2 else 1
 
 			override fun twoD6(): Int = 7
+
+			override fun d6(): Int = 3
 		}
 
 		/** The host starts at Tau Ceti and Mu Herculis, the guest at Gamma Leporis and Beta Hydri. */

@@ -1,20 +1,23 @@
 package dev.adriangrzebyk.trader.game
 
 /**
- * Hands out the given d2 and 2d6 rolls in order, each from its own queue; running out fails the test, so every roll a
+ * Hands out the given d2, 2d6 and d6 rolls in order, each from its own queue; running out fails the test, so every roll a
  * rule takes is spelled out.
  */
-class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>) : Dice {
+class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList()) : Dice {
 
 	/** Only d2 rolls: for rules that never roll 2d6. */
 	constructor(vararg d2Rolls: Int) : this(d2Rolls.toList(), emptyList())
 
 	private val remainingD2 = ArrayDeque(d2Rolls)
 	private val remainingTwoD6 = ArrayDeque(twoD6Rolls)
+	private val remainingD6 = ArrayDeque(d6Rolls)
 
 	override fun d2(): Int = remainingD2.removeFirstOrNull() ?: error("FakeDice ran out of d2 rolls")
 
 	override fun twoD6(): Int = remainingTwoD6.removeFirstOrNull() ?: error("FakeDice ran out of 2d6 rolls")
+
+	override fun d6(): Int = remainingD6.removeFirstOrNull() ?: error("FakeDice ran out of d6 rolls")
 
 	companion object {
 		/** Only 2d6 rolls: for Trading, where the counter rolls (R34). */
@@ -25,7 +28,15 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>) : Dice {
 			override fun d2(): Int = error("FakeDice.everyTwoD6 has no d2 rolls")
 
 			override fun twoD6(): Int = roll
+
+			override fun d6(): Int = error("FakeDice.everyTwoD6 has no d6 rolls")
 		}
+
+		/** Only d6 rolls: for interception (R70). */
+		fun d6(vararg rolls: Int) = FakeDice(emptyList(), emptyList(), rolls.toList())
+
+		/** Battle rolls: 2d6 for each salvo, d6 for each rocket check (R75). */
+		fun battle(twoD6: List<Int>, d6: List<Int>) = FakeDice(emptyList(), twoD6, d6)
 	}
 }
 

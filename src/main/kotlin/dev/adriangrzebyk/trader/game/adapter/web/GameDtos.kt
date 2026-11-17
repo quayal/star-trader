@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
+import dev.adriangrzebyk.trader.game.Battle
 import dev.adriangrzebyk.trader.game.CargoDestination
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
@@ -8,6 +9,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.Interception
 import dev.adriangrzebyk.trader.game.JumpChance
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -73,7 +75,7 @@ data class GameResponseDto(
 		game.status.name,
 		ids.of(game.creatorEmail),
 		game.players.map { PlayerResponseDto(it, ids) },
-		game.turn?.let { TurnResponseDto(it, ids) },
+		game.turn?.let { TurnResponseDto(it, ids, game.players.flatMap { player -> player.ships }) },
 		game.logAfter(logAfter).map { LogEntryResponseDto(it) },
 		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
@@ -88,7 +90,9 @@ data class GameResponseDto(
 				game.turn?.isCollecting(it.email) == true,
 				game.canInvest(it.email),
 				game.prices,
-				game.freeShipNames()
+				game.freeShipNames(),
+				game.turn?.interception,
+				game.turn?.battle
 			)
 		}
 	)
@@ -222,10 +226,13 @@ data class TurnResponseDto(
 	val resolvedGoods: List<MarketGoodResponseDto>,
 	val resolution: ResolutionResponseDto?,
 	val doneInvesting: List<String>,
-	val collected: List<String>
+	val collected: List<String>,
+	val interception: InterceptionResponseDto?,
+	val battle: BattleResponseDto?
 ) {
 
-	constructor(turn: Turn, ids: PlayerIds) : this(
+	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
+	constructor(turn: Turn, ids: PlayerIds, ships: List<Ship>) : this(
 		turn.number,
 		turn.phase.name,
 		ids.ofAll(turn.doneBidding),
@@ -238,7 +245,9 @@ data class TurnResponseDto(
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
 		turn.resolution?.let { ResolutionResponseDto(it, ids) },
 		ids.ofAll(turn.doneInvesting),
-		ids.ofAll(turn.collected)
+		ids.ofAll(turn.collected),
+		turn.interception?.let { InterceptionResponseDto(it, ids) },
+		turn.battle?.let { BattleResponseDto(it, ids, ships) }
 	)
 }
 
@@ -389,7 +398,9 @@ data class YouResponseDto(
 	val wholesaleMax: WholesaleMaxResponseDto?,
 	val warehouses: List<YourWarehouseResponseDto>,
 	val collect: CollectResponseDto?,
-	val invest: InvestResponseDto?
+	val invest: InvestResponseDto?,
+	val interception: YourInterceptionResponseDto?,
+	val battle: YourBattleResponseDto?
 ) {
 
 	/**
@@ -408,7 +419,9 @@ data class YouResponseDto(
 		collecting: Boolean,
 		investing: Boolean,
 		prices: MarketPrices,
-		freeShipNames: List<String>
+		freeShipNames: List<String>,
+		interception: Interception?,
+		battle: Battle?
 	) : this(
 		id,
 		player.money,
@@ -419,7 +432,10 @@ data class YouResponseDto(
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
 		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player, prices, freeShipNames).takeIf { investing }
+		InvestResponseDto(player, prices, freeShipNames).takeIf { investing },
+		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
+		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
+			?.let { YourBattleResponseDto(it, player.email, id) }
 	)
 }
 
@@ -763,7 +779,9 @@ data class YourShipResponseDto(
 	val saleValue: Int,
 	val canRefit: Boolean,
 	val leavesYardOnTurn: Int?,
-	val jumpChances: Map<String, JumpChanceResponseDto>
+	val jumpChances: Map<String, JumpChanceResponseDto>,
+	val hullDamage: Int,
+	val repairCost: Int
 ) {
 
 	constructor(ship: Ship) : this(
@@ -772,13 +790,15 @@ data class YourShipResponseDto(
 		ship.cargoSpacesUsed(),
 		ship.cargoSpaces(),
 		HullResponseDto(ship.hull),
-		ship.fittedModules().map { (module, count) -> FittedModuleResponseDto(module, count) },
+		ship.fittedModules().map { (module, count) -> FittedModuleResponseDto(module, count, ship.damagedCount(module)) },
 		ShipStatsResponseDto(ship),
 		ship.crewClass.name,
 		ship.saleValue(),
 		ship.canBeRefitted(),
 		ship.leavesYardOnTurn(),
-		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) }
+		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
+		ship.hullDamage,
+		ship.repairCost()
 	)
 }
 
@@ -794,11 +814,15 @@ data class HullResponseDto(val name: String, val military: Boolean, val aerodyna
 	constructor(hull: Hull) : this(hull.displayName, hull.military, hull.aerodynamic)
 }
 
-/** A module a ship carries [count] of, with what one of them adds (R52): the figures are per module, not times [count]. */
+/**
+ * A module a ship carries [count] of, [damaged] of them damaged (R76), with what one of them adds (R52): the figures are
+ * per module, not times [count].
+ */
 data class FittedModuleResponseDto(
 	val id: String,
 	val name: String,
 	val count: Int,
+	val damaged: Int,
 	val weapons: Int,
 	val rocketWeapons: Int,
 	val crew: Int,
@@ -808,10 +832,11 @@ data class FittedModuleResponseDto(
 	val resaleValue: Int
 ) {
 
-	constructor(module: Module, count: Int) : this(
+	constructor(module: Module, count: Int, damaged: Int) : this(
 		module.name,
 		module.displayName,
 		count,
+		damaged,
 		module.weapons,
 		module.rocketWeapons,
 		module.crew,

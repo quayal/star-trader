@@ -33,6 +33,9 @@ enum class Module(
 	/** What fitting this module costs on a ship of [crewClass] (R65): its price plus its crew at that class. */
 	fun fittingCost(crewClass: CrewClass): Int = price + crew * crewClass.pricePerCrew
 
+	/** What repairing this module when it's damaged costs (R79): 10 HT, or 4 HT for a Cargo module. */
+	fun repairCost(): Int = if (this == CARGO) 4 else 10
+
 	/** What removing this module pays back (R65): half its price, rounded down; its crew isn't paid back. */
 	fun resaleValue(): Int = price / 2
 }

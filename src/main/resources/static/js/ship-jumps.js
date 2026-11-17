@@ -40,6 +40,13 @@ export function jumpingText(game, playerId) {
 	if (!orderIsSet(game)) {
 		return '';
 	}
+	// E10: the jumps wait while an interception is decided or a battle lasts.
+	if (game.turn.battle) {
+		return `battle at ${game.turn.battle.systemName}`;
+	}
+	if (game.turn.interception) {
+		return `interception at ${game.turn.interception.systemName}`;
+	}
 	const who = jumper(game);
 	if (who === null) {
 		return 'all jumps done';
@@ -61,6 +68,9 @@ export function deckDecisionText(game, playerId) {
 	if (picker(game) === playerId) {
 		return 'Your decision is needed: choose your place in the turn order.';
 	}
+	if (game.turn?.interception || game.turn?.battle) {
+		return ''; // the jumps wait for the fight; its own alert says what's needed (E10)
+	}
 	return jumper(game) === playerId ? "Your decision is needed: it's your turn to jump your ships, or to finish jumping." : '';
 }
 
@@ -79,7 +89,8 @@ export function slotStatuses(game) {
  * isn't their slot.
  */
 export function shipsToJump(game, playerId) {
-	if (jumper(game) !== playerId) {
+	// R73: while an interception is decided or a battle lasts, nobody jumps.
+	if (jumper(game) !== playerId || game.turn.interception || game.turn.battle) {
 		return [];
 	}
 	const jumped = game.turn.jumpedShips ?? [];
@@ -91,11 +102,6 @@ export function shipsToJump(game, playerId) {
 /** S02-2: "Wayfarer (at Tau Ceti)" in the ship list. */
 export function shipOptionText(ship) {
 	return `${ship.name} (at ${ship.systemName})`;
-}
-
-/** S02-4: the inline error for a jump to the system the ship is already at, or "" when the jump may go. */
-export function validateJump(ship, destination) {
-	return ship && ship.system === destination ? `${ship.name} is already at ${ship.systemName}. Pick another destination.` : '';
 }
 
 /**
