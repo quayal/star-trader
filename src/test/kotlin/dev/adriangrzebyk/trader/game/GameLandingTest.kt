@@ -48,7 +48,12 @@ class GameLandingTest {
 
 			assertThat(
 				shipOf(game, "Meridian")
-			).isEqualTo(Ship("Meridian", TAU_CETI, location, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS, null))
+			).isEqualTo(
+				Ship(
+					"Meridian", TAU_CETI, location, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS,
+					null, 0, emptyList()
+				)
+			)
 			assertThat(game.turn!!.landingShip).isNull()
 		}
 	}

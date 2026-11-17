@@ -44,6 +44,8 @@ export function statRows(ship) {
 		{ label: 'Weapons', value: String(stats.weapons) },
 		{ label: 'Rockets', value: String(stats.rocketWeapons) },
 		{ label: 'Shields', value: String(stats.shields) },
+		// R76: hull damage stays until repaired (R79); one hit more than the shields destroys the ship.
+		...(ship.hullDamage ? [{ label: 'Hull damage', value: `${ship.hullDamage} / ${stats.shields} hits` }] : []),
 		{ label: 'Intercept', value: String(stats.intercept) },
 		{ label: 'Crew needed', value: String(stats.crewNeeded) },
 		{ label: 'Passengers', value: String(stats.passengers) },
@@ -52,12 +54,15 @@ export function statRows(ship) {
 	];
 }
 
-/** One row per different module (S03-2): its name, "× 4", and what one of them adds, as the cells under [MODULE_COLUMNS]. */
+/**
+ * One row per different module (S03-2): its name, "× 4" ("× 4, 1 damaged" when battle damaged some, R76), and what one
+ * of them adds, as the cells under [MODULE_COLUMNS].
+ */
 export function moduleRows(modules) {
 	return (modules ?? []).map(module => ({
 		name: module.name,
 		flags: flagLabels(module),
-		cells: [`× ${module.count}`, module.weapons, module.rocketWeapons, module.crew, module.cargoSpaces, module.passengers].map(String),
+		cells: [`× ${module.count}${module.damaged ? `, ${module.damaged} damaged` : ''}`, module.weapons, module.rocketWeapons, module.crew, module.cargoSpaces, module.passengers].map(String),
 	}));
 }
 

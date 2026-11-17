@@ -1,9 +1,18 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Battle
+import dev.adriangrzebyk.trader.game.BattleAction
+import dev.adriangrzebyk.trader.game.BattleInterception
+import dev.adriangrzebyk.trader.game.BattleOrder
+import dev.adriangrzebyk.trader.game.BattleShip
+import dev.adriangrzebyk.trader.game.BattleStage
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.Interception
+import dev.adriangrzebyk.trader.game.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Offer
+import dev.adriangrzebyk.trader.game.PendingHits
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Trade
@@ -38,6 +47,8 @@ class TurnItemTest {
 		resolvedGoods = listOf(MarketGood(StarSystem.GAMMA_LEPORIS, Goods.POLY)),
 		doneInvesting = listOf("ada@example.com"),
 		collected = listOf("grace@example.com"),
+		interception = null,
+		battle = null,
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -55,6 +66,42 @@ class TurnItemTest {
 	@Test
 	fun shouldReadBackEveryFieldOfATurn() {
 		assertThat(TurnItem(TurnItem(turn).attributes).toTurn()).isEqualTo(turn)
+	}
+
+	@Test
+	fun shouldReadBackAnInterceptionAndABattle() {
+		// E10: both live on the turn while the jumps wait.
+		val fighting = turn.copy(
+			interception = Interception(
+				StarSystem.TAU_CETI,
+				"Meridian",
+				"grace@example.com",
+				listOf("ada@example.com", "kim@example.com"),
+				listOf(InterceptionAnswer("ada@example.com", "Wayfarer"), InterceptionAnswer("kim@example.com", null))
+			),
+			battle = Battle(
+				StarSystem.TAU_CETI,
+				2,
+				BattleStage.HITS,
+				listOf(BattleShip("Wayfarer", "ada@example.com"), BattleShip("Meridian", "grace@example.com")),
+				listOf(BattleInterception("Meridian", "Wayfarer")),
+				listOf(BattleShip("Lantern", "ada@example.com")),
+				listOf(BattleOrder("Wayfarer", BattleAction.FIRE, "Meridian", true), BattleOrder("Lantern", BattleAction.BREAK_AWAY, null, false)),
+				listOf(PendingHits("Meridian", "grace@example.com", 3)),
+				listOf("ada@example.com")
+			)
+		)
+
+		assertThat(TurnItem(TurnItem(fighting).attributes).toTurn()).isEqualTo(fighting)
+		assertThat(TurnItem(fighting).attributes.keys).contains("interception", "battle")
+	}
+
+	@Test
+	fun shouldReadATurnSavedBeforeBattlesExistedWithNoInterceptionOrBattle() {
+		val loaded = TurnItem(TurnItem(turn).attributes - "interception" - "battle").toTurn()
+
+		assertThat(loaded.interception).isNull()
+		assertThat(loaded.battle).isNull()
 	}
 
 	@Test
@@ -87,7 +134,9 @@ class TurnItemTest {
 					resolvedGoods = emptyList(),
 					resolution = null,
 					doneInvesting = emptyList(),
-					collected = emptyList()
+					collected = emptyList(),
+					interception = null,
+					battle = null
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -324,7 +373,9 @@ class TurnItemTest {
 				resolvedGoods = emptyList(),
 				resolution = null,
 				doneInvesting = emptyList(),
-				collected = emptyList()
+				collected = emptyList(),
+				interception = null,
+				battle = null
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

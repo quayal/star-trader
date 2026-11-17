@@ -8,4 +8,7 @@ interface Dice {
 
 	/** Two d6 summed: 2 to 12. A Trading resolution's counter starts at the good's S/D plus this roll (R34). */
 	fun twoD6(): Int
+
+	/** A d6: 1 to 6. Interception adds one to each side (R70); a rocket salvo rolls one to destroy (R75). */
+	fun d6(): Int
 }

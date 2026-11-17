@@ -8,7 +8,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * (units per good) is private to its owner (S02-7), as are its hull and modules (R57). Trading fills and empties the
  * cargo (E05). Its stats are derived from the hull and modules, never stored (R53). All its crew are of one [crewClass]
  * (R67). A ship bought in Investment ([boughtOnTurn]; null for every other ship) waits in the shipyard until the next
- * turn's Investment (R63).
+ * turn's Investment (R63). Battle damage (R76) stays until repaired (R79): [hullDamage] hits on the hull, and
+ * [damagedModules], fitted modules that took one hit and count as not there (a multiset within [modules]).
  */
 data class Ship(
 	val name: String,
@@ -18,27 +19,135 @@ data class Ship(
 	val hull: Hull,
 	val modules: List<Module>,
 	val crewClass: CrewClass,
-	val boughtOnTurn: Int?
+	val boughtOnTurn: Int?,
+	val hullDamage: Int,
+	val damagedModules: List<Module>
 ) {
 
 	init {
 		hull.checkFits(modules)
+		require(damagedModules.distinct().all { module -> damagedModules.count { it == module } <= modules.count { it == module } }) {
+			"$name has more damaged modules than fitted ones."
+		}
 	}
 
-	/** R53: the hull's weapons plus every module's. */
-	fun weapons(): Int = hull.weapons + modules.sumOf { it.weapons }
+	/** The fitted modules that work (R76): every one but the damaged ones, which count as not there. */
+	fun workingModules(): List<Module> {
+		val damaged = damagedModules.toMutableList()
+		return modules.filterNot { damaged.remove(it) }
+	}
 
-	/** R53: the rocket weapons of every module (the hull has none). */
-	fun rocketWeapons(): Int = modules.sumOf { it.rocketWeapons }
+	/** R53, R76: the hull's weapons plus every working module's. */
+	fun weapons(): Int = hull.weapons + workingModules().sumOf { it.weapons }
+
+	/** R53, R76: the rocket weapons of every working module (the hull has none). */
+	fun rocketWeapons(): Int = workingModules().sumOf { it.rocketWeapons }
+
+	/**
+	 * What this ship adds to 2d6 when it fires (R75): its [weapons], or with [rockets] the hull's weapons plus each working
+	 * module's rocket value where it has one and its weapons where it hasn't.
+	 */
+	fun firepower(rockets: Boolean): Int =
+		if (rockets) hull.weapons + workingModules().sumOf { if (it.rocketWeapons > 0) it.rocketWeapons else it.weapons } else weapons()
+
+	/** This ship's interception total with [d6] rolled (R70, R71): intercept + d6 + crew class + a working Battle comm. */
+	fun interceptTotal(d6: Int): Int = intercept() + d6 + interceptModifier()
+
+	/** What this ship's crew and a working Battle comm add to its interception rolls (R71). */
+	fun interceptModifier(): Int = crewClass.interceptModifier + if (Module.BATTLE_COMM in workingModules()) 1 else 0
+
+	/** The public log's account of an interception roll (R70): "Lantern (2 + d6 4 + 0 = 6)". */
+	fun interceptLog(d6: Int): String {
+		val modifier = interceptModifier()
+		val sign = if (modifier < 0) "− ${-modifier}" else "+ $modifier"
+		return "$name (${intercept()} + d6 $d6 $sign = ${interceptTotal(d6)})"
+	}
+
+	/** Whether this ship has battle damage to repair (R79). */
+	fun isDamaged(): Boolean = hullDamage > 0 || damagedModules.isNotEmpty()
+
+	/** Whether the hull took more hits than its shields (R76): the ship is destroyed. */
+	fun isDestroyed(): Boolean = hullDamage > shields()
+
+	/** How many of [module] are fitted and damaged (R76). */
+	fun damagedCount(module: Module): Int = damagedModules.count { it == module }
+
+	/**
+	 * The most hits this ship can take and survive (R76): the hull up to its shields, 2 for each working module and 1 for
+	 * each damaged one. More than that destroys it whatever its owner chooses.
+	 */
+	fun hitsSurvivable(): Int = (shields() - hullDamage).coerceAtLeast(0) + workingModules().size * 2 + damagedModules.size
+
+	/**
+	 * This ship after its owner placed [hits] hits as [placement] (R76). Refused unless the placement adds up to [hits],
+	 * names only modules fitted in that condition, gives a working module 1 or 2 and a damaged one 1, and gives the hull
+	 * at most what destroys it; and unless [placement]'s jettison is exactly the POLY and ISO that no longer fits. The
+	 * result may be destroyed ([isDestroyed]).
+	 */
+	fun takeHits(hits: Int, placement: HitPlacement): Ship {
+		if (placement.total() != hits) {
+			throw InvalidBattleException("Place exactly $hits hits on $name, not ${placement.total()}.")
+		}
+		if (placement.hullHits !in 0..shields() + 1 - hullDamage) {
+			throw InvalidBattleException("$name's hull can take at most ${shields() + 1 - hullDamage} more hits.")
+		}
+		val working = workingModules().toMutableList()
+		val damaged = damagedModules.toMutableList()
+		var fitted = modules
+		for (hit in placement.moduleHits) {
+			val pool = if (hit.alreadyDamaged) damaged else working
+			if (!pool.remove(hit.module)) {
+				val condition = if (hit.alreadyDamaged) "damaged" else "working"
+				throw InvalidBattleException("$name has no more $condition ${hit.module.displayName} modules to hit.")
+			}
+			if (hit.hits !in 1..(if (hit.alreadyDamaged) 1 else 2)) {
+				throw InvalidBattleException("A module takes 1 or 2 hits, and a damaged one 1.")
+			}
+			if (hit.alreadyDamaged || hit.hits == 2) {
+				fitted = fitted - hit.module
+			} else {
+				damaged += hit.module
+			}
+		}
+		// What `damaged` holds now: the damaged modules not hit again, plus the working ones just damaged.
+		val hit = copy(hullDamage = hullDamage + placement.hullHits, modules = fitted, damagedModules = damaged)
+		return hit.jettisoned(placement.jettison)
+	}
+
+	/** This ship after throwing [jettison] overboard, refused unless it's exactly what no longer fits (R76). */
+	private fun jettisoned(jettison: Map<Goods, Int>): Ship {
+		val overflow = (cargoSpacesUsed() - cargoSpaces()).coerceAtLeast(0)
+		val thrown = jettison.filterValues { it > 0 }
+		if (thrown.keys.any { !it.takesCargoSpace } ||
+			thrown.values.sum() != overflow ||
+			thrown.any { (goods, units) -> units > holding(goods) }
+		) {
+			throw InvalidBattleException(
+				if (overflow == 0) "$name keeps all its cargo." else "$name loses $overflow units of POLY and ISO: choose which."
+			)
+		}
+		return thrown.entries.fold(this) { ship, (goods, units) -> ship.withCargo(goods, ship.holding(goods) - units) }
+	}
+
+	/** What repairing all this ship's damage costs (R79): the hull's repair price if it's hit, plus each damaged module's. */
+	fun repairCost(): Int = (if (hullDamage > 0) hull.repairCost else 0) + damagedModules.sumOf { it.repairCost() }
+
+	/** This ship with all its damage repaired (R79), refused when it has none. */
+	fun repaired(): Ship {
+		if (!isDamaged()) {
+			throw InvalidInvestmentException("$name has no damage to repair.")
+		}
+		return copy(hullDamage = 0, damagedModules = emptyList())
+	}
 
 	/** R53: the crew the hull and every module need. */
 	fun crewNeeded(): Int = hull.crew + modules.sumOf { it.crew }
 
-	/** R53: the hull's built-in cargo spaces plus every module's. */
-	fun cargoSpaces(): Int = hull.builtInCargo + modules.sumOf { it.cargoSpaces }
+	/** R53, R76: the hull's built-in cargo spaces plus every working module's. */
+	fun cargoSpaces(): Int = hull.builtInCargo + workingModules().sumOf { it.cargoSpaces }
 
-	/** R53: the passengers every module takes. */
-	fun passengers(): Int = modules.sumOf { it.passengers }
+	/** R53, R76: the passengers every working module takes. */
+	fun passengers(): Int = workingModules().sumOf { it.passengers }
 
 	/** R53: the hull's shields. */
 	fun shields(): Int = hull.shields
@@ -104,7 +213,10 @@ data class Ship(
 		if (module !in modules) {
 			throw InvalidInvestmentException("$name has no ${module.displayName} module.")
 		}
-		val refitted = copy(modules = modules - module)
+		val fitted = modules - module
+		// A working one goes first; only when every one of them is damaged does a damaged one go.
+		val damaged = if (damagedCount(module) > fitted.count { it == module }) damagedModules - module else damagedModules
+		val refitted = copy(modules = fitted, damagedModules = damaged)
 		if (refitted.cargoSpaces() < cargoSpacesUsed()) {
 			throw InvalidInvestmentException(
 				"$name carries ${cargoSpacesUsed()} units of POLY and ISO; without that module it would have only " +
@@ -146,11 +258,12 @@ data class Ship(
 	}
 
 	/**
-	 * This ship's chance to jump to [destination] (R68): the route's base chance plus its crew's modifier and its Safe
-	 * jump module's, if it has one. Null for the system it's already at, which is no jump.
+	 * This ship's chance to jump to [destination] (R68): the route's base chance plus its crew's modifier and its working
+	 * Safe jump module's, if it has one (a damaged one counts as not there, R76). Null for the system it's already at,
+	 * where a move into its Space always succeeds (R69).
 	 */
 	fun jumpChanceTo(destination: StarSystem): JumpChance? = system.baseJumpChanceTo(destination)?.let { base ->
-		JumpChance(base + crewClass.jumpModifier + modules.sumOf { it.jumpModifier })
+		JumpChance(base + crewClass.jumpModifier + workingModules().sumOf { it.jumpModifier })
 	}
 
 	/** This ship's chance to jump to each other system (R68), in map order: what its player sees before jumping. */
@@ -170,11 +283,17 @@ data class Ship(
 	}
 
 	/**
-	 * This ship after a jump to [destination] that succeeded (R19, R68, S02): instantly, arriving in Space until its player
-	 * chooses where it ends up (S03). Refused as [checkedJumpChanceTo] refuses.
+	 * This ship after a jump to [destination] that succeeded (R19, R68, S02), or a move within the system it's at, into its
+	 * Space (R69): instantly, arriving in Space until its player chooses where it ends up (S03). Refused in the shipyard.
 	 */
 	fun jumpTo(destination: StarSystem): Ship {
-		checkedJumpChanceTo(destination)
+		if (destination == system) {
+			if (isInShipyard()) {
+				throw InvalidJumpException("$name is still in the shipyard.")
+			}
+		} else {
+			checkedJumpChanceTo(destination)
+		}
 		return copy(system = destination, location = ShipLocation.SPACE)
 	}
 
@@ -185,6 +304,9 @@ data class Ship(
 		}
 		return copy(location = location)
 	}
+
+	/** Whether this ship is in Space at [system] (R70, R73): where it can intercept and fight. */
+	fun isInSpaceAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.SPACE
 
 	/** Where this ship is, for the public log: "Wayfarer at Tau Ceti". */
 	fun position(): String = "$name at ${system.displayName}"
@@ -244,7 +366,7 @@ data class Ship(
 			modules.firstOrNull { !it.isForSale() }?.let {
 				throw InvalidInvestmentException("${it.displayName} is military: it can't be bought at a shipyard.")
 			}
-			return Ship(trimmed, shipyard, ShipLocation.SHIPYARD, emptyMap(), hull, modules, crewClass, turn)
+			return Ship(trimmed, shipyard, ShipLocation.SHIPYARD, emptyMap(), hull, modules, crewClass, turn, 0, emptyList())
 		}
 
 		/**
@@ -266,6 +388,6 @@ data class Ship(
 
 		/** A starting ship carrying nothing (R40, R55: every ship starts empty). */
 		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) =
-			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES, STARTING_CREW_CLASS, null)
+			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES, STARTING_CREW_CLASS, null, 0, emptyList())
 	}
 }

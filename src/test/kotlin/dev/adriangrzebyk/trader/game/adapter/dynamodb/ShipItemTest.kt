@@ -23,7 +23,9 @@ class ShipItemTest {
 		hull = Hull.MONARCH,
 		modules = listOf(Module.CARGO, Module.LIGHT_WEAPONS, Module.CARGO, Module.SAFE_JUMP),
 		crewClass = CrewClass.C,
-		boughtOnTurn = 4
+		boughtOnTurn = 4,
+		hullDamage = 1,
+		damagedModules = listOf(Module.CARGO)
 	)
 
 	@Test
@@ -51,9 +53,19 @@ class ShipItemTest {
 					listOf("CARGO", "LIGHT_WEAPONS", "CARGO", "SAFE_JUMP").map { AttributeValue.fromS(it) }
 				),
 				"crewClass" to AttributeValue.fromS("C"),
+				"hullDamage" to AttributeValue.fromN("1"),
+				"damagedModules" to AttributeValue.fromL(listOf(AttributeValue.fromS("CARGO"))),
 				"boughtOnTurn" to AttributeValue.fromN("4")
 			)
 		)
+	}
+
+	@Test
+	fun shouldReadAShipStoredBeforeBattlesExistedAsUndamaged() {
+		val loaded = ShipItem(ShipItem(ship).attributes - "hullDamage" - "damagedModules").toShip()
+
+		assertThat(loaded.hullDamage).isZero()
+		assertThat(loaded.damagedModules).isEmpty()
 	}
 
 	@Test
@@ -63,7 +75,7 @@ class ShipItemTest {
 
 	@Test
 	fun shouldReadAShipStoredBeforeHullsExistedAsAClarinetWithFiveCargoModules() {
-		val stored = ShipItem(ship).attributes - "hull" - "modules"
+		val stored = ShipItem(ship).attributes - "hull" - "modules" - "hullDamage" - "damagedModules"
 
 		val loaded = ShipItem(stored).toShip()
 

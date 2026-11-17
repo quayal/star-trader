@@ -48,7 +48,10 @@ class GameShipJumpTest {
 		assertThat(
 			shipOf(game, "Meridian")
 		).isEqualTo(
-			Ship("Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS, null)
+			Ship(
+				"Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS,
+				null, 0, emptyList()
+			)
 		)
 		assertThat(game.turn!!.jumpedShips).containsExactly("Meridian")
 	}
@@ -216,10 +219,13 @@ class GameShipJumpTest {
 	}
 
 	@Test
-	fun shouldRefuseAJumpToTheSystemTheShipIsAlreadyAt() {
-		assertThatThrownBy { jumping.jumpShip("grace@example.com", "Meridian", GAMMA_LEPORIS, JUMPS_SUCCEED) }
-			.isInstanceOf(InvalidJumpException::class.java)
-			.hasMessage("Meridian is already at Gamma Leporis. Pick another destination.")
+	fun shouldMoveAShipWithinItsOwnSystemIntoSpace() {
+		// R69: a jump to the system it's at is a move into that system's Space, with no roll.
+		val game = jumping.jumpShip("grace@example.com", "Meridian", GAMMA_LEPORIS, JUMPS_SUCCEED)
+
+		assertThat(shipOf(game, "Meridian").location).isEqualTo(ShipLocation.SPACE)
+		assertThat(shipOf(game, "Meridian").system).isEqualTo(GAMMA_LEPORIS)
+		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Jump: Vega Lines — Meridian → Gamma Leporis"))
 	}
 
 	@Test

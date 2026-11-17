@@ -20,7 +20,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * players who have signalled done during this turn's Investment (R44, E06-S01-2); like [doneBidding] it's public, so
  * everyone can see who the game is waiting for (D09), and empty outside Investment. [collected] lists, in confirm order,
  * the players with factories who have confirmed where this turn's output goes (R47, E06-S03-5); public like
- * [doneInvesting], and empty outside Investment.
+ * [doneInvesting], and empty outside Investment. [interception] is the arrival other players decide whether to intercept
+ * (R70), and [battle] the battle it started (R73); while either is set, nobody jumps or lands.
  */
 data class Turn(
 	val number: Int,
@@ -37,7 +38,9 @@ data class Turn(
 	val resolvedGoods: List<MarketGood>,
 	val resolution: Resolution?,
 	val doneInvesting: List<String>,
-	val collected: List<String>
+	val collected: List<String>,
+	val interception: Interception?,
+	val battle: Battle?
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
@@ -174,6 +177,33 @@ data class Turn(
 	fun refuseWhileAShipWaitsToLand() {
 		landingShip?.let { throw InvalidGameOperationException("Choose where $it ends up first.") }
 	}
+
+	/** R73: while an interception is being decided or a battle lasts, the jumps wait. */
+	fun refuseDuringFight() {
+		interception?.let { throw InvalidGameOperationException("Waiting for the decision on intercepting ${it.ship}.") }
+		battle?.let { throw InvalidGameOperationException("A battle at ${it.system.displayName} is under way.") }
+	}
+
+	/** The interception being decided (R70), refused when there is none. */
+	fun interceptionNow(): Interception {
+		requireShipJumps()
+		return interception ?: throw InvalidGameOperationException("No interception is being decided.")
+	}
+
+	/** This turn with [changed] as its interception, or none. */
+	fun withInterception(changed: Interception?): Turn = copy(interception = changed)
+
+	/** The battle under way (R73), refused when there is none. */
+	fun battleNow(): Battle {
+		requireShipJumps()
+		return battle ?: throw InvalidGameOperationException("No battle is under way.")
+	}
+
+	/** This turn with [changed] as its battle, or none. */
+	fun withBattle(changed: Battle?): Turn = copy(battle = changed)
+
+	/** This turn after [ships] tried to intercept (R72): like a jump, it's their move for the turn. */
+	fun recordInterceptors(ships: List<String>): Turn = copy(jumpedShips = jumpedShips + ships.filterNot { it in jumpedShips })
 
 	/** Whether [ship] has already jumped this turn (each ship jumps at most once, R26). */
 	fun hasJumped(ship: Ship): Boolean = ship.name in jumpedShips
@@ -385,7 +415,9 @@ data class Turn(
 			emptyList(),
 			null,
 			emptyList(),
-			emptyList()
+			emptyList(),
+			null,
+			null
 		)
 	}
 }

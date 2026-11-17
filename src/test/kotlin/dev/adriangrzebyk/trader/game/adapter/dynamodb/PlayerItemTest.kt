@@ -37,7 +37,9 @@ class PlayerItemTest {
 				hull = Hull.FLUTE,
 				modules = listOf(Module.ARSENAL, Module.PASSENGER),
 				crewClass = Ship.STARTING_CREW_CLASS,
-				boughtOnTurn = null
+				boughtOnTurn = null,
+				hullDamage = 0,
+				damagedModules = emptyList()
 			),
 			Ship(
 				name = "Halcyon",
@@ -47,7 +49,9 @@ class PlayerItemTest {
 				hull = Ship.LEGACY_HULL,
 				modules = Ship.LEGACY_MODULES,
 				crewClass = Ship.STARTING_CREW_CLASS,
-				boughtOnTurn = null
+				boughtOnTurn = null,
+				hullDamage = 0,
+				damagedModules = emptyList()
 			)
 		),
 		marketPositions = listOf(

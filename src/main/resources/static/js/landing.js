@@ -18,7 +18,8 @@ export const ESCAPE_LOCATION = 'SPACE';
  */
 export function landingFor(game, playerId) {
 	const name = game.turn?.landingShip;
-	if (!name || jumper(game) !== playerId) {
+	// E10: a ship being intercepted or in a battle lands when the fight is over, with the battle's own form.
+	if (!name || jumper(game) !== playerId || game.turn.interception || game.turn.battle) {
 		return null;
 	}
 	const ship = game.players.find(p => p.id === playerId)?.ships.find(s => s.name === name);

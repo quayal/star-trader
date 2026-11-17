@@ -256,6 +256,20 @@ class GameController(
 	}
 
 	/**
+	 * The player repairs all the damage on their ship (R79, E10-S05) at a shipyard. `400` for a ship that isn't theirs,
+	 * isn't damaged, isn't at a shipyard, or costs more than they have; `409` outside Investment or before they have collected.
+	 */
+	@PostMapping("/games/{id}/investment/ships/{ship}/repair")
+	fun repairShip(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable ship: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(investmentService.repairShip(id, session.email, ship), session.email)
+	}
+
+	/**
 	 * The player sells their ship (R66, E09-S05), wherever it is, for half its hull and modules. Its cargo goes into their
 	 * warehouse at that system as far as it fits; the rest is lost. `400` for a ship that isn't theirs; `409` outside
 	 * Investment or before they have collected.
@@ -402,6 +416,62 @@ class GameController(
 		val game = shipJumpsService.land(id, session.email, request?.location())
 
 		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player decides which one of their ships in Space tries to intercept the ship that just arrived (R70, E10-S02):
+	 * `{ ship }`, null or absent for none. `409` when they aren't asked or have decided; `400` for a ship that isn't theirs in Space there.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/interception")
+	fun intercept(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: InterceptionRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(shipJumpsService.intercept(id, session.email, request?.ship), session.email)
+	}
+
+	/**
+	 * The player's orders for this battle round (R74, E10-S03): `{ orders: [{ ship, action, target, rockets }] }`. `400` for
+	 * an order the rules refuse; `409` when they have no ship fighting or have given this round's orders.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/battle/orders")
+	fun giveBattleOrders(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BattleOrdersRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(shipJumpsService.giveOrders(id, session.email, request?.battleOrders().orEmpty()), session.email)
+	}
+
+	/**
+	 * Where the player puts the hits their ships took this round (R76, E10-S03): `{ ships: [{ ship, hull, modules: [{ module,
+	 * damaged, hits }], jettison }] }`. `400` for a placement the rules refuse; `409` when they have no hits to place.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/battle/hits")
+	fun placeBattleHits(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BattleHitsRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(shipJumpsService.placeHits(id, session.email, request?.placements().orEmpty()), session.email)
+	}
+
+	/**
+	 * Where the player's surviving ships end up once the battle is over (R77, E10-S04): `{ ships: [{ ship, location }] }`.
+	 * `400` for a ship missing or a location that isn't Port, Planet or Space; `409` before the battle is over or twice.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/battle/landing")
+	fun landAfterBattle(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BattleLandingRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(shipJumpsService.landAfterBattle(id, session.email, request?.locations().orEmpty()), session.email)
 	}
 
 	@PostMapping("/games/{id}/ship-jumps/finish")

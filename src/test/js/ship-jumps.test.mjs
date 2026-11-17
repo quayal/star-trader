@@ -12,7 +12,6 @@ import {
 	shipOptionText,
 	shipsToJump,
 	slotStatuses,
-	validateJump,
 } from '../../main/resources/static/js/ship-jumps.js';
 import { phaseText } from '../../main/resources/static/js/bidding.js';
 
@@ -104,15 +103,6 @@ describe('shipOptionText', () => {
 	});
 });
 
-describe('validateJump', () => {
-	it('refuses the system the ship is already at (S02-4)', () => {
-		const ship = { name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti' };
-
-		assert.equal(validateJump(ship, 'TAU_CETI'), 'Wayfarer is already at Tau Ceti. Pick another destination.');
-		assert.equal(validateJump(ship, 'BETA_HYDRI'), '');
-	});
-});
-
 describe('deckDecisionText: a step on the Deck the game waits on you for', () => {
 	it('says it is your pick while you are the next to choose a place', () => {
 		// initiative Kessler, Me, Vega; Kessler has picked
@@ -153,8 +143,11 @@ describe('jumpChanceText (R68)', () => {
 		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'BETA_HYDRI'), 'Chance of success: 100%');
 	});
 
-	it("shows nothing for the ship's own system, someone else's ship, or a game without your ships", () => {
-		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'TAU_CETI'), '');
+	it("says a move within the ship's own system always succeeds (R69)", () => {
+		assert.equal(jumpChanceText(withChances, 'Wayfarer', 'TAU_CETI'), 'Moves into Space here: always succeeds.');
+	});
+
+	it("shows nothing for someone else's ship, or a game without your ships", () => {
 		assert.equal(jumpChanceText(withChances, 'Meridian', 'TAU_CETI'), '');
 		assert.equal(jumpChanceText(game(), 'Wayfarer', 'MU_HERCULIS'), '');
 	});

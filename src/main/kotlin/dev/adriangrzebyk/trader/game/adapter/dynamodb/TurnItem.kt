@@ -25,7 +25,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) })
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
-			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) }
+			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
+			turn.interception?.let { INTERCEPTION to AttributeValue.fromM(InterceptionItem(it).attributes) },
+			turn.battle?.let { BATTLE to AttributeValue.fromM(BattleItem(it).attributes) }
 		)
 	)
 
@@ -59,7 +61,10 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// Items saved before E06-S01 have no Investment; nobody could signal done there (BACKWARD_COMPATIBILITY.md §7).
 			doneInvesting = attributes[DONE_INVESTING]?.l()?.map { it.s() } ?: emptyList(),
 			// Items saved before E06-S03 have no collects; nobody had factories to collect from then (BACKWARD_COMPATIBILITY.md §7).
-			collected = attributes[COLLECTED]?.l()?.map { it.s() } ?: emptyList()
+			collected = attributes[COLLECTED]?.l()?.map { it.s() } ?: emptyList(),
+			// Absent when nobody is deciding an interception or fighting, which is also how items saved before E10 read.
+			interception = attributes[INTERCEPTION]?.m()?.let { InterceptionItem(it).toInterception() },
+			battle = attributes[BATTLE]?.m()?.let { BattleItem(it).toBattle() }
 		)
 	}
 
@@ -79,5 +84,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val TRADING_QUEUE = "tradingQueue"
 		const val RESOLVED_GOODS = "resolvedGoods"
 		const val RESOLUTION = "resolution"
+		const val INTERCEPTION = "interception"
+		const val BATTLE = "battle"
 	}
 }

@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.Battle
+import dev.adriangrzebyk.trader.game.BattleInterception
+import dev.adriangrzebyk.trader.game.BattleShip
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -95,7 +98,7 @@ class GameControllerTest {
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
-		assertThat(game.you).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null))
+		assertThat(game.you).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null))
 	}
 
 	@Test
@@ -269,7 +272,8 @@ class GameControllerTest {
 		).isEqualTo(
 			TurnResponseDto(
 				1, "BIDDING",
-				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList()
+				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
+				null, null
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -447,7 +451,7 @@ class GameControllerTest {
 				listOf(
 					"p2"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList()
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null
 			)
 		)
 
@@ -898,9 +902,6 @@ class GameControllerTest {
 		finishJumping("token-$second", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("It's $firstName's turn to jump.")
-		jumpShip("token-$first", gameId, """{"ship": "${ship.name}", "destination": "${ship.system}"}""")
-			.expectStatus().isBadRequest
-			.expectBody(String::class.java).isEqualTo("${ship.name} is already at ${ship.systemName}. Pick another destination.")
 		listOf("""{"ship": "${otherShip.name}", "destination": "TAU_CETI"}""", """{"destination": "TAU_CETI"}""").forEach { body ->
 			jumpShip("token-$first", gameId, body)
 				.expectStatus().isBadRequest
@@ -1947,6 +1948,163 @@ class GameControllerTest {
 		val request = restTestClient.put().uri("/api/games/{id}/trading/queue", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
+	}
+
+	@Test
+	fun shouldKeepBattleOrdersSecretUntilEveryoneHasGivenThemAndShowTheShipsToEveryone() {
+		// E10-S03-2, S03-3, S05-3
+		val (first, second, gameId) = battleGame("battle-orders")
+		val (ours, theirs) = firstShipsOf(gameId, first, second)
+
+		val afterOrders = battleOrders(
+			"token-$first",
+			gameId,
+			"""{"orders": [{"ship": "$ours", "action": "FIRE", "target": "$theirs", "rockets": true}]}"""
+		)
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(afterOrders.you!!.battle!!.orders).containsExactly(BattleOrderResponseDto(ours, "FIRE", theirs, true))
+		val seen = pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(seen.you!!.battle!!.orders).isEmpty()
+		assertThat(seen.you!!.battle!!.fighting).containsExactly(theirs)
+		assertThat(seen.turn!!.battle!!.waitingFor).containsExactly(idOf(gameId, second))
+		assertThat(seen.turn!!.battle!!.ships.map { it.hull.name }).containsExactly("Clarinet", "Clarinet")
+		assertThat(seen.turn!!.battle!!.ships.first { it.name == theirs }.interceptedBy).containsExactly(ours)
+	}
+
+	@Test
+	fun shouldRefuseABattleOrderTheRulesDoNotAllow() {
+		// E10-S03-2
+		val (first, second, gameId) = battleGame("battle-refusals")
+		val (ours, theirs) = firstShipsOf(gameId, first, second)
+
+		battleOrders("token-$second", gameId, """{"orders": [{"ship": "$theirs", "action": "BREAK_AWAY"}]}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("$theirs was intercepted by $ours: it can't break away while $ours fights.")
+		battleOrders("token-$first", gameId, """{"orders": [{"ship": "$ours", "action": "DANCE"}]}""")
+			.expectStatus().isBadRequest
+		battleOrders("token-$first", gameId, """{"orders": [{"ship": "$ours", "action": "BREAK_AWAY"}]}""").expectStatus().isOk
+		battleOrders("token-$first", gameId, """{"orders": [{"ship": "$ours", "action": "BREAK_AWAY"}]}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		jumpShip("token-$first", gameId, """{"ship": "$ours", "destination": "BETA_HYDRI"}""").expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "PORT"}]}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+	}
+
+	@Test
+	fun shouldEndTheBattleWhenTheOnlyEnemyBreaksAwayAndLetEveryoneLand() {
+		// E10-S04: the intercepted ship's salvo misses the ship breaking away; both then land.
+		val (first, second, gameId) = battleGame("battle-landing")
+		val (ours, theirs) = firstShipsOf(gameId, first, second)
+
+		battleOrders("token-$first", gameId, """{"orders": [{"ship": "$ours", "action": "BREAK_AWAY"}]}""").expectStatus().isOk
+		val over = battleOrders("token-$second", gameId, """{"orders": [{"ship": "$theirs", "action": "FIRE", "target": "$ours"}]}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(over.turn!!.battle!!.stage).isEqualTo("LANDING")
+		assertThat(over.you!!.battle!!.toLand).containsExactly(theirs)
+
+		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "SHIPYARD"}]}""").expectStatus().isBadRequest
+		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "PORT"}]}""").expectStatus().isOk
+		val landed = battleLanding("token-$second", gameId, """{"ships": [{"ship": "$theirs", "location": "PLANET"}]}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(landed.turn!!.battle).isNull()
+		assertThat(landed.players.flatMap { it.ships }.first { it.name == theirs }.location).isEqualTo("PLANET")
+	}
+
+	@Test
+	fun shouldTakeAnInterceptionDecisionOnlyFromAPlayerWhoIsAsked() {
+		// E10-S02-2, S02-5. The jump is a move within the ship's own system (R69), which never fails, so real dice can't spoil it.
+		val (first, second, gameId) = orderedGame("interception")
+		val (ours, theirs) = firstShipsOf(gameId, first, second)
+		val home = gameStore.find(gameId)!!.players.flatMap { it.ships }.first { it.name == ours }.system
+		gameStore.update(gameId) { game ->
+			val waiting = game.players.map { player ->
+				player.copy(ships = player.ships.map { if (it.name == theirs) it.copy(system = home, location = ShipLocation.SPACE) else it })
+			}
+			game.copy(players = waiting)
+		}
+		val arrived = jumpShip("token-$first", gameId, """{"ship": "$ours", "destination": "${home.name}"}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(arrived.turn!!.interception!!.awaiting).containsExactly(idOf(gameId, second))
+
+		intercept("token-$first", gameId, """{}""").expectStatus().isEqualTo(HttpStatus.CONFLICT)
+		val asked = pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(asked.you!!.interception).isEqualTo(YourInterceptionResponseDto(listOf(theirs), answered = false, chosen = null))
+		val decided = intercept("token-$second", gameId, """{}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(decided.turn!!.interception).isNull()
+		assertThat(decided.log.last().text).isEqualTo("Nobody tries to intercept $ours")
+	}
+
+	@Test
+	fun shouldRefuseARepairOutsideInvestment() {
+		// E10-S05-2
+		val (first, _, gameId) = orderedGame("repair")
+		val ship = gameStore.find(gameId)!!.players.first { it.email == first }.ships.first().name
+
+		repairShip("token-$first", gameId, ship).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+	}
+
+	/** An [orderedGame] whose two players' first ships fight in Space at Tau Ceti, the second's intercepted by the first's. */
+	private fun battleGame(prefix: String): Triple<String, String, String> {
+		val (first, second, gameId) = orderedGame(prefix)
+		val (ours, theirs) = firstShipsOf(gameId, first, second)
+		gameStore.update(gameId) { game ->
+			val inSpace = game.players.map { player ->
+				player.copy(
+					ships = player.ships.map {
+						if (it.name == ours ||
+							it.name == theirs
+						) {
+							it.copy(system = StarSystem.TAU_CETI, location = ShipLocation.SPACE)
+						} else {
+							it
+						}
+					}
+				)
+			}
+			val battle = Battle.start(
+				StarSystem.TAU_CETI,
+				listOf(BattleShip(ours, first), BattleShip(theirs, second)),
+				listOf(BattleInterception(theirs, ours))
+			)
+			game.copy(players = inSpace, turn = game.turn!!.withBattle(battle))
+		}
+		return Triple(first, second, gameId)
+	}
+
+	private fun firstShipsOf(gameId: String, first: String, second: String): Pair<String, String> {
+		val game = gameStore.find(gameId)!!
+		return game.players.first { it.email == first }.ships.first().name to game.players.first { it.email == second }.ships.first().name
+	}
+
+	private fun intercept(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/interception", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun battleOrders(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/battle/orders", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun battleLanding(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/battle/landing", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun repairShip(token: String?, gameId: String, ship: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/repair", gameId, ship)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	/**

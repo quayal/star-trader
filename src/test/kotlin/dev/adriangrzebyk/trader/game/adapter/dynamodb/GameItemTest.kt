@@ -43,7 +43,9 @@ class GameItemTest {
 						hull = Ship.LEGACY_HULL,
 						modules = Ship.LEGACY_MODULES,
 						crewClass = Ship.STARTING_CREW_CLASS,
-						boughtOnTurn = null
+						boughtOnTurn = null,
+						hullDamage = 0,
+						damagedModules = emptyList()
 					),
 					Ship(
 						name = "Lantern",
@@ -53,7 +55,9 @@ class GameItemTest {
 						hull = Ship.LEGACY_HULL,
 						modules = Ship.LEGACY_MODULES,
 						crewClass = Ship.STARTING_CREW_CLASS,
-						boughtOnTurn = null
+						boughtOnTurn = null,
+						hullDamage = 0,
+						damagedModules = emptyList()
 					)
 				),
 				marketPositions = emptyList(),
@@ -74,7 +78,9 @@ class GameItemTest {
 						hull = Ship.LEGACY_HULL,
 						modules = Ship.LEGACY_MODULES,
 						crewClass = Ship.STARTING_CREW_CLASS,
-						boughtOnTurn = null
+						boughtOnTurn = null,
+						hullDamage = 0,
+						damagedModules = emptyList()
 					),
 					Ship(
 						name = "Halcyon",
@@ -84,7 +90,9 @@ class GameItemTest {
 						hull = Ship.LEGACY_HULL,
 						modules = Ship.LEGACY_MODULES,
 						crewClass = Ship.STARTING_CREW_CLASS,
-						boughtOnTurn = null
+						boughtOnTurn = null,
+						hullDamage = 0,
+						damagedModules = emptyList()
 					)
 				),
 				marketPositions = emptyList(),
@@ -107,7 +115,9 @@ class GameItemTest {
 			resolvedGoods = emptyList(),
 			resolution = null,
 			doneInvesting = emptyList(),
-			collected = listOf("ada@example.com")
+			collected = listOf("ada@example.com"),
+			interception = null,
+			battle = null
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(
