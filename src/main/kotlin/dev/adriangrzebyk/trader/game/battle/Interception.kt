@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.battle
 
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.CorporationNames
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 
 /**
@@ -21,6 +22,13 @@ data class Interception(
 
 	/** Whether [email] is asked: only they see the question and their own answer (R70). */
 	fun asks(email: String): Boolean = email in asked
+
+	/** The public log line (R70): "Interception: Vega Lines, Kessler Cargo may try to stop Wayfarer at Tau Ceti". */
+	fun askedText(names: CorporationNames): String =
+		"Interception: ${asked.joinToString(", ") { names.of(it) }} may try to stop $ship at ${system.displayName}"
+
+	/** The public log line when everyone asked declined (R70). */
+	fun nobodyTriedText(): String = "Nobody tries to intercept $ship"
 
 	/** Whether everyone asked has answered: the tries can be rolled. */
 	fun isDecided(): Boolean = awaiting().isEmpty()

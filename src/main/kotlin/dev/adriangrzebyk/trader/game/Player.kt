@@ -357,6 +357,32 @@ data class Player(
 	fun connectionsPlacedLog(): String =
 		"$corporationName's connections: political ${connections.political}, business ${connections.business}, criminal ${connections.criminal}"
 
+	/** The public log line of this player's [shipName] having jumped (S02-7), with the 2d6 [roll] when one was made (R68). */
+	fun jumpedLog(shipName: String, roll: Int?): String =
+		"Jump: $corporationName — ${checkNotNull(ship(shipName)).jumpLog()}" + (roll?.let { " (rolled $it)" } ?: "")
+
+	/** The public log line of this player's [shipName] failing its jump to [destination] on [roll] (R68, S02-7). */
+	fun failedJumpLog(shipName: String, destination: StarSystem, roll: Int): String =
+		"Jump: $corporationName — ${checkNotNull(ship(shipName)).failedJumpLog(destination, roll)}"
+
+	/** The public log line of this player's [shipName] landing where it is now (S03-3, R77). */
+	fun landedLog(shipName: String): String = "Landing: $corporationName — ${checkNotNull(ship(shipName)).landingLog()}"
+
+	/** The public log line of [blocks] warehouse blocks bought at [system] (R50: without the price). */
+	fun warehouseBlocksLog(system: StarSystem, blocks: Int): String =
+		"$corporationName added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
+
+	/** The public log line of [units] of [goods] production bought at [system] (R50: without the price). */
+	fun factoryUnitsLog(system: StarSystem, goods: Goods, units: Int): String =
+		"$corporationName added ${if (units == 1) "1 unit" else "$units units"} of ${goods.name} production at ${system.displayName}"
+
+	/** The public log line of a ship [shipName] ordered at [shipyard] (R50, R57: never its hull or price). */
+	fun shipOrderedLog(shipName: String, shipyard: StarSystem): String =
+		"$corporationName ordered $shipName at the ${shipyard.displayName} shipyard"
+
+	/** The public log line of [shipName] sold (R66: without the amount, R29). */
+	fun shipSoldLog(shipName: String): String = "$corporationName sold $shipName"
+
 	/** The public log line of this player's starting roll of [roll] on the d3 (R82, E12-S01-1). */
 	fun connectionPointsRolledLog(roll: Int): String = "$corporationName rolled $roll: $connectionPoints connection points to place"
 

@@ -21,6 +21,15 @@ data class Trade(val offer: Offer, val marketMax: Int, val units: Int, val posit
 		tradedAny()
 	}
 
+	/** The public log line of this trade (S04-6): "Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT". */
+	fun logText(names: CorporationNames): String = "${names.of(offer.playerEmail)} ${terms()}"
+
+	/** The public log line of this trade's position roll at [good] (E05-S06-4), or null when it made none. */
+	fun positionLogText(good: MarketGood, names: CorporationNames): String? = positionRoll?.logText(offer.playerEmail, units, good, names)
+
+	/** The rise this trade's position roll made (R43), or null when it made none or the roll was too high. */
+	fun marketRise(): MarketRise? = positionRoll?.takeIf { it.rose() }?.let { MarketRise(offer.playerEmail, it.demoted) }
+
 	/** Whether any unit traded. */
 	fun tradedAny(): Boolean = units > 0
 

@@ -164,6 +164,12 @@ data class Battle(
 	/** The hits [email]'s ships took this round, waiting for them to place them (R76); none for anyone else. */
 	fun pendingHitsOwnedBy(email: String): List<PendingHits> = pendingHits.filter { it.ownerEmail == email }
 
+	/** The public log line of its start (R73): "Battle at Tau Ceti: Wayfarer, Lantern, Meridian". */
+	fun startedText(): String = "Battle at ${system.displayName}: ${ships.joinToString(", ") { it.name }}"
+
+	/** The public log line once no ship fights any more (R77). */
+	fun overText(): String = "The battle at ${system.displayName} is over"
+
 	/** Whether [email] has a part in this battle: a surviving ship from it, or hits to place (R74–R77). */
 	fun involves(email: String): Boolean = email in landers() || pendingHitsOwnedBy(email).isNotEmpty()
 

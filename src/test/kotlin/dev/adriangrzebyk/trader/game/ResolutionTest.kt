@@ -312,6 +312,61 @@ class ResolutionTest {
 		assertThatThrownBy { altair.wholesaleOffer(OfferType.BUY) }.hasMessage("No wholesale decision is pending.")
 	}
 
+	private val names = CorporationNames(
+		mapOf(
+			"vega@example.com" to "Vega Lines",
+			"orion@example.com" to "Orion Freight",
+			"kessler@example.com" to "Kessler Cargo",
+			"altair@example.com" to "Altair Trade Co."
+		)
+	)
+
+	@Test
+	fun shouldDiscloseTheOffersForTheLog() {
+		// S02-1
+		assertThat(start(listOf(vega, orion), null).disclosure(names))
+			.isEqualTo("Offers for Mu Herculis ISO: Vega Lines — buy at 11 HT; Orion Freight — sell at 10 HT")
+		assertThat(start(emptyList(), null).disclosure(names)).isEqualTo("No offers for Mu Herculis ISO")
+	}
+
+	@Test
+	fun shouldSayWhomItWaitsFor() {
+		// S01-8 (D09): the Dictator, then each trader, then each wholesaler; nothing once it's finished
+		val asking = workedExample("altair@example.com", listOf("kessler@example.com"))
+		val counting = asking.withDictatorPassed().startCounterOnceDecided(FakeDice.twoD6(2))
+		val over = counting.withTrade(4, null).withTrade(5, null)
+
+		assertThat(asking.waitingForDictatorText(names)).isEqualTo("Waiting for Altair Trade Co. (Dictator) to decide.")
+		assertThat(asking.waitingText(names)).isEqualTo("Waiting for Altair Trade Co. (Dictator) to decide.")
+		assertThat(counting.waitingText(names)).isEqualTo(checkNotNull(counting.awaitingTrade()).waitingText(names))
+		assertThat(over.waitingForWholesalerText(names)).isEqualTo("Waiting for Kessler Cargo (Wholesaler) to trade up to 5 u at 10 HT, or pass.")
+		assertThat(over.waitingText(names)).isEqualTo(over.waitingForWholesalerText(names))
+		assertThat(over.withWholesale(null, 0).withWholesale(null, 0).waitingText(names)).isNull()
+	}
+
+	@Test
+	fun shouldLogOnlyWhatHappenedSinceTheStepBefore() {
+		// S03-6, S04-6, S05-2, S05-5: nothing while the Dictator decides; then the counter, each trade with its record,
+		// the end of trading and the price, and each wholesale answer
+		val asking = workedExample("altair@example.com", listOf("kessler@example.com"))
+		val counting = asking.withDictatorPassed().startCounterOnceDecided(FakeDice.twoD6(2))
+		val over = counting.withTrade(4, null).withTrade(5, null)
+		val bought = over.withWholesale(OfferType.BUY, 3)
+
+		assertThat(asking.logSince(null, names)).isEmpty()
+		assertThat(counting.logSince(asking, names).map { it.text }).containsExactly("Mu Herculis ISO: market +3 → buyers first")
+		assertThat(over.logSince(counting, names).map { it.text }).containsExactly(
+			"Vega Lines ${over.trades[0].terms()}",
+			"Orion Freight ${over.trades[1].terms()}",
+			"No one else can trade at Mu Herculis ISO",
+			"ISO price at Mu Herculis: 11 → 10 HT"
+		)
+		assertThat(over.logSince(counting, names).map { it.trade }).containsExactly(over.trades[0].record(), over.trades[1].record(), null, null)
+		assertThat(bought.logSince(over, names)).containsExactly(
+			ResolutionLine("Kessler Cargo (Wholesaler) bought 3 u at 10 HT each, paid 30 HT", bought.wholesales.single().record(good), null)
+		)
+	}
+
 	@Test
 	fun shouldDescribeAWholesaleWithItsTotal() {
 		// S05-5, like every trade line (E05-S04-6)
