@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

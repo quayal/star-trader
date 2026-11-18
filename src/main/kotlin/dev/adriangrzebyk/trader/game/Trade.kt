@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.board.OfferType
 
 /**
  * What happened when the counter reached [offer] in a Trading resolution (R34): the market allowed up to [marketMax]

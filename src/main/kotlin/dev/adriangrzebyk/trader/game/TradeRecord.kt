@@ -1,8 +1,8 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /**
  * A trade that took place, kept on its log entry so a player can list their own trades (creator, 2026-11-18): [playerEmail]

@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /**
  * What a log line is about, for the pop-up cards (creator, 2026-11-18): an interception try or a moment of a battle at

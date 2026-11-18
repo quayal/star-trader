@@ -1,9 +1,9 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
-import dev.adriangrzebyk.trader.trading.SupplyDemand
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.board.SupplyDemand
 
 /**
  * A trade offer [playerEmail] placed during Bidding: to buy or sell [goods] at [system] for [price] HT each.

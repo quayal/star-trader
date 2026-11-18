@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
@@ -8,9 +11,6 @@ import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 import java.util.Locale
 
 /**

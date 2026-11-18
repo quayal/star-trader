@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game.battle
 
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /**
  * What the salvos of round [round] of the battle at [system] did (R75–R78), so each player can be told what their ships

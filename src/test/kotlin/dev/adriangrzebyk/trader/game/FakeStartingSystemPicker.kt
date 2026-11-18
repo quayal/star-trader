@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /** Hands out the given pairs in order, one per player. */
 class FakeStartingSystemPicker(vararg pairs: Pair<StarSystem, StarSystem>) : StartingSystemPicker {

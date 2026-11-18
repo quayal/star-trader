@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.random
 
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import kotlin.random.Random

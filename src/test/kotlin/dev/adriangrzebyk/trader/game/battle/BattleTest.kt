@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game.battle
 
-import dev.adriangrzebyk.trader.trading.StarSystem.TAU_CETI
+import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

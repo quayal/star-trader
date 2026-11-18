@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.BiddingService
 import dev.adriangrzebyk.trader.game.CargoService
 import dev.adriangrzebyk.trader.game.Dice
@@ -17,8 +19,6 @@ import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.game.TradingService
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping

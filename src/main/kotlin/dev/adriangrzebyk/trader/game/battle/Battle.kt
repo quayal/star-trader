@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.battle
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * A battle in Space at [system] (R73–R77), a sub-phase of Ship-jumps. [ships] are the ships still fighting, [interceptions]

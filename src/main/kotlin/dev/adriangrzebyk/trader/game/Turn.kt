@@ -1,12 +1,12 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).

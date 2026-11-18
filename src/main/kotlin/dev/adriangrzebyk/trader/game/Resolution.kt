@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.SupplyDemand
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.SupplyDemand
 
 /**
  * How one good at one system resolves in Trading (R34). Public: once a good starts resolving, its [offers] are disclosed

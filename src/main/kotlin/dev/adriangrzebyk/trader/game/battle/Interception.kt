@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.battle
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * A ship that just arrived in Space at [system] (R70): [ship], [ownerEmail]'s. Every player [asked] has ships in Space

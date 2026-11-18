@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 
 class InvestmentService(private val gameStore: GameStore, private val dice: Dice) {
 

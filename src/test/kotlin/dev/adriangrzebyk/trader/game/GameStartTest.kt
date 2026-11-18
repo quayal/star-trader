@@ -1,9 +1,9 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
-import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
-import dev.adriangrzebyk.trader.trading.StarSystem.SIGMA_DRACONIS
-import dev.adriangrzebyk.trader.trading.StarSystem.TAU_CETI
+import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
+import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
+import dev.adriangrzebyk.trader.board.StarSystem.SIGMA_DRACONIS
+import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

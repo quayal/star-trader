@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.random
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.springframework.stereotype.Component
 import kotlin.random.Random
 

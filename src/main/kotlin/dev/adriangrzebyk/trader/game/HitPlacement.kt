@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
+import dev.adriangrzebyk.trader.board.Goods
 
 /**
  * Where a ship's owner puts the hits it took in a battle round (R76): [hullHits] on the hull, each of [moduleHits] on one

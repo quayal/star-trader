@@ -1,8 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.Warehouse
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Warehouse] as the attribute map nested in its player's item (engineering standards §12). */

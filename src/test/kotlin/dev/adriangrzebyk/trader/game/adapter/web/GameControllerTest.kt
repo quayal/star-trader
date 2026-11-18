@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
@@ -21,8 +23,6 @@ import dev.adriangrzebyk.trader.game.battle.BattleShip
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import dev.adriangrzebyk.trader.login.adapter.dynamodb.sessionItemId
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach

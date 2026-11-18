@@ -1,12 +1,12 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Ship] as the attribute map nested in its player's item (engineering standards §12). */

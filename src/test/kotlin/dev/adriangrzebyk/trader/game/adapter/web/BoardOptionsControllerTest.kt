@@ -1,8 +1,8 @@
-package dev.adriangrzebyk.trader.trading.adapter.web
+package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -12,7 +12,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.client.RestTestClient
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class TradeOfferControllerTest {
+class BoardOptionsControllerTest {
 
 	@LocalServerPort
 	private var port: Int = 0

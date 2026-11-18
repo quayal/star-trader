@@ -1,15 +1,15 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods.CHIPS
-import dev.adriangrzebyk.trader.trading.Goods.FOOD
-import dev.adriangrzebyk.trader.trading.Goods.ISO
-import dev.adriangrzebyk.trader.trading.Goods.POLY
-import dev.adriangrzebyk.trader.trading.OfferType.BUY
-import dev.adriangrzebyk.trader.trading.OfferType.SELL
-import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
-import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
-import dev.adriangrzebyk.trader.trading.StarSystem.MU_HERCULIS
-import dev.adriangrzebyk.trader.trading.StarSystem.TAU_CETI
+import dev.adriangrzebyk.trader.board.Goods.CHIPS
+import dev.adriangrzebyk.trader.board.Goods.FOOD
+import dev.adriangrzebyk.trader.board.Goods.ISO
+import dev.adriangrzebyk.trader.board.Goods.POLY
+import dev.adriangrzebyk.trader.board.OfferType.BUY
+import dev.adriangrzebyk.trader.board.OfferType.SELL
+import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
+import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
+import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
+import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

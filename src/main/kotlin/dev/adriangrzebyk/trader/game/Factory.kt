@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /**
  * A player's factory for [goods] at [system] (R46): at most one per player per good per system, producing [size] units

@@ -17,7 +17,7 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 ## 1. Package by game concept, discovered as needed
 
-- Top-level packages are named after game concepts (e.g. `trading`, `phases`), never technical layers
+- Top-level packages are named after game concepts (e.g. `game`, `login`, `board`), never technical layers
   (`controller`, `api`, `service`, `persistence`, `dto`).
 - The package list isn't decided upfront — when starting new work, ask "what game concept does this
   belong to?" and put it there, creating a new package if none fits.
@@ -32,8 +32,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 - *Inside* a concept package, layering by technical role is expected and good: the concept's domain code
   (entities, value objects, and the port interfaces it needs from the outside world) sits at the top of
-  the package; adapters implementing those ports live in sub-packages, e.g. `trading/adapter/web`,
-  `trading/adapter/persistence`. This is layering-as-detail-inside-a-slice — different from the top-level
+  the package; adapters implementing those ports live in sub-packages, e.g. `game/adapter/web`,
+  `game/adapter/dynamodb`. This is layering-as-detail-inside-a-slice — different from the top-level
   layering rule #1 forbids.
 - Hard dependency rule: domain code imports nothing from Spring, Jackson, or a persistence client — ever.
   Adapters depend inward on domain interfaces; domain never imports an adapter.

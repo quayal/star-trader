@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -24,9 +27,6 @@ import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

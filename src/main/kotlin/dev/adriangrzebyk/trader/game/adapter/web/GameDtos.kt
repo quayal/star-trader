@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.CargoHolder
 import dev.adriangrzebyk.trader.game.ConnectionKind
@@ -36,9 +39,6 @@ import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.Interception
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.

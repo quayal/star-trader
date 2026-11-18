@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /** Something that holds goods and can take them in or give them up: a [Ship] or a [Warehouse] (R42, R45, R58). */
 sealed interface CargoHold {

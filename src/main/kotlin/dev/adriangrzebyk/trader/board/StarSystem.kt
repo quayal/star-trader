@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.trading
+package dev.adriangrzebyk.trader.board
 
 /**
  * [locations]: R31; the numbers are the accepted prototype's (revision 014), as the brief sets none. [producibleGoods]:

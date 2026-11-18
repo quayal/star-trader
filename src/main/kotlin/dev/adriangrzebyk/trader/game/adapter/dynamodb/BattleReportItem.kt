@@ -1,9 +1,9 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
-import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [BattleReport] as the attribute map nested in its turn's item (engineering standards §12). */

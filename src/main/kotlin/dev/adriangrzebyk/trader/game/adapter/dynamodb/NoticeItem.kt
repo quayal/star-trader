@@ -1,8 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.NoticeKind
-import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Notice] as the attribute map nested in its log entry (engineering standards §12); `round` and `interception` only when set. */

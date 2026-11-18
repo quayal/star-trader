@@ -10,12 +10,12 @@ Per `.ai/specs/product-brief.md`, there are no real players or external clients 
 
 ### 1. Game rules (highest protection)
 
-`StarSystem`, `Goods`, `OfferType`, `SupplyDemand` (once `SDCalculator`), and the resolution logic in `game/Resolution` (with `Offer`, `Trade`, `Wholesale`, `PositionRoll`), which is what a game's Trading runs, encode the original board game's actual rules. (The first attempt's resolution, `TradeDesk` / `BestOfferCalculator` / `DiceRoller`, was deleted as dead code on 2026-11-19 at the creator's request; no game used it, so no game's outcome changed.) Together they encode those rules (business rule R03: six star systems, four tradable goods, dice-resolved trades). These are the closest thing this project has to a stable contract, because they're fixed by the board game itself, not by this codebase's current stage.
+`StarSystem`, `Goods`, `OfferType`, `SupplyDemand` (once `SDCalculator`; all in the `board` package, `trading` until 2026-11-19), and the resolution logic in `game/Resolution` (with `Offer`, `Trade`, `Wholesale`, `PositionRoll`), which is what a game's Trading runs, encode the original board game's actual rules. (The first attempt's resolution, `TradeDesk` / `BestOfferCalculator` / `DiceRoller`, was deleted as dead code on 2026-11-19 at the creator's request; no game used it, so no game's outcome changed.) Together they encode those rules (business rule R03: six star systems, four tradable goods, dice-resolved trades). These are the closest thing this project has to a stable contract, because they're fixed by the board game itself, not by this codebase's current stage.
 
 - **Breaking change**: altering a star system's name/goods, a good's identity, the dice mechanic, or the offer-matching/pricing logic in a way that changes a game outcome for the same inputs.
 - **Required path**: must come with a test proving the new behavior against the original game's rule, and a note in the PR body explaining why the rule changed (new house rule, bug fix against the original, etc.) — not silently "while I was in there."
 
-### 2. HTTP API — `/api/options` (`TradeOfferController`)
+### 2. HTTP API — `/api/options` (`BoardOptionsController`, `TradeOfferController` until 2026-11-19)
 
 | Method | Path | Request | Response |
 |---|---|---|---|

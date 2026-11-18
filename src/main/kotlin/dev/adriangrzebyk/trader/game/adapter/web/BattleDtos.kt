@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.game.HitPlacement
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.ModuleHit
@@ -13,7 +14,6 @@ import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
-import dev.adriangrzebyk.trader.trading.Goods
 import java.math.BigDecimal
 
 /**
