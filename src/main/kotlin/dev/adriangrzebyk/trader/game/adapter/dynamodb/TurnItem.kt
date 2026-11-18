@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Turn] as the attribute map nested in the game item (engineering standards §12). */
@@ -24,7 +25,12 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			DONE_INVESTING to AttributeValue.fromL(turn.doneInvesting.map { AttributeValue.fromS(it) }),
 			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) }),
 			CONNECTIONS_RAISED to strings(turn.connectionsRaised),
-			REPUTATION_BOUGHT to strings(turn.reputationBought)
+			REPUTATION_BOUGHT to strings(turn.reputationBought),
+			INTERCEPTION_TRIES to AttributeValue.fromL(
+				turn.interceptionTries.map {
+					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromS(it.ship), INTERCEPTOR to AttributeValue.fromS(it.interceptor)))
+				}
+			)
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
@@ -73,7 +79,11 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// Absent from items saved before E12: nobody had raised a connection.
 			connectionsRaised = attributes[CONNECTIONS_RAISED]?.l()?.map { it.s() } ?: emptyList(),
 			// Absent from items saved before E13: nobody had bought reputation.
-			reputationBought = attributes[REPUTATION_BOUGHT]?.l()?.map { it.s() } ?: emptyList()
+			reputationBought = attributes[REPUTATION_BOUGHT]?.l()?.map { it.s() } ?: emptyList(),
+			// Absent from items saved before 2026-11-18: no battle could remember an earlier try.
+			interceptionTries = attributes[INTERCEPTION_TRIES]?.l()?.map {
+				BattleInterception(ship = it.m().attribute(SHIP).s(), interceptor = it.m().attribute(INTERCEPTOR).s())
+			} ?: emptyList()
 		)
 	}
 
@@ -98,5 +108,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val BATTLE_REPORT = "battleReport"
 		const val CONNECTIONS_RAISED = "connectionsRaised"
 		const val REPUTATION_BOUGHT = "reputationBought"
+		const val INTERCEPTION_TRIES = "interceptionTries"
+		const val SHIP = "ship"
+		const val INTERCEPTOR = "interceptor"
 	}
 }

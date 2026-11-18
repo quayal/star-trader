@@ -577,24 +577,24 @@ data class Game(
 		if (tries.isEmpty()) {
 			events += "Nobody tries to intercept ${interception.ship}"
 		}
+		val attempts = tries.map { (_, name) -> BattleInterception(arriving.name, name) }
 		val decided = copy(
 			players = penalized,
-			turn = current.withInterception(null).recordInterceptors(tries.map { it.second }),
+			turn = current.withInterception(null).recordInterceptionTries(attempts),
 			log = log + events.map { LogEntry(current.number, it) }
 		)
-		val attempts = tries.map { (_, name) -> BattleInterception(arriving.name, name) }
-		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught, attempts)
+		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
 	}
 
 	/**
 	 * This game with a battle at [system] among every ship in Space there (R73, R80), [interceptions] holding their ships;
-	 * [tries] are every try that started it, successful or not, which decides whom firing costs reputation (R86).
+	 * the turn's interception tries, successful or not, decide whom firing costs reputation (R86).
 	 */
-	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>, tries: List<BattleInterception>): Game {
+	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>): Game {
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		return copy(
-			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions, tries)),
+			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions, current.interceptionTries)),
 			log = log + LogEntry(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
 		)
 	}
@@ -720,7 +720,7 @@ data class Game(
 		)
 		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
 		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
-			return game.withBattleStarted(ship.system, emptyList(), emptyList())
+			return game.withBattleStarted(ship.system, emptyList())
 		}
 		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
 	}

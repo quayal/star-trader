@@ -386,6 +386,21 @@ class GameBattleTest {
 	}
 
 	@Test
+	fun shouldLetAShipReturnFireForFreeAtAShipThatTriedToInterceptItEarlierThisTurn() {
+		// R86 (playtest bug, 2026-11-18): Wayfarer tried and failed, Meridian then stayed in Space (R80); the battle has no
+		// interceptions, but Wayfarer's try still makes it the aggressor, so only Ada's shot costs reputation.
+		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(3, 3))
+			.landShip("grace@example.com", ShipLocation.SPACE)
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), dice())
+			.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), dice(1, 1, 1, 1))
+
+		val reputationLines = game.log.map { it.text }.filter { it.contains("for firing") }
+		assertThat(reputationLines).containsExactly(
+			"Orion Freight's reputation: −4 for firing at a ship that didn't try to intercept (rolled 2d6: 4) → 12"
+		)
+	}
+
+	@Test
 	fun shouldStartNoBattleWhenAShipLandsAtThePort() {
 		val game = arrived.answerInterception("ada@example.com", null, dice()).landShip("grace@example.com", ShipLocation.PORT)
 
