@@ -6,7 +6,7 @@
 
 ## 📝 TLDR
 
-Proposed: every player has a **reputation** from 0 to 40, starting at 20 and visible to everyone. Today it doesn't exist; only an unused `trading.Player.reputation` field does. Rising in the market and building political or business connections raise it. Criminal connections, falling in the market and hostile acts in space lower it: every interception try, and firing at a ship that didn't try to intercept you. A low reputation recovers by 3 each turn, and a player can buy +1d6 for 20 HT once per Investment. Reputation doesn't affect who wins (R39). Its effects come with later features.
+Proposed: every player has a **reputation** from 0 to 40, starting at 20 and visible to everyone. Today it doesn't exist; only an unused `trading.Player.reputation` field does. Rising in the market and building political or business connections raise it. Criminal connections, falling in the market and hostile acts in space lower it: every interception try, and firing at a ship that didn't try to intercept you. A low reputation recovers by 3 each turn, though a player at 0 has to buy their way back, and a player can buy +1d6 for 20 HT once per Investment. A reputation of 25 or more pays a money bonus at the end of each turn. Reputation itself doesn't count toward winning (R39); its other effects come with later features.
 
 ## 📝 Problem Statement
 
@@ -31,10 +31,20 @@ The original game uses reputation to make hostile play cost something. Battle (R
 | 10 | Each interception try, successful or not, unless the trying ship has a working Battle comm module | −2d6 | when the tries are revealed (R70) |
 | 11 | Fires at a ship that didn't try to intercept any of the firer's ships | −2d6, once per battle per player | first such order resolved |
 
-- **3:** a player at 0 doesn't recover. The note says "between 1 and 17", taken literally.
+- **3:** a player at 0 doesn't recover: they have to buy an increase (row 9) to get back to 1 or more (creator, 2026-11-18).
 - **9:** refused at 40 (`Your reputation is already at 40.`), when they can't pay (`Buying reputation costs 20 HT; you have 15 HT.`), or if they've already bought this Investment (`You've already bought reputation this Investment.`). The cost isn't logged (R29).
 - **10:** the Battle comm module prevents the interception penalty but not the firing penalty (row 11). Battle comm is a military module, and nothing gives one yet (R56), so today every try costs reputation.
 - **11:** "once per battle per player" follows the note's own arithmetic: an attacker who intercepts and fires loses 2d6 + 2d6, and the ship they attacked loses nothing. In a battle with no interceptions (R80), the first player to fire loses 2d6. Returning fire at a ship that tried to intercept you costs nothing.
+
+### Money bonus
+12. **At the end of each turn**, after the recovery (row 3), every player with reputation 25 or more is paid a bonus from the creator's table:
+
+    | Reputation | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 |
+    |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+    | Bonus (HT) | 5 | 5 | 10 | 10 | 15 | 20 | 20 | 20 | 20 | 25 | 25 | 30 | 30 | 30 | 35 | 40 |
+
+    It's paid on the last turn too, before the winner is decided, because the note says "each turn". So reputation earns money that counts toward winning, although reputation itself doesn't.
+13. **The log.** `Reputation bonus: Vega Lines, Kessler Cargo`, one line per turn and only when someone is paid, without amounts (money is private, R29). The paid player sees the amount privately, as part of their money.
 
 ### Deferred (listed so their reputation rule isn't lost)
 - Doesn't pay interest on a loan: −4 (loans are out, N05/D11).
@@ -50,7 +60,7 @@ A `Reputation` value class owns the range, the clamping and the end-of-turn reco
 
 ## 📝 Architecture and data model
 
-- `game/Reputation.kt` (new): value 0..40, `START = 20`, `plus(n)`, `minus(n)`, `recovered()` (+3 if 1–17), `isMax()`.
+- `game/Reputation.kt` (new): value 0..40, `START = 20`, `plus(n)`, `minus(n)`, `recovered()` (+3 if 1–17), `isMax()`, `bonus()` (the table, 0 below 25).
 - `Player.reputation: Reputation`. The legacy `trading/Player.kt` (used only by the old `TradeDesk`) is left alone. Its unused `reputation` field isn't this value.
 - `Turn.reputationBought: List<String>`, emptied with Investment.
 - Battle: `Battle` records, per player, whether they've already paid the firing penalty this battle, so `Battle` owns that rule.
@@ -66,7 +76,8 @@ A `Reputation` value class owns the range, the clamping and the end-of-turn reco
 
 ## Defaults I chose
 
-- Recovery isn't applied after the final turn, since the game is over.
+- Recovery isn't applied after the final turn, since the game is over. The money bonus is (criterion 12).
+- The bonus is logged without amounts.
 - The firing penalty is once per battle per player, not per order or per round.
 - Changes clamped to nothing are still logged.
 - Buying reputation is refused at 40 rather than taking the money for nothing.
@@ -74,11 +85,11 @@ A `Reputation` value class owns the range, the clamping and the end-of-turn reco
 ## Brief changes
 
 - N05 is superseded for reputation (loans stay out). New decision D21 records that.
-- New rules: R85 (reputation 0–40, starts 20, public, no effect on winning), R86 (the change table above), R87 (buy +1d6 for 20 HT once per Investment).
+- New rules: R85 (reputation 0–40, starts 20, public, no effect on winning), R86 (the change table above), R87 (buy +1d6 for 20 HT once per Investment), R88 (money bonus at 25+, paid at the end of each turn, the last included).
 
 ## 📋 Phasing
 
-1. **The value:** start value, recovery at end of turn, log, shown on Corporations.
+1. **The value:** start value, recovery and money bonus at end of turn, log, shown on Corporations.
 2. **Market and connections:** rows 4–8.
 3. **Buying:** row 9, on Infrastructure.
 4. **Hostile acts:** rows 10–11 in the battle flow.
@@ -89,10 +100,11 @@ Phases 2–4 are independent once phase 1 lands. Row 6–8 needs the connections
 
 1. `Reputation` with unit tests (range, clamping, recovery boundaries 0, 1, 17, 18).
 2. `Player.reputation`, start at 20, persistence round-trip. Recovery in `endTurn` with the log line.
+2a. Money bonus in `endTurn` (every turn, the last included, before the winner), its log line. Tests at 24, 25, 33 and 40.
 3. DTO field and the Corporations section. JS test.
 4. Position roll: +2 and −2 with log lines.
 5. Connection raise hooks: +2, +1, −1. No change for a rise caused by a market position.
 6. Buy endpoint, refusals, `Turn.reputationBought`, Infrastructure action.
 7. Interception tries: −2d6 unless a working Battle comm module.
 8. Firing penalty, once per battle per player, owned by `Battle`.
-9. Record D21 and R85–R87 in the brief. Check it in the browser through a turn with an interception.
+9. Record D21 and R85–R88 in the brief. Check it in the browser through a turn with an interception.
