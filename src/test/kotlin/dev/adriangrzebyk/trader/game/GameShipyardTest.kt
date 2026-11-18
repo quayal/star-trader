@@ -273,6 +273,45 @@ class GameShipyardTest {
 			.hasMessage("Wayfarer must be in port to refit.")
 	}
 
+	// ── R89: replacing a crew ─────────────────────────────────────────────────────
+
+	@Test
+	fun shouldReplaceACrewInPortForTheNewCrewsFullPrice() {
+		// Wayfarer (a starting Clarinet, class B, 1 crew) is in port at Tau Ceti; a class A crew costs 1 × 20 HT, the old one isn't paid back.
+		val before = playerOf(investing, "ada@example.com").money
+		val game = investing.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A)
+
+		assertThat(shipOf(game, "Wayfarer").crewClass).isEqualTo(CrewClass.A)
+		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(before - 20)
+	}
+
+	@Test
+	fun shouldReplaceTheCrewOfAShipStillInTheYard() {
+		val game = buySpiral(investing, CrewClass.D).replaceCrew("ada@example.com", "Spiral", CrewClass.C)
+
+		assertThat(shipOf(game, "Spiral").crewClass).isEqualTo(CrewClass.C)
+	}
+
+	@Test
+	fun shouldRefuseTheSameClassAShipInSpaceTooLittleMoneyOrOutsideInvestment() {
+		assertThatThrownBy { investing.replaceCrew("ada@example.com", "Wayfarer", CrewClass.B) }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("Wayfarer's crew is already class B.")
+		val inSpace = investing.copy(
+			players = investing.players.map { player ->
+				player.copy(ships = player.ships.map { if (it.name == "Wayfarer") it.landAt(ShipLocation.SPACE) else it })
+			}
+		)
+		assertThatThrownBy { inSpace.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }
+			.hasMessage("Wayfarer must be in port to refit.")
+		val broke = investing.copy(players = investing.players.map { if (it.email == "ada@example.com") it.pay(it.money - 5) else it })
+		assertThatThrownBy { broke.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }
+			.hasMessage("A class A crew for Wayfarer costs 20 HT; you have 5 HT.")
+		assertThatThrownBy { started.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
+	}
+
 	@Test
 	fun shouldRefuseAModuleTheHullHasNoRoomForOrAMilitaryOne() {
 		assertThatThrownBy { investing.addModule("ada@example.com", "Wayfarer", Module.CARGO) }

@@ -256,6 +256,24 @@ class GameController(
 	}
 
 	/**
+	 * The player replaces the whole crew of their ship with one of another class (R89), in port or in the yard: `{ crewClass }`.
+	 * `400` for an unknown class, the class it already has, a ship that isn't theirs or isn't in port or the yard, and too
+	 * little money; `409` outside Investment or before they have collected.
+	 */
+	@PutMapping("/games/{id}/investment/ships/{ship}/crew")
+	fun replaceCrew(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@PathVariable ship: String,
+		@RequestBody(required = false) request: ReplaceCrewRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val crewClass = request?.crewClassConstant()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a crew class: A, B, C or D.")
+		return GameResponseDto(investmentService.replaceCrew(id, session.email, ship, crewClass), session.email)
+	}
+
+	/**
 	 * The player repairs all the damage on their ship (R79, E10-S05) at a shipyard. `400` for a ship that isn't theirs,
 	 * isn't damaged, isn't at a shipyard, or costs more than they have; `409` outside Investment or before they have collected.
 	 */

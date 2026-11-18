@@ -55,6 +55,10 @@ class InvestmentService(private val gameStore: GameStore) {
 	fun removeModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
 		gameStore.update(gameId) { it.removeModule(callerEmail, shipName, module) }
 
+	/** [callerEmail] replaces the crew of their ship [shipName] inside [GameStore.update], so a double press pays once (A04, R89). */
+	fun replaceCrew(gameId: String, callerEmail: String, shipName: String, crewClass: CrewClass): Game =
+		gameStore.update(gameId) { it.replaceCrew(callerEmail, shipName, crewClass) }
+
 	/** [callerEmail] repairs their ship [shipName] inside [GameStore.update], so a double press pays once (A04, R79). */
 	fun repairShip(gameId: String, callerEmail: String, shipName: String): Game =
 		gameStore.update(gameId) { it.repairShip(callerEmail, shipName) }

@@ -235,9 +235,14 @@ describe('refitOptions (R65)', () => {
 		name: 'Wayfarer',
 		crewClass: 'B',
 		canRefit: true,
-		stats: { modulesUsed: 4, moduleCapacity: 5 },
+		stats: { modulesUsed: 4, moduleCapacity: 5, crewNeeded: 2 },
 		modules: [{ id: 'CARGO', name: 'Cargo', count: 4, resaleValue: 2 }],
 	};
+
+	it('offers every other crew class, at its price for each crew member the ship needs (R89)', () => {
+		assert.deepEqual(refitOptions(SHIPYARD, ship).crew, [{ id: 'A', cost: 40 }, { id: 'C', cost: 12 }, { id: 'D', cost: 4 }]);
+		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }).crew, []);
+	});
 
 	it('offers the modules that still fit, each at its price plus crew at the ship class', () => {
 		const { add } = refitOptions(SHIPYARD, ship);
@@ -255,6 +260,6 @@ describe('refitOptions (R65)', () => {
 	});
 
 	it('offers nothing away from a shipyard', () => {
-		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }), { add: [], remove: [] });
+		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }), { add: [], remove: [], crew: [] });
 	});
 });

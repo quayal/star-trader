@@ -298,8 +298,8 @@ describe('the counter (E05-S03)', () => {
 	it('shows the market, each trade and the end in plain terms (S03-6)', () => {
 		assert.deepEqual(counterTexts(traded), [
 			'Market +3 \u2192 buyers first',
-			'Vega Lines bought 4 u for 44 HT',
-			'Orion Freight sold 5 u for 50 HT',
+			'Vega Lines buys 4 u for 44 HT',
+			'Orion Freight sells 5 u for 50 HT',
 			'No one else can trade at this market.',
 		]);
 	});
@@ -320,12 +320,12 @@ describe('the counter (E05-S03)', () => {
 			}),
 		});
 
-		assert.deepEqual(counterTexts(rolled).filter(line => line.includes('rolled')), [
-			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis',
-			'Orion Freight traded 6 u \u2014 rolled 9: no change',
-			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
+		assert.deepEqual(counterTexts(rolled).filter(line => line.includes('rolls')), [
+			'Vega Lines trades 7 u \u2014 rolls 5: now Wholesaler of ISO at Mu Herculis',
+			'Orion Freight trades 6 u \u2014 rolls 9: no change',
+			'Altair Trade Co. trades 8 u \u2014 rolls 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
 		]);
-		assert.equal(counterTexts(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis');
+		assert.equal(counterTexts(rolled)[2], 'Vega Lines trades 7 u \u2014 rolls 5: now Wholesaler of ISO at Mu Herculis');
 	});
 
 	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
@@ -469,8 +469,8 @@ describe('a trader choosing an amount (E05-S04)', () => {
 
 		assert.deepEqual(counterTexts(nothing), [
 			'Market +3 \u2192 buyers first',
-			'Orion Freight sold nothing',
-			'Vega Lines bought nothing',
+			'Orion Freight sells nothing',
+			'Vega Lines buys nothing',
 			'No one can trade at this market.',
 		]);
 	});
@@ -526,10 +526,10 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 		});
 
 		assert.deepEqual(counterTexts(answered).slice(1), [
-			'Vega Lines bought 4 u for 44 HT; the price fell to 10',
+			'Vega Lines buys 4 u for 44 HT; the price falls to 10',
 			'No one else can trade at this market.',
-			'Orion Freight (Wholesaler) bought 3 u for 30 HT',
-			'Altair Trade Co. (Dictator) passed on wholesale',
+			'Orion Freight (Wholesaler) buys 3 u for 30 HT',
+			'Altair Trade Co. (Dictator) passes on wholesale',
 		]);
 	});
 
@@ -548,8 +548,8 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 		});
 
 		assert.deepEqual(counterTexts(mixed).slice(1), [
-			'Vega Lines bought 4 u for 44 HT; the price rose to 12',
-			'Orion Freight sold nothing',
+			'Vega Lines buys 4 u for 44 HT; the price rises to 12',
+			'Orion Freight sells nothing',
 			'No one else can trade at this market.',
 		]);
 	});
@@ -557,7 +557,7 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 	it('shows the price change even when nobody traded (S05-2)', () => {
 		const none = game({ resolution: { ...resolving({ awaiting: null, startingCounter: 13 }), startPrice: 11, newPrice: 7, wholesales: [] } });
 
-		assert.deepEqual(counterTexts(none), ['Market +13 \u2192 buyers first', 'No one can trade at this market; the price fell to 7.']);
+		assert.deepEqual(counterTexts(none), ['Market +13 \u2192 buyers first', 'No one can trade at this market; the price falls to 7.']);
 	});
 
 	it('colours the side the market favours and the way the price moves (creator, 2026-11-18)', () => {
@@ -567,9 +567,9 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 
 		assert.deepEqual(at(3, 12)[0], ['Market +3 \u2192 ', { text: 'buyers', tone: 'buy' }, ' first']);
 		assert.deepEqual(at(-3, 12)[0], ['Market \u22123 \u2192 ', { text: 'sellers', tone: 'sell' }, ' first']);
-		assert.deepEqual(at(3, 12).at(-1), ['No one can trade at this market', '; the price ', { text: 'rose', tone: 'rise' }, ' to 12', '.']);
-		assert.deepEqual(at(3, 7).at(-1), ['No one can trade at this market', '; the price ', { text: 'fell', tone: 'fall' }, ' to 7', '.']);
-		assert.deepEqual(at(3, 11).at(-1), ['No one can trade at this market', '; the price stayed at 11', '.']);
+		assert.deepEqual(at(3, 12).at(-1), ['No one can trade at this market', '; the price ', { text: 'rises', tone: 'rise' }, ' to 12', '.']);
+		assert.deepEqual(at(3, 7).at(-1), ['No one can trade at this market', '; the price ', { text: 'falls', tone: 'fall' }, ' to 7', '.']);
+		assert.deepEqual(at(3, 11).at(-1), ['No one can trade at this market', '; the price stays at 11', '.']);
 	});
 
 	it('names whom the wholesale step waits for, holds Resolve next, and alerts only them (S01-8, S01-9, S05-4)', () => {

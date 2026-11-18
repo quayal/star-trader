@@ -255,6 +255,10 @@ data class Game(
 	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
 	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.removeModule(shipName, module) }
 
+	/** [email] replaces the crew of their ship [shipName] with one of [crewClass] (R89): see [Player.replaceCrew]. Private, not logged. */
+	fun replaceCrew(email: String, shipName: String, crewClass: CrewClass): Game =
+		withInvestment(email, null) { it.replaceCrew(shipName, crewClass) }
+
 	/** [email] repairs all the damage on their ship [shipName] at a shipyard (R79): see [Player.repairShip]. Private, not logged. */
 	fun repairShip(email: String, shipName: String): Game = withInvestment(email, null) { it.repairShip(shipName) }
 

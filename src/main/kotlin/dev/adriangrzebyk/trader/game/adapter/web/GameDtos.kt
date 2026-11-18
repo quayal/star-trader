@@ -614,6 +614,12 @@ data class FitModuleRequestDto(val module: String? = null) {
 	fun moduleConstant(): Module? = moduleNamed(module)
 }
 
+/** R89: the crew class a ship's new crew is of, `A` to `D`. */
+data class ReplaceCrewRequestDto(val crewClass: String? = null) {
+
+	fun crewClassConstant(): CrewClass? = CrewClass.entries.firstOrNull { it.name == crewClass }
+}
+
 /** The module whose `Module` constant is [name], or null for none: for a request body or a path alike. */
 fun moduleNamed(name: String?): Module? = Module.entries.firstOrNull { it.name == name }
 
