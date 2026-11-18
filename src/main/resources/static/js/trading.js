@@ -251,15 +251,15 @@ export function dictatorLine(game) {
 
 /**
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
- * each trade with what the market allowed and what took place (E05-S04-6: "Vega Lines could buy up to 12 u: bought
- * 10 u for 130 HT"; the unit price is the offer's, listed above) and the position roll it made, if any (E05-S06-4),
+ * each trade as what took place (E05-S04-6: "Vega Lines bought 10 u for 130 HT"; the unit price is the offer's, listed
+ * above, and what the market allowed was on screen while it waited) and the position roll it made, if any (E05-S06-4),
  * then "No one else can trade at this market." once it's over, or "No one can trade at this market." when no unit
- * traded (S03-7). Then the price change, "ISO price at Mu Herculis falls to 10 HT" (E05-S05-2), and each wholesale
- * answer: "Kessler Cargo (Wholesaler) bought 3 u for 30 HT" (S05-5), at that new price. Empty until the counter starts
- * (after the Dictator).
+ * traded (S03-7). The price change (E05-S05-2) ends the last trade that moved units, "Star Dust sold 4 u for 48 HT; the
+ * price fell to 18", or the "No one can trade" line when none did. Then each wholesale answer: "Kessler Cargo
+ * (Wholesaler) bought 3 u for 30 HT" (S05-5), at that new price. Empty until the counter starts (after the Dictator).
  *
  * Each line is a list of parts: text, or `{ text, tone }` for a word shown in colour: "buyers" and "sellers" in the
- * Buy and Sell colours (`buy`, `sell`), "rises" and "falls" in green and red (`rise`, `fall`). [lineText] joins them.
+ * Buy and Sell colours (`buy`, `sell`), "rose" and "fell" in green and red (`rise`, `fall`). [lineText] joins them.
  */
 export function counterLines(game) {
 	const current = resolution(game);
@@ -270,16 +270,20 @@ export function counterLines(game) {
 	const signed = counter > 0 ? `+${counter}` : String(counter).replace('-', '\u2212');
 	const trades = current.trades ?? [];
 	const side = counter >= 0 ? { text: 'buyers', tone: 'buy' } : { text: 'sellers', tone: 'sell' };
+	const over = current.newPrice !== null && current.newPrice !== undefined;
+	const price = over ? priceParts(current) : [];
+	const lastTraded = trades.findLastIndex(trade => trade.units > 0);
 	const lines = [
 		[`Market ${signed} \u2192 `, side, ' first'],
-		...trades.flatMap(trade => [tradeLine(game, trade), positionRollLine(game, trade, current.good)].filter(Boolean)).map(line => [line]),
+		...trades.flatMap((trade, i) => [
+			[tradeLine(game, trade), ...(i === lastTraded ? price : [])],
+			positionRollLine(game, trade, current.good),
+		].filter(Boolean)).map(line => (Array.isArray(line) ? line : [line])),
 	];
-	const over = current.newPrice !== null && current.newPrice !== undefined;
 	if (over || current.finished) {
-		lines.push([trades.some(trade => trade.units > 0) ? 'No one else can trade at this market.' : 'No one can trade at this market.']);
+		lines.push(lastTraded >= 0 ? ['No one else can trade at this market.'] : ['No one can trade at this market', ...(over ? price : []), '.']);
 	}
 	if (over) {
-		lines.push(priceLine(current));
 		lines.push(...(current.wholesales ?? []).map(wholesale => [wholesaleLine(game, wholesale)]));
 	}
 	return lines;
@@ -290,15 +294,14 @@ export function lineText(parts) {
 	return parts.map(part => (typeof part === 'string' ? part : part.text)).join('');
 }
 
-/** E05-S05-2: "ISO price at Mu Herculis rises to 12 HT", "… falls to 10 HT", or "… stays at 11 HT". */
-function priceLine(current) {
-	const { good, startPrice, newPrice } = current;
-	const where = `${good.goods} price at ${good.systemName} `;
+/** E05-S05-2: "; the price rose to 12", "; the price fell to 10" or "; the price stayed at 11", ending a trade line. */
+function priceParts(current) {
+	const { startPrice, newPrice } = current;
 	if (newPrice === startPrice) {
-		return [`${where}stays at ${newPrice} HT`];
+		return [`; the price stayed at ${newPrice}`];
 	}
-	const move = newPrice > startPrice ? { text: 'rises', tone: 'rise' } : { text: 'falls', tone: 'fall' };
-	return [where, move, ` to ${newPrice} HT`];
+	const move = newPrice > startPrice ? { text: 'rose', tone: 'rise' } : { text: 'fell', tone: 'fall' };
+	return ['; the price ', move, ` to ${newPrice}`];
 }
 
 function wholesaleLine(game, wholesale) {
@@ -330,12 +333,11 @@ function positionRollLine(game, trade, good) {
 	return `${corporation(game, trade.playerId)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
 }
 
+/** E05-S04-6: "Star Dust sold 4 u for 48 HT", or "Vega Lines bought nothing". */
 function tradeLine(game, trade) {
-	const [action, done] = trade.type === 'SELL' ? ['sell', 'sold'] : ['buy', 'bought'];
-	const allowed = `${corporation(game, trade.playerId)} could ${action} up to ${trade.marketMax ?? trade.units} u`;
-	return trade.units === 0
-		? `${allowed}: ${done} nothing`
-		: `${allowed}: ${done} ${trade.units} u for ${trade.units * trade.price} HT`;
+	const done = trade.type === 'SELL' ? 'sold' : 'bought';
+	const who = corporation(game, trade.playerId);
+	return trade.units === 0 ? `${who} ${done} nothing` : `${who} ${done} ${trade.units} u for ${trade.units * trade.price} HT`;
 }
 
 /** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
