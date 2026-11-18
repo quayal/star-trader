@@ -200,7 +200,7 @@ class GameTradingTest {
 		)
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
-			LogEntry(
+			LogEntry.trade(
 				1,
 				"Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT",
 				TradeRecord("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 12, 11)

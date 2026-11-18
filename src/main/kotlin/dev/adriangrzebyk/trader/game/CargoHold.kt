@@ -12,12 +12,8 @@ sealed interface CargoHold {
 	/** What it holds: units per good. */
 	val cargo: Map<Goods, Int>
 
-	/** What it holds, each good valued at today's [prices] where it is (creator, 2026-11-18), the goods in [Goods] order. */
-	fun heldGoods(prices: MarketPrices): List<HeldGoods> = cargo.filterValues { it > 0 }.entries.sortedBy { it.key }
-		.map { (goods, units) -> HeldGoods(goods, units, prices.priceAt(MarketGood(system, goods))) }
-
-	/** What all it holds is worth at today's [prices] where it is. */
-	fun heldGoodsValue(prices: MarketPrices): Int = heldGoods(prices).sumOf { it.value() }
+	/** What it holds as one lot per good, in [Goods] order (creator, 2026-11-18). */
+	fun lots(): List<GoodsLot>
 
 	/** How it is named in a message to its owner: "Wayfarer", "Your warehouse at Tau Ceti". */
 	fun cargoName(): String

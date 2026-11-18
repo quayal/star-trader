@@ -140,7 +140,45 @@
 			border: var(--border-width) solid var(--border-subtle);
 			border-radius: var(--radius-panel);
 		}
-		.landing::backdrop, .battle-report::backdrop { background: var(--surface-backdrop); }
+		.landing::backdrop, .battle-report::backdrop, .notice::backdrop { background: var(--surface-backdrop); }
+		/* Notifications (creator, 2026-11-18): interception and battle cards, your-move cards, and fading toasts. */
+		.notice {
+			width: min(520px, calc(100vw - 2 * var(--space-panel)));
+			padding: var(--space-panel);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			border: var(--border-width) solid var(--accent-selected);
+			border-radius: var(--radius-panel);
+			box-shadow: var(--glow-selected);
+		}
+		.notice[data-tone=alert] { border-color: var(--status-danger); box-shadow: var(--glow-danger); }
+		.notice[data-tone=rise] { border-color: var(--status-live); box-shadow: var(--glow-live); }
+		.notice form { display: grid; gap: var(--space-related); max-width: none; }
+		.notice h2 { margin: 0; }
+		.notice p { margin: 0; }
+		.notice ul { margin: 0; padding-left: var(--space-panel); display: grid; gap: var(--space-group); color: var(--text-muted); }
+		.notice__count { font-family: var(--font-display); font-size: var(--text-caption); color: var(--text-muted); }
+		.notice__actions { display: flex; flex-wrap: wrap; gap: var(--space-related); align-items: center; }
+		.notice[open] { animation: notice-in var(--duration-flash) ease-out 1; }
+		@keyframes notice-in { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
+		.toasts {
+			position: fixed; right: var(--space-panel); bottom: var(--space-panel); z-index: 10;
+			display: grid; gap: var(--space-group); width: min(360px, calc(100vw - 2 * var(--space-panel)));
+			pointer-events: none;
+		}
+		.toast {
+			padding: var(--space-group) var(--space-related);
+			background: var(--surface-raised);
+			border: var(--border-width) solid var(--border-control);
+			border-left: 3px solid var(--accent-selected);
+			border-radius: var(--radius-control);
+			font-size: var(--text-body);
+			animation: toast-in var(--duration-flash) ease-out 1;
+			transition: opacity var(--duration-flash) ease-in;
+		}
+		.toast--fading { opacity: 0; }
+		.toast--more { border-left-color: var(--border-control); color: var(--text-muted); }
+		@keyframes toast-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 		/* The battle report dialog: what the last round's salvos did to and from the viewer's ships (R75–R78). */
 		.battle-report form { display: grid; gap: var(--space-related); max-width: none; }
 		.battle-report h2 { margin: 0; }
@@ -277,6 +315,7 @@
 		.fleet__ships { display: grid; gap: var(--space-panel); }
 		.fleet-ship { display: grid; gap: var(--space-related); min-width: 0; }
 		.fleet-ship h3 { margin: 0; font-size: var(--text-title); }
+		.fleet-ship h3:focus { outline: none; }
 		.fleet-ship .facts { margin: 0; }
 		.fleet-ship__flags { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
@@ -303,6 +342,11 @@
 		.assets__summary div { display: grid; gap: var(--space-hairline); }
 		.assets__summary dt { font-size: var(--text-caption); color: var(--text-muted); }
 		.assets__summary dd { margin: 0; font-family: var(--font-display); font-size: var(--text-title); }
+		.assets__group { display: grid; gap: var(--space-related); }
+		.assets__group > h3 { margin: 0; font-size: var(--text-title); }
+		.assets__goods { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+		.assets__good-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-group); }
+		.assets__good-head strong { font-family: var(--font-display); font-size: var(--text-title); }
 		/* Your trades on the Deck (creator, 2026-11-18): newest first, Bought/Sold coloured. */
 		.trade-history { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		.trade-history .muted { font-family: var(--font-display); font-size: var(--text-caption); }
@@ -607,7 +651,7 @@
 				</section>
 				<!-- E04-S02: static markup, updated on render, so the chosen ship and destination survive the poll. -->
 				<section class="panel" id="jump-panel" aria-labelledby="jump-title" hidden>
-					<h2 id="jump-title"></h2>
+					<h2 id="jump-title" tabindex="-1"></h2>
 					<form class="offer-form" id="jump-form" novalidate>
 						<div>
 							<label class="field-label" for="jump-ship">Ship</label>
@@ -689,6 +733,21 @@
 			</form>
 		</dialog>
 
+		<!-- Notifications (creator, 2026-11-18): one card at a time from a queue of interception and battle moments, then your move. -->
+		<dialog class="notice" id="notice-dialog" aria-labelledby="notice-title">
+			<form id="notice-form" method="dialog">
+				<p class="notice__count" id="notice-count"></p>
+				<h2 id="notice-title"></h2>
+				<p id="notice-lead"></p>
+				<ul id="notice-lines"></ul>
+				<div class="notice__actions">
+					<button class="btn" id="notice-next" type="submit" value="next"></button>
+					<button class="quiet-button" id="notice-all" type="submit" value="all">Dismiss all</button>
+				</div>
+			</form>
+		</dialog>
+		<div class="toasts" id="toasts" aria-live="polite"></div>
+
 		<!-- The battle report (R75–R78), static markup filled on render: what the last round's salvos did, for the viewer. -->
 		<dialog class="battle-report" id="battle-report-dialog" aria-labelledby="battle-report-title">
 			<form id="battle-report-form" method="dialog">
@@ -701,15 +760,15 @@
 		<!-- Assets (creator, 2026-11-18): where the player's money sits; theirs only (R29). -->
 		<div class="assets" id="assets-panel" hidden>
 			<h2 class="system__title" id="assets-title" tabindex="-1">Assets</h2>
-			<p class="muted">Where your money is. Goods are valued at today’s price where they are; ships at what they would fetch sold.</p>
+			<p class="muted">Where your money is. Goods are valued at each good’s mean price across the systems that trade it today, wherever they are; ships at what they would fetch sold.</p>
 			<section class="panel" aria-label="Summary">
 				<dl class="assets__summary" id="assets-summary"></dl>
 			</section>
+			<section class="assets__group" aria-labelledby="assets-goods-title">
+				<h3 id="assets-goods-title">Goods</h3>
+				<div class="corporations__cards assets__goods" id="assets-goods"></div>
+			</section>
 			<div class="corporations__cards">
-				<section class="panel corporation" aria-labelledby="assets-ships-title">
-					<h3 id="assets-ships-title">Ships</h3>
-					<ul class="corporation__list" id="assets-ships"></ul>
-				</section>
 				<section class="panel corporation" aria-labelledby="assets-warehouses-title">
 					<h3 id="assets-warehouses-title">Warehouses</h3>
 					<ul class="corporation__list" id="assets-warehouses"></ul>
@@ -893,7 +952,6 @@
 			<!-- E06-S05: static markup, so the typed number and focus survive the poll. -->
 			<section class="panel" id="units-panel" aria-labelledby="units-title" hidden>
 				<h2 id="units-title">Add factory units</h2>
-				<p class="muted" id="units-intro"></p>
 				<p id="units-cap"></p>
 				<form class="offer-form" id="units-form" novalidate>
 					<div>
@@ -1130,6 +1188,7 @@
 		tradingLink,
 		gameOverLink,
 		fleetLink,
+		fleetShipLink,
 		assetsLink,
 		corporationsLink,
 		infrastructureLink,
@@ -1363,6 +1422,7 @@
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
+	import { TOAST_MS, cardsFrom, moveCard, noticeCards, toasts } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -1399,6 +1459,7 @@
 	let focusInfrastructureTitle = false;
 	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
 	let focusFleetTitle = false;
+	let focusFleetShip = null; // the ship whose card a `#game/{id}/fleet/{ship}` link brings into view (creator, 2026-11-18)
 	// Set when the player opens Corporations (E11-S01), so its heading takes focus once.
 	let focusCorporationsTitle = false;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
@@ -1459,7 +1520,10 @@
 	function route() {
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
-		const { view, id } = parseRoute(location.hash);
+		if ($('notice-dialog').open) {
+			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
+		}
+		const { view, id, ship } = parseRoute(location.hash);
 		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
@@ -1498,6 +1562,7 @@
 			focusTradingTitle = view === 'trading';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
+			focusFleetShip = view === 'fleet' ? ship ?? null : null;
 			focusAssetsTitle = view === 'assets';
 			focusCorporationsTitle = view === 'corporations';
 			focusOverTitle = view === 'over';
@@ -1863,6 +1928,7 @@
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
+		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
 		const changed = key !== renderedKey;
@@ -1915,13 +1981,20 @@
 			}
 			updateCargoForm(game); // R58: moving goods sits with the ships it moves between
 			showPanels('fleet-panel');
-			if (focusFleetTitle) {
-				focusFleetTitle = false;
+			const shipTitle = focusFleetShip === null ? null
+				: [...$('fleet-ships').querySelectorAll('h3')].find(title => title.textContent === focusFleetShip);
+			if (shipTitle) {
+				shipTitle.focus();
+				shipTitle.scrollIntoView({ block: 'start' });
+			} else if (focusFleetTitle) {
 				$('fleet-panel-title').focus();
 			}
+			focusFleetTitle = false;
+			focusFleetShip = null;
 			return;
 		}
 		focusFleetTitle = false;
+		focusFleetShip = null;
 		if (view === 'assets') {
 			renderAssets(game); // with the regular poll; it redraws only when the numbers changed
 			showPanels('assets-panel');
@@ -2056,20 +2129,21 @@
 		}
 		shownAssetsKey = key;
 		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
-		const goodsList = lines => lines.map(line => element('div', {}, `${line.units} `, good(line.goods), ` ${line.detail}`));
 		const empty = text => (text ? [element('li', { class: 'muted' }, text)] : []);
 		$('assets-summary').replaceChildren(...view.summary.map(item =>
 			element('div', {}, element('dt', {}, item.label), element('dd', {}, item.value))));
-		$('assets-ships').replaceChildren(...empty(view.notes.ships), ...view.ships.map(ship => element('li', {},
-			element('strong', {}, ship.name), ' \u2014 ',
-			element('a', { class: 'link', href: systemLink(game.id, ship.system) }, ship.where),
-			element('div', { class: 'muted' }, `Sale value ${ship.saleValue} \u00b7 goods ${ship.goodsValue}`),
-			...goodsList(ship.goods))));
+		$('assets-goods').replaceChildren(...(view.notes.goods ? [element('p', { class: 'muted' }, view.notes.goods)] : []), ...view.goods.map(stock =>
+			element('section', { class: 'panel corporation', 'aria-label': stock.goods },
+				element('div', { class: 'assets__good-head' }, good(stock.goods), element('strong', {}, stock.units)),
+				element('p', { class: 'muted' }, `${stock.value} \u00b7 ${stock.price}`),
+				element('ul', { class: 'corporation__list' }, ...stock.lots.map(lot => element('li', {},
+					`${lot.units} \u2014 `,
+					lot.ship === null ? 'Warehouse' : element('a', { class: 'link', href: fleetShipLink(game.id, lot.ship) }, lot.ship),
+					' at ',
+					element('a', { class: 'link', href: systemLink(game.id, lot.system) }, lot.systemName)))))));
 		$('assets-warehouses').replaceChildren(...empty(view.notes.warehouses), ...view.warehouses.map(warehouse => element('li', {},
 			element('a', { class: 'link', href: systemLink(game.id, warehouse.system) }, warehouse.systemName),
-			` \u00b7 ${warehouse.blocks}`,
-			element('div', { class: 'muted' }, warehouse.goods.length ? `Goods ${warehouse.goodsValue}` : 'Empty'),
-			...goodsList(warehouse.goods))));
+			` \u00b7 ${warehouse.blocks}`)));
 		$('assets-factories').replaceChildren(...empty(view.notes.factories), ...view.factories.map(factory => element('li', {},
 			good(factory.goods), ' at ',
 			element('a', { class: 'link', href: systemLink(game.id, factory.system) }, factory.systemName),
@@ -2284,7 +2358,7 @@
 				element('td', {}, element('div', { class: 'fleet-ship__flags' }, element('strong', {}, module.name), ...flagBadges(module.flags))),
 				...module.cells.map(cell => element('td', { class: 'num' }, cell))));
 			return element('section', { class: 'panel fleet-ship', 'aria-labelledby': titleId },
-				element('h3', { id: titleId }, ship.name),
+				element('h3', { id: titleId, tabindex: '-1' }, ship.name),
 				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
 				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
 				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, stat.value)))),
@@ -3868,6 +3942,146 @@
 		}
 	}
 
+	// ── Notifications (creator, 2026-11-18) ──
+
+	const NOTICES_SEEN = 'trader.noticesSeen';
+	const MOVES_SEEN = 'trader.movesSeen';
+	// The cards the open dialog was drawn from, and the one it shows.
+	let noticeQueue = [];
+	// Per game, how far into the log toasts have been shown on this page: only lines that arrive while it's open toast.
+	let toastedFrom = null;
+
+	function readStore(storage, key, fallback) {
+		try {
+			return JSON.parse(globalThis[storage]?.getItem(key) ?? 'null') ?? fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function writeStore(storage, key, value) {
+		try {
+			globalThis[storage]?.setItem(key, JSON.stringify(value));
+		} catch {
+			// Storage is a convenience: without it, cards may show again after a reload.
+		}
+	}
+
+	/** How far into game [gameId]'s log this browser has shown cards; the first time, the log's end, so history doesn't replay. */
+	function cardsSeenFrom(gameId, logLength) {
+		const seen = readStore('localStorage', NOTICES_SEEN, {});
+		const from = cardsFrom(seen[gameId], logLength);
+		if (seen[gameId] !== from) {
+			writeStore('localStorage', NOTICES_SEEN, { ...seen, [gameId]: from });
+		}
+		return from;
+	}
+
+	function markCardsSeen(gameId, upTo) {
+		const seen = readStore('localStorage', NOTICES_SEEN, {});
+		writeStore('localStorage', NOTICES_SEEN, { ...seen, [gameId]: Math.max(seen[gameId] ?? 0, upTo) });
+	}
+
+	function markMoveSeen(key) {
+		writeStore('sessionStorage', MOVES_SEEN, [...readStore('sessionStorage', MOVES_SEEN, []), key].slice(-100));
+	}
+
+	/** The cards still to show for [game]: interception and battle moments, then the your-move card. */
+	function pendingNotices(game) {
+		if (game.status !== 'RUNNING' && game.status !== 'FINISHED') {
+			return [];
+		}
+		const cards = noticeCards(game, cardsSeenFrom(game.id, game.log.length), viewerId);
+		const move = moveCard(game, viewerId);
+		const moves = readStore('sessionStorage', MOVES_SEEN, []);
+		return move && !moves.includes(move.key) ? [...cards, { ...move, move: true }] : cards;
+	}
+
+	function updateNotices(game) {
+		showNewToasts(game);
+		const dialog = $('notice-dialog');
+		const queue = pendingNotices(game);
+		if (queue.length === 0) {
+			noticeQueue = [];
+			if (dialog.open) {
+				dialog.close('stale'); // decided elsewhere, or in another tab
+			}
+			return;
+		}
+		if (!dialog.open && ($('landing-dialog').open || $('battle-report-dialog').open)) {
+			return; // one modal at a time; the landing and the battle report come first
+		}
+		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines]));
+		if (dialog.dataset.key !== key) {
+			dialog.dataset.key = key;
+			noticeQueue = queue;
+			drawNotice(queue[0], queue.length);
+		}
+		if (!dialog.open) {
+			dialog.showModal();
+		}
+	}
+
+	function drawNotice(card, count) {
+		const dialog = $('notice-dialog');
+		dialog.dataset.tone = card.tone ?? '';
+		$('notice-count').textContent = count > 1 ? `1 of ${count}` : '';
+		$('notice-title').textContent = card.title;
+		$('notice-lead').textContent = card.lead ?? '';
+		$('notice-lead').hidden = !card.lead;
+		$('notice-lines').replaceChildren(...(card.lines ?? []).map(line => element('li', {}, line)));
+		$('notice-lines').hidden = !(card.lines ?? []).length;
+		$('notice-next').textContent = card.move ? 'Go there' : count > 1 ? 'Next' : 'OK';
+		$('notice-all').hidden = count < 2;
+	}
+
+	$('notice-dialog').addEventListener('close', () => {
+		const dialog = $('notice-dialog');
+		const answer = dialog.returnValue;
+		dialog.returnValue = '';
+		dialog.dataset.key = '';
+		const gameId = currentGameId;
+		if (answer === 'stale' || !gameId || !lastGame) {
+			return;
+		}
+		// Escape counts as Next: the card is seen either way.
+		const dismissed = answer === 'all' ? noticeQueue : noticeQueue.slice(0, 1);
+		dismissed.forEach(card => (card.move ? markMoveSeen(card.key) : markCardsSeen(gameId, card.end)));
+		const go = answer !== 'all' && dismissed[0]?.move ? dismissed[0].link : null;
+		if (go && location.hash !== go) {
+			location.hash = go; // route() redraws, and the next card (if any) opens with it
+			return;
+		}
+		if (go) {
+			$(dismissed[0].focus)?.focus(); // already on that screen: take focus to where it's done
+		}
+		updateNotices(lastGame);
+	});
+
+	/** Toasts for the public lines that arrived since the last render and have no card; they fade on their own. */
+	function showNewToasts(game) {
+		const length = game.log.length;
+		if (toastedFrom?.id !== game.id) {
+			toastedFrom = { id: game.id, index: length }; // opening a game doesn't toast its history
+			return;
+		}
+		if (length <= toastedFrom.index) {
+			return;
+		}
+		const { shown, more } = toasts(game.log, toastedFrom.index);
+		toastedFrom.index = length;
+		const region = $('toasts');
+		[...shown, ...(more ? [`+${more} more in the Game log`] : [])].forEach((text, index, all) => {
+			const toast = element('div', { class: index === all.length - 1 && more ? 'toast toast--more' : 'toast' }, text);
+			region.append(toast);
+			setTimeout(() => toast.classList.add('toast--fading'), TOAST_MS);
+			setTimeout(() => toast.remove(), TOAST_MS + 1000);
+		});
+		while (region.children.length > 6) {
+			region.firstElementChild.remove();
+		}
+	}
+
 	// ── E04-S03: the landing dialog (s05) ──
 
 	// What the dialog was last filled for, so a poll doesn't reset the player's choice while it's open.
@@ -4008,6 +4222,13 @@
 		submitLanding($('landing-choices').querySelector('input:checked')?.value ?? DEFAULT_LOCATION);
 	});
 	$('battle-report-dialog').addEventListener('close', rememberReportLines);
+	// The cards wait while the landing or the battle report is open; once it closes they show, without waiting for a poll
+	// (an unchanged game answers 304 and renders nothing).
+	['battle-report-dialog', 'landing-dialog'].forEach(id => $(id).addEventListener('close', () => {
+		if (lastGame && lastGame.id === currentGameId) {
+			setTimeout(() => updateNotices(lastGame)); // after the closing dialog has left the top layer
+		}
+	}));
 	$('landing-dialog').addEventListener('cancel', event => {
 		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
 		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)
@@ -4714,7 +4935,6 @@
 				$('units-count').value = '1'; // a new turn starts from one unit
 			}
 			shownUnitsKey = key;
-			$('units-intro').textContent = 'Each unit adds one unit of output a turn, for 5 \u00d7 the good\u2019s price + 10 HT. No ship needed. New units first produce next turn.';
 			$('units-button').textContent = UNITS_BUTTON;
 		}
 		updateUnitsCost(game);

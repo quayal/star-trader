@@ -38,10 +38,17 @@ data class Player(
 	/** What this player's ships would fetch if all were sold now (R61's half price): the money sunk in them (creator, 2026-11-18). */
 	fun shipsSaleValue(): Int = ships.sumOf { it.saleValue() }
 
-	/** What the goods in this player's ships and warehouses are worth at today's [prices] where each is (creator, 2026-11-18). */
-	fun goodsValue(prices: MarketPrices): Int = (ships + warehouses).sumOf { it.heldGoodsValue(prices) }
+	/**
+	 * Every good in this player's ships and warehouses, one stock per good in [Goods] order with a lot per hold (ships first),
+	 * valued at its mean price across the systems that trade it today ([prices]) (creator, 2026-11-18).
+	 */
+	fun goodsStocks(prices: MarketPrices): List<GoodsStock> = (ships + warehouses).flatMap { it.lots() }
+		.groupBy { it.goods }.toSortedMap().map { (goods, lots) -> GoodsStock(goods, prices.averagePrice(goods), lots) }
 
-	/** What one turn's output of all this player's factories is worth at today's [prices] (creator, 2026-11-18). */
+	/** What the goods in this player's ships and warehouses are worth at each good's mean price today (creator, 2026-11-18). */
+	fun goodsValue(prices: MarketPrices): Int = goodsStocks(prices).sumOf { it.value() }
+
+	/** What one turn's output of all this player's factories is worth at each good's mean price today (creator, 2026-11-18). */
 	fun factoryOutputValue(prices: MarketPrices): Int = factories.sumOf { it.outputValue(prices) }
 
 	/** This player's ships in port at [system]: with their warehouse there, the only places they trade from (R23, R42, R49). */

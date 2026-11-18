@@ -16,6 +16,7 @@ import {
 	assetsLink,
 	corporationsLink,
 	fleetLink,
+	fleetShipLink,
 	infrastructureLink,
 	turnText,
 	validateTurns,
@@ -65,7 +66,10 @@ describe('parseRoute', () => {
 		assert.deepEqual(parseRoute('#game/g-1/fleet'), { view: 'fleet', id: 'g-1' });
 		assert.deepEqual(parseRoute(fleetLink('a/b')), { view: 'fleet', id: 'a/b' });
 		assert.equal(fleetLink('a/b'), '#game/a%2Fb/fleet');
-		assert.deepEqual(parseRoute('#game/g-1/fleet/2'), { view: 'unknown', id: 'g-1' });
+		assert.deepEqual(parseRoute('#game/g-1/fleet/Wayfarer'), { view: 'fleet', id: 'g-1', ship: 'Wayfarer' });
+		assert.deepEqual(parseRoute(fleetShipLink('a/b', 'Star Runner')), { view: 'fleet', id: 'a/b', ship: 'Star Runner' });
+		assert.equal(fleetShipLink('a/b', 'Star Runner'), '#game/a%2Fb/fleet/Star%20Runner');
+		assert.deepEqual(parseRoute('#game/g-1/fleet/a/b'), { view: 'unknown', id: 'g-1' });
 	});
 
 	it('reads the Corporations tab of a game (E11-S01)', () => {

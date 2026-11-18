@@ -136,10 +136,13 @@ class WholeGameTest {
 		val loaded = post(host, "/api/games/$gameId/cargo/moves", """{"to": "$wayfarer", "goods": "ISO", "units": 3}""")
 		assertThat(loaded.you!!.ships.first().cargo).isEqualTo(mapOf("ISO" to 3))
 		assertThat(loaded.you!!.warehouses.single().cargo).isEmpty()
-		// The Assets tab: the 3 ISO, now in the ship, valued at today's price where it is (creator, 2026-11-18).
-		val isoAtTau = loaded.board.single { it.id == "TAU_CETI" }.market.single { it.goods == "ISO" }.price
-		assertThat(loaded.you!!.assets.ships.first().goods).containsExactly(HeldGoodsResponseDto("ISO", 3, isoAtTau, 3 * isoAtTau))
-		assertThat(loaded.you!!.assets.goodsValue).isEqualTo(3 * isoAtTau)
+		// The Assets tab: the 3 ISO, now in the ship, valued at ISO's mean price across the systems that trade it (creator, 2026-11-18).
+		val isoPrices = loaded.board.flatMap { system -> system.market.filter { it.goods == "ISO" }.map { it.price } }
+		val isoMean = Math.round(isoPrices.average()).toInt()
+		assertThat(loaded.you!!.assets.goods).containsExactly(
+			GoodsStockResponseDto("ISO", 3, isoMean, 3 * isoMean, listOf(GoodsLotResponseDto(3, "TAU_CETI", "Tau Ceti", wayfarer)))
+		)
+		assertThat(loaded.you!!.assets.goodsValue).isEqualTo(3 * isoMean)
 		val isoAtMu = loaded.board.single { it.id == "MU_HERCULIS" }.market.single { it.goods == "ISO" }.price
 		val price = maxOf(1, isoAtMu - 6) // far enough under the market that it allows more than the 3 units held (R15)
 		post(host, "/api/games/$gameId/offers", """{"system": "MU_HERCULIS", "goods": "ISO", "type": "SELL", "price": $price}""")

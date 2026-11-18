@@ -11,12 +11,14 @@ import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.InitiativeRoll
+import dev.adriangrzebyk.trader.game.InterceptionRoll
 import dev.adriangrzebyk.trader.game.JumpChance
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Module
+import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
@@ -453,9 +455,56 @@ data class MarketGoodResponseDto(val system: String, val systemName: String, val
 }
 
 /** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
-data class LogEntryResponseDto(val turn: Int, val text: String, val trade: TradeRecordResponseDto?) {
+data class LogEntryResponseDto(val turn: Int, val text: String, val trade: TradeRecordResponseDto?, val notice: NoticeResponseDto?) {
 
-	constructor(entry: LogEntry, ids: PlayerIds) : this(entry.turn, entry.text, entry.trade?.let { TradeRecordResponseDto(it, ids) })
+	constructor(entry: LogEntry, ids: PlayerIds) : this(
+		entry.turn,
+		entry.text,
+		entry.trade?.let { TradeRecordResponseDto(it, ids) },
+		entry.notice?.let { NoticeResponseDto(it, ids) }
+	)
+}
+
+/** The interception or battle moment a log entry tells of, for the pop-up cards (creator, 2026-11-18); public, like the line. */
+data class NoticeResponseDto(
+	val kind: String,
+	val system: String,
+	val systemName: String,
+	val playerIds: List<String>,
+	val round: Int?,
+	val interception: InterceptionRollResponseDto?
+) {
+
+	constructor(notice: Notice, ids: PlayerIds) : this(
+		notice.kind.name,
+		notice.system.name,
+		notice.system.displayName,
+		ids.ofAll(notice.players),
+		notice.round,
+		notice.interception?.let { InterceptionRollResponseDto(it, ids) }
+	)
+}
+
+/** One interception try with both rolls as the log words them, and whether it held the ship (R70, R71). */
+data class InterceptionRollResponseDto(
+	val interceptorId: String,
+	val interceptorShip: String,
+	val interceptorRoll: String,
+	val arrivingId: String,
+	val arrivingShip: String,
+	val arrivingRoll: String,
+	val success: Boolean
+) {
+
+	constructor(roll: InterceptionRoll, ids: PlayerIds) : this(
+		ids.of(roll.interceptorEmail),
+		roll.interceptorShip,
+		roll.interceptorRoll,
+		ids.of(roll.arrivingEmail),
+		roll.arrivingShip,
+		roll.arrivingRoll,
+		roll.success
+	)
 }
 
 /** The trade a log entry tells of, for a player's trade history (creator, 2026-11-18); public, like the line itself (R18). */
