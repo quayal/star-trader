@@ -66,3 +66,38 @@ Earlier (2026-10-25): E03–E05 still had no stories/tasks filed — this run wa
 | E07-S02 | #118 | Cargo space comes from the ship's modules, and new games start with the new ships | #116 | E07-S01 | no |
 | E07-S03 | #119 | A Fleet tab shows my ships with all their stats | #116 | E07-S02 | no |
 | E99 | — | Later (parked: N01, R07, D05/D06/N04, rate-limiting); renamed from E06 on 2026-11-15 so E06 could be factories | — | — | not filed |
+
+## .ai/specs/2026-11-18-corporations-tab.md
+
+Backlog source: `.ai/specs/2026-11-18-corporations-tab.md`
+Last filed: 2026-11-18 (spec on PR #143)
+
+| Id | Issue | Title | Epic | Depends on | Adopted |
+|---|---|---|---|---|---|
+| E11 | #144 | Corporations tab | — | — | no |
+| E11-S01 | #145 | A player sees every corporation's public facts on a Corporations tab | #144 | — | no |
+
+## .ai/specs/2026-11-18-connections.md
+
+Backlog source: `.ai/specs/2026-11-18-connections.md`
+Last filed: 2026-11-18 (spec on PR #143)
+
+| Id | Issue | Title | Epic | Depends on | Adopted |
+|---|---|---|---|---|---|
+| E12 | #146 | Connections | — | E11 | no |
+| E12-S01 | #147 | Players start with 3+d3 connection points and place them in turn 1 | #146 | E11-S01 | no |
+| E12-S02 | #148 | A player raises one connection per Investment; a market rise adds business | #146 | E12-S01 | no |
+| E12-S03 | #149 | Factory units are capped at political + business | #146 | E12-S02 | no |
+
+## .ai/specs/2026-11-18-reputation.md
+
+Backlog source: `.ai/specs/2026-11-18-reputation.md`
+Last filed: 2026-11-18 (spec on PR #143)
+
+| Id | Issue | Title | Epic | Depends on | Adopted |
+|---|---|---|---|---|---|
+| E13 | #150 | Reputation | — | E11, E12 | no |
+| E13-S01 | #151 | Every player has a public reputation that recovers and pays a bonus each turn | #150 | E11-S01 | no |
+| E13-S02 | #152 | Market position changes and connection raises move reputation | #150 | E13-S01, E12-S02 | no |
+| E13-S03 | #153 | A player buys reputation in Investment | #150 | E13-S01 | no |
+| E13-S04 | #154 | Interception tries and firing at a non-interceptor cost reputation | #150 | E13-S01 | no |
