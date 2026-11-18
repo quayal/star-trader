@@ -1323,6 +1323,10 @@
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
 	let pollTimer = null;
+	// The last poll's request and the ETag it came back with, so the next identical poll can get an empty 304.
+	let pollEtag = null;
+	// Set when a poll fell due while the tab was hidden; the poll runs as soon as the tab is shown again.
+	let pollPaused = false;
 	let currentGameId = null;
 	// Bumped on every navigation, so a poll that was in flight when the player left can't start a second loop.
 	let pollGeneration = 0;
@@ -1591,9 +1595,13 @@
 		const id = currentGameId;
 		const generation = pollGeneration;
 		const known = knownLog; // as it was when the poll was sent: the answer follows on from this
+		const url = `/api/games/${encodeURIComponent(id)}${logAfterQuery(known, id)}`;
+		// The last answer's ETag for this same request: an unchanged game then comes back as an empty 304 (bandwidth,
+		// creator 2026-11-18). `no-store` keeps the browser's own cache out of it, so a 304 always reaches this code.
+		const etag = pollEtag?.url === url ? pollEtag.etag : null;
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(id)}${logAfterQuery(known, id)}`);
+			response = await api(url, { cache: 'no-store', headers: etag ? { 'If-None-Match': etag } : {} });
 		} catch {
 			response = null;
 		}
@@ -1617,6 +1625,12 @@
 			showNotAPlayer();
 			return;
 		}
+		if (response.status === 304) {
+			lastLoadedAt = Date.now(); // nothing changed: what's on screen is current
+			hideStale();
+			schedulePoll(id);
+			return;
+		}
 		let game;
 		try {
 			game = response.ok ? await response.json() : null;
@@ -1637,6 +1651,7 @@
 			return;
 		}
 		game = { ...game, log, logOffset: 0 }; // every screen sees a whole log
+		pollEtag = { url, etag: response.headers.get('ETag') };
 		rememberGame(id);
 		hideStale();
 		render(game, true, true);
@@ -1684,11 +1699,25 @@
 	function schedulePoll(id) {
 		clearTimeout(pollTimer);
 		pollTimer = setTimeout(() => {
-			if (id === currentGameId) {
-				poll();
+			if (id !== currentGameId) {
+				return;
 			}
+			if (document.hidden) {
+				pollPaused = true; // a tab nobody looks at stops polling; showing it again polls at once
+				return;
+			}
+			poll();
 		}, POLL_INTERVAL_MS);
 	}
+
+	document.addEventListener('visibilitychange', () => {
+		if (!document.hidden && pollPaused) {
+			pollPaused = false;
+			if (currentGameId) {
+				repollNow();
+			}
+		}
+	});
 
 	/**
 	 * [fresh] is false when redrawing the last state, which mustn't make it look newer than it is. [fromPoll]: the game

@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS=", "server.compression.enabled=false"]
 )
 class WholeGameTest {
 
