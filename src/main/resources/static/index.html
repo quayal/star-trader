@@ -83,27 +83,6 @@
 			cursor: pointer;
 		}
 		.text-action:hover { text-decoration: underline; }
-		.market-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-			gap: var(--space-panel);
-		}
-		.system-card {
-			border: var(--border-width) solid var(--border-subtle);
-			border-radius: var(--radius-panel);
-			padding: var(--space-panel);
-			background: var(--surface-page);
-		}
-		.system-card h3 { font-size: var(--text-value); margin-bottom: var(--space-related); }
-		.goods-row {
-			display: flex;
-			justify-content: space-between;
-			font-size: var(--text-value);
-			padding: var(--space-hairline) 0;
-			border-bottom: var(--border-width) solid var(--border-subtle);
-		}
-		.goods-row:last-child { border-bottom: none; }
-		.goods-name { color: var(--text-muted); }
 		.stale-notice {
 			display: flex;
 			flex-wrap: wrap;
@@ -142,7 +121,8 @@
 		/* E10: the interception and battle panel on the Deck. */
 		.fight-form[hidden], .fight-panel[hidden], .fight-panel .message:empty, .fight-panel .muted:empty { display: none; }
 		.fight-ships { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-related); }
-		.fight-ships li { display: grid; gap: var(--space-hairline); }
+		.fight-ships > li { display: grid; gap: var(--space-hairline); }
+		.fight-modules { margin: 0; padding-left: var(--space-panel); }
 		.fight-fields { display: grid; gap: var(--space-between-groups); }
 		.fight-fields fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
 		.fight-fields .fight-row { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-group); }
@@ -391,7 +371,7 @@
 		.queue li.is-over { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
 		.queue__grip { color: var(--text-muted); }
 		.queue__label { flex: 1; }
-		/* E08-S01: the viewer's own offer on a good, under its name. */
+		/* E08-S01: the offers on a good, one per line under its name (public once Trading starts, R17). */
 		.queue__offer { display: block; font-size: var(--text-caption); color: var(--text-muted); }
 		.queue__move {
 			min-width: 32px;
@@ -435,7 +415,7 @@
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
 	<a class="nav-item" id="nav-over" href="/" hidden>Game over</a>
-	<a class="nav-item" id="nav-new" href="/#new">New game</a>
+	<a class="nav-item" id="nav-new" href="/#new">Lobby</a>
 </aside>
 
 <header class="topbar">
@@ -457,17 +437,7 @@
 </header>
 
 <main>
-	<!-- Home: the market overview (unchanged) -->
-	<div class="view view--wide" id="home-view" hidden>
-		<section class="panel">
-			<h2>Market Overview</h2>
-			<div id="market-grid" class="market-grid">
-				<p class="empty">Loading market&hellip;</p>
-			</div>
-		</section>
-	</div>
-
-	<!-- s11: Create a game -->
+	<!-- s11: the Lobby — create a game, or pick up one of yours. `/` opens it when there is no game to go back to. -->
 	<div class="view" id="new-view" hidden>
 		<section class="panel" aria-labelledby="new-title">
 			<h2 id="new-title">Create a game</h2>
@@ -581,7 +551,6 @@
 				<h2 id="map-title">Map</h2>
 				<div id="map"></div>
 				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there. Select a system for its details.</p>
-				<p class="muted map-key">Each arrowhead is the base chance of a jump that way: a 2d6 roll of that or less gets there. Your crew and Safe jump add to it. Green marks the three highest values on the map, red the three lowest.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
@@ -1032,29 +1001,6 @@
 	</div>
 </main>
 
-<script>
-	async function loadMarket() {
-		const grid = document.getElementById('market-grid');
-		const response = await fetch('/api/options');
-		const options = await response.json();
-
-		grid.innerHTML = options.starSystems
-			.map(system => `
-				<div class="system-card">
-					<h3>${system.displayName}</h3>
-					${system.market
-						.map(m => `
-							<div class="goods-row">
-								<span class="goods-name">${m.goods}</span>
-								<span>${m.price} HT &middot; S/D ${m.indicator > 0 ? '+' : ''}${m.indicator}</span>
-							</div>
-						`)
-						.join('')}
-				</div>
-			`)
-			.join('');
-	}
-</script>
 <script type="module">
 	import { getToken, requireSession } from './js/session.js';
 	import { errorText } from './js/sign-in.js';
@@ -1094,6 +1040,7 @@
 		DICTATOR_HELP,
 		awaitingDictator,
 		counterLines,
+		lineText,
 		decisionText,
 		defaultSplit,
 		TRADE_NOTHING_BUTTON,
@@ -1110,7 +1057,7 @@
 		queueBody,
 		queueNote,
 		queueOffersNote,
-		yourOffer,
+		queueOffers,
 		isDictatorOf,
 		DICTATOR_MARK,
 		GO_TO_TRADING,
@@ -1282,13 +1229,12 @@
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
-	const views = { home: $('home-view'), new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
+	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
 		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
-	let marketLoaded = false;
 	let pollTimer = null;
 	let currentGameId = null;
 	// Bumped on every navigation, so a poll that was in flight when the player left can't start a second loop.
@@ -1340,6 +1286,11 @@
 		}));
 	}
 
+	/** A line's parts as nodes: text as is, `{ text, tone }` in a `.tone--{tone}` span (counterLines, reportLines). */
+	function toned(parts) {
+		return parts.map(part => (typeof part === 'string' ? part : element('span', { class: `tone tone--${part.tone}` }, part.text)));
+	}
+
 	function stopPolling() {
 		clearTimeout(pollTimer);
 		pollTimer = null;
@@ -1373,7 +1324,6 @@
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
-			views.home.hidden = true; // no market flash while the remembered games are checked
 			openLatestGame();
 			return;
 		}
@@ -1381,7 +1331,7 @@
 			showHome();
 		} else if (view === 'new') {
 			$('nav-new').setAttribute('aria-current', 'page');
-			setTitle('New game', 'Choose how long the game lasts, then invite the players.');
+			setTitle('Lobby', 'Create a game and invite the players, or pick up one of yours.');
 			$('turns').focus();
 			loadYourGames();
 		} else if (view === 'unknown') {
@@ -1443,13 +1393,7 @@
 		if (parseRoute(location.hash).view !== 'home') {
 			return; // the player has moved on while the games were checked
 		}
-		views.home.hidden = false;
-		$('nav-home').setAttribute('aria-current', 'page');
-		setTitle('Command Deck', 'Live prices and supply/demand across all six star systems.');
-		if (!marketLoaded) {
-			marketLoaded = true;
-			loadMarket();
-		}
+		location.replace('/#new'); // no game to go back to: the Lobby
 	}
 
 	// ── s11: Create a game ──
@@ -2128,9 +2072,9 @@
 		$('queue-panel').hidden = goods.length === 0;
 		$('queue-note').textContent = queueNote(game, viewerId);
 		$('queue-offers-note').textContent = queueOffersNote(game);
-		// E08-S01: the viewer's own offers mark their goods, so the list is drawn again when they change (a new turn's).
+		// E08-S01: the turn's offers are listed under their goods, so the list is drawn again when they change (a new turn's).
 		const positions = game.players.find(player => player.id === viewerId)?.marketPositions ?? [];
-		const listKey = JSON.stringify([game.id, editable, goods, game.you?.offers ?? [], positions]);
+		const listKey = JSON.stringify([game.id, editable, goods, game.turn?.publicOffers ?? [], positions]);
 		if (listKey !== queueListKey) {
 			queueListKey = listKey;
 			drawQueue(game, goods, editable);
@@ -2173,10 +2117,10 @@
 		const lines = counterLines(game);
 		$('resolution-counter-title').hidden = lines.length === 0;
 		$('resolution-counter').hidden = lines.length === 0;
-		const linesKey = JSON.stringify(lines);
+		const linesKey = JSON.stringify(lines.map(lineText));
 		if ($('resolution-counter').dataset.key !== linesKey) {
 			$('resolution-counter').dataset.key = linesKey;
-			$('resolution-counter').replaceChildren(...lines.map(line => element('li', {}, line)));
+			$('resolution-counter').replaceChildren(...lines.map(line => element('li', {}, ...toned(line))));
 		}
 		const question = dictatorQuestion(game, viewerId);
 		const key = dictatorFormKey(game);
@@ -2423,12 +2367,11 @@
 		$('queue-list').setAttribute('aria-label', editable ? 'Remaining goods, in order. Drag to reorder, or use the arrows.' : 'Remaining goods, in order');
 		$('queue-list').replaceChildren(...goods.map((good, index) => {
 			const label = goodLabel(good);
-			// E08-S01-1: the viewer's own offer on this good, theirs alone until it resolves (R17).
-			const offer = yourOffer(game, good);
-			const mark = offer ? [element('span', { class: 'queue__offer' }, 'Your offer: ',
-				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`)]
-				// A Dictator has no offer yet: they place it when the good resolves (R38), which matters for the order too.
-				: isDictatorOf(game, good, viewerId) ? [element('span', { class: 'queue__offer' }, DICTATOR_MARK)] : [];
+			// E08-S01-1: every offer on this good, the viewer's first ("You: Buy at 13 HT"); public once Trading starts (R17).
+			const offers = queueOffers(game, good, viewerId).map(offer => element('span', { class: 'queue__offer' }, `${offer.who}: `,
+				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`));
+			// A Dictator has no offer yet: they place it when the good resolves (R38), which matters for the order too.
+			const mark = [...offers, ...(isDictatorOf(game, good, viewerId) ? [element('span', { class: 'queue__offer' }, DICTATOR_MARK)] : [])];
 			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
 				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ...mark);
 			if (!editable) {
@@ -3297,7 +3240,7 @@
 				element('span', {}, element('strong', {}, row.name), ` — ${row.owner}`,
 					...(row.note ? [' ', element('span', { class: row.note.startsWith('intercepted') ? 'badge badge--warn' : 'badge' }, row.note)] : [])),
 				element('span', { class: 'muted' }, `${row.hull}; ${row.stats}`),
-				element('span', { class: 'muted' }, row.modules))));
+				element('ul', { class: 'fight-modules muted' }, ...row.modules.map(module => element('li', {}, module))))));
 		}
 		$('fight-waiting').textContent = waitingText(game, viewerId);
 		const step = interceptors(game).length ? 'INTERCEPT' : battleStep(game, viewerId);
@@ -3351,7 +3294,7 @@
 						'data-jettison-ship': pending.ship, 'data-goods': goods }),
 					element('label', { for: `fight-jettison-${index}-${goods}` }, `${goods} thrown overboard (of ${units})`)));
 				return element('fieldset', {},
-					element('legend', { class: 'field-label' }, `${pending.ship} — ${hitsText(pending.hits)}`),
+					element('legend', { class: 'field-label' }, `${pending.ship} — `, element('span', { class: 'tone tone--alert' }, hitsText(pending.hits))),
 					element('p', { class: 'muted' }, HIT_RULES),
 					...inputs,
 					...(jettison.length ? [element('p', { class: 'muted', 'data-overflow': pending.ship }, ''), ...jettison] : []));
@@ -3501,12 +3444,12 @@
 		if (!unseen && !dialog.open) {
 			return;
 		}
-		const linesKey = JSON.stringify(lines.map(line => line.key));
+		const linesKey = JSON.stringify(lines.map(line => [line.key, line.text]));
 		if (dialog.dataset.key !== linesKey) {
 			dialog.dataset.key = linesKey;
 			shownReportLines = lines;
 			$('battle-report-title').textContent = reportTitle(game);
-			$('battle-report-lines').replaceChildren(...lines.map(line => element('li', {}, line.text)));
+			$('battle-report-lines').replaceChildren(...lines.map(line => element('li', {}, ...toned(line.parts))));
 			$('battle-report-button').textContent = REPORT_BUTTON;
 		}
 		if (!dialog.open) {

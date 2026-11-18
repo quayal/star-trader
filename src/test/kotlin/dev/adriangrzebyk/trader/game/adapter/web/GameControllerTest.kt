@@ -275,7 +275,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null
+				null, null, emptyList()
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -453,7 +453,8 @@ class GameControllerTest {
 				listOf(
 					"p2"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null
+				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
+				emptyList()
 			)
 		)
 

@@ -11,8 +11,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).
  * [doneBidding] lists, in signal order, the players who have signalled done during this turn's Bidding;
  * it's public, so everyone can see who the game is waiting for (D09), and empty outside Bidding.
- * [offers] are this turn's trade offers in the order they were placed. Each is secret to its player (R17), so
- * nothing outside a player's own view may carry them; they stay through Trading and the next turn starts with none.
+ * [offers] are this turn's trade offers in the order they were placed. Each is secret to its player until Trading
+ * starts (R17), so nothing outside a player's own view may carry them before; they stay through Trading and the next
+ * turn starts with none.
  * [bids] are this turn's initiative bids, at most one per player and each secret to its player (R29); like offers
  * they stay for the whole turn. [initiative] is every player's email in initiative order (R27), public, set when
  * Bidding closes and empty before. [turnOrderPicks] are the places players picked in this turn's turn order (R26), in
@@ -49,8 +50,11 @@ data class Turn(
 	val battleReport: BattleReport?
 ) {
 
-	/** [email]'s own offers this turn: the only offers a player may ever be shown (R17, A05). */
+	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
 	fun offersOf(email: String): List<Offer> = offers.filter { it.playerEmail == email }
+
+	/** Every offer of this turn once Trading has started, when they become public to all players (R17); none before. */
+	fun publicOffers(): List<Offer> = if (phase >= TurnPhase.TRADING) offers else emptyList()
 
 	/** [email]'s own initiative bid this turn, or null if they haven't placed one: the only bid they may see (R29). */
 	fun bidOf(email: String): InitiativeBid? = bids.firstOrNull { it.playerEmail == email }

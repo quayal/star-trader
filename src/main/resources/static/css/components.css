@@ -193,6 +193,14 @@ h1, h2, h3 {
 .trade--buy { background: var(--tint-buy); color: var(--trade-buy); }
 .trade--sell { background: var(--tint-sell); color: var(--trade-sell); }
 
+/* ── A word coloured inside a sentence: the side a market favours, a price move, a battle loss ── */
+.tone { font-weight: 600; }
+.tone--buy { color: var(--tone-buy); }
+.tone--sell { color: var(--tone-sell); }
+.tone--rise { color: var(--tone-rise); }
+.tone--fall { color: var(--tone-fall); }
+.tone--alert { color: var(--tone-alert); font-weight: 700; }
+
 /* ── Goods name in its own color (R04.1: goods column / icons only) ── */
 .good { font-weight: 700; letter-spacing: 0.04em; }
 /* `color` for HTML, `fill` for the map's SVG text. */
