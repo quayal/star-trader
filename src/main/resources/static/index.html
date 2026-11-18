@@ -282,6 +282,18 @@
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
 		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
 		.fleet[hidden] { display: none; }
+		/* Corporations (E11-S01, D20): one panel per corporation; two columns when there's room, one on a phone. */
+		.corporations { display: grid; gap: var(--space-panel); max-width: 1200px; }
+		.corporations > h2, .corporations > p { margin: 0; }
+		.corporations h2:focus { outline: none; }
+		.corporations[hidden] { display: none; }
+		.corporations__cards { display: grid; gap: var(--space-panel); grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+		.corporation { display: grid; gap: var(--space-related); align-content: start; min-width: 0; }
+		.corporation h3 { margin: 0; font-size: var(--text-title); }
+		.corporation h4 { margin: 0; font-size: var(--text-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+		.corporation p { margin: 0; }
+		.corporation__section { display: grid; gap: var(--space-hairline); }
+		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		/* E09: a ship's shipyard actions on Fleet, and the buy form under them. */
 		.fleet-ship__actions { display: grid; gap: var(--space-related); padding-top: var(--space-related); border-top: var(--border-width) solid var(--border-subtle); }
 		.fleet-ship__actions h4 { margin: 0; }
@@ -411,6 +423,8 @@
 	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
 	<!-- E07-S03: only while a started game is open; its href is that game's Fleet tab. -->
 	<a class="nav-item" id="nav-fleet" href="/" hidden>Fleet</a>
+	<!-- E11-S01 (D20): only while a started game is open; its href is that game's Corporations tab. -->
+	<a class="nav-item" id="nav-corporations" href="/" hidden>Corporations</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
@@ -635,6 +649,13 @@
 				<div><button class="btn" id="battle-report-button" type="submit"></button></div>
 			</form>
 		</dialog>
+
+		<!-- Corporations (E11-S01, D20): every public fact about every player; never money (R29) or a ship's hull, modules or cargo (R57). -->
+		<div class="corporations" id="corporations-panel" hidden>
+			<h2 class="system__title" id="corporations-title" tabindex="-1">Corporations</h2>
+			<p class="muted">What every player can see about each corporation.</p>
+			<div class="corporations__cards" id="corporations-cards"></div>
+		</div>
 
 		<!-- s04: Game log, public events by turn (E03-S06) -->
 		<div class="game-log" id="log-panel" hidden>
@@ -1016,6 +1037,7 @@
 		tradingLink,
 		gameOverLink,
 		fleetLink,
+		corporationsLink,
 		infrastructureLink,
 		validateTurns,
 		screenForPhaseChange,
@@ -1071,6 +1093,7 @@
 	} from './js/trading.js';
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
+	import { NO_TEXT as NO_CORPORATION_TEXT, corporationCards } from './js/corporations.js';
 	import {
 		BUY_BUTTON,
 		REFIT_NOTE,
@@ -1231,7 +1254,7 @@
 	const $ = id => document.getElementById(id);
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'corporations-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1257,6 +1280,10 @@
 	let focusInfrastructureTitle = false;
 	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
 	let focusFleetTitle = false;
+	// Set when the player opens Corporations (E11-S01), so its heading takes focus once.
+	let focusCorporationsTitle = false;
+	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
+	let shownCorporationsKey = null;
 	// Set when a phase change opens the Deck (E08-S03-4), so the heading of the panel that phase needs takes focus once.
 	let focusDeckHeading = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
@@ -1309,18 +1336,20 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'corporations' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
 		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
 		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
+		$('nav-corporations').toggleAttribute('aria-current', view === 'corporations');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
@@ -1337,12 +1366,13 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', corporations: 'nav-corporations', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
+			focusCorporationsTitle = view === 'corporations';
 			focusOverTitle = view === 'over';
 			openGame(id);
 		}
@@ -1357,6 +1387,7 @@
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -1634,6 +1665,7 @@
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, viewerId);
@@ -1665,9 +1697,11 @@
 		$('nav-infrastructure').hidden = false;
 		$('nav-fleet').href = fleetLink(game.id);
 		$('nav-fleet').hidden = false;
+		$('nav-corporations').href = corporationsLink(game.id);
+		$('nav-corporations').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet') {
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'corporations') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1); Investment's is on s10 (E06-S08)
 		}
 		updateDecisionAlert(game, view);
@@ -1732,6 +1766,16 @@
 			return;
 		}
 		focusFleetTitle = false;
+		if (view === 'corporations') {
+			renderCorporations(game); // with the regular poll; it redraws only when a card changed
+			showPanels('corporations-panel');
+			if (focusCorporationsTitle) {
+				focusCorporationsTitle = false;
+				$('corporations-title').focus();
+			}
+			return;
+		}
+		focusCorporationsTitle = false;
 		if (view === 'over') {
 			renderGameOver(game);
 			showPanels('game-over-panel');
@@ -1951,6 +1995,30 @@
 	}
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
+	/** E11-S01: one panel per corporation, the viewer's first; redrawn only when something on a card changed. */
+	function renderCorporations(game) {
+		const cards = corporationCards(game, viewerId);
+		const key = JSON.stringify([game.id, cards]);
+		if (key === shownCorporationsKey) {
+			return;
+		}
+		shownCorporationsKey = key;
+		const section = (card, field, title, items) => element('section', { class: 'corporation__section', 'aria-labelledby': `corporation-${card.id}-${field}` },
+			element('h4', { id: `corporation-${card.id}-${field}` }, title),
+			items.length === 0
+				? element('p', { class: 'muted' }, NO_CORPORATION_TEXT[field])
+				: element('ul', { class: 'corporation__list' }, ...items.map(item => element('li', {}, ...[item].flat()))));
+		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
+		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
+			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
+			element('p', { class: 'muted' }, card.playerName),
+			section(card, 'ships', 'Ships', card.ships),
+			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
+				[`${position.tier} \u2014 `, good(position.goods), ` at ${position.systemName}`])),
+			section(card, 'warehouses', 'Warehouses', card.warehouses),
+			section(card, 'factories', 'Factories', card.factories.map(factory => [good(factory.goods), factory.text])))));
+	}
+
 	function renderFleet(game) {
 		const turnKey = `${game.id}/${game.turn?.number}/${game.turn?.phase}`;
 		if (fleetMessageKey !== null && !turnKey.startsWith(`${fleetMessageKey}/`)) {

@@ -2,7 +2,7 @@
 
 **Brief:** `.ai/specs/product-brief.md` — N05 (reputation and loans out of scope; superseded here for reputation only), D11, R39 (money alone wins), R43 (market positions), R70–R80 (interception and battle).
 **Source:** the creator's vault note `10-projects/Trader/Reputation.md` and their answers of 2026-11-18.
-**Depends on:** `2026-11-18-connections.md` (connection rises move reputation). **Shown on:** `2026-11-18-corporations-tab.md`.
+**Depends on:** `2026-11-18-connections.md` (connection rises move reputation). **Shown on:** `implemented/2026-11-18-corporations-tab.md`.
 
 ## 📝 TLDR
 
