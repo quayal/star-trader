@@ -245,6 +245,13 @@ change.
 **Done when:** no KDoc says "empty outside X" (the type says it), `TurnItemTest` and the old-item case pass, and every
 `Game*Test` passes.
 
+**Implementation note (2026-11-19): deferred, not in this PR.** Sizing it before writing code showed it is well past one
+focused commit: several phase fields are read after their phase (`resolution` is shown once its good finished, the
+DTO sends `resolvedGoods` and `turnOrderPicks` in later phases, `battleReport` outlives its battle), so the split isn't
+the clean four-way one above; `Turn` has 25 `copy` calls to rework, `TurnItemTest` 22 `Turn(` fixtures, and 12 test
+files copy phase fields. Its trigger (a stale-phase bug or a fifth phase) still hasn't fired, so as recommended above it
+waits for a spec of its own when it does.
+
 ---
 
 ## Finish

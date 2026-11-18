@@ -158,6 +158,7 @@ Write the rule down as one sentence ("a rocket roll at or below the hits destroy
 
 | # | Question | If yes, it goes… | Example here |
 |---|---|---|---|
+| 0 | Is it about what one player may see of a game (confidential data, R17, R29, §10)? | `PlayerView`, built by `Game.viewFor(email)`: the root looks the parts up for the viewer and each part decides whether its data is theirs. The DTO only maps the view. | `Resolution.awaitingTradeOf(email)`, `Battle.involves(email)`, `Interception.asks(email)` (creator, 2026-11-19) |
 | 1 | Does it turn our data into HTTP/JSON/storage shapes or back? | A constructor or method of the adapter-side class. It only maps: an `if`, `filter` or `firstOrNull` over domain fields means a rule got in, so go on to row 4. | `InvestFactoryResponseDto(player, …)`, `BattleItem(battle)` |
 | 2 | Does it need the outside world: randomness, time, I/O, another service? | Behind a port with a fake (§4). The domain gets the port or the value it produced passed in. | `Dice`, `FakeDice` |
 | 3 | Does it load, save or run something as one transaction for a request? | An application service: load, call one method on the aggregate, save. No rule in it. | `ShipJumpsService.giveOrders` |
