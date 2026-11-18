@@ -14,7 +14,7 @@ class PlayerBuyWarehouseBlocksTest {
 	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
 	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.SPACE)
 
-	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern))
+	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern), 0)
 
 	@Test
 	fun shouldCreateTheWarehouseAndTakeTwentyHtABlock() {
@@ -89,7 +89,7 @@ class PlayerBuyWarehouseBlocksTest {
 
 	@Test
 	fun shouldSayBlockInTheSingular() {
-		assertThatThrownBy { Player.newcomer("a@example.com", "A", "A Ltd").startWith(10, listOf(wayfarer)).buyWarehouseBlocks(TAU_CETI, 1) }
+		assertThatThrownBy { Player.newcomer("a@example.com", "A", "A Ltd").startWith(10, listOf(wayfarer), 0).buyWarehouseBlocks(TAU_CETI, 1) }
 			.hasMessage("1 block costs 20 HT; you have 10 HT.")
 	}
 }

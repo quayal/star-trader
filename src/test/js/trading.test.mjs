@@ -314,7 +314,7 @@ describe('the counter (E05-S03)', () => {
 				trades: [
 					{ playerId: VEGA, type: 'BUY', price: 11, marketMax: 9, units: 7, positionRoll: { roll: 5, promotedTo: 'WHOLESALER', demoted: [] } },
 					{ playerId: ME, type: 'SELL', price: 10, marketMax: 9, units: 6, positionRoll: { roll: 9, promotedTo: null, demoted: [] } },
-					{ playerId: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA] } },
+					{ playerId: ALTAIR, type: 'SELL', price: 9, marketMax: 8, units: 8, positionRoll: { roll: 4, promotedTo: 'DICTATOR', demoted: [VEGA], businessConnections: 5 } },
 					{ playerId: VEGA, type: 'BUY', price: 12, marketMax: 2, units: 2, positionRoll: null },
 				],
 			}),
@@ -323,7 +323,7 @@ describe('the counter (E05-S03)', () => {
 		assert.deepEqual(counterTexts(rolled).filter(line => line.includes('rolls')), [
 			'Vega Lines trades 7 u \u2014 rolls 5: now Wholesaler of ISO at Mu Herculis',
 			'Orion Freight trades 6 u \u2014 rolls 9: no change',
-			'Altair Trade Co. trades 8 u \u2014 rolls 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
+			'Altair Trade Co. trades 8 u \u2014 rolls 4: now Dictator of ISO at Mu Herculis; business connections rise to 5; Vega Lines is demoted to Wholesaler',
 		]);
 		assert.equal(counterTexts(rolled)[2], 'Vega Lines trades 7 u \u2014 rolls 5: now Wholesaler of ISO at Mu Herculis');
 	});

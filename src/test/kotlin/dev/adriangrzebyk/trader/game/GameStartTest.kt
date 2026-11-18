@@ -17,7 +17,7 @@ class GameStartTest {
 
 	@Test
 	fun shouldGiveEveryPlayer300HtAndTwoShipsAtThePortsOfTheirPickedSystems() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThat(started.players.map { it.money }).containsOnly(300)
 		assertThat(started.players[0].ships).containsExactly(
@@ -33,7 +33,7 @@ class GameStartTest {
 	@Test
 	fun shouldStartEveryShipAsAClarinetWithFourCargoALightWeaponsAndASafeJumpModule() {
 		// R55
-		val ships = lobby.start("creator@example.com", picker).players.flatMap { it.ships }
+		val ships = lobby.start("creator@example.com", picker, START_DICE).players.flatMap { it.ships }
 
 		assertThat(ships).hasSize(4).allSatisfy { ship ->
 			assertThat(ship.hull).isEqualTo(Hull.CLARINET)
@@ -53,7 +53,7 @@ class GameStartTest {
 
 	@Test
 	fun shouldStartEveryPlayerWithEmptyShipsAndNoMarketPosition() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThat(started.players.flatMap { it.ships }.map { it.cargo }).containsOnly(emptyMap())
 		assertThat(started.players.flatMap { it.marketPositions }).isEmpty()
@@ -61,7 +61,7 @@ class GameStartTest {
 
 	@Test
 	fun shouldMoveTheGameToTurnOneBidding() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThat(started.status).isEqualTo(GameStatus.RUNNING)
 		assertThat(started.turn).isEqualTo(Turn.bidding(1))
@@ -69,7 +69,7 @@ class GameStartTest {
 
 	@Test
 	fun shouldLogTheStartAndEveryShipsStartingSystemInTurnOne() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThat(started.log).containsExactly(
 			LogEntry(1, "Game started: 2 players, 20 turns"),
@@ -77,8 +77,20 @@ class GameStartTest {
 				1,
 				"Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; " +
 					"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti"
-			)
+			),
+			LogEntry(1, "Orion Freight rolled 3: 6 connection points to place"),
+			LogEntry(1, "Vega Lines rolled 3: 6 connection points to place")
 		)
+	}
+
+	@Test
+	fun shouldGiveEachPlayerThreePlusADThreeConnectionPointsAndNoConnectionsYet() {
+		// R82, E12-S01-1: one d3 per player, in join order
+		val started = lobby.start("creator@example.com", picker, FakeDice.d3(1, 3))
+
+		assertThat(started.players.map { it.connectionPoints }).containsExactly(4, 6)
+		assertThat(started.players.map { it.connections }).containsOnly(Connections.NONE)
+		assertThat(started.log.map { it.text }).contains("Orion Freight rolled 1: 4 connection points to place")
 	}
 
 	@Test
@@ -88,37 +100,37 @@ class GameStartTest {
 		}
 		val pairs = List(6) { SIGMA_DRACONIS to TAU_CETI }.toTypedArray()
 
-		val names = full.start("creator@example.com", FakeStartingSystemPicker(*pairs)).players.flatMap { it.ships }.map { it.name }
+		val names = full.start("creator@example.com", FakeStartingSystemPicker(*pairs), START_DICE).players.flatMap { it.ships }.map { it.name }
 
 		assertThat(names).hasSize(12).doesNotHaveDuplicates()
 	}
 
 	@Test
 	fun shouldLetOnlyTheCreatorStart() {
-		assertThatThrownBy { lobby.start("joiner@example.com", picker) }
+		assertThatThrownBy { lobby.start("joiner@example.com", picker, START_DICE) }
 			.isInstanceOf(NotTheCreatorException::class.java)
 			.hasMessage("Only the creator can start the game")
 	}
 
 	@Test
 	fun shouldNotStartWithFewerThanTwoPlayers() {
-		assertThatThrownBy { Game.lobby("game-1", 20, creator).start("creator@example.com", picker) }
+		assertThatThrownBy { Game.lobby("game-1", 20, creator).start("creator@example.com", picker, START_DICE) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("At least 2 players are needed to start")
 	}
 
 	@Test
 	fun shouldNotStartTwice() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
-		assertThatThrownBy { started.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI)) }
+		assertThatThrownBy { started.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI), START_DICE) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("This game has already started")
 	}
 
 	@Test
 	fun shouldCloseJoiningOnceStarted() {
-		val started = lobby.start("creator@example.com", picker)
+		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThatThrownBy { started.addPlayer(Player.newcomer("late@example.com", "Late", "Late Corp")) }
 			.isInstanceOf(InvalidGameOperationException::class.java)

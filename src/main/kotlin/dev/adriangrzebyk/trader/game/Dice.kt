@@ -11,4 +11,7 @@ interface Dice {
 
 	/** A d6: 1 to 6. Interception adds one to each side (R70); a salvo rolls one and a rocket salvo that hits one more to destroy (R75). */
 	fun d6(): Int
+
+	/** A d3: 1 to 3. Each player starts with 3 + d3 connection points to place (R82). */
+	fun d3(): Int
 }

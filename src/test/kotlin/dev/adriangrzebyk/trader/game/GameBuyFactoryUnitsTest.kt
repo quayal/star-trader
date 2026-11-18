@@ -17,7 +17,9 @@ class GameBuyFactoryUnitsTest {
 
 	/** Ada's Wayfarer is at Tau Ceti, Grace's Meridian at Gamma Leporis (R40). */
 	private val started = Game.lobby("game-1", 20, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 
 	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
@@ -26,7 +28,7 @@ class GameBuyFactoryUnitsTest {
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
 	private fun withFactoryFor(game: Game, email: String): Game =
-		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it })
+		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 4))) else it })
 
 	@Test
 	fun shouldBuildTheFactoryAtTheGamesCurrentPriceAndLogItWithoutThePrice() {
@@ -78,7 +80,7 @@ class GameBuyFactoryUnitsTest {
 
 		val game = collected.buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 2)
 
-		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 8))
+		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 6))
 		assertThat(game.turn!!.collected).containsExactly("ada@example.com")
 		assertThat(playerOf(game, "ada@example.com").ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
 	}

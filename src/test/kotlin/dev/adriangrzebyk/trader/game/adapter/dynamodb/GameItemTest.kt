@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -62,7 +63,9 @@ class GameItemTest {
 				),
 				marketPositions = emptyList(),
 				warehouses = emptyList(),
-				factories = emptyList()
+				factories = emptyList(),
+				connections = Connections(political = 3, business = 1, criminal = 2),
+				connectionPoints = 0
 			),
 			Player(
 				email = "guest@example.com",
@@ -97,7 +100,9 @@ class GameItemTest {
 				),
 				marketPositions = emptyList(),
 				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.POLY to 4))),
-				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3))
+				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3)),
+				connections = Connections.NONE,
+				connectionPoints = 5
 			)
 		),
 		turn = Turn(
@@ -118,7 +123,8 @@ class GameItemTest {
 			collected = listOf("ada@example.com"),
 			interception = null,
 			battle = null,
-			battleReport = null
+			battleReport = null,
+			connectionsRaised = listOf("host@example.com")
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(

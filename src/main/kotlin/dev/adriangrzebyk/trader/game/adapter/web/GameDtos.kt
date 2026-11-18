@@ -2,6 +2,8 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.AwaitedTrade
 import dev.adriangrzebyk.trader.game.CargoHolder
+import dev.adriangrzebyk.trader.game.ConnectionKind
+import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
@@ -93,7 +95,8 @@ data class GameResponseDto(
 				game.freeShipNames(),
 				game.turn?.interception,
 				game.turn?.battle,
-				game.turn?.battleReport?.reportFor(it.email)?.let { report -> BattleReportResponseDto(report, ids) }
+				game.turn?.battleReport?.reportFor(it.email)?.let { report -> BattleReportResponseDto(report, ids) },
+				game.turn?.hasRaisedConnection(it.email) == true
 			)
 		}
 	)
@@ -119,7 +122,8 @@ data class StandingResponseDto(val id: String, val corporationName: String, val 
 
 /**
  * Public: no money and no cargo here, ever (R29, S02-7), and no email: a player is named by their [id] ([PlayerIds]). Market positions are public (R28), and so are warehouses and
- * factories (R50, E06-S02-2).
+ * factories (R50, E06-S02-2), and their [connections] and the starting [connectionPoints] they still have to place (R81,
+ * R82, E12-S01-10).
  */
 data class PlayerResponseDto(
 	val id: String,
@@ -128,7 +132,9 @@ data class PlayerResponseDto(
 	val ships: List<ShipResponseDto>,
 	val marketPositions: List<MarketPositionResponseDto>,
 	val warehouses: List<WarehouseResponseDto>,
-	val factories: List<FactoryResponseDto>
+	val factories: List<FactoryResponseDto>,
+	val connections: ConnectionsResponseDto,
+	val connectionPoints: Int
 ) {
 
 	constructor(player: Player, ids: PlayerIds) : this(
@@ -138,8 +144,38 @@ data class PlayerResponseDto(
 		player.ships.map { ShipResponseDto(it) },
 		player.marketPositions.map { MarketPositionResponseDto(it) },
 		player.warehouses.map { WarehouseResponseDto(it) },
-		player.factories.map { FactoryResponseDto(it) }
+		player.factories.map { FactoryResponseDto(it) },
+		ConnectionsResponseDto(player.connections),
+		player.connectionPoints
 	)
+}
+
+/** A player's connections, each from 0 to 10 (R81): public. */
+data class ConnectionsResponseDto(val political: Int, val business: Int, val criminal: Int) {
+
+	constructor(connections: Connections) : this(connections.political, connections.business, connections.criminal)
+}
+
+/** The starting connection points to place (R82, E12-S01-2); each is a [BigDecimal] so 2.5 reaches a message instead of being rounded. */
+data class PlaceConnectionsRequestDto(
+	val political: BigDecimal? = null,
+	val business: BigDecimal? = null,
+	val criminal: BigDecimal? = null
+) {
+
+	fun wholePolitical(): Int? = whole(political)
+
+	fun wholeBusiness(): Int? = whole(business)
+
+	fun wholeCriminal(): Int? = whole(criminal)
+
+	private fun whole(value: BigDecimal?): Int? = value?.let { runCatching { it.intValueExact() }.getOrNull() }
+}
+
+/** The connection to raise by one point (R83, E12-S02): a `ConnectionKind` constant. */
+data class RaiseConnectionRequestDto(val kind: String? = null) {
+
+	fun connectionKind(): ConnectionKind? = ConnectionKind.entries.firstOrNull { it.name == kind }
 }
 
 /** A warehouse's system (a `StarSystem` constant) and its capacity in blocks and cargo spaces (R45). */
@@ -341,14 +377,16 @@ data class TradeResponseDto(
 
 /**
  * A position roll, public (E05-S06-4): the 2d6 [roll], the tier its trader holds now ([promotedTo], null for no change),
- * and the id of the Dictator it demoted to Wholesaler, if any (S06-3).
+ * the id of the Dictator it demoted to Wholesaler, if any (S06-3), and the level its trader's business connections rose
+ * to, null when they didn't (R83, E12-S02-6).
  */
-data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>) {
+data class PositionRollResponseDto(val roll: Int, val promotedTo: String?, val demoted: List<String>, val businessConnections: Int?) {
 
 	constructor(positionRoll: PositionRoll, ids: PlayerIds) : this(
 		positionRoll.roll,
 		positionRoll.promotedTo?.name,
-		ids.ofAll(positionRoll.demoted)
+		ids.ofAll(positionRoll.demoted),
+		positionRoll.businessConnections
 	)
 }
 
@@ -426,7 +464,8 @@ data class YouResponseDto(
 	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
 	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
 	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs; [freeShipNames] the suggestions for a new
-	 * ship's name ([Game.freeShipNames]); [battleReport] the last battle round's salvos that concern [player].
+	 * ship's name ([Game.freeShipNames]); [battleReport] the last battle round's salvos that concern [player];
+	 * [raisedConnection] whether they raised a connection this Investment (R83).
 	 */
 	constructor(
 		id: String,
@@ -440,7 +479,8 @@ data class YouResponseDto(
 		freeShipNames: List<String>,
 		interception: Interception?,
 		battle: Battle?,
-		battleReport: BattleReportResponseDto?
+		battleReport: BattleReportResponseDto?,
+		raisedConnection: Boolean
 	) : this(
 		id,
 		player.money,
@@ -451,7 +491,7 @@ data class YouResponseDto(
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
 		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player, prices, freeShipNames).takeIf { investing },
+		InvestResponseDto(player, prices, freeShipNames, raisedConnection).takeIf { investing },
 		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
 		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
 			?.let { YourBattleResponseDto(it, player.email, id) },
@@ -483,24 +523,40 @@ data class YourWarehouseResponseDto(
  * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05); no ship is needed for any of
  * it. [blockCost] HT a warehouse block, the [systems] where they can buy blocks (all six, in map order) with how many blocks
  * they own there, and the [factories] they can add units to: each good each system can produce, with the units they make
- * now, and what the [shipyard] sells (E09-S02). Private to the viewer, and null outside Investment and while they still
- * have to collect.
+ * now, and what the [shipyard] sells (E09-S02). [factoryUnits] is the units of factory they own in total and [factoryCap]
+ * the most they may own, their political + business connections (R84, E12-S03-8). [connections] is what raising each
+ * connection costs them now, and [raisedConnection] whether they already raised one this Investment (R83, E12-S02).
+ * Private to the viewer, and null outside Investment and while they still have to collect.
  */
 data class InvestResponseDto(
 	val blockCost: Int,
 	val systems: List<InvestSystemResponseDto>,
 	val factories: List<InvestFactoryResponseDto>,
-	val shipyard: ShipyardResponseDto
+	val shipyard: ShipyardResponseDto,
+	val factoryUnits: Int,
+	val factoryCap: Int,
+	val connections: List<ConnectionRaiseResponseDto>,
+	val raisedConnection: Boolean
 ) {
 
-	constructor(player: Player, prices: MarketPrices, freeShipNames: List<String>) : this(
+	constructor(player: Player, prices: MarketPrices, freeShipNames: List<String>, raisedConnection: Boolean) : this(
 		Warehouse.BLOCK_COST,
 		StarSystem.entries.map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
 		StarSystem.entries.flatMap { system ->
 			system.producibleGoods.sortedBy { it.name }.map { InvestFactoryResponseDto(player, system, it, prices) }
 		},
-		ShipyardResponseDto(freeShipNames)
+		ShipyardResponseDto(freeShipNames),
+		player.factoryUnits(),
+		player.factoryCap(),
+		ConnectionKind.entries.map { ConnectionRaiseResponseDto(it, player.connections.of(it), player.connectionRaiseCost(it)) },
+		raisedConnection
 	)
+}
+
+/** A connection the viewer may raise (R83): its `ConnectionKind` constant as [kind], its [level] now, and the [cost] of the next point, null at 10. */
+data class ConnectionRaiseResponseDto(val kind: String, val name: String, val level: Int, val cost: Int?) {
+
+	constructor(kind: ConnectionKind, level: Int, cost: Int?) : this(kind.name, kind.displayName, level, cost)
 }
 
 /**

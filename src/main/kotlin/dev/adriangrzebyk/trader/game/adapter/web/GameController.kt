@@ -51,7 +51,7 @@ class GameController(
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
-	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker)
+	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker, dice)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore)
@@ -111,6 +111,49 @@ class GameController(
 	): GameResponseDto {
 		val session = sessionFor(authorization)
 		val game = gameStartingService.startGame(id, session.email)
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player places their starting connection points in turn 1's Bidding (R82, E12-S01): `{ political, business,
+	 * criminal }`. `400` for numbers that aren't whole, out of 0–10 or don't add up to their points; `409` outside Bidding
+	 * or once placed; `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/connections/placement")
+	fun placeConnections(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: PlaceConnectionsRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val placement = request ?: PlaceConnectionsRequestDto()
+		val game = biddingService.placeConnections(
+			id,
+			session.email,
+			placement.wholePolitical(),
+			placement.wholeBusiness(),
+			placement.wholeCriminal()
+		)
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player raises one connection by one point in Investment (R83, E12-S02): `{ kind }`, a `ConnectionKind` constant.
+	 * `400` for an unknown kind, one at 10 or too little money; `409` outside Investment, before they have collected, or
+	 * once they raised one this Investment; `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/connections/raise")
+	fun raiseConnection(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String,
+		@RequestBody(required = false) request: RaiseConnectionRequestDto?
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		val kind = (request ?: RaiseConnectionRequestDto()).connectionKind()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose political, business or criminal connections.")
+		val game = investmentService.raiseConnection(id, session.email, kind)
 
 		return GameResponseDto(game, session.email)
 	}

@@ -19,7 +19,9 @@ class GameTurnEndTest {
 	private val grace = Player.newcomer("grace@example.com", "Grace", "Vega Lines")
 
 	private fun started(turns: Int): Game = Game.lobby("game-1", turns, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 
 	/**
 	 * A game of [turns] turns in turn 1's Trading, Grace first in initiative, her Meridian in port at Gamma Leporis.

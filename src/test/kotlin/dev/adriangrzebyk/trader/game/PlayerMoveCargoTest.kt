@@ -19,7 +19,7 @@ class PlayerMoveCargoTest {
 	private val warehouse = Warehouse(TAU_CETI, 1, mapOf(Goods.ISO to 6, Goods.FOOD to 2))
 
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
-		.startWith(300, listOf(wayfarer, lantern)).copy(warehouses = listOf(warehouse))
+		.startWith(300, listOf(wayfarer, lantern), 0).copy(warehouses = listOf(warehouse))
 
 	@Test
 	fun shouldMoveGoodsFromTheShipIntoTheWarehouse() {

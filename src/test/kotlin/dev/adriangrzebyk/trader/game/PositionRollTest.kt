@@ -12,9 +12,9 @@ class PositionRollTest {
 	@Test
 	fun shouldSayWhatTheRollChanged() {
 		// E05-S06-4
-		assertThat(PositionRoll(5, MarketTier.WHOLESALER, emptyList()).outcome(muHerculisIso))
+		assertThat(PositionRoll(5, MarketTier.WHOLESALER, emptyList(), null).outcome(muHerculisIso))
 			.isEqualTo("rolled 5: now Wholesaler of ISO at Mu Herculis")
-		assertThat(PositionRoll(9, null, emptyList()).outcome(muHerculisIso)).isEqualTo("rolled 9: no change")
+		assertThat(PositionRoll(9, null, emptyList(), null).outcome(muHerculisIso)).isEqualTo("rolled 9: no change")
 	}
 
 	@Test

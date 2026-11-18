@@ -12,7 +12,7 @@ class GameStartingServiceTest {
 
 	private val gameStore = FakeGameStore()
 	private val picker = FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)
-	private val service = GameStartingService(gameStore, picker)
+	private val service = GameStartingService(gameStore, picker, START_DICE)
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val lobby = Game.lobby("game-1", 20, creator).addPlayer(joiner)

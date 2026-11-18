@@ -29,6 +29,13 @@ class BiddingService(private val gameStore: GameStore, private val dice: Dice) {
 		gameStore.update(gameId) { it.withdrawOffer(callerEmail, system, goods) }
 
 	/**
+	 * Places [callerEmail]'s starting connection points inside [GameStore.update] (R82), so a double press places them once
+	 * and a placement that arrives as Bidding closes is either in or refused.
+	 */
+	fun placeConnections(gameId: String, callerEmail: String, political: Int?, business: Int?, criminal: Int?): Game =
+		gameStore.update(gameId) { it.placeConnections(callerEmail, political, business, criminal) }
+
+	/**
 	 * Places or changes [callerEmail]'s secret initiative bid inside [GameStore.update], so a bid that arrives as the
 	 * last "done" closes Bidding is either counted in the close or refused after it, never lost silently (A04).
 	 */

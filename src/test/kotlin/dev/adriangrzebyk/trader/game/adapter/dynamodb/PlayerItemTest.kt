@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.MarketPosition
@@ -65,7 +66,9 @@ class PlayerItemTest {
 		factories = listOf(
 			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 3),
 			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.ISO, size = 5)
-		)
+		),
+		connections = Connections(political = 2, business = 7, criminal = 1),
+		connectionPoints = 4
 	)
 
 	@Test
@@ -94,10 +97,25 @@ class PlayerItemTest {
 			"ships",
 			"marketPositions",
 			"warehouses",
-			"factories"
+			"factories",
+			"political",
+			"business",
+			"criminal",
+			"connectionPoints"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
+		assertThat(attributes.getValue("business").n()).isEqualTo("7")
+		assertThat(attributes.getValue("connectionPoints").n()).isEqualTo("4")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
+	}
+
+	@Test
+	fun shouldReadAPlayerSavedBeforeConnectionsWithNoneAndNothingToPlace() {
+		// E12: the game isn't published, so old items aren't kept compatible beyond this: a missing attribute is 0
+		val older = PlayerItem(PlayerItem(player).attributes - "political" - "business" - "criminal" - "connectionPoints").toPlayer()
+
+		assertThat(older.connections).isEqualTo(Connections.NONE)
+		assertThat(older.connectionPoints).isZero()
 	}
 
 	@Test

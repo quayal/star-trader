@@ -29,7 +29,13 @@ class GamePriceAndWholesaleTest {
 	private val trading = Game.lobby("game-1", 3, ada)
 		.addPlayer(grace)
 		.addPlayer(kim)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, GAMMA_LEPORIS to MU_HERCULIS))
+		.start(
+			"ada@example.com",
+			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, GAMMA_LEPORIS to MU_HERCULIS),
+			START_DICE
+		).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 		.advancePhase(FakeDice(1, 2, 1, 1, 2))
 		.pickTurnOrderPlace("grace@example.com", 1)

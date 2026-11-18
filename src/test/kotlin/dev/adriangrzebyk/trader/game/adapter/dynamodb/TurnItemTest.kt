@@ -53,6 +53,7 @@ class TurnItemTest {
 		interception = null,
 		battle = null,
 		battleReport = null,
+		connectionsRaised = listOf("ada@example.com"),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -150,7 +151,8 @@ class TurnItemTest {
 					collected = emptyList(),
 					interception = null,
 					battle = null,
-					battleReport = null
+					battleReport = null,
+					connectionsRaised = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -217,6 +219,7 @@ class TurnItemTest {
 				"resolvedGoods" to AttributeValue.fromL(emptyList()),
 				"doneInvesting" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"collected" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
+				"connectionsRaised" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
@@ -276,8 +279,8 @@ class TurnItemTest {
 	@Test
 	fun shouldReadBackAndStoreEachTradesPositionRollWithNoTierForNoChange() {
 		// E05-S06: a trade without a roll (fewer than 6 u, and every trade saved before) has no "positionRoll" at all
-		val promoted = Trade(offer.copy(type = OfferType.BUY), 9, 8, PositionRoll(5, MarketTier.DICTATOR, listOf("kim@example.com")))
-		val noChange = Trade(offer, 7, 7, PositionRoll(9, null, emptyList()))
+		val promoted = Trade(offer.copy(type = OfferType.BUY), 9, 8, PositionRoll(5, MarketTier.DICTATOR, listOf("kim@example.com"), 6))
+		val noChange = Trade(offer, 7, 7, PositionRoll(9, null, emptyList(), null))
 		val withRolls = turn.copy(resolution = turn.resolution!!.copy(trades = listOf(promoted, noChange)))
 
 		assertThat(TurnItem(TurnItem(withRolls).attributes).toTurn()).isEqualTo(withRolls)
@@ -286,10 +289,11 @@ class TurnItemTest {
 			mapOf(
 				"roll" to AttributeValue.fromN("5"),
 				"promotedTo" to AttributeValue.fromS("DICTATOR"),
-				"demoted" to AttributeValue.fromL(listOf(AttributeValue.fromS("kim@example.com")))
+				"demoted" to AttributeValue.fromL(listOf(AttributeValue.fromS("kim@example.com"))),
+				"businessConnections" to AttributeValue.fromN("6")
 			)
 		)
-		assertThat(noChangeItem.getValue("positionRoll").m()).doesNotContainKey("promotedTo")
+		assertThat(noChangeItem.getValue("positionRoll").m()).doesNotContainKeys("promotedTo", "businessConnections")
 	}
 
 	@Test
@@ -390,7 +394,8 @@ class TurnItemTest {
 				collected = emptyList(),
 				interception = null,
 				battle = null,
-				battleReport = null
+				battleReport = null,
+				connectionsRaised = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
@@ -94,7 +95,15 @@ class GameControllerTest {
 		assertThat(
 			game.players
 		).containsExactly(
-			PlayerResponseDto("p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList())
+			PlayerResponseDto(
+				"p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList(),
+				ConnectionsResponseDto(
+					0,
+					0,
+					0
+				),
+				0
+			)
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
 		assertThat(game.turn).isNull()
@@ -148,8 +157,16 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(joined.players).containsExactly(
-			PlayerResponseDto("p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList()),
-			PlayerResponseDto("p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList())
+			PlayerResponseDto(
+				"p1", "Adrian", "Adrian Star Traders", emptyList(), emptyList(), emptyList(), emptyList(),
+				ConnectionsResponseDto(
+					0,
+					0,
+					0
+				),
+				0
+			),
+			PlayerResponseDto("p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList(), ConnectionsResponseDto(0, 0, 0), 0)
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
@@ -299,6 +316,45 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldGateTurnOneBiddingOnPlacingTheStartingConnectionPoints() {
+		// R82, E12-S01: 3 + d3 points each, public, placed once in turn 1's Bidding before done
+		val creatorToken = signIn("connections-host@example.com")
+		val joinerToken = signIn("connections-guest@example.com", "Grace", "Grace Freight")
+		val game = createdGame(creatorToken)
+		joinGame(joinerToken, game.id).expectStatus().isOk
+		val started = startGame(creatorToken, game.id).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val points = started.players.first().connectionPoints
+		assertThat(points).isBetween(4, 6)
+		assertThat(started.players.first().connections).isEqualTo(ConnectionsResponseDto(0, 0, 0))
+
+		signalDone(creatorToken, game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Place your $points connection points first.")
+		listOf(
+			"""{"political": 11, "business": 0, "criminal": 0}""" to "Enter a whole number from 0 to 10 for each connection.",
+			"""{"political": 1.5, "business": 0, "criminal": 0}""" to "Enter a whole number from 0 to 10 for each connection.",
+			"""{"political": 1, "business": 0}""" to "Enter a whole number from 0 to 10 for each connection.",
+			"""{"political": 1, "business": 0, "criminal": 0}""" to "Your connections must add up to $points points."
+		).forEach { (body, message) ->
+			placement(creatorToken, game.id, body).expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo(message)
+		}
+		val placed = placement(creatorToken, game.id, """{"political": 2, "business": ${points - 2}, "criminal": 0}""")
+			.expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(placed.players.first().connections).isEqualTo(ConnectionsResponseDto(2, points - 2, 0))
+		assertThat(placed.players.first().connectionPoints).isZero()
+		assertThat(placed.log.last().text).isEqualTo("Adrian Star Traders's connections: political 2, business ${points - 2}, criminal 0")
+		placement(creatorToken, game.id, """{"political": 2, "business": ${points - 2}, "criminal": 0}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You have already placed your connection points.")
+		signalDone(creatorToken, game.id).expectStatus().isOk
+		placement(null, game.id, "{}").expectStatus().isUnauthorized
+		placement(signIn("connections-stranger@example.com"), game.id, "{}").expectStatus().isForbidden
+	}
+
+	@Test
 	fun shouldNeverSendAnotherPlayersMoney() {
 		val creatorToken = signIn("money-host@example.com")
 		val joinerToken = signIn("money-guest@example.com", "Grace", "Grace Freight")
@@ -323,6 +379,8 @@ class GameControllerTest {
 		joinGame(joinerToken, game.id).expectStatus().isOk
 		val lobby = pollGame(joinerToken, game.id).expectBody(String::class.java).returnResult().responseBody!!
 		startGame(creatorToken, game.id).expectStatus().isOk
+		placeConnections(creatorToken, game.id)
+		placeConnections(joinerToken, game.id)
 		signalDone(creatorToken, game.id).expectStatus().isOk
 		signalDone(joinerToken, game.id).expectStatus().isOk
 
@@ -708,7 +766,8 @@ class GameControllerTest {
 		// S06-1: every entry carries its turn; S06-3: none names an offer, a bid or money (R17, R29).
 		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\"}")
 		assertThat(log.map { it.turn }).containsOnly(1)
-		assertThat(log.map { it.text }).hasSize(3).noneMatch { text ->
+		// 2 at the start, a roll and a placement for each player (R82), and the initiative order
+		assertThat(log.map { it.text }).hasSize(7).noneMatch { text ->
 			listOf("17", "23", "277", "HT", "POLY", "SELL").any { it in text }
 		}
 	}
@@ -1258,7 +1317,8 @@ class GameControllerTest {
 	/**
 	 * A two-player game at the start of turn 1's Investment where the first in initiative has a ship at Tau Ceti and an ISO
 	 * factory of 6 there, and the other has a ship at Gamma Leporis and no factory (the test moves the ships, whose
-	 * start is random). Returns the owner's token, the other's token and the game id.
+	 * start is random). The owner has political 5 and business 5, room for 4 more units of factory (R84). Returns the
+	 * owner's token, the other's token and the game id.
 	 */
 	private fun investingAtTau(prefix: String): Triple<String, String, String> {
 		val (first, second, gameId) = orderedGame(prefix)
@@ -1270,7 +1330,7 @@ class GameControllerTest {
 				players = game.players.map { player ->
 					val at = if (player.email == first) StarSystem.TAU_CETI else StarSystem.GAMMA_LEPORIS
 					val moved = player.copy(ships = listOf(player.ships[0].copy(system = at)) + player.ships.drop(1))
-					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6))) else moved
+					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6)), connections = Connections(5, 5, 0)) else moved
 				}
 			)
 		}
@@ -1423,6 +1483,53 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldRefuseFactoryUnitsBeyondPoliticalPlusBusinessAndShowTheRoomLeft() {
+		// R84, E12-S03-7, S03-8: 6 units owned, political 5 + business 5
+		val (owner, _, gameId) = investingAtTau("units-cap")
+		val collected = collectOutput(owner, gameId, "{}").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(collected.you!!.invest!!.factoryUnits).isEqualTo(6)
+		assertThat(collected.you!!.invest!!.factoryCap).isEqualTo(10)
+
+		buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 5}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("You can only own 10 units of factory (POL: 5, BUSS: 5).")
+		buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 4}""").expectStatus().isOk
+	}
+
+	@Test
+	fun shouldRaiseOneConnectionPerInvestmentAndLogItWithoutTheCost() {
+		// R83, E12-S02-4, S02-5: business 5 → 6 costs 60 HT
+		val (owner, other, gameId) = investingAtTau("raise")
+		raiseConnection(owner, gameId, """{"kind": "BUSINESS"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Collect your output first.")
+		val before = collectOutput(owner, gameId, "{}").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(
+			before.you!!.invest!!.connections.single {
+				it.kind == "BUSINESS"
+			}
+		).isEqualTo(ConnectionRaiseResponseDto("BUSINESS", "business", 5, 60))
+
+		val raised = raiseConnection(owner, gameId, """{"kind": "BUSINESS"}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(raised.you!!.money).isEqualTo(before.you!!.money - 60)
+		assertThat(raised.players.single { it.id == raised.you!!.id }.connections).isEqualTo(ConnectionsResponseDto(5, 6, 0))
+		assertThat(raised.you!!.invest!!.raisedConnection).isTrue()
+		assertThat(raised.log.last().text).endsWith("raised business connections to 6").doesNotContain("HT")
+		raiseConnection(owner, gameId, """{"kind": "POLITICAL"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You've already raised a connection this Investment.")
+		raiseConnection(other, gameId, """{"kind": "SOCIAL"}""")
+			.expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose political, business or criminal connections.")
+		raiseConnection(null, gameId, """{"kind": "BUSINESS"}""").expectStatus().isUnauthorized
+		raiseConnection(signIn("raise-stranger@example.com"), gameId, """{"kind": "BUSINESS"}""").expectStatus().isForbidden
+	}
+
+	@Test
 	fun shouldExtendAnExistingFactoryAfterTheOwnerCollects() {
 		// E06-S05-3, S03-5, R48: one factory per good per system, so the size grows; nothing is produced for it this turn
 		val (owner, _, gameId) = investingAtTau("units-extend")
@@ -1551,6 +1658,8 @@ class GameControllerTest {
 		val gameId = createGame(creatorToken, """{"turns": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!.id
 		joinGame(joinerToken, gameId).expectStatus().isOk
 		startGame(creatorToken, gameId).expectStatus().isOk
+		placeConnections(creatorToken, gameId)
+		placeConnections(joinerToken, gameId)
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
@@ -2318,16 +2427,16 @@ class GameControllerTest {
 		// the 2-second poll mustn't carry the whole log every time
 		val (creator, _, gameId) = startedGame("log-after")
 		val whole = pollGame(creator, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(whole.log).hasSize(2)
+		assertThat(whole.log).hasSize(6)
 		assertThat(whole.logOffset).isZero()
 
 		val newer = pollLogAfter(creator, gameId, "1").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val none = pollLogAfter(creator, gameId, "2").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val none = pollLogAfter(creator, gameId, "6").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(newer.log).isEqualTo(whole.log.drop(1))
 		assertThat(newer.logOffset).isEqualTo(1)
 		assertThat(none.log).isEmpty()
-		assertThat(none.logOffset).isEqualTo(2)
+		assertThat(none.logOffset).isEqualTo(6)
 		assertThat(newer.copy(log = whole.log, logOffset = 0)).isEqualTo(whole)
 	}
 
@@ -2335,10 +2444,10 @@ class GameControllerTest {
 	fun shouldSendTheWholeLogToAPollThatIsOutOfStep() {
 		val (creator, _, gameId) = startedGame("log-out-of-step")
 
-		for (count in listOf("3", "-1")) {
+		for (count in listOf("7", "-1")) {
 			val game = pollLogAfter(creator, gameId, count).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-			assertThat(game.log).hasSize(2)
+			assertThat(game.log).hasSize(6)
 			assertThat(game.logOffset).isZero()
 		}
 		pollLogAfter(creator, gameId, "many").expectStatus().isBadRequest
@@ -2366,7 +2475,31 @@ class GameControllerTest {
 		val game = createdGame(creatorToken)
 		joinGame(joinerToken, game.id).expectStatus().isOk
 		startGame(creatorToken, game.id).expectStatus().isOk
+		placeConnections(creatorToken, game.id)
+		placeConnections(joinerToken, game.id)
 		return Triple(creatorToken, joinerToken, game.id)
+	}
+
+	/**
+	 * The caller places their 4 to 6 starting points (R82) as political 3 and the rest business, so turn 1's Bidding can
+	 * close; their factory cap is then their points (R84).
+	 */
+	private fun placeConnections(token: String, gameId: String) {
+		val game = pollGame(token, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val points = game.players.single { it.id == game.you!!.id }.connectionPoints
+		placement(token, gameId, """{"political": 3, "business": ${points - 3}, "criminal": 0}""").expectStatus().isOk
+	}
+
+	private fun placement(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/connections/placement", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun raiseConnection(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/connections/raise", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	private fun signalDone(token: String?, gameId: String): RestTestClient.ResponseSpec {

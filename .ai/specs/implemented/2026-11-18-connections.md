@@ -89,3 +89,15 @@ Every phase leaves factories working: phase 3 lands with phases 1 and 2 already 
 6. Business +1 on a position rise, with the position-roll log line.
 7. Factory cap in `Player.buyFactoryUnits`, its refusal text, and the Infrastructure cap line and max.
 8. Record R81–R84 in the brief. Check it in the browser with 2 players through turn 1 Investment.
+
+## Implementation notes (2026-11-18, E12 run)
+
+Added when the work shipped, without changing the plan above. Decisions the spec didn't cover:
+
+- **Refusal texts** the spec didn't word: a bad placement is `400` "Enter a whole number from 0 to 10 for each connection." or "Your connections must add up to 5 points."; a second placement is `409` "You have already placed your connection points."; an unknown kind is `400` "Choose political, business or criminal connections.". A refusal at 10 or for money is `400`; once per Investment is `409`.
+- **A raise waits for Collect**, like every Investment purchase (S03-5): `409` "Collect your output first.".
+- **Position-roll line order:** the business rise comes right after the new tier and before any demotion: "…: now Dictator of POLY at Gamma Leporis; business connections rise to 4; Orion Freight is demoted to Wholesaler".
+- **Where the rules live:** `Connections` (range, raise cost, market rise, cap and its text, placement), `Player` (placement once, the gate, raise with money, the cap check in `buyFactoryUnits`, business on `promotedAt`), `Turn.connectionsRaised` (once per Investment, emptied when Investment starts). `Game` only coordinates: the d3 at start, phase checks and the log.
+- **Infrastructure** gets `you.invest.factoryUnits`, `factoryCap`, `connections` (level and the next point's cost per kind, null at 10) and `raisedConnection`, so the page computes nothing the server decides. The units line says "You can add up to N units here." (the smaller of money and cap).
+- **Tests:** every test that starts a game now passes `START_DICE` (every d3 a 3), and those that go past turn 1's Bidding place the points with `ConnectionsPlaced(game).byEveryone()` (political 3, business 3: a factory cap of 6).
+

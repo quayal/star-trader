@@ -18,7 +18,7 @@ class PlayerCollectTest {
 	private val tauWarehouse = Warehouse(TAU_CETI, 1, emptyMap())
 
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
-		.startWith(300, listOf(wayfarer, lantern))
+		.startWith(300, listOf(wayfarer, lantern), 0)
 		.copy(factories = listOf(isoAtTau, chipsAtMu), warehouses = listOf(tauWarehouse))
 
 	@Test

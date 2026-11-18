@@ -27,7 +27,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * [doneInvesting], and empty outside Investment. [interception] is the arrival other players decide whether to intercept
  * (R70), and [battle] the battle it started (R73); while either is set, nobody jumps or lands. [battleReport] is what
  * the last battle round's salvos did (R75–R78), kept until the next round fires or a new battle starts, so it outlives
- * the battle.
+ * the battle. [connectionsRaised] lists the players who raised a connection this Investment (R83, E12-S02), once each;
+ * public, and empty outside Investment.
  */
 data class Turn(
 	val number: Int,
@@ -47,7 +48,8 @@ data class Turn(
 	val collected: List<String>,
 	val interception: Interception?,
 	val battle: Battle?,
-	val battleReport: BattleReport?
+	val battleReport: BattleReport?,
+	val connectionsRaised: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -254,7 +256,12 @@ data class Turn(
 		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
 
 	/** Trading → Investment (R44): the phase after Trading, with nobody done investing yet. */
-	fun endTrading(): Turn = copy(phase = checkNotNull(TurnPhase.TRADING.next()), doneInvesting = emptyList(), collected = emptyList())
+	fun endTrading(): Turn = copy(
+		phase = checkNotNull(TurnPhase.TRADING.next()),
+		doneInvesting = emptyList(),
+		collected = emptyList(),
+		connectionsRaised = emptyList()
+	)
 
 	/** Refuses anything but Investment: before it, it hasn't started, and once it has closed the turn has moved on (A04). */
 	fun requireInvesting() {
@@ -285,6 +292,18 @@ data class Turn(
 			throw InvalidGameOperationException("You have already collected your output.")
 		}
 		return copy(collected = collected + email)
+	}
+
+	/** Whether [email] has raised a connection this Investment: once per Investment (R83). */
+	fun hasRaisedConnection(email: String): Boolean = email in connectionsRaised
+
+	/** This turn after [email] raised a connection (R83, E12-S02-4): once per Investment, whatever the kind. */
+	fun connectionRaisedBy(email: String): Turn {
+		requireInvesting()
+		if (hasRaisedConnection(email)) {
+			throw InvalidGameOperationException("You've already raised a connection this Investment.")
+		}
+		return copy(connectionsRaised = connectionsRaised + email)
 	}
 
 	/** Whether every one of [emails] has signalled done investing (D09). */
@@ -438,7 +457,8 @@ data class Turn(
 			emptyList(),
 			null,
 			null,
-			null
+			null,
+			emptyList()
 		)
 	}
 }

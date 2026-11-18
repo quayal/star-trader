@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Player
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
@@ -15,7 +16,11 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			SHIPS to AttributeValue.fromL(player.ships.map { AttributeValue.fromM(ShipItem(it).attributes) }),
 			MARKET_POSITIONS to AttributeValue.fromL(player.marketPositions.map { AttributeValue.fromM(MarketPositionItem(it).attributes) }),
 			WAREHOUSES to AttributeValue.fromL(player.warehouses.map { AttributeValue.fromM(WarehouseItem(it).attributes) }),
-			FACTORIES to AttributeValue.fromL(player.factories.map { AttributeValue.fromM(FactoryItem(it).attributes) })
+			FACTORIES to AttributeValue.fromL(player.factories.map { AttributeValue.fromM(FactoryItem(it).attributes) }),
+			POLITICAL to number(player.connections.political),
+			BUSINESS to number(player.connections.business),
+			CRIMINAL to number(player.connections.criminal),
+			CONNECTION_POINTS to number(player.connectionPoints)
 		)
 	)
 
@@ -29,8 +34,14 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		marketPositions = attributes[MARKET_POSITIONS]?.l()?.map { MarketPositionItem(it.m()).toMarketPosition() } ?: emptyList(),
 		// Items saved before E06-S02 have no warehouses or factories; nobody had one then (R40, BACKWARD_COMPATIBILITY.md §7).
 		warehouses = attributes[WAREHOUSES]?.l()?.map { WarehouseItem(it.m()).toWarehouse() } ?: emptyList(),
-		factories = attributes[FACTORIES]?.l()?.map { FactoryItem(it.m()).toFactory() } ?: emptyList()
+		factories = attributes[FACTORIES]?.l()?.map { FactoryItem(it.m()).toFactory() } ?: emptyList(),
+		// Items saved before E12 have no connections: a missing level or points load as 0 (creator, 2026-11-18: saved games
+		// needn't stay compatible, the game isn't published).
+		connections = Connections(level(POLITICAL), level(BUSINESS), level(CRIMINAL)),
+		connectionPoints = level(CONNECTION_POINTS)
 	)
+
+	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
 
 	private companion object {
 		const val EMAIL = "email"
@@ -41,5 +52,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val MARKET_POSITIONS = "marketPositions"
 		const val WAREHOUSES = "warehouses"
 		const val FACTORIES = "factories"
+		const val POLITICAL = "political"
+		const val BUSINESS = "business"
+		const val CRIMINAL = "criminal"
+		const val CONNECTION_POINTS = "connectionPoints"
 	}
 }

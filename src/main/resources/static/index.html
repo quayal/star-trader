@@ -117,7 +117,7 @@
 		.offer-form .message { margin: var(--space-hairline) 0 0; }
 		.offer-form .message:empty { display: none; }
 		.offer-type { border: 0; padding: 0; margin: 0; }
-		.pick-form[hidden] { display: none; }
+		.pick-form[hidden], .raise-form[hidden] { display: none; }
 		/* E10: the interception and battle panel on the Deck. */
 		.fight-form[hidden], .fight-panel[hidden], .fight-panel .message:empty, .fight-panel .muted:empty { display: none; }
 		.fight-ships { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-related); }
@@ -600,6 +600,29 @@
 						</div>
 					</form>
 				</section>
+				<!-- E12-S01: static markup, so the typed levels and focus survive the poll; only while points are left to place. -->
+				<section class="panel" id="placement-panel" aria-labelledby="placement-title" hidden>
+					<h2 id="placement-title" tabindex="-1">Place your connections</h2>
+					<p class="muted" id="placement-hint"></p>
+					<form class="offer-form" id="placement-form" novalidate>
+						<div>
+							<label class="field-label" for="placement-political">Political</label>
+							<input class="control price-input" id="placement-political" inputmode="numeric" value="0" aria-describedby="placement-total placement-error">
+						</div>
+						<div>
+							<label class="field-label" for="placement-business">Business</label>
+							<input class="control price-input" id="placement-business" inputmode="numeric" value="0" aria-describedby="placement-total placement-error">
+						</div>
+						<div>
+							<label class="field-label" for="placement-criminal">Criminal</label>
+							<input class="control price-input" id="placement-criminal" inputmode="numeric" value="0" aria-describedby="placement-total placement-error">
+						</div>
+						<div><button class="btn" id="placement-button" type="submit">Place connections</button></div>
+						<p class="message muted" id="placement-total" role="status"></p>
+						<p class="message message--error field-error" id="placement-error" role="alert"></p>
+						<p class="muted" id="placement-note"></p>
+					</form>
+				</section>
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
 				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
 					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
@@ -823,6 +846,7 @@
 			<section class="panel" id="units-panel" aria-labelledby="units-title" hidden>
 				<h2 id="units-title">Add factory units</h2>
 				<p class="muted" id="units-intro"></p>
+				<p id="units-cap"></p>
 				<form class="offer-form" id="units-form" novalidate>
 					<div>
 						<label class="field-label" for="units-system">System</label>
@@ -841,6 +865,20 @@
 					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
 					<p class="message" id="units-message" role="status"></p>
 				</form>
+			</section>
+			<!-- E12-S02: static markup, so the chosen connection survives the poll. -->
+			<section class="panel" id="raise-panel" aria-labelledby="raise-title" hidden>
+				<h2 id="raise-title">Raise a connection</h2>
+				<p class="muted" id="raise-intro"></p>
+				<form class="offer-form raise-form" id="raise-form" novalidate>
+					<div>
+						<label class="field-label" for="raise-kind">Connection</label>
+						<select class="control" id="raise-kind" aria-describedby="raise-error"></select>
+						<p class="message message--error field-error" id="raise-error" role="alert"></p>
+					</div>
+					<div><button class="btn" id="raise-button" type="submit">Raise</button></div>
+				</form>
+				<p class="message" id="raise-message" role="status"></p>
 			</section>
 			<!-- E08-S02 (R58): moving goods is on the Fleet tab since 2026-11-17; a pointer for a player with a warehouse. -->
 			<p id="cargo-pointer" hidden><a class="link" id="cargo-pointer-link" href="/"></a></p>
@@ -1094,6 +1132,24 @@
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { NO_TEXT as NO_CORPORATION_TEXT, corporationCards } from './js/corporations.js';
+	import {
+		CAP_NOTE,
+		KINDS as CONNECTION_KINDS,
+		PLACE_BUTTON,
+		RAISED_TEXT,
+		RAISE_BUTTON,
+		RAISE_INTRO,
+		canRaise,
+		factoryCap,
+		isPlacing,
+		maxFactoryUnits,
+		placementHint,
+		placementTotalText,
+		pointsToPlace,
+		raiseOptions,
+		validatePlacement,
+		validateRaise
+	} from './js/connections.js';
 	import {
 		BUY_BUTTON,
 		REFIT_NOTE,
@@ -1802,6 +1858,7 @@
 			renderDeck(game);
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
+		updatePlacementForm(game);
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
@@ -2028,6 +2085,7 @@
 		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
 			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
 			element('p', { class: 'muted' }, card.playerName),
+			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean)),
 			section(card, 'ships', 'Ships', card.ships),
 			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
 				[`${position.tier} \u2014 `, good(position.goods), ` at ${position.systemName}`])),
@@ -2852,6 +2910,107 @@
 	}
 
 	// ── E03-S05: the initiative bid on the Deck ──
+
+	// ── E12-S01: placing the starting connection points in turn 1's Bidding (R82) ──
+
+	/** The game whose placement form is shown: a new game starts from zeros, and the typed levels survive the poll. */
+	let shownPlacementGame = null;
+	let submittingPlacement = false;
+
+	function placementValues() {
+		return Object.fromEntries(CONNECTION_KINDS.map(({ id }) => [id, $(`placement-${id}`).value]));
+	}
+
+	function setPlacementError(text) {
+		$('placement-error').textContent = text;
+		for (const { id } of CONNECTION_KINDS) {
+			if (text) {
+				$(`placement-${id}`).setAttribute('aria-invalid', 'true');
+			} else {
+				$(`placement-${id}`).removeAttribute('aria-invalid');
+			}
+		}
+	}
+
+	function updatePlacementTotal(game) {
+		const text = placementTotalText(placementValues(), pointsToPlace(game));
+		if ($('placement-total').textContent !== text) {
+			$('placement-total').textContent = text;
+		}
+	}
+
+	/** E12-S01-3: shown in Bidding while the player has points left to place, so they see why done waits for it. */
+	function updatePlacementForm(game) {
+		const panel = $('placement-panel');
+		panel.hidden = !isPlacing(game);
+		if (panel.hidden) {
+			return;
+		}
+		if (shownPlacementGame !== game.id) {
+			shownPlacementGame = game.id;
+			for (const { id } of CONNECTION_KINDS) {
+				$(`placement-${id}`).value = '0';
+			}
+			setPlacementError('');
+		}
+		const hint = placementHint(pointsToPlace(game));
+		if ($('placement-hint').textContent !== hint) {
+			$('placement-hint').textContent = hint;
+		}
+		$('placement-note').textContent = CAP_NOTE;
+		$('placement-button').textContent = PLACE_BUTTON;
+		$('placement-button').disabled = submittingPlacement;
+		updatePlacementTotal(game);
+	}
+
+	for (const { id } of CONNECTION_KINDS) {
+		$(`placement-${id}`).addEventListener('input', () => {
+			setPlacementError('');
+			if (lastGame) {
+				updatePlacementTotal(lastGame);
+			}
+		});
+	}
+
+	$('placement-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		if (!game) {
+			return;
+		}
+		const checked = validatePlacement(placementValues(), pointsToPlace(game));
+		setPlacementError(checked.error ?? '');
+		if (checked.error) {
+			$('placement-political').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		submittingPlacement = true;
+		$('placement-button').disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/connections/placement`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(checked.placement),
+			});
+		} catch {
+			response = null;
+		}
+		submittingPlacement = false;
+		$('placement-button').disabled = false; // static markup shared by every game
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			render(await response.json());
+			return;
+		}
+		setPlacementError(response ? await errorText(response, UNREACHABLE) : UNREACHABLE);
+		if (response && response.status !== 400) {
+			repollNow(); // e.g. Bidding closed, or they placed from another tab: the screen catches up
+		}
+	});
 
 	// The game and turn whose bid reached the server after Bidding closed (S03-7's rule): the form stays, disabled,
 	// with the typed bid and the message, until the next turn; another game's Deck starts fresh.
@@ -3797,6 +3956,7 @@
 		updateCollectForm(game);
 		updateBlocksForm(game);
 		updateUnitsForm(game);
+		updateRaiseForm(game);
 		const pointer = canBuy(game);
 		$('ship-pointer').hidden = !pointer;
 		if (pointer) {
@@ -4343,11 +4503,21 @@
 		unitsMessageKey = text ? key : null;
 	}
 
+	/** E12-S03-8: the cost of what was typed, and the most units the player can add of the picked good. */
 	function updateUnitsCost(game) {
 		const factory = pickedFactory(game);
-		const text = factory ? unitsCostText($('units-count').value, factory) : '';
+		const cost = factory ? unitsCostText($('units-count').value, factory) : '';
+		const max = factory ? `You can add up to ${unitsText(maxFactoryUnits(game, factory))} here.` : '';
+		const text = cost ? `${cost}. ${max}` : max;
 		if ($('units-cost').textContent !== text) {
 			$('units-cost').textContent = text;
+		}
+		const cap = factoryCap(game)?.text ?? '';
+		if ($('units-cap').textContent !== cap) {
+			if ($('units-cap').textContent) {
+				setUnitsError(''); // a refusal about the old cap no longer holds once a raise moved it
+			}
+			$('units-cap').textContent = cap;
 		}
 	}
 
@@ -4414,7 +4584,7 @@
 		if (!factory) {
 			return;
 		}
-		const checked = validateUnits($('units-count').value, factory, game.you.money);
+		const checked = validateUnits($('units-count').value, factory, game.you.money, factoryCap(game));
 		setUnitsError(checked.error ?? '');
 		if (checked.error) {
 			$('units-count').focus();
@@ -4454,6 +4624,108 @@
 		setUnitsMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E12-S02: raising one connection per Investment (R83) ──
+
+	let raiseMessageKey = null;
+	let submittingRaise = false;
+
+	function setRaiseMessage(text, error, key) {
+		$('raise-message').textContent = text;
+		$('raise-message').className = error ? 'message message--error' : 'message message--success';
+		raiseMessageKey = text ? key : null;
+	}
+
+	/** Shown while the player may buy; once they raised one this Investment, the form gives way to a line saying so. */
+	function updateRaiseForm(game) {
+		const panel = $('raise-panel');
+		panel.hidden = !canBuy(game);
+		if (panel.hidden) {
+			return;
+		}
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (raiseMessageKey !== null && raiseMessageKey !== turnKey) {
+			setRaiseMessage('', false, null);
+		}
+		$('raise-intro').textContent = RAISE_INTRO;
+		$('raise-form').hidden = !canRaise(game);
+		if (!canRaise(game)) {
+			if (!$('raise-message').textContent) {
+				setRaiseMessage(RAISED_TEXT, false, turnKey);
+			}
+			return;
+		}
+		const options = raiseOptions(game);
+		const chosen = $('raise-kind').value;
+		const key = JSON.stringify(options);
+		if ($('raise-kind').dataset.key !== key) {
+			$('raise-kind').dataset.key = key;
+			$('raise-kind').replaceChildren(...options.map(option =>
+				element('option', option.disabled ? { value: option.kind, disabled: '' } : { value: option.kind }, option.label)));
+			const keep = options.find(option => option.kind === chosen && !option.disabled) ?? options.find(option => !option.disabled);
+			if (keep) {
+				$('raise-kind').value = keep.kind;
+			}
+		}
+		$('raise-button').textContent = RAISE_BUTTON;
+		$('raise-button').disabled = submittingRaise || options.every(option => option.disabled);
+	}
+
+	$('raise-kind').addEventListener('change', () => {
+		$('raise-error').textContent = '';
+	});
+
+	$('raise-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const game = lastGame;
+		if (!game?.you?.invest) {
+			return;
+		}
+		const checked = validateRaise(game, $('raise-kind').value);
+		$('raise-error').textContent = checked.error ?? '';
+		if (checked.error) {
+			$('raise-kind').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		submittingRaise = true;
+		$('raise-button').disabled = true;
+		setRaiseMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/connections/raise`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ kind: checked.kind }),
+			});
+		} catch {
+			response = null;
+		}
+		submittingRaise = false;
+		$('raise-button').disabled = false; // static markup shared by every game
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			const raised = await response.json();
+			const name = CONNECTION_KINDS.find(kind => kind.kind === checked.kind)?.id ?? checked.kind;
+			const level = (raised.players ?? []).find(player => player.id === raised.you?.id)?.connections?.[name];
+			setRaiseMessage(`Your ${name} connections are now ${level}.`, false, turnKey);
+			render(raised);
+			return;
+		}
+		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response?.status === 400) {
+			$('raise-error').textContent = message;
+			$('raise-kind').focus();
+			return;
+		}
+		setRaiseMessage(message, true, turnKey);
+		if (response) {
+			repollNow();
 		}
 	});
 

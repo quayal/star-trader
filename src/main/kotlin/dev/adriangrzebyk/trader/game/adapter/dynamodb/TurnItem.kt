@@ -22,7 +22,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			TRADING_QUEUE to AttributeValue.fromL(turn.tradingQueue.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
 			RESOLVED_GOODS to AttributeValue.fromL(turn.resolvedGoods.map { AttributeValue.fromM(MarketGoodItem(it).attributes) }),
 			DONE_INVESTING to AttributeValue.fromL(turn.doneInvesting.map { AttributeValue.fromS(it) }),
-			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) })
+			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) }),
+			CONNECTIONS_RAISED to strings(turn.connectionsRaised)
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
@@ -67,7 +68,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			interception = attributes[INTERCEPTION]?.m()?.let { InterceptionItem(it).toInterception() },
 			battle = attributes[BATTLE]?.m()?.let { BattleItem(it).toBattle() },
 			// Absent until a battle round fires in the turn, which is also how items saved before 2026-11-17 read.
-			battleReport = attributes[BATTLE_REPORT]?.m()?.let { BattleReportItem(it).toBattleReport() }
+			battleReport = attributes[BATTLE_REPORT]?.m()?.let { BattleReportItem(it).toBattleReport() },
+			// Absent from items saved before E12: nobody had raised a connection.
+			connectionsRaised = attributes[CONNECTIONS_RAISED]?.l()?.map { it.s() } ?: emptyList()
 		)
 	}
 
@@ -90,5 +93,6 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val INTERCEPTION = "interception"
 		const val BATTLE = "battle"
 		const val BATTLE_REPORT = "battleReport"
+		const val CONNECTIONS_RAISED = "connectionsRaised"
 	}
 }

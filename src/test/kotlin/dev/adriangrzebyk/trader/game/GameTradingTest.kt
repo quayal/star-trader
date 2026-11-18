@@ -21,7 +21,9 @@ class GameTradingTest {
 
 	// Initiative Grace, Ada: Ada rolls 1 and Grace 2 on d2, with no bids.
 	private val shipJumps = Game.lobby("game-1", 3, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 		.advancePhase(FakeDice(1, 2))
 		.pickTurnOrderPlace("grace@example.com", 1)
 
@@ -90,7 +92,13 @@ class GameTradingTest {
 	private val withDictator = Game.lobby("game-2", 3, dictatorOfPoly)
 		.addPlayer(grace)
 		.addPlayer(kim)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS))
+		.start(
+			"ada@example.com",
+			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS),
+			START_DICE
+		).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 		.placeOffer("kim@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 10)
 		.placeOffer("kim@example.com", TAU_CETI, Goods.POLY, OfferType.SELL, 9)
@@ -187,13 +195,13 @@ class GameTradingTest {
 				Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11),
 				21,
 				12,
-				PositionRoll(7, MarketTier.RETAILER, emptyList())
+				PositionRoll(7, MarketTier.RETAILER, emptyList(), 4)
 			)
 		)
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
 			LogEntry(1, "Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT"),
-			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis"),
+			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4"),
 			LogEntry(1, "No one else can trade at Gamma Leporis POLY"),
 			LogEntry(1, "POLY price at Gamma Leporis: 2 → 6 HT")
 		)
@@ -232,7 +240,13 @@ class GameTradingTest {
 		val broke = Game.lobby("game-3", 3, dictatorOfPoly)
 			.addPlayer(grace)
 			.addPlayer(kim)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS))
+			.start(
+				"ada@example.com",
+				FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS),
+				START_DICE
+			).let {
+				ConnectionsPlaced(it).byEveryone()
+			}
 			.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 			.placeInitiativeBid("grace@example.com", 300)
 			.advancePhase(FakeDice(1, 2, 1, 1, 2))
@@ -378,7 +392,9 @@ class GameTradingTest {
 		// R49: offers don't need a ship at the system; with a warehouse there the offer can be traded when it wins
 		val started = Game.lobby("game-4", 3, ada)
 			.addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+				ConnectionsPlaced(it).byEveryone()
+			}
 		val stocked = started.copy(
 			players = started.players.map {
 				if (it.email ==

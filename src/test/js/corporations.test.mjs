@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { NO_TEXT, corporationCards } from '../../main/resources/static/js/corporations.js';
+import { NO_TEXT, connectionPointsText, connectionsText, corporationCards } from '../../main/resources/static/js/corporations.js';
 
 const board = [
 	{ id: 'TAU_CETI', name: 'Tau Ceti' },
@@ -25,6 +25,8 @@ const vega = {
 	],
 	warehouses: [{ system: 'TAU_CETI', blocks: 3, cargoSpaces: 30 }],
 	factories: [{ system: 'SIGMA_DRACONIS', goods: 'ISO', size: 4 }],
+	connections: { political: 3, business: 4, criminal: 0 },
+	connectionPoints: 0,
 };
 const orion = { id: 'me', name: 'Grace', corporationName: 'Orion Freight', ships: [], marketPositions: [], warehouses: [], factories: [] };
 const altair = {
@@ -37,6 +39,21 @@ const altair = {
 };
 
 const game = { board, players: [vega, orion, altair], you: { money: 300, ships: [{ name: 'secret hull data' }] } };
+
+describe('connections on the Corporations tab (E12-S01-10)', () => {
+	it('shows every connection, public to everyone (R81)', () => {
+		assert.equal(corporationCards(game, 'me')[1].connections, 'Political 3 \u00b7 Business 4 \u00b7 Criminal 0');
+		assert.equal(connectionsText(undefined), 'Political 0 \u00b7 Business 0 \u00b7 Criminal 0');
+	});
+
+	it('says how many starting points are still to place, and nothing once placed (R82)', () => {
+		assert.equal(corporationCards(game, 'me')[1].connectionPoints, null);
+		assert.equal(connectionPointsText(5), '5 points to place');
+		assert.equal(connectionPointsText(1), '1 point to place');
+		assert.equal(connectionPointsText(0), null);
+		assert.equal(connectionPointsText(undefined), null);
+	});
+});
 
 describe('corporationCards (E11-S01)', () => {
 	it('lists every corporation in join order, the viewer first and marked as you', () => {
