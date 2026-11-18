@@ -1,20 +1,17 @@
 package dev.adriangrzebyk.trader.game
 
 /**
- * Hands out the given d2, 2d6 and d6 rolls in order, each from its own queue; running out fails the test, so every roll a
+ * Hands out the given 2d6, d6 and d3 rolls in order, each from its own queue; running out fails the test, so every roll a
  * rule takes is spelled out.
  */
-class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls: List<Int> = emptyList()) : Dice {
+class FakeDice(twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls: List<Int> = emptyList()) : Dice {
 
-	/** Only d2 rolls: for rules that never roll 2d6. */
-	constructor(vararg d2Rolls: Int) : this(d2Rolls.toList(), emptyList())
+	/** Only 2d6 rolls: for closing Bidding, where each player rolls for initiative (R27), and Trading's counter (R34). */
+	constructor(vararg twoD6Rolls: Int) : this(twoD6Rolls.toList())
 
-	private val remainingD2 = ArrayDeque(d2Rolls)
 	private val remainingTwoD6 = ArrayDeque(twoD6Rolls)
 	private val remainingD6 = ArrayDeque(d6Rolls)
 	private val remainingD3 = ArrayDeque(d3Rolls)
-
-	override fun d2(): Int = remainingD2.removeFirstOrNull() ?: error("FakeDice ran out of d2 rolls")
 
 	override fun twoD6(): Int = remainingTwoD6.removeFirstOrNull() ?: error("FakeDice ran out of 2d6 rolls")
 
@@ -24,12 +21,10 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = e
 
 	companion object {
 		/** Only 2d6 rolls: for Trading, where the counter rolls (R34). */
-		fun twoD6(vararg rolls: Int) = FakeDice(emptyList(), rolls.toList())
+		fun twoD6(vararg rolls: Int) = FakeDice(rolls.toList())
 
 		/** Every 2d6 is [roll], however many are taken: 2 makes every jump succeed (R68), for tests about something else. */
 		fun everyTwoD6(roll: Int): Dice = object : Dice {
-			override fun d2(): Int = error("FakeDice.everyTwoD6 has no d2 rolls")
-
 			override fun twoD6(): Int = roll
 
 			override fun d6(): Int = error("FakeDice.everyTwoD6 has no d6 rolls")
@@ -39,8 +34,6 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = e
 
 		/** Every d3 is [roll], however many are taken: for starting a game (R82). */
 		fun everyD3(roll: Int): Dice = object : Dice {
-			override fun d2(): Int = error("FakeDice.everyD3 has no d2 rolls")
-
 			override fun twoD6(): Int = error("FakeDice.everyD3 has no 2d6 rolls")
 
 			override fun d6(): Int = error("FakeDice.everyD3 has no d6 rolls")
@@ -49,13 +42,13 @@ class FakeDice(d2Rolls: List<Int>, twoD6Rolls: List<Int>, d6Rolls: List<Int> = e
 		}
 
 		/** Only d3 rolls: for the starting connection points (R82), one per player in join order. */
-		fun d3(vararg rolls: Int) = FakeDice(emptyList(), emptyList(), emptyList(), rolls.toList())
+		fun d3(vararg rolls: Int) = FakeDice(emptyList(), emptyList(), rolls.toList())
 
 		/** Only d6 rolls: for interception (R70). */
-		fun d6(vararg rolls: Int) = FakeDice(emptyList(), emptyList(), rolls.toList())
+		fun d6(vararg rolls: Int) = FakeDice(emptyList(), rolls.toList())
 
 		/** Battle rolls, all d6 in the order taken: each salvo's roll, then its rocket check if it has one (R75). */
-		fun battle(vararg d6: Int) = FakeDice(emptyList(), emptyList(), d6.toList())
+		fun battle(vararg d6: Int) = FakeDice(emptyList(), d6.toList())
 	}
 }
 

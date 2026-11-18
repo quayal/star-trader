@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test
 class GameBattleTest {
 
 	/** [d6] in order, and 2d6 rolls of 4 for any reputation a try or a shot costs (R86, E13-S04). */
-	private fun dice(vararg d6: Int) = FakeDice(emptyList(), List(8) { 4 }, d6.toList())
+	private fun dice(vararg d6: Int) = FakeDice(List(8) { 4 }, d6.toList())
 
 	private val ada = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
 	private val grace = Player.newcomer("grace@example.com", "Grace", "Vega Lines")
@@ -56,7 +56,7 @@ class GameBattleTest {
 
 		assertThat(interception.asked).containsExactly("ada@example.com")
 		assertThat(interception.ship).isEqualTo("Meridian")
-		assertThat(arrived.log.last()).isEqualTo(LogEntry(1, "Interception: Orion Freight may try to stop Meridian at Tau Ceti"))
+		assertThat(arrived.log.last()).isEqualTo(LogEntry.event(1, "Interception: Orion Freight may try to stop Meridian at Tau Ceti"))
 	}
 
 	@Test
@@ -95,7 +95,7 @@ class GameBattleTest {
 
 		assertThat(game.turn!!.interception).isNull()
 		assertThat(game.turn!!.battle).isNull()
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Nobody tries to intercept Meridian"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Nobody tries to intercept Meridian"))
 		assertThat(game.landShip("grace@example.com", ShipLocation.PORT).turn!!.landingShip).isNull()
 	}
 
@@ -374,7 +374,7 @@ class GameBattleTest {
 		assertThat(battle.ships).containsExactly(BattleShip("Wayfarer", "ada@example.com"), BattleShip("Meridian", "grace@example.com"))
 		assertThat(battle.interceptions).isEmpty()
 		assertThat(battle.canBreakAway("Meridian")).isTrue()
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Battle at Tau Ceti: Wayfarer, Meridian"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Battle at Tau Ceti: Wayfarer, Meridian"))
 		// Both decline: the battle is over without a shot, and the jumps go on once both have placed their ships.
 		val declined = game
 			.giveBattleOrders("ada@example.com", listOf(breakAway("Wayfarer")), dice())

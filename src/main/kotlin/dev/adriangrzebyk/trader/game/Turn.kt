@@ -31,7 +31,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * the battle. [connectionsRaised] lists the players who raised a connection this Investment (R83, E12-S02), once each;
  * public, and empty outside Investment. [reputationBought] lists those who bought reputation this Investment (R87, E13-S03),
  * once each, likewise. [interceptionTries] are every interception try this turn, successful or not (R70), public: a battle
- * started later in the turn at the same system still knows who tried whom first (R86).
+ * started later in the turn at the same system still knows who tried whom first (R86). [initiativeRolls] are every
+ * player's bid and 2d6 rolls for initiative, in initiative order, public once Bidding closes and empty before (R27,
+ * creator 2026-11-18).
  */
 data class Turn(
 	val number: Int,
@@ -54,7 +56,8 @@ data class Turn(
 	val battleReport: BattleReport?,
 	val connectionsRaised: List<String>,
 	val reputationBought: List<String>,
-	val interceptionTries: List<BattleInterception>
+	val interceptionTries: List<BattleInterception>,
+	val initiativeRolls: List<InitiativeRoll>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -144,12 +147,12 @@ data class Turn(
 	fun bidAmountOf(email: String): Int = bidOf(email)?.amount ?: 0
 
 	/**
-	 * Bidding → Ship-jumps (R27): [emails] are put in initiative order by bid + d2 from [dice], ties rolled again. The
-	 * bids stay on the turn, secret.
+	 * Bidding → Ship-jumps (R27): [emails] are put in initiative order by bid + 2d6 from [dice], ties rolled again. Every
+	 * bid and roll is kept as [initiativeRolls], public from now on (creator, 2026-11-18).
 	 */
 	fun closeBidding(emails: List<String>, dice: Dice): Turn {
-		val order = initiativeOrder(emails, emails.associateWith { bidAmountOf(it) }, dice)
-		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = order)
+		val rolls = initiativeOrder(emails.map { InitiativeRoll(it, bidAmountOf(it), listOf(dice.twoD6())) }, InitiativeRoll::total, dice)
+		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = rolls.map { it.playerEmail }, initiativeRolls = rolls)
 	}
 
 	/**
@@ -448,15 +451,13 @@ data class Turn(
 	fun next(): Turn = bidding(number + 1)
 
 	/**
-	 * [emails] ordered by [base] + d2, highest first (R27). Players who tie roll d2 again among themselves, and only
-	 * those rolls order them, until no tie is left. Rolls are taken in [emails]' order.
+	 * [rolls] ordered by [score], highest first (R27). Players who tie roll 2d6 again among themselves, and only those
+	 * rolls order them, until no tie is left; each reroll is kept on its player's roll. Rolls are taken in [rolls]' order.
 	 */
-	private fun initiativeOrder(emails: List<String>, base: Map<String, Int>, dice: Dice): List<String> {
-		val scores = emails.associateWith { base.getValue(it) + dice.d2() }
-		return emails.groupBy { scores.getValue(it) }.toSortedMap(reverseOrder()).values.flatMap { tied ->
-			if (tied.size == 1) tied else initiativeOrder(tied, tied.associateWith { 0 }, dice)
+	private fun initiativeOrder(rolls: List<InitiativeRoll>, score: (InitiativeRoll) -> Int, dice: Dice): List<InitiativeRoll> =
+		rolls.groupBy(score).toSortedMap(reverseOrder()).values.flatMap { tied ->
+			if (tied.size == 1) tied else initiativeOrder(tied.map { it.withTieRoll(dice.twoD6()) }, InitiativeRoll::latestRoll, dice)
 		}
-	}
 
 	companion object {
 		/**
@@ -482,6 +483,7 @@ data class Turn(
 			null,
 			null,
 			null,
+			emptyList(),
 			emptyList(),
 			emptyList(),
 			emptyList()

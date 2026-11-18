@@ -78,9 +78,9 @@ data class Game(
 			status = GameStatus.RUNNING,
 			players = setUp.map { it.first },
 			turn = Turn.bidding(1),
-			log = log + LogEntry(1, "Game started: ${setUp.size} players, $turns turns") +
-				LogEntry(1, "Starting positions: " + setUp.joinToString("; ") { it.first.startingPositions() }) +
-				setUp.map { (player, roll) -> LogEntry(1, player.connectionPointsRolledLog(roll)) }
+			log = log + LogEntry.event(1, "Game started: ${setUp.size} players, $turns turns") +
+				LogEntry.event(1, "Starting positions: " + setUp.joinToString("; ") { it.first.startingPositions() }) +
+				setUp.map { (player, roll) -> LogEntry.event(1, player.connectionPointsRolledLog(roll)) }
 		)
 	}
 
@@ -106,7 +106,7 @@ data class Game(
 	 * A player with no factories has no Collect, so their ships bought last turn leave the yard now (R63).
 	 */
 	private fun endTrading(current: Turn): Game {
-		val investing = copy(turn = current.endTrading(), log = log + LogEntry(current.number, ALL_GOODS_RESOLVED))
+		val investing = copy(turn = current.endTrading(), log = log + LogEntry.event(current.number, ALL_GOODS_RESOLVED))
 		return players.filterNot { it.hasFactories() }.fold(investing) { game, player -> game.withShipsLeavingYard(player.email) }
 	}
 
@@ -123,7 +123,7 @@ data class Game(
 		}
 		return copy(
 			players = replace(player.releaseShipsFromYard(current.number)),
-			log = log + leaving.map { LogEntry(current.number, it.leavingYardLog()) }
+			log = log + leaving.map { LogEntry.event(current.number, it.leavingYardLog()) }
 		)
 	}
 
@@ -142,14 +142,15 @@ data class Game(
 	}
 
 	/** This game over after turn [number], the log ending with the winner (E05-S08-1, S08-5). */
-	private fun finished(number: Int): Game = copy(status = GameStatus.FINISHED, log = log + LogEntry(number, gameOverText()))
+	private fun finished(number: Int): Game = copy(status = GameStatus.FINISHED, log = log + LogEntry.event(number, gameOverText()))
 
 	/** This game in the turn after [current], starting with Bidding (S07-2, S07-3). */
 	private fun withNextTurn(current: Turn): Game {
 		val next = current.next()
 		return copy(
 			turn = next,
-			log = log + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
+			log =
+			log + LogEntry.event(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
 		)
 	}
 
@@ -159,7 +160,7 @@ data class Game(
 		val recovered = recovering.map { it.withReputationChanged(it.reputationRecovery()) to it.reputationRecovery() }
 		return copy(
 			players = players.map { player -> recovered.firstOrNull { it.first.email == player.email }?.first ?: player },
-			log = log + recovered.map { (player, delta) -> LogEntry(number, player.reputationLog(delta, "recovering")) }
+			log = log + recovered.map { (player, delta) -> LogEntry.event(number, player.reputationLog(delta, "recovering")) }
 		)
 	}
 
@@ -174,7 +175,7 @@ data class Game(
 		}
 		return copy(
 			players = players.map { it.receive(it.reputationBonus()) },
-			log = log + LogEntry(number, "Reputation bonus: ${paid.joinToString(", ") { it.corporationName }}")
+			log = log + LogEntry.event(number, "Reputation bonus: ${paid.joinToString(", ") { it.corporationName }}")
 		)
 	}
 
@@ -229,7 +230,7 @@ data class Game(
 		return copy(
 			players = replace(collected),
 			turn = investing.collectedBy(email),
-			log = log + collected.collectLog(player).map { LogEntry(investing.number, it) }
+			log = log + collected.collectLog(player).map { LogEntry.event(investing.number, it) }
 		).withShipsLeavingYard(email)
 	}
 
@@ -261,7 +262,7 @@ data class Game(
 		val amount = if (units == 1) "1 unit" else "$units units"
 		val line = "${player.corporationName} added $amount of ${goods.name} production at ${system.displayName}"
 		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
-		return copy(players = replace(bought), turn = settled, log = log + LogEntry(investing.number, line))
+		return copy(players = replace(bought), turn = settled, log = log + LogEntry.event(investing.number, line))
 	}
 
 	/**
@@ -312,7 +313,7 @@ data class Game(
 		val investing = runningTurn()
 		investing.requireInvesting()
 		requireCollected(player, investing)
-		val line = event?.let { LogEntry(investing.number, "${player.corporationName} $it") }
+		val line = event?.let { LogEntry.event(investing.number, "${player.corporationName} $it") }
 		return copy(players = replace(change(player)), log = log + listOfNotNull(line))
 	}
 
@@ -366,7 +367,7 @@ data class Game(
 		val current = runningTurn()
 		current.requireBidding()
 		val placed = player.placeConnections(political, business, criminal)
-		return copy(players = replace(placed), log = log + LogEntry(current.number, placed.connectionsPlacedLog()))
+		return copy(players = replace(placed), log = log + LogEntry.event(current.number, placed.connectionsPlacedLog()))
 	}
 
 	/**
@@ -383,7 +384,7 @@ data class Game(
 		val raised = player.raiseConnection(kind)
 		val lines =
 			listOf(raised.connectionRaisedLog(kind), raised.reputationLog(kind.reputationChange, "raising ${kind.displayName} connections"))
-		return copy(players = replace(raised), turn = raisedTurn, log = log + lines.map { LogEntry(investing.number, it) })
+		return copy(players = replace(raised), turn = raisedTurn, log = log + lines.map { LogEntry.event(investing.number, it) })
 	}
 
 	/**
@@ -401,7 +402,7 @@ data class Game(
 		return copy(
 			players = replace(bought),
 			turn = boughtTurn,
-			log = log + LogEntry(investing.number, bought.reputationLog(roll, "buying reputation (rolled $roll)"))
+			log = log + LogEntry.event(investing.number, bought.reputationLog(roll, "buying reputation (rolled $roll)"))
 		)
 	}
 
@@ -461,7 +462,7 @@ data class Game(
 		if (settled.picker() == null) {
 			events += "Turn order (for this turn): " + settled.turnOrder().joinToString(" → ") { corporationOf(checkNotNull(it)) }
 		}
-		return copy(turn = settled, log = log + events.map { LogEntry(current.number, it) }).withEmptyJumpSlotsSkipped()
+		return copy(turn = settled, log = log + events.map { LogEntry.event(current.number, it) }).withEmptyJumpSlotsSkipped()
 	}
 
 	/**
@@ -488,7 +489,7 @@ data class Game(
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,
-				log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${ship.failedJumpLog(destination, roll)}")
+				log = log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${ship.failedJumpLog(destination, roll)}")
 			)
 			return if (recorded.haveAllJumped(player.jumpableShips())) failed.endJumpSlot(email) else failed
 		}
@@ -496,7 +497,8 @@ data class Game(
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()} (rolled $roll)")
+			log =
+			log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()} (rolled $roll)")
 		).withInterceptionAsked(ship.name, email, destination)
 	}
 
@@ -506,7 +508,7 @@ data class Game(
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log = log + LogEntry(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(ship.name)).jumpLog()}")
+			log = log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(ship.name)).jumpLog()}")
 		).withInterceptionAsked(ship.name, player.email, ship.system)
 	}
 
@@ -523,7 +525,7 @@ data class Game(
 		val text = "Interception: ${asked.joinToString(", ") { corporationOf(it) }} may try to stop $shipName at ${system.displayName}"
 		return copy(
 			turn = current.withInterception(Interception(system, shipName, ownerEmail, asked, emptyList())),
-			log = log + LogEntry(current.number, text)
+			log = log + LogEntry.event(current.number, text)
 		)
 	}
 
@@ -581,7 +583,7 @@ data class Game(
 		val decided = copy(
 			players = penalized,
 			turn = current.withInterception(null).recordInterceptionTries(attempts),
-			log = log + events.map { LogEntry(current.number, it) }
+			log = log + events.map { LogEntry.event(current.number, it) }
 		)
 		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
 	}
@@ -595,7 +597,7 @@ data class Game(
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		return copy(
 			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions, current.interceptionTries)),
-			log = log + LogEntry(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
+			log = log + LogEntry.event(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
 		)
 	}
 
@@ -632,7 +634,7 @@ data class Game(
 		return copy(
 			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
 			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
-			log = log + (round.log + penaltyLog).map { LogEntry(current.number, it) }
+			log = log + (round.log + penaltyLog).map { LogEntry.event(current.number, it) }
 		).withBattleMovedOn()
 	}
 
@@ -650,7 +652,7 @@ data class Game(
 		return copy(
 			players = replace(hit),
 			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
-			log = log + destroyed.map { LogEntry(current.number, "$it is destroyed") }
+			log = log + destroyed.map { LogEntry.event(current.number, "$it is destroyed") }
 		).withBattleMovedOn()
 	}
 
@@ -669,7 +671,7 @@ data class Game(
 		return copy(
 			players = replace(placed),
 			turn = current.withBattle(landed),
-			log = log + events.map { LogEntry(current.number, it) }
+			log = log + events.map { LogEntry.event(current.number, it) }
 		).withBattleMovedOn()
 	}
 
@@ -682,7 +684,7 @@ data class Game(
 		val battle = checkNotNull(current.battle)
 		val events = if (battle.isJustOver()) {
 			listOf(
-				LogEntry(current.number, "The battle at ${battle.system.displayName} is over")
+				LogEntry.event(current.number, "The battle at ${battle.system.displayName} is over")
 			)
 		} else {
 			emptyList()
@@ -716,7 +718,7 @@ data class Game(
 		val game = copy(
 			players = replace(landed),
 			turn = current.landed(),
-			log = log + LogEntry(current.number, "Landing: ${landed.corporationName} — ${ship.landingLog()}")
+			log = log + LogEntry.event(current.number, "Landing: ${landed.corporationName} — ${ship.landingLog()}")
 		)
 		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
 		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
@@ -898,7 +900,7 @@ data class Game(
 		val moved = copy(
 			turn = after,
 			prices = repriced?.let { prices.withPrice(resolution.good, it) } ?: prices,
-			log = log + events.map { LogEntry(after.number, it) } + resolutionLog(after.number, before, resolution)
+			log = log + events.map { LogEntry.event(after.number, it) } + resolutionLog(after.number, before, resolution)
 		)
 		return if (after.isEveryGoodResolved()) moved.endTrading(after) else moved
 	}
@@ -913,18 +915,24 @@ data class Game(
 	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
 		val market = resolution.marketText() ?: return emptyList()
 		val label = resolution.good.label()
-		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
+		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null }).map { LogEntry.event(turn, it) }
 		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
-			listOf("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}") + positionRollLines(trade, resolution.good)
+			listOf(LogEntry(turn, "${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", trade.record())) +
+				positionRollLines(trade, resolution.good).map { LogEntry.event(turn, it) }
 		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
-			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
+			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText())).map { LogEntry.event(turn, it) }
 		} else {
 			emptyList()
 		}
-		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0)
-			.map { "${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}" }
-		return (started + trades + ended + wholesales).map { LogEntry(turn, it) }
+		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0).map {
+			LogEntry(
+				turn,
+				"${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}",
+				it.record(resolution.good)
+			)
+		}
+		return started + trades + ended + wholesales
 	}
 
 	/**
@@ -1041,21 +1049,25 @@ data class Game(
 		}
 		return copy(
 			turn = current.endJumpSlot(jumper),
-			log = log + LogEntry(current.number, "${corporationOf(jumper)} has no ship to jump")
+			log = log + LogEntry.event(current.number, "${corporationOf(jumper)} has no ship to jump")
 		).withEmptyJumpSlotsSkipped()
 	}
 
 	/**
 	 * Bidding → Ship-jumps (R27): every player pays their bid, win or lose, and a player who never bid counts as
-	 * bidding 0 and still rolls (Q07, proposed). The order is public and logged without amounts (R29); the bids stay
-	 * secret on the turn.
+	 * bidding 0 and still rolls (Q07, proposed). Every bid and roll is public from now on and logged in initiative order
+	 * (creator, 2026-11-18): "Initiative (bid + 2d6): Vega Lines 40 + 11 = 51 → Orion Freight 0 + 3 = 3", then any tie's
+	 * rolls: " (tie rolled again: Vega Lines 9, Orion Freight 4)".
 	 */
 	private fun closeBidding(current: Turn, dice: Dice): Game {
 		val closed = current.closeBidding(players.map { it.email }, dice)
+		val order = closed.initiativeRolls.joinToString(" → ") { it.logText(corporationOf(it.playerEmail)) }
+		val ties = closed.initiativeRolls.mapNotNull { it.tieLogText(corporationOf(it.playerEmail)) }
+		val tieText = if (ties.isEmpty()) "" else " (tie rolled again: ${ties.joinToString(", ")})"
 		return copy(
 			players = players.map { it.pay(current.bidAmountOf(it.email)) },
 			turn = closed,
-			log = log + LogEntry(current.number, "Initiative order (bid + d2): " + closed.initiative.joinToString(" → ") { corporationOf(it) })
+			log = log + LogEntry.event(current.number, "Initiative (bid + 2d6): $order$tieText")
 		)
 	}
 

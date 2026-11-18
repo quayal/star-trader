@@ -14,9 +14,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  */
 data class Ship(
 	val name: String,
-	val system: StarSystem,
+	override val system: StarSystem,
 	val location: ShipLocation,
-	val cargo: Map<Goods, Int>,
+	override val cargo: Map<Goods, Int>,
 	val hull: Hull,
 	val modules: List<Module>,
 	val crewClass: CrewClass,

@@ -44,11 +44,11 @@ class GameTradingTest {
 		assertThat(game.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
 		// S03-7: with no offers the counter still starts (S/D +1, roll 7), and nobody can trade
 		assertThat(game.log.drop(trading.log.size)).containsExactly(
-			LogEntry(1, "Resolving: Gamma Leporis POLY (chosen by Vega Lines)"),
-			LogEntry(1, "No offers for Gamma Leporis POLY"),
-			LogEntry(1, "Gamma Leporis POLY: market +8 → buyers first"),
-			LogEntry(1, "No one can trade at Gamma Leporis POLY"),
-			LogEntry(1, "POLY price at Gamma Leporis: 2 → 1 HT")
+			LogEntry.event(1, "Resolving: Gamma Leporis POLY (chosen by Vega Lines)"),
+			LogEntry.event(1, "No offers for Gamma Leporis POLY"),
+			LogEntry.event(1, "Gamma Leporis POLY: market +8 → buyers first"),
+			LogEntry.event(1, "No one can trade at Gamma Leporis POLY"),
+			LogEntry.event(1, "POLY price at Gamma Leporis: 2 → 1 HT")
 		)
 	}
 
@@ -122,7 +122,7 @@ class GameTradingTest {
 		assertThat(resolution.awaitingDictator()).isEqualTo("ada@example.com")
 		assertThat(askingDictator.turn!!.resolvedGoods).isEmpty()
 		assertThat(askingDictator.log.last()).isEqualTo(
-			LogEntry(1, "Offers for Gamma Leporis POLY: Vega Lines — buy at 11 HT; Altair Trade Co. — sell at 10 HT")
+			LogEntry.event(1, "Offers for Gamma Leporis POLY: Vega Lines — buy at 11 HT; Altair Trade Co. — sell at 10 HT")
 		)
 	}
 
@@ -142,7 +142,7 @@ class GameTradingTest {
 		val resolution = game.turn!!.resolution!!
 		assertThat(resolution.offers.last()).isEqualTo(Offer("ada@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.SELL, 9))
 		assertThat(resolution.awaitingDictator()).isNull()
-		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) offers to sell at 9 HT"))
+		assertThat(game.log).contains(LogEntry.event(1, "Orion Freight (Dictator) offers to sell at 9 HT"))
 		assertThat(game.turn!!.offersOf("ada@example.com")).isEmpty()
 	}
 
@@ -153,7 +153,7 @@ class GameTradingTest {
 
 		assertThat(game.turn!!.resolution!!.offers).hasSize(2)
 		assertThat(game.turn!!.resolution!!.awaitingDictator()).isNull()
-		assertThat(game.log).contains(LogEntry(1, "Orion Freight (Dictator) passed"))
+		assertThat(game.log).contains(LogEntry.event(1, "Orion Freight (Dictator) passed"))
 	}
 
 	@Test
@@ -169,8 +169,8 @@ class GameTradingTest {
 		).isEqualTo(AwaitedTrade(Offer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11), 21))
 		assertThat(game.turn!!.resolvedGoods).isEmpty()
 		assertThat(game.log.drop(askingDictator.log.size)).containsExactly(
-			LogEntry(1, "Orion Freight (Dictator) passed"),
-			LogEntry(1, "Gamma Leporis POLY: market +3 → buyers first")
+			LogEntry.event(1, "Orion Freight (Dictator) passed"),
+			LogEntry.event(1, "Gamma Leporis POLY: market +3 → buyers first")
 		)
 	}
 
@@ -200,11 +200,15 @@ class GameTradingTest {
 		)
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
-			LogEntry(1, "Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT"),
-			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4"),
-			LogEntry(1, "Vega Lines's reputation: +2 for a market position rise \u2192 22"),
-			LogEntry(1, "No one else can trade at Gamma Leporis POLY"),
-			LogEntry(1, "POLY price at Gamma Leporis: 2 → 6 HT")
+			LogEntry(
+				1,
+				"Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT",
+				TradeRecord("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 12, 11)
+			),
+			LogEntry.event(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4"),
+			LogEntry.event(1, "Vega Lines's reputation: +2 for a market position rise \u2192 22"),
+			LogEntry.event(1, "No one else can trade at Gamma Leporis POLY"),
+			LogEntry.event(1, "POLY price at Gamma Leporis: 2 → 6 HT")
 		)
 		val passed = game.passWholesale("ada@example.com")
 		assertThat(passed.turn!!.resolvedGoods).containsExactly(MarketGood(GAMMA_LEPORIS, Goods.POLY))
@@ -266,9 +270,9 @@ class GameTradingTest {
 		assertThat(game.turn!!.resolution!!.trades.single().units).isZero()
 		assertThat(game.turn!!.resolution!!.isTradingOver()).isTrue()
 		assertThat(game.log.drop(broke.log.size)).containsExactly(
-			LogEntry(1, "Vega Lines could buy up to 21 u: bought nothing"),
-			LogEntry(1, "No one can trade at Gamma Leporis POLY"),
-			LogEntry(1, "POLY price at Gamma Leporis: 2 → 1 HT")
+			LogEntry.event(1, "Vega Lines could buy up to 21 u: bought nothing"),
+			LogEntry.event(1, "No one can trade at Gamma Leporis POLY"),
+			LogEntry.event(1, "POLY price at Gamma Leporis: 2 → 1 HT")
 		)
 	}
 

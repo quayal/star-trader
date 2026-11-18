@@ -13,6 +13,7 @@ import {
 	systemLink,
 	tradingLink,
 	gameOverLink,
+	assetsLink,
 	corporationsLink,
 	fleetLink,
 	infrastructureLink,
@@ -72,6 +73,8 @@ describe('parseRoute', () => {
 		assert.deepEqual(parseRoute(corporationsLink('a/b')), { view: 'corporations', id: 'a/b' });
 		assert.equal(corporationsLink('a/b'), '#game/a%2Fb/corporations');
 		assert.deepEqual(parseRoute('#game/g-1/corporations/2'), { view: 'unknown', id: 'g-1' });
+		assert.deepEqual(parseRoute(assetsLink('a/b')), { view: 'assets', id: 'a/b' });
+		assert.equal(assetsLink('a/b'), '#game/a%2Fb/assets');
 	});
 
 	it('reads Infrastructure of a game (s10, E06-S08)', () => {

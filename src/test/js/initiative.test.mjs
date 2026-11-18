@@ -7,6 +7,7 @@ import {
 	bidButtonLabel,
 	bidLine,
 	bidPlacedText,
+	initiativeRolls,
 	initiativeText,
 	overMoneyText,
 	validateBid,
@@ -85,5 +86,27 @@ describe('initiativeText', () => {
 	it('is nothing during Bidding or without an order', () => {
 		assert.equal(initiativeText(game()), null);
 		assert.equal(initiativeText(game({ phase: 'SHIP_JUMPS' })), null);
+	});
+});
+
+describe('initiativeRolls (creator, 2026-11-18)', () => {
+	const players = [{ id: 'p1', corporationName: 'Orion Freight' }, { id: 'p2', corporationName: 'Vega Lines' }];
+	const rolls = [
+		{ playerId: 'p2', bid: 40, roll: 11, total: 51, tieRolls: [] },
+		{ playerId: 'p1', bid: 0, roll: 7, total: 7, tieRolls: [9, 4] },
+	];
+
+	it('shows what each player bid and rolled, in initiative order, with any tie rolls', () => {
+		const game = { status: 'RUNNING', players, turn: { phase: 'SHIP_JUMPS', initiative: ['p2', 'p1'], initiativeRolls: rolls } };
+
+		assert.deepEqual(initiativeRolls(game), [
+			{ corporation: 'Vega Lines', sum: '40 + 11 = 51', tie: '' },
+			{ corporation: 'Orion Freight', sum: '0 + 7 = 7', tie: 'tie rolled again: 9, 4' },
+		]);
+	});
+
+	it('shows nothing while Bidding is open, or for a turn saved before rolls were kept', () => {
+		assert.deepEqual(initiativeRolls({ status: 'RUNNING', players, turn: { phase: 'BIDDING', initiativeRolls: [] } }), []);
+		assert.deepEqual(initiativeRolls({ status: 'RUNNING', players, turn: { phase: 'TRADING', initiative: ['p1', 'p2'] } }), []);
 	});
 });

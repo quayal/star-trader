@@ -72,14 +72,14 @@ class GameStartTest {
 		val started = lobby.start("creator@example.com", picker, START_DICE)
 
 		assertThat(started.log).containsExactly(
-			LogEntry(1, "Game started: 2 players, 20 turns"),
-			LogEntry(
+			LogEntry.event(1, "Game started: 2 players, 20 turns"),
+			LogEntry.event(
 				1,
 				"Starting positions: Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri; " +
 					"Vega Lines — Meridian at Gamma Leporis, Halcyon at Tau Ceti"
 			),
-			LogEntry(1, "Orion Freight rolled 3: 6 connection points to place"),
-			LogEntry(1, "Vega Lines rolled 3: 6 connection points to place")
+			LogEntry.event(1, "Orion Freight rolled 3: 6 connection points to place"),
+			LogEntry.event(1, "Vega Lines rolled 3: 6 connection points to place")
 		)
 	}
 

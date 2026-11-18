@@ -111,7 +111,12 @@ class GameControllerTest {
 		assertThat(game.turn).isNull()
 		assertThat(
 			game.you
-		).isEqualTo(YouResponseDto("p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null))
+		).isEqualTo(
+			YouResponseDto(
+				"p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
+				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList())
+			)
+		)
 	}
 
 	@Test
@@ -319,7 +324,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null, emptyList()
+				null, null, emptyList(), emptyList()
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -336,7 +341,7 @@ class GameControllerTest {
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
 			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
 		}
-		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns"))
+		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null))
 		joinGame(signIn("start-late@example.com"), game.id)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("This game has already started")
@@ -539,7 +544,7 @@ class GameControllerTest {
 					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
-				emptyList()
+				emptyList(), emptyList()
 			)
 		)
 
@@ -737,25 +742,28 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldNeverSendAnotherPlayersBidOrMoney() {
+	fun shouldNeverSendAnotherPlayersBidWhileBiddingIsOpenNorTheirMoney() {
 		val (creatorToken, joinerToken, gameId) = startedGame("bid-secret")
 		placeBid(joinerToken, gameId, """{"amount": 137}""").expectStatus().isOk
 		signalDone(joinerToken, gameId).expectStatus().isOk
 
-		// Every response the creator can get: the poll, their own bid, the done that closes Bidding, the poll after (R29, S05-6).
-		val seenByCreator = listOf(
-			pollGame(creatorToken, gameId),
-			placeBid(creatorToken, gameId, """{"amount": 5}"""),
-			signalDone(creatorToken, gameId),
-			pollGame(creatorToken, gameId)
-		).map { it.expectBody(String::class.java).returnResult().responseBody!! }
+		// Every response the creator can get while Bidding is open: the poll and their own bid (R29, S05-6).
+		val whileOpen = listOf(pollGame(creatorToken, gameId), placeBid(creatorToken, gameId, """{"amount": 5}"""))
+			.map { it.expectBody(String::class.java).returnResult().responseBody!! }
+		// Then the done that closes Bidding and the poll after: every bid is public now (creator, 2026-11-18), money still isn't.
+		val afterClose = listOf(signalDone(creatorToken, gameId), pollGame(creatorToken, gameId))
+			.map { it.expectBody(String::class.java).returnResult().responseBody!! }
 
-		seenByCreator.forEach { raw ->
-			assertThat(raw).doesNotContain("\"bid\":137").doesNotContain("\"money\":163").doesNotContain("\"amount\"")
+		whileOpen.forEach { raw ->
+			assertThat(raw).doesNotContain("\"bid\":137").doesNotContain("\"amount\"")
 			assertThat(Regex("\"bid\"").findAll(raw).count()).isEqualTo(1) // only "you.bid"
+		}
+		(whileOpen + afterClose).forEach { raw ->
+			assertThat(raw).doesNotContain("\"money\":163")
 			assertThat(Regex("\"money\"").findAll(raw).count()).isEqualTo(1) // only "you.money"
 		}
-		assertThat(seenByCreator.last()).contains("\"money\":295")
+		afterClose.forEach { raw -> assertThat(raw).contains("{\"playerId\":\"p2\",\"bid\":137,") }
+		assertThat(afterClose.last()).contains("\"money\":295")
 	}
 
 	@Test
@@ -775,8 +783,10 @@ class GameControllerTest {
 		assertThat(closed.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 		val logged = closed.log.last()
 		assertThat(logged.turn).isEqualTo(1)
-		assertThat(logged.text).startsWith("Initiative order (bid + d2): ")
-		assertThat(logged.text.substringAfter(": ")).doesNotContainPattern("[0-9]") // R29: the order, never an amount
+		// Once Bidding closes, everyone is told what each player bid and rolled (creator, 2026-11-18).
+		assertThat(logged.text).startsWith("Initiative (bid + 2d6): ").contains("Grace Freight 40 + ", "Adrian Star Traders 10 + ")
+		assertThat(closed.turn!!.initiativeRolls.map { it.playerId to it.bid }).containsExactlyInAnyOrder("p1" to 10, "p2" to 40)
+		assertThat(closed.turn!!.initiativeRolls).allMatch { it.total == it.bid + it.roll && it.roll in 2..12 }
 	}
 
 	@Test
@@ -790,13 +800,15 @@ class GameControllerTest {
 		val raw = pollGame(creatorToken, gameId).expectBody(String::class.java).returnResult().responseBody!!
 		val log = pollGame(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.log
 
-		// S06-1: every entry carries its turn; S06-3: none names an offer, a bid or money (R17, R29).
-		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\"}")
+		// S06-1: every entry carries its turn; S06-3: none names an offer or money (R17, R29). Bids are public once Bidding
+		// has closed (creator, 2026-11-18), so the initiative line names the 23.
+		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null}")
 		assertThat(log.map { it.turn }).containsOnly(1)
-		// 2 at the start, a roll and a placement for each player (R82), and the initiative order
+		// 2 at the start, a roll and a placement for each player (R82), and the initiative line
 		assertThat(log.map { it.text }).hasSize(7).noneMatch { text ->
-			listOf("17", "23", "277", "HT", "POLY", "SELL").any { it in text }
+			listOf("17", "277", "HT", "POLY", "SELL").any { it in text }
 		}
+		assertThat(log.last().text).contains("Grace Freight 23 + ")
 	}
 
 	@Test
@@ -1122,8 +1134,8 @@ class GameControllerTest {
 			.isEqualTo(ended.turn)
 		// S07-3: turn 2 starts its own group in the log.
 		assertThat(ended.log.takeLast(2)).containsExactly(
-			LogEntryResponseDto(1, "All goods resolved"),
-			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired")
+			LogEntryResponseDto(1, "All goods resolved", null),
+			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired", null)
 		)
 		resolveNext("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)

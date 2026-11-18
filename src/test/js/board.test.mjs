@@ -228,9 +228,17 @@ describe('Warehouses and factories (E06-S02)', () => {
 	};
 
 	it("lists every corporation's warehouses and factories at the system, to everyone, and none elsewhere", () => {
-		const holdings = systemHoldings(built, { ...tauCeti, producibleGoods: ['ISO'] });
-		assert.deepEqual(holdings.warehouses, [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20, corporationName: 'Orion Freight' }]);
+		const holdings = systemHoldings(built, { ...tauCeti, producibleGoods: ['ISO'] }, 'someone-else');
+		assert.deepEqual(holdings.warehouses, [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20, corporationName: 'Orion Freight', held: '\u2014' }]);
 		assert.deepEqual(holdings.factories, [{ system: 'TAU_CETI', goods: 'ISO', size: 3, corporationName: 'Vega Lines' }]);
+	});
+
+	it('shows what your own warehouse holds, and nobody else\'s (creator, 2026-11-18; R29)', () => {
+		const mine = { ...built, you: { warehouses: [{ system: 'TAU_CETI', cargo: { ISO: 3, FOOD: 2 } }, { system: 'MU_HERCULIS', cargo: {} }] } };
+
+		assert.equal(systemHoldings(mine, tauCeti, 'ada').warehouses[0].held, '3 ISO, 2 FOOD');
+		assert.equal(systemHoldings(mine, { ...tauCeti, id: 'MU_HERCULIS' }, 'ada').warehouses[0].held, 'Empty');
+		assert.equal(systemHoldings(mine, tauCeti, 'someone-else').warehouses[0].held, '\u2014');
 	});
 
 	it('names the goods the system can produce, and none where no factory can stand', () => {

@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.JumpChance
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -27,6 +28,7 @@ import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Trade
+import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
@@ -79,7 +81,7 @@ data class GameResponseDto(
 		ids.of(game.creatorEmail),
 		game.players.map { PlayerResponseDto(it, ids) },
 		game.turn?.let { TurnResponseDto(it, ids, game.players.flatMap { player -> player.ships }) },
-		game.logAfter(logAfter).map { LogEntryResponseDto(it) },
+		game.logAfter(logAfter).map { LogEntryResponseDto(it, ids) },
 		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
 		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it, ids) },
@@ -254,7 +256,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * now, or the last one resolved, and null before the first. [doneInvesting] lists who has signalled done during
  * Investment (R44), so everyone sees who the game waits for (D09). [collected] lists the players with factories who have
  * confirmed where their output goes (R47, E06-S03-5), public in the same way. Offers go here only once Trading has
- * started, when every offer of the turn becomes public as [publicOffers] (R17); bids never do (R29).
+ * started, when every offer of the turn becomes public as [publicOffers] (R17). Bids are secret while Bidding is open
+ * (R29); once it closes, every bid and roll is public as [initiativeRolls], in initiative order (creator, 2026-11-18).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -272,7 +275,8 @@ data class TurnResponseDto(
 	val collected: List<String>,
 	val interception: InterceptionResponseDto?,
 	val battle: BattleResponseDto?,
-	val publicOffers: List<PublicOfferResponseDto>
+	val publicOffers: List<PublicOfferResponseDto>,
+	val initiativeRolls: List<InitiativeRollResponseDto>
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -292,7 +296,23 @@ data class TurnResponseDto(
 		ids.ofAll(turn.collected),
 		turn.interception?.let { InterceptionResponseDto(it, ids) },
 		turn.battle?.let { BattleResponseDto(it, ids, ships) },
-		turn.publicOffers().map { PublicOfferResponseDto(it, ids) }
+		turn.publicOffers().map { PublicOfferResponseDto(it, ids) },
+		turn.initiativeRolls.map { InitiativeRollResponseDto(it, ids) }
+	)
+}
+
+/**
+ * What one player bid for initiative and rolled (R27), public once Bidding closes (creator, 2026-11-18): [total] is bid +
+ * [roll], and [tieRolls] any rolls made to break a tie, in order.
+ */
+data class InitiativeRollResponseDto(val playerId: String, val bid: Int, val roll: Int, val total: Int, val tieRolls: List<Int>) {
+
+	constructor(roll: InitiativeRoll, ids: PlayerIds) : this(
+		ids.of(roll.playerEmail),
+		roll.bid,
+		roll.rolls.first(),
+		roll.total(),
+		roll.tieRolls()
 	)
 }
 
@@ -433,9 +453,31 @@ data class MarketGoodResponseDto(val system: String, val systemName: String, val
 }
 
 /** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
-data class LogEntryResponseDto(val turn: Int, val text: String) {
+data class LogEntryResponseDto(val turn: Int, val text: String, val trade: TradeRecordResponseDto?) {
 
-	constructor(entry: LogEntry) : this(entry.turn, entry.text)
+	constructor(entry: LogEntry, ids: PlayerIds) : this(entry.turn, entry.text, entry.trade?.let { TradeRecordResponseDto(it, ids) })
+}
+
+/** The trade a log entry tells of, for a player's trade history (creator, 2026-11-18); public, like the line itself (R18). */
+data class TradeRecordResponseDto(
+	val playerId: String,
+	val system: String,
+	val systemName: String,
+	val goods: String,
+	val type: String,
+	val units: Int,
+	val price: Int
+) {
+
+	constructor(record: TradeRecord, ids: PlayerIds) : this(
+		ids.of(record.playerEmail),
+		record.system.name,
+		record.system.displayName,
+		record.goods.name,
+		record.type.name,
+		record.units,
+		record.price
+	)
 }
 
 /**
@@ -446,6 +488,7 @@ data class LogEntryResponseDto(val turn: Int, val text: String) {
  * null. [warehouses] are their own warehouses with what each holds (R29, like their ships' cargo), and [collect] is what
  * they place at the start of Investment while they still have to (R47, E06-S03-1), else null: not in Investment,
  * already confirmed, or no factories (S03-6). [invest] is what they may buy while they can (E06-S04), else null.
+ * [assets] is where their money sits, for the Assets tab (creator, 2026-11-18).
  */
 data class YouResponseDto(
 	val id: String,
@@ -460,7 +503,8 @@ data class YouResponseDto(
 	val invest: InvestResponseDto?,
 	val interception: YourInterceptionResponseDto?,
 	val battle: YourBattleResponseDto?,
-	val battleReport: BattleReportResponseDto?
+	val battleReport: BattleReportResponseDto?,
+	val assets: AssetsResponseDto
 ) {
 
 	/**
@@ -501,7 +545,8 @@ data class YouResponseDto(
 		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
 		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
 			?.let { YourBattleResponseDto(it, player.email, id) },
-		battleReport
+		battleReport,
+		AssetsResponseDto(player, prices)
 	)
 }
 

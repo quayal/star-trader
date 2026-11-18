@@ -75,7 +75,7 @@ class GameTurnEndTest {
 		assertThat(game.turn!!.number).isEqualTo(1)
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(game.turn!!.doneInvesting).isEmpty()
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "All goods resolved"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "All goods resolved"))
 	}
 
 	@Test
@@ -121,8 +121,8 @@ class GameTurnEndTest {
 		val game = afterInvesting(investing(3))
 
 		assertThat(game.log.takeLast(2)).containsExactly(
-			LogEntry(1, "All goods resolved"),
-			LogEntry(2, "Turn 2 of 3 starts with Bidding; turn 1's offers have expired")
+			LogEntry.event(1, "All goods resolved"),
+			LogEntry.event(2, "Turn 2 of 3 starts with Bidding; turn 1's offers have expired")
 		)
 	}
 

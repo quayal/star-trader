@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPrices
@@ -129,13 +130,14 @@ class GameItemTest {
 			battleReport = null,
 			connectionsRaised = listOf("host@example.com"),
 			reputationBought = listOf("ada@example.com"),
-			interceptionTries = emptyList()
+			interceptionTries = emptyList(),
+			initiativeRolls = listOf(InitiativeRoll("host@example.com", 5, listOf(8)))
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(
-			LogEntry(1, "Game started: 2 players, 20 turns"),
-			LogEntry(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
-			LogEntry(2, "Initiative order (bid + d2): Guest Freight → Host Corp")
+			LogEntry.event(1, "Game started: 2 players, 20 turns"),
+			LogEntry.event(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
+			LogEntry.event(2, "Initiative order (bid + d2): Guest Freight → Host Corp")
 		)
 	)
 

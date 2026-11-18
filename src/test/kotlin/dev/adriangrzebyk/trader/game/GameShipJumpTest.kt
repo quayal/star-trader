@@ -61,7 +61,7 @@ class GameShipJumpTest {
 	fun shouldLogEachJump() {
 		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Jump: Vega Lines — Meridian → Tau Ceti (rolled 2)"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Jump: Vega Lines — Meridian → Tau Ceti (rolled 2)"))
 	}
 
 	// R68: Meridian (crew B +3, Safe jump +2) from Gamma Leporis to Sigma Draconis, base 4, needs 9 or less.
@@ -83,7 +83,7 @@ class GameShipJumpTest {
 		assertThat(game.turn!!.landingShip).isNull()
 		assertThat(game.turn!!.jumper()).isEqualTo("grace@example.com")
 		assertThat(game.log.last())
-			.isEqualTo(LogEntry(1, "Jump: Vega Lines — Meridian failed to jump to Sigma Draconis (rolled 10) and stays at Gamma Leporis"))
+			.isEqualTo(LogEntry.event(1, "Jump: Vega Lines — Meridian failed to jump to Sigma Draconis (rolled 10) and stays at Gamma Leporis"))
 	}
 
 	@Test
@@ -226,7 +226,7 @@ class GameShipJumpTest {
 
 		assertThat(shipOf(game, "Meridian").location).isEqualTo(ShipLocation.SPACE)
 		assertThat(shipOf(game, "Meridian").system).isEqualTo(GAMMA_LEPORIS)
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Jump: Vega Lines — Meridian → Gamma Leporis"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Jump: Vega Lines — Meridian → Gamma Leporis"))
 	}
 
 	@Test

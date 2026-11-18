@@ -77,8 +77,8 @@ class GameOverTest {
 	fun shouldEndTheLogWithTheWinner() {
 		// S08-5
 		assertThat(over.log.takeLast(2)).containsExactly(
-			LogEntry(1, "All goods resolved"),
-			LogEntry(1, "Game over: Orion Freight wins with 300 HT")
+			LogEntry.event(1, "All goods resolved"),
+			LogEntry.event(1, "Game over: Orion Freight wins with 300 HT")
 		)
 	}
 

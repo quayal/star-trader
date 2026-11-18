@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from '../../main/resources/static/js/log.js';
 
 describe('logTurns', () => {
-	it('groups the events by turn, newest turn first, each turn in the order it happened (S06-1)', () => {
+	it('groups the events by turn, newest turn first, and the events in each turn newest first (S06-1, creator 2026-11-18)', () => {
 		const log = [
 			{ turn: 1, text: 'Game started: 2 players, 20 turns' },
 			{ turn: 1, text: 'Starting positions: …' },
@@ -17,7 +17,7 @@ describe('logTurns', () => {
 			{
 				turn: 1,
 				title: 'Turn 1',
-				events: ['Game started: 2 players, 20 turns', 'Starting positions: …', 'Initiative order (bid + d2): Vega Lines → Orion Freight'],
+				events: ['Initiative order (bid + d2): Vega Lines → Orion Freight', 'Starting positions: …', 'Game started: 2 players, 20 turns'],
 			},
 		]);
 	});

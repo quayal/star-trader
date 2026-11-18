@@ -67,7 +67,7 @@ class GameShipyardTest {
 	fun shouldLogTheOrderWithoutHullOrPrice() {
 		val game = buySpiral(investing)
 
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Orion Freight ordered Spiral at the Tau Ceti shipyard"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Orion Freight ordered Spiral at the Tau Ceti shipyard"))
 	}
 
 	@Test
@@ -346,7 +346,7 @@ class GameShipyardTest {
 		assertThat(playerOf(game, "ada@example.com").ships.map { it.name }).containsExactly("Lantern")
 		// (160 + 4 × 4 + 17 + 10) / 2, rounded down
 		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(investing, "ada@example.com").money + 101)
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Orion Freight sold Wayfarer"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Orion Freight sold Wayfarer"))
 	}
 
 	@Test
