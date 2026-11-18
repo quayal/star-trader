@@ -128,8 +128,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 ## 11. No global or unscoped state
 
 - All game state is keyed by game id from the start, even before persistence exists. (The first attempt's
-  `TradeOfferBook` — a single global in-memory list with no game boundary — is the concrete example of
-  what this rule rules out.)
+  `TradeOfferBook` — a single global in-memory list with no game boundary, deleted on 2026-11-19 — is the
+  concrete example of what this rule rules out.)
 
 ## 12. Stored data is mapped field by field, and the mapping grows with the model
 
