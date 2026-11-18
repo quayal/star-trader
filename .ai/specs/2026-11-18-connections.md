@@ -2,7 +2,7 @@
 
 **Brief:** `.ai/specs/product-brief.md` — R43 (market position gain), R44 (turn phases), R46 (factories), D12 (Investment happens on Infrastructure), D11 (loans stay out).
 **Source:** the creator's vault note `10-projects/Trader/Connections.md` and their answers of 2026-11-18.
-**Related:** `2026-11-18-corporations-tab.md` (where connections are shown) and `2026-11-18-reputation.md` (connection rises move reputation).
+**Related:** `implemented/2026-11-18-corporations-tab.md` (where connections are shown) and `2026-11-18-reputation.md` (connection rises move reputation).
 
 ## 📝 TLDR
 

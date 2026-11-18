@@ -13,6 +13,7 @@ import {
 	systemLink,
 	tradingLink,
 	gameOverLink,
+	corporationsLink,
 	fleetLink,
 	infrastructureLink,
 	turnText,
@@ -64,6 +65,13 @@ describe('parseRoute', () => {
 		assert.deepEqual(parseRoute(fleetLink('a/b')), { view: 'fleet', id: 'a/b' });
 		assert.equal(fleetLink('a/b'), '#game/a%2Fb/fleet');
 		assert.deepEqual(parseRoute('#game/g-1/fleet/2'), { view: 'unknown', id: 'g-1' });
+	});
+
+	it('reads the Corporations tab of a game (E11-S01)', () => {
+		assert.deepEqual(parseRoute('#game/g-1/corporations'), { view: 'corporations', id: 'g-1' });
+		assert.deepEqual(parseRoute(corporationsLink('a/b')), { view: 'corporations', id: 'a/b' });
+		assert.equal(corporationsLink('a/b'), '#game/a%2Fb/corporations');
+		assert.deepEqual(parseRoute('#game/g-1/corporations/2'), { view: 'unknown', id: 'g-1' });
 	});
 
 	it('reads Infrastructure of a game (s10, E06-S08)', () => {
