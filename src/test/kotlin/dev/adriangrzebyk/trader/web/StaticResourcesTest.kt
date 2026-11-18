@@ -8,6 +8,10 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.test.web.servlet.client.RestTestClient
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 
 // A changed stylesheet must reach every browser on its next load, not when a heuristic cache lifetime ends.
 @SpringBootTest(
@@ -43,5 +47,15 @@ class StaticResourcesTest {
 
 		restTestClient.get().uri("/css/components.css").header(HttpHeaders.IF_MODIFIED_SINCE, lastModified).exchange()
 			.expectStatus().isEqualTo(HttpStatus.NOT_MODIFIED)
+	}
+
+	@Test
+	fun shouldCompressThePageForABrowserThatAcceptsGzip() {
+		// For remote players over a metered tunnel (creator, 2026-11-18). The JDK client doesn't unzip, so the header shows.
+		val request = HttpRequest.newBuilder(URI.create("http://localhost:$port/")).header("Accept-Encoding", "gzip").build()
+		val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray())
+
+		assertThat(response.headers().firstValue("Content-Encoding")).hasValue("gzip")
+		assertThat(response.body().size).isLessThan(100_000)
 	}
 }

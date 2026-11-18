@@ -39,9 +39,10 @@ import org.springframework.test.web.servlet.client.RestTestClient
 
 // Blank the Resend settings so a developer's RESEND_* variables don't send real email to example.com.
 // Games go to DynamoDB Local, the same store bootRun uses, so the wiring and the mapper are exercised over HTTP.
+// Compression is off: the test client leaks a connection per unread gzipped body and hangs (lessons, 2026-11-18).
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS=", "server.compression.enabled=false"]
 )
 class GameControllerTest {
 
@@ -180,6 +181,22 @@ class GameControllerTest {
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
+	}
+
+	@Test
+	fun shouldAnswerAnUnchangedPollWithAnEmpty304() {
+		// A poll that sends back the last ETag gets 304 and no body while the caller's view is unchanged, and the whole
+		// game again once something changed (creator, 2026-11-18: polling over a metered tunnel).
+		val token = signIn("etag@example.com")
+		val game = createdGame(token)
+		val etag = pollGame(token, game.id).expectStatus().isOk.returnResult(String::class.java).responseHeaders.eTag!!
+
+		restTestClient.get().uri("/api/games/{id}", game.id).header("Authorization", "Bearer $token").header("If-None-Match", etag)
+			.exchange().expectStatus().isNotModified.expectBody().isEmpty()
+
+		joinGame(signIn("etag-guest@example.com", "Grace", "Grace Freight"), game.id).expectStatus().isOk
+		restTestClient.get().uri("/api/games/{id}", game.id).header("Authorization", "Bearer $token").header("If-None-Match", etag)
+			.exchange().expectStatus().isOk.expectHeader().value("ETag") { assertThat(it).isNotEqualTo(etag) }
 	}
 
 	@Test

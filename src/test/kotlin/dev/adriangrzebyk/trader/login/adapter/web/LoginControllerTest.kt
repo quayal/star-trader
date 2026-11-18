@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.client.RestTestClient
 // Sessions go to DynamoDB Local, the same store bootRun uses.
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS="]
+	properties = ["RESEND_API_KEY=", "RESEND_FROM_ADDRESS=", "server.compression.enabled=false"]
 )
 class LoginControllerTest {
 
