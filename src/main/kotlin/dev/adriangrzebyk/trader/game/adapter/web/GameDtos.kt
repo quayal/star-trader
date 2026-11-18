@@ -10,9 +10,8 @@ import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.Game
-import dev.adriangrzebyk.trader.game.GameStatus
+import dev.adriangrzebyk.trader.game.GameResult
 import dev.adriangrzebyk.trader.game.Hull
-import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.InterceptionRoll
 import dev.adriangrzebyk.trader.game.JumpChance
@@ -25,6 +24,7 @@ import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.PlayerView
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.ProductionCost
 import dev.adriangrzebyk.trader.game.Reputation
@@ -37,8 +37,6 @@ import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
-import dev.adriangrzebyk.trader.game.battle.Battle
-import dev.adriangrzebyk.trader.game.battle.Interception
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -86,25 +84,8 @@ data class GameResponseDto(
 		game.logAfter(logAfter).map { LogEntryResponseDto(it, ids) },
 		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
-		game.takeIf { it.status == GameStatus.FINISHED }?.let { GameResultResponseDto(it, ids) },
-		game.players.firstOrNull { it.email == viewerEmail }?.let {
-			YouResponseDto(
-				ids.of(it.email),
-				it,
-				game.turn?.offersOf(it.email).orEmpty(),
-				game.turn?.bidOf(it.email),
-				game.turn?.resolution,
-				game.turn?.isCollecting(it.email) == true,
-				game.canInvest(it.email),
-				game.prices,
-				game.freeShipNames(),
-				game.turn?.interception,
-				game.turn?.battle,
-				game.turn?.battleReport?.reportFor(it.email)?.let { report -> BattleReportResponseDto(report, ids) },
-				game.turn?.hasRaisedConnection(it.email) == true,
-				game.turn?.hasBoughtReputation(it.email) == true
-			)
-		}
+		game.result()?.let { GameResultResponseDto(it, ids) },
+		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) }
 	)
 }
 
@@ -114,9 +95,9 @@ data class GameResponseDto(
  */
 data class GameResultResponseDto(val standings: List<StandingResponseDto>, val winners: List<String>) {
 
-	constructor(game: Game, ids: PlayerIds) : this(
-		game.standings().map { StandingResponseDto(it, ids) },
-		game.winners().map { ids.of(it.email) }
+	constructor(result: GameResult, ids: PlayerIds) : this(
+		result.standings.map { StandingResponseDto(it, ids) },
+		result.winners.map { ids.of(it.email) }
 	)
 }
 
@@ -556,46 +537,24 @@ data class YouResponseDto(
 	val assets: AssetsResponseDto
 ) {
 
-	/**
-	 * [offers] and [bid] must be [player]'s own: the caller passes `turn.offersOf(player.email)` and
-	 * `turn.bidOf(player.email)`, never the whole turn's. [resolution] is the turn's, whoever it waits for. [collecting] is
-	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
-	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs; [freeShipNames] the suggestions for a new
-	 * ship's name ([Game.freeShipNames]); [battleReport] the last battle round's salvos that concern [player];
-	 * [raisedConnection] whether they raised a connection this Investment (R83), [boughtReputation] whether they bought
-	 * reputation (R87).
-	 */
-	constructor(
-		id: String,
-		player: Player,
-		offers: List<Offer>,
-		bid: InitiativeBid?,
-		resolution: Resolution?,
-		collecting: Boolean,
-		investing: Boolean,
-		prices: MarketPrices,
-		freeShipNames: List<String>,
-		interception: Interception?,
-		battle: Battle?,
-		battleReport: BattleReportResponseDto?,
-		raisedConnection: Boolean,
-		boughtReputation: Boolean
-	) : this(
+	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
+	constructor(view: PlayerView, ids: PlayerIds) : this(view, ids.of(view.player.email), view.player, ids)
+
+	private constructor(view: PlayerView, id: String, player: Player, ids: PlayerIds) : this(
 		id,
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
-		offers.map { YourOfferResponseDto(it) },
-		bid?.amount,
-		resolution?.awaitingTrade()?.takeIf { it.offer.playerEmail == player.email }?.let { player.tradeMax(it.offer, it.marketMax) },
-		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
+		view.offers.map { YourOfferResponseDto(it) },
+		view.bid?.amount,
+		view.tradeMax,
+		view.wholesaleAsk?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
-		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player, prices, freeShipNames, raisedConnection, boughtReputation).takeIf { investing },
-		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
-		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
-			?.let { YourBattleResponseDto(it, player.email, id) },
-		battleReport,
-		AssetsResponseDto(player, prices)
+		view.factoriesToCollect?.let { CollectResponseDto(player, it) },
+		view.investment?.let { InvestResponseDto(player, view.prices, it.freeShipNames, it.raisedConnection, it.boughtReputation) },
+		view.interception?.let { YourInterceptionResponseDto(it, player) },
+		view.battle?.let { YourBattleResponseDto(it, player.email, id) },
+		view.battleReport?.let { BattleReportResponseDto(it, ids) },
+		AssetsResponseDto(player, view.prices)
 	)
 }
 
@@ -685,9 +644,9 @@ data class ShipyardResponseDto(
 ) {
 
 	constructor(freeNames: List<String>) : this(
-		StarSystem.entries.filter { it.hasShipyard() }.map { ShipyardSystemResponseDto(it.name, it.displayName) },
-		Hull.entries.filter { it.isForSale() }.map { ShipyardHullResponseDto(it) },
-		Module.entries.filter { it.isForSale() }.map { ShipyardModuleResponseDto(it) },
+		StarSystem.shipyards().map { ShipyardSystemResponseDto(it.name, it.displayName) },
+		Hull.forSale().map { ShipyardHullResponseDto(it) },
+		Module.forSale().map { ShipyardModuleResponseDto(it) },
 		CrewClass.entries.map { CrewClassResponseDto(it.name, it.pricePerCrew) },
 		freeNames
 	)
@@ -873,7 +832,7 @@ data class MoveCargoRequestDto(val from: String? = null, val to: String? = null,
  */
 data class CollectResponseDto(val factories: List<CollectFactoryResponseDto>) {
 
-	constructor(player: Player) : this(player.factories.map { CollectFactoryResponseDto(player, it) })
+	constructor(player: Player, factories: List<Factory>) : this(factories.map { CollectFactoryResponseDto(player, it) })
 }
 
 /** A factory's output of [units] of [goods] made at [system] (R46, R47), and the [destinations] it can go to there. */

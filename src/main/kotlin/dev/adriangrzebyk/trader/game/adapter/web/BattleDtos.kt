@@ -135,9 +135,9 @@ data class YourBattleResponseDto(
 
 	constructor(battle: Battle, viewerEmail: String, viewerId: String) : this(
 		battle.fightingShipsOf(viewerEmail),
-		battle.fightingShipsOf(viewerEmail).filter { battle.canBreakAway(it) },
+		battle.breakAwayShipsOf(viewerEmail),
 		battle.ordersOf(viewerEmail).map { BattleOrderResponseDto(it) },
-		battle.pendingHits.filter { it.ownerEmail == viewerEmail }.map { PendingHitsResponseDto(it.ship, viewerId, it.hits) },
+		battle.pendingHitsOwnedBy(viewerEmail).map { PendingHitsResponseDto(it.ship, viewerId, it.hits) },
 		battle.shipsToLand(viewerEmail)
 	)
 }

@@ -38,6 +38,12 @@ data class Resolution(
 	 */
 	fun awaitingTrade(): AwaitedTrade? = startingCounter?.let { nextTrade() }
 
+	/** The trade the counter waits for when it is [email]'s offer (E05-S04), or null. */
+	fun awaitingTradeOf(email: String): AwaitedTrade? = awaitingTrade()?.takeIf { it.isFor(email) }
+
+	/** Whether the wholesale step is asking [email] now (R37). */
+	fun isAskingWholesaler(email: String): Boolean = awaitingWholesaler() == email
+
 	/** Whether the counter has started and no offer can trade any more (S03-3): the price then changes (R35). */
 	fun isTradingOver(): Boolean = startingCounter != null && awaitingTrade() == null
 

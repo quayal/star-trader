@@ -19,6 +19,9 @@ data class Interception(
 	/** The players asked who haven't answered yet, in the order they were asked. */
 	fun awaiting(): List<String> = asked.filter { email -> answers.none { it.playerEmail == email } }
 
+	/** Whether [email] is asked: only they see the question and their own answer (R70). */
+	fun asks(email: String): Boolean = email in asked
+
 	/** Whether everyone asked has answered: the tries can be rolled. */
 	fun isDecided(): Boolean = awaiting().isEmpty()
 

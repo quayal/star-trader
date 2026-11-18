@@ -189,6 +189,9 @@ data class Game(
 	/** The players with the most money (R39); several when they tie, and they share the win (E05-S08-4, proposed). */
 	fun winners(): List<Player> = players.filter { it.money == players.maxOf { player -> player.money } }
 
+	/** The result once the game is over (E05-S08-2, R39: then everyone's money is public), and null until then (R29). */
+	fun result(): GameResult? = if (status == GameStatus.FINISHED) GameResult(standings(), winners()) else null
+
 	/**
 	 * S08-5: "Game over: Vega Lines wins with 2,310 HT", or for a shared win "Game over: Vega Lines and Kessler Cargo win
 	 * with 2,310 HT".
@@ -315,6 +318,33 @@ data class Game(
 		requireCollected(player, investing)
 		val line = event?.let { LogEntry.event(investing.number, "${player.corporationName} $it") }
 		return copy(players = replace(change(player)), log = log + listOfNotNull(line))
+	}
+
+	/**
+	 * What [email] may see of this game beyond its public state ([PlayerView], R17, R29, A05), or null when they aren't a
+	 * member. Each part decides whether its data is theirs: the counter's awaited trade, the wholesale ask, the interception
+	 * question, the battle and its report; this only looks the parts up for the viewer.
+	 */
+	fun viewFor(email: String): PlayerView? {
+		val player = players.firstOrNull { it.email == email } ?: return null
+		val resolution = turn?.resolution
+		return PlayerView(
+			player = player,
+			offers = turn?.offersOf(email).orEmpty(),
+			bid = turn?.bidOf(email),
+			tradeMax = resolution?.awaitingTradeOf(email)?.let { player.tradeMax(it.offer, it.marketMax) },
+			wholesaleAsk = resolution?.takeIf { it.isAskingWholesaler(email) },
+			factoriesToCollect = player.factories.takeIf { turn?.isCollecting(email) == true && player.hasFactories() },
+			investment = InvestmentView(
+				freeShipNames(),
+				turn?.hasRaisedConnection(email) == true,
+				turn?.hasBoughtReputation(email) == true
+			).takeIf { canInvest(email) },
+			interception = turn?.interception?.takeIf { it.asks(email) },
+			battle = turn?.battle?.takeIf { it.involves(email) },
+			battleReport = turn?.battleReport?.reportFor(email),
+			prices = prices
+		)
 	}
 
 	/**

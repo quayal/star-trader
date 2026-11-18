@@ -6,6 +6,9 @@ package dev.adriangrzebyk.trader.game
  */
 data class AwaitedTrade(val offer: Offer, val marketMax: Int) {
 
+	/** Whether the counter waits for [email]: the offer is theirs. */
+	fun isFor(email: String): Boolean = offer.playerEmail == email
+
 	/**
 	 * What took place once its player chose [units], from 0 (trading nothing) to [marketMax], with the [positionRoll] it
 	 * made, if any (R43).

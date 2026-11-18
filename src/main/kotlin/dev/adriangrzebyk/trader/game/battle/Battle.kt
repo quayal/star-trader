@@ -161,9 +161,18 @@ data class Battle(
 		return if (hits.isEmpty()) after.nextRound() else after
 	}
 
+	/** The hits [email]'s ships took this round, waiting for them to place them (R76); none for anyone else. */
+	fun pendingHitsOwnedBy(email: String): List<PendingHits> = pendingHits.filter { it.ownerEmail == email }
+
+	/** Whether [email] has a part in this battle: a surviving ship from it, or hits to place (R74–R77). */
+	fun involves(email: String): Boolean = email in landers() || pendingHitsOwnedBy(email).isNotEmpty()
+
+	/** [email]'s ships still fighting that may break away (R74): nothing that caught them still fights. */
+	fun breakAwayShipsOf(email: String): List<String> = fightingShipsOf(email).filter { canBreakAway(it) }
+
 	/** [email]'s ships with hits to place (R76), refused when they have none to place now. */
 	fun pendingHitsOf(email: String): List<PendingHits> {
-		val mine = pendingHits.filter { it.ownerEmail == email }
+		val mine = pendingHitsOwnedBy(email)
 		if (stage != BattleStage.HITS || mine.isEmpty()) {
 			throw InvalidGameOperationException("You have no hits to place.")
 		}

@@ -70,6 +70,9 @@ enum class StarSystem(
 	fun baseJumpChanceTo(destination: StarSystem): Int? = if (destination == this) null else JUMP_CHANCES.getValue(this to destination)
 
 	companion object {
+		/** The systems with a shipyard (R60), in map order. */
+		fun shipyards(): List<StarSystem> = entries.filter { it.hasShipyard() }
+
 		/** R68, the creator's table: each route as (from, chance from → to, chance to → from, to). */
 		private val ROUTES = listOf(
 			Route(GAMMA_LEPORIS, 7, 5, BETA_HYDRI),

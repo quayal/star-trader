@@ -48,4 +48,9 @@ enum class Hull(
 			throw InvalidFittingException("A ship has at most one ${Module.SAFE_JUMP.displayName} module.")
 		}
 	}
+
+	companion object {
+		/** Every hull a shipyard sells, in declaration order (R61, R56: no military one). */
+		fun forSale(): List<Hull> = entries.filter { it.isForSale() }
+	}
 }
