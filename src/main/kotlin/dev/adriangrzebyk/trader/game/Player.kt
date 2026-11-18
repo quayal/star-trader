@@ -7,7 +7,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
 /**
  * A player's membership in one game; [email] is the membership key. [money] is private to its owner (R29);
  * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43). [warehouses] and [factories]
- * are public too (R50), and nobody starts with any (R40, R50).
+ * are public too (R50), and nobody starts with any (R40, R50). [connections] are public (R81), and [connectionPoints] are the
+ * starting points they still have to place (R82): 3 + d3 from the start of the game until they place them in turn 1's
+ * Bidding, then 0.
  */
 data class Player(
 	val email: String,
@@ -17,7 +19,9 @@ data class Player(
 	val ships: List<Ship>,
 	val marketPositions: List<MarketPosition>,
 	val warehouses: List<Warehouse>,
-	val factories: List<Factory>
+	val factories: List<Factory>,
+	val connections: Connections,
+	val connectionPoints: Int
 ) {
 
 	init {
@@ -232,6 +236,8 @@ data class Player(
 	 * This player after buying [units] of production of [goods] at [system] (R46, E06-S05): added to their factory there,
 	 * or creating it, for [units] × (5 × the good's price in [prices] + 10) HT ([ProductionCost]). The system must be able to produce the
 	 * good ([StarSystem.producibleGoods]) and they need enough money; no ship and no factory there already (creator, 2026-11-16).
+	 * Their factory units in total, across all systems and goods, can't go above their political + business connections
+	 * (R84, E12-S03); factories they own already are never taken away.
 	 */
 	fun buyFactoryUnits(system: StarSystem, goods: Goods, units: Int, prices: MarketPrices): Player {
 		if (units < 1) {
@@ -240,6 +246,9 @@ data class Player(
 		if (goods !in system.producibleGoods) {
 			throw InvalidInvestmentException("${system.displayName} can't produce ${goods.name}.")
 		}
+		if (units > factoryCap() - factoryUnits()) {
+			throw InvalidInvestmentException(connections.factoryCapText())
+		}
 		val cost = ProductionCost(prices.priceOf(MarketGood(system, goods))).of(units)
 		if (cost > money) {
 			throw InvalidInvestmentException("$units ${if (units == 1) "unit costs" else "units cost"} $cost HT; you have $money HT.")
@@ -247,6 +256,65 @@ data class Player(
 		val factory = factoryAt(system, goods)?.addUnits(units) ?: Factory(system, goods, units)
 		return pay(cost.toInt()).withFactory(factory)
 	}
+
+	/** The units of factory this player owns in total, across all systems and goods: what the cap counts (R84). */
+	fun factoryUnits(): Int = factories.sumOf { it.size }
+
+	/** The most units of factory this player may own in total (R84): their political + business connections. */
+	fun factoryCap(): Int = connections.factoryCap()
+
+	/** What raising [kind] costs this player now (R83), or null when it's at 10. */
+	fun connectionRaiseCost(kind: ConnectionKind): Int? = connections.raiseCost(kind)
+
+	/**
+	 * This player after placing their starting [connectionPoints] as [political], [business] and [criminal] (R82,
+	 * E12-S01): once, final, and only while they have points to place. A null is a number that was missing or not whole.
+	 */
+	fun placeConnections(political: Int?, business: Int?, criminal: Int?): Player {
+		if (connectionPoints == 0) {
+			throw InvalidGameOperationException("You have already placed your connection points.")
+		}
+		return copy(connections = Connections.placed(political, business, criminal, connectionPoints), connectionPoints = 0)
+	}
+
+	/** Refuses this player's done signal while they still have starting points to place (R82, E12-S01-3). */
+	fun requireConnectionsPlaced() {
+		if (connectionPoints > 0) {
+			throw InvalidGameOperationException("Place your $connectionPoints connection points first.")
+		}
+	}
+
+	/**
+	 * This player after raising their [kind] connections by one point in Investment (R83, E12-S02), paying the new level
+	 * × 10 HT ([Connections.raiseCost]). Refused at 10, or when they can't pay. Once per Investment is the turn's to check.
+	 */
+	fun raiseConnection(kind: ConnectionKind): Player {
+		val cost = connections.raiseCost(kind)
+			?: throw InvalidConnectionsException("Your ${kind.displayName} connections are already at ${Connections.MAX}.")
+		if (cost > money) {
+			throw InvalidConnectionsException(
+				"Raising ${kind.displayName} connections to ${connections.of(kind) + 1} costs $cost HT; you have $money HT."
+			)
+		}
+		return copy(money = money - cost, connections = connections.raised(kind))
+	}
+
+	/** The public log line of this player's raise of [kind], at its new level (R83, E12-S02-5); the cost isn't said (R29). */
+	fun connectionRaisedLog(kind: ConnectionKind): String =
+		"$corporationName raised ${kind.displayName} connections to ${connections.of(kind)}"
+
+	/** The public log line of this player's starting placement (R82, E12-S01-2). */
+	fun connectionsPlacedLog(): String =
+		"$corporationName's connections: political ${connections.political}, business ${connections.business}, criminal ${connections.criminal}"
+
+	/** The public log line of this player's starting roll of [roll] on the d3 (R82, E12-S01-1). */
+	fun connectionPointsRolledLog(roll: Int): String = "$corporationName rolled $roll: $connectionPoints connection points to place"
+
+	/**
+	 * The level a rise in market position takes this player's business connections to (R83, E12-S02-6), or null when
+	 * they're at 10 already and it adds nothing.
+	 */
+	fun businessAfterMarketRise(): Int? = connections.afterMarketRise().business.takeIf { it != connections.business }
 
 	/**
 	 * This player after buying [ship] (R61), fresh from [Ship.commission]: it costs [Ship.price], which they must be able to
@@ -364,8 +432,9 @@ data class Player(
 		return copy(factories = others + factory)
 	}
 
-	/** This player set up for the first turn (R40): [money] HT and [ships]. */
-	fun startWith(money: Int, ships: List<Ship>): Player = copy(money = money, ships = ships)
+	/** This player set up for the first turn (R40, R82): [money] HT, [ships], and [connectionPoints] starting points to place. */
+	fun startWith(money: Int, ships: List<Ship>, connectionPoints: Int): Player =
+		copy(money = money, ships = ships, connectionPoints = connectionPoints)
 
 	/** Where this player's ships start, for the public log: "Corp — Wayfarer at Tau Ceti, Lantern at Mu Herculis". */
 	fun startingPositions(): String = "$corporationName — " + ships.joinToString(", ") { it.position() }
@@ -440,9 +509,10 @@ data class Player(
 	/**
 	 * This player after winning a position roll for [good]: they hold [promotionAt] it at once (E05-S06-5). It changes
 	 * nothing for the rest of the turn, since each good resolves once a turn and its Dictator and Wholesalers are fixed
-	 * when it starts.
+	 * when it starts. Every rise, none → Retailer included, adds a point of business connections, up to 10 (R83, E12-S02-6).
 	 */
-	fun promotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
+	fun promotedAt(good: MarketGood): Player =
+		copy(connections = connections.afterMarketRise()).withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
 
 	/** Whether this player is Dictator of [good] at its system (R28). */
 	fun isDictatorOf(good: MarketGood): Boolean = tierAt(good) == MarketTier.DICTATOR
@@ -475,8 +545,8 @@ data class Player(
 	}
 
 	companion object {
-		/** A player in the lobby: money and ships arrive when the game starts (R40). */
+		/** A player in the lobby: money, ships and connection points arrive when the game starts (R40, R82). */
 		fun newcomer(email: String, name: String, corporationName: String) =
-			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList())
+			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList(), Connections.NONE, 0)
 	}
 }

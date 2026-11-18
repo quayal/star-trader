@@ -20,7 +20,10 @@ class PlayerBuyFactoryUnitsTest {
 		.withPrice(MarketGood(TAU_CETI, Goods.ISO), 12)
 		.withPrice(MarketGood(MU_HERCULIS, Goods.CHIPS), 12)
 
-	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern, drifter))
+	// Political 10 + business 10: a factory cap of 20 units (R84), out of the way unless a test is about it
+	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
+		.startWith(300, listOf(wayfarer, lantern, drifter), 20)
+		.placeConnections(10, 10, 0)
 
 	@Test
 	fun shouldCreateTheFactoryAtTheSizeBoughtAndTakeTheCost() {
@@ -89,13 +92,46 @@ class PlayerBuyFactoryUnitsTest {
 	}
 
 	@Test
-	fun shouldAllowSpendingEverythingWithNoCapOnTheSize() {
-		val rich = player.copy(money = 7000)
+	fun shouldAllowSpendingEverythingUpToTheCap() {
+		val rich = player.copy(money = 1400)
 
-		val bought = rich.buyFactoryUnits(TAU_CETI, Goods.ISO, 100, prices)
+		val bought = rich.buyFactoryUnits(TAU_CETI, Goods.ISO, 20, prices)
 
 		assertThat(bought.money).isZero()
-		assertThat(bought.factories.single().size).isEqualTo(100)
+		assertThat(bought.factories.single().size).isEqualTo(20)
+	}
+
+	@Test
+	fun shouldRefuseUnitsBeyondPoliticalPlusBusinessAcrossEveryFactory() {
+		// R84, E12-S03-7: 3 + 4 = 7 units in total; 4 at Mu Herculis and 3 at Tau Ceti leave no room for an 8th
+		val owner = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
+			.startWith(3000, emptyList(), 7)
+			.placeConnections(3, 4, 0)
+			.buyFactoryUnits(MU_HERCULIS, Goods.CHIPS, 4, prices)
+			.buyFactoryUnits(TAU_CETI, Goods.ISO, 3, prices)
+
+		assertThat(owner.factoryUnits()).isEqualTo(7)
+		assertThatThrownBy { owner.buyFactoryUnits(GAMMA_LEPORIS, Goods.POLY, 1, prices) }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("You can only own 7 units of factory (POL: 3, BUSS: 4).")
+	}
+
+	@Test
+	fun shouldRefuseAnyFactoryToAPlayerWhoPutEverythingIntoCriminal() {
+		val criminal = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, emptyList(), 5).placeConnections(0, 0, 5)
+
+		assertThatThrownBy { criminal.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices) }
+			.hasMessage("You can only own 0 units of factory (POL: 0, BUSS: 0).")
+	}
+
+	@Test
+	fun shouldKeepFactoriesAboveTheCapButSellNoMoreUntilBackUnderIt() {
+		// E12-S03-9: nothing removes factories; a player over the cap just can't add to them
+		val over = player.copy(connections = Connections(1, 1, 0), factories = listOf(Factory(TAU_CETI, Goods.ISO, 5)))
+
+		assertThat(over.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 5))
+		assertThatThrownBy { over.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices) }
+			.hasMessage("You can only own 2 units of factory (POL: 1, BUSS: 1).")
 	}
 
 	@Test

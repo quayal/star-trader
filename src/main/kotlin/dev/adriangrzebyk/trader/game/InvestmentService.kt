@@ -47,6 +47,13 @@ class InvestmentService(private val gameStore: GameStore) {
 		crewClass: CrewClass
 	): Game = gameStore.update(gameId) { it.buyShip(callerEmail, name, shipyard, hull, modules, crewClass) }
 
+	/**
+	 * [callerEmail] raises their [kind] connections inside [GameStore.update], so the cost is checked against the saved
+	 * balance and two raises at once can't both pass the once-per-Investment check (A04, R83).
+	 */
+	fun raiseConnection(gameId: String, callerEmail: String, kind: ConnectionKind): Game =
+		gameStore.update(gameId) { it.raiseConnection(callerEmail, kind) }
+
 	/** [callerEmail] fits [module] to their ship [shipName] inside [GameStore.update] (A04, R65). */
 	fun addModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
 		gameStore.update(gameId) { it.addModule(callerEmail, shipName, module) }

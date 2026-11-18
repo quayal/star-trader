@@ -327,11 +327,17 @@ export function unitsCostText(text, factory) {
 	return `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${units * factory.unitCost} HT (${factory.unitCost} HT a unit; ${factory.goods} is at ${factory.price} HT)`;
 }
 
-/** S05-4: the units to buy, or the error the server would give: not whole, or more than [money] pays for. */
-export function validateUnits(text, factory, money) {
+/**
+ * S05-4: the units to buy, or the error the server would give: not whole, beyond the factory cap's [cap].room (R84, with
+ * its [cap].refusal; see connections.js `factoryCap`), or more than [money] pays for.
+ */
+export function validateUnits(text, factory, money, cap = null) {
 	const units = parseUnits(text);
 	if (units === null) {
 		return { error: UNITS_WHOLE_NUMBER };
+	}
+	if (cap && units > cap.room) {
+		return { error: cap.refusal };
 	}
 	const cost = units * factory.unitCost;
 	if (cost > money) {

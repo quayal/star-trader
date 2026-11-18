@@ -27,7 +27,13 @@ class GamePositionRollTest {
 	private val trading = Game.lobby("game-1", 3, ada)
 		.addPlayer(grace)
 		.addPlayer(kim)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, GAMMA_LEPORIS to MU_HERCULIS))
+		.start(
+			"ada@example.com",
+			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, GAMMA_LEPORIS to MU_HERCULIS),
+			START_DICE
+		).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 		.placeOffer("kim@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 12)
 		.advancePhase(FakeDice(1, 2, 1, 1, 2))
@@ -45,18 +51,41 @@ class GamePositionRollTest {
 	private val kimPromoted = kimsTurnToTrade.trade("kim@example.com", 6, listOf(ShipLoad("Bright Reach", 6)), FakeDice.twoD6(6))
 
 	@Test
+	fun shouldRaiseTheRisersBusinessConnectionsButNotTheDemotedDictators() {
+		// R83, E12-S02-6: business 3 → 4 for Kim; a demotion takes nothing away from Ada
+		assertThat(playerIn(kimPromoted, "kim@example.com").connections.business).isEqualTo(4)
+		assertThat(playerIn(kimPromoted, "ada@example.com").connections.business).isEqualTo(3)
+	}
+
+	@Test
+	fun shouldNotMentionConnectionsWhenBusinessIsAtTenAlready() {
+		// E12 edge case: a rise adds nothing at 10, and the line says nothing about it
+		val kimAtTen = kimsTurnToTrade.copy(
+			players = kimsTurnToTrade.players.map { if (it.email == "kim@example.com") it.copy(connections = Connections(0, 10, 0)) else it }
+		)
+
+		val game = kimAtTen.trade("kim@example.com", 6, listOf(ShipLoad("Bright Reach", 6)), FakeDice.twoD6(6))
+
+		assertThat(game.turn!!.resolution!!.trades.single().positionRoll!!.businessConnections).isNull()
+		assertThat(playerIn(game, "kim@example.com").connections.business).isEqualTo(10)
+		assertThat(game.log.last().text).isEqualTo(
+			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; Orion Freight is demoted to Wholesaler"
+		)
+	}
+
+	@Test
 	fun shouldRollAfterSixUnitsAndPromoteAtOnceDemotingTheDictator() {
 		// S06-2, S06-3, S06-4, S06-5
 		val kim = playerIn(kimPromoted, "kim@example.com")
 		val ada = playerIn(kimPromoted, "ada@example.com")
 
 		assertThat(kimPromoted.turn!!.resolution!!.trades.single().positionRoll)
-			.isEqualTo(PositionRoll(6, MarketTier.DICTATOR, listOf("ada@example.com")))
+			.isEqualTo(PositionRoll(6, MarketTier.DICTATOR, listOf("ada@example.com"), 4))
 		assertThat(kim.marketPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.DICTATOR))
 		assertThat(ada.marketPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER))
 		assertThat(kimPromoted.log.drop(kimsTurnToTrade.log.size).map { it.text }).containsExactly(
 			"Altair Trade Co. could buy up to 21 u: bought 6 u at 12 HT each, paid 72 HT",
-			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; Orion Freight is demoted to Wholesaler"
+			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; business connections rise to 4; Orion Freight is demoted to Wholesaler"
 		)
 	}
 
@@ -66,7 +95,11 @@ class GamePositionRollTest {
 		// fixed when the good started resolving: Ada as Dictator, not Kim, who has an offer for it.
 		val game = kimPromoted.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(3))
 
-		assertThat(game.log.map { it.text }).contains("Vega Lines traded 7 u — rolled 3: now Retailer of POLY at Gamma Leporis")
+		assertThat(
+			game.log.map {
+				it.text
+			}
+		).contains("Vega Lines traded 7 u — rolled 3: now Retailer of POLY at Gamma Leporis; business connections rise to 4")
 		assertThat(playerIn(game, "grace@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.RETAILER)
 		assertThat(game.turn!!.resolution!!.awaitingWholesaler()).isEqualTo("ada@example.com")
 		assertThat(game.turn!!.resolution!!.wholesaleRole("ada@example.com")).isEqualTo("Dictator")
@@ -101,7 +134,7 @@ class GamePositionRollTest {
 			.trade("grace@example.com", 5, listOf(ShipLoad("Meridian", 5)), FakeDice.twoD6())
 
 		assertThat(game.turn!!.resolution!!.trades.map { it.positionRoll }).containsExactly(null, null)
-		assertThat(game.log.map { it.text }).noneMatch { it.contains("rolled") }
+		assertThat(game.log.map { it.text }).noneMatch { it.contains("u — rolled") }
 	}
 
 	@Test
@@ -122,9 +155,9 @@ class GamePositionRollTest {
 		val game = graceAsWholesaler.trade("grace@example.com", 7, listOf(ShipLoad("Meridian", 7)), FakeDice.twoD6(4))
 
 		assertThat(game.turn!!.resolution!!.trades.last().positionRoll)
-			.isEqualTo(PositionRoll(4, MarketTier.DICTATOR, listOf("kim@example.com")))
+			.isEqualTo(PositionRoll(4, MarketTier.DICTATOR, listOf("kim@example.com"), 4))
 		assertThat(game.log.last { it.text.startsWith("Vega Lines traded") }.text).isEqualTo(
-			"Vega Lines traded 7 u — rolled 4: now Dictator of POLY at Gamma Leporis; Altair Trade Co. is demoted to Wholesaler"
+			"Vega Lines traded 7 u — rolled 4: now Dictator of POLY at Gamma Leporis; business connections rise to 4; Altair Trade Co. is demoted to Wholesaler"
 		)
 		val next = game
 		assertThat(

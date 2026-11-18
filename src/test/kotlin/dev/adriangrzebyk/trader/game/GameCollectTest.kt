@@ -17,7 +17,9 @@ class GameCollectTest {
 
 	/** Ada's Wayfarer is at Tau Ceti, Grace's Meridian at Gamma Leporis (R40: two ships each, in different systems). */
 	private val started = Game.lobby("game-1", 20, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 
 	/** [started] taken to the start of Investment: advancing a phase needs no players' acts. */
 	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }

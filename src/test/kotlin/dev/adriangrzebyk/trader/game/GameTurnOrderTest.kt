@@ -21,8 +21,9 @@ class GameTurnOrderTest {
 	private val shipJumps = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
 		.start(
 			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI)
-		)
+			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
+			START_DICE
+		).let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 
 	@Test
@@ -75,7 +76,9 @@ class GameTurnOrderTest {
 	@Test
 	fun shouldGiveTheSecondOfTwoPlayersTheOtherPlaceAtOnce() {
 		val two = Game.lobby("game-2", 3, ada).addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+				ConnectionsPlaced(it).byEveryone()
+			}
 			.advancePhase(FakeDice(2, 1))
 
 		val game = two.pickTurnOrderPlace("ada@example.com", 2)
@@ -113,7 +116,9 @@ class GameTurnOrderTest {
 	@Test
 	fun shouldRefuseAPickOutsideShipJumps() {
 		val bidding = Game.lobby("game-3", 3, ada).addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+				ConnectionsPlaced(it).byEveryone()
+			}
 
 		assertThatThrownBy { bidding.pickTurnOrderPlace("ada@example.com", 1) }
 			.isInstanceOf(InvalidGameOperationException::class.java)

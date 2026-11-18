@@ -318,8 +318,9 @@ const TIER_NAMES = { RETAILER: 'Retailer', WHOLESALER: 'Wholesaler', DICTATOR: '
 
 /**
  * E05-S06-4: a trade's position roll, if it made one: "Vega Lines trades 7 u — rolls 5: now Wholesaler of ISO at Mu
- * Herculis", "… rolls 9: no change", and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null
- * for a trade that made no roll.
+ * Herculis", "… rolls 9: no change", the rise in business connections it brings, "…; business connections rise to
+ * 4" (E12-S02-6), and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null for a trade that made
+ * no roll.
  */
 function positionRollLine(game, trade, good) {
 	const roll = trade.positionRoll;
@@ -329,8 +330,9 @@ function positionRollLine(game, trade, good) {
 	const change = roll.promotedTo
 		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName}`
 		: 'no change';
+	const business = roll.businessConnections == null ? '' : `; business connections rise to ${roll.businessConnections}`;
 	const demoted = (roll.demoted ?? []).map(playerId => `; ${corporation(game, playerId)} is demoted to Wholesaler`).join('');
-	return `${corporation(game, trade.playerId)} trades ${trade.units} u \u2014 rolls ${roll.roll}: ${change}${demoted}`;
+	return `${corporation(game, trade.playerId)} trades ${trade.units} u \u2014 rolls ${roll.roll}: ${change}${business}${demoted}`;
 }
 
 /** E05-S04-6: "Star Dust sells 4 u for 48 HT", or "Vega Lines buys nothing" (present tense, creator 2026-11-18). */

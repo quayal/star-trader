@@ -19,7 +19,13 @@ class GameOfferTest {
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val lobby = Game.lobby("game-1", 2, creator).addPlayer(joiner)
-	private val started = lobby.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+	private val started = lobby.start(
+		"creator@example.com",
+		FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS),
+		START_DICE
+	).let {
+		ConnectionsPlaced(it).byEveryone()
+	}
 
 	@Test
 	fun shouldPlaceAnOfferDuringBidding() {

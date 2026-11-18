@@ -1,7 +1,7 @@
 /*
  * Pure helpers for the Corporations tab (E11-S01, D20): every public fact about every player in one place. Built only
- * from the public `players[]` (ships' names and positions R57, market positions R28, warehouses and factories R50),
- * never from `you`, so money (R29) and a ship's hull, modules, crew and cargo (R57) can't show up here.
+ * from the public `players[]` (ships' names and positions R57, market positions R28, warehouses and factories R50,
+ * connections R81), never from `you`, so money (R29) and a ship's hull, modules, crew and cargo (R57) can't show up here.
  */
 
 import { SHIPYARD, LOCATIONS, TIERS } from './board.js';
@@ -18,7 +18,7 @@ const LOCATION_NAMES = Object.fromEntries([...LOCATIONS, SHIPYARD].map(location 
 
 /**
  * One card per corporation, in the order players joined, with the viewer's ([viewerId]) first and marked `you`. Each
- * card has its ships (`Wayfarer — Tau Ceti, Port`, by name), market positions (`{ tier, goods, systemName }`, Dictator
+ * card has its connections (`Political 3 · Business 4 · Criminal 0`, and `5 points to place` or null), its ships (`Wayfarer — Tau Ceti, Port`, by name), market positions (`{ tier, goods, systemName }`, Dictator
  * first, then by system and good), warehouses (`Tau Ceti — 3 blocks, 30 cargo spaces`) and factories (`{ goods,
  * systemName, text }`, the text following the coloured good: ` at Sigma Draconis — 4 u per turn`). An empty section is
  * an empty list; [NO_TEXT] says what to show instead.
@@ -52,5 +52,18 @@ export function corporationCards(game, viewerId) {
 		factories: (player.factories ?? [])
 			.map(factory => ({ goods: factory.goods, systemName: systemName(factory.system), text: ` at ${systemName(factory.system)} — ${factory.size} u per turn` }))
 			.sort((a, b) => a.systemName.localeCompare(b.systemName) || a.goods.localeCompare(b.goods)),
+		connections: connectionsText(player.connections),
+		connectionPoints: connectionPointsText(player.connectionPoints),
 	}));
+}
+
+/** E12-S01-10: "Political 3 · Business 4 · Criminal 0" (R81); every player has all three, 0 until placed. */
+export function connectionsText(connections) {
+	const level = kind => connections?.[kind] ?? 0;
+	return `Political ${level('political')} \u00b7 Business ${level('business')} \u00b7 Criminal ${level('criminal')}`;
+}
+
+/** "5 points to place" while a player still has starting points to place (R82), else null. */
+export function connectionPointsText(points) {
+	return points > 0 ? `${points} ${points === 1 ? 'point' : 'points'} to place` : null;
 }

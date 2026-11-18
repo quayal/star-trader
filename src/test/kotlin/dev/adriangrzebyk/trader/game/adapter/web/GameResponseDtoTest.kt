@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.game.ConnectionsPlaced
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.FakeDice
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
@@ -14,6 +15,7 @@ import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
+import dev.adriangrzebyk.trader.game.START_DICE
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
@@ -32,8 +34,9 @@ class GameResponseDtoTest {
 			FakeStartingSystemPicker(
 				StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
 				StarSystem.GAMMA_LEPORIS to StarSystem.TAU_CETI
-			)
-		)
+			),
+			START_DICE
+		).let { ConnectionsPlaced(it).byEveryone() }
 
 	@Test
 	fun shouldSendEverySystemWithItsLocationsAndItsMarketInGoodsOrder() {
@@ -442,7 +445,7 @@ class GameResponseDtoTest {
 			listOf(
 				Trade(vega, 4, 4, null),
 				Trade(orion, 5, 0, null),
-				Trade(kessler, 8, 7, PositionRoll(5, MarketTier.DICTATOR, listOf("vega@example.com")))
+				Trade(kessler, 8, 7, PositionRoll(5, MarketTier.DICTATOR, listOf("vega@example.com"), 4))
 			),
 			emptyList(),
 			emptyList(),
@@ -457,7 +460,7 @@ class GameResponseDtoTest {
 			TradeResponseDto("p1", "BUY", 11, 4, 4, null),
 			TradeResponseDto("p2", "SELL", 10, 5, 0, null),
 			// E05-S06-4: the position roll is public too
-			TradeResponseDto("p3", "SELL", 9, 8, 7, PositionRollResponseDto(5, "DICTATOR", listOf("p1")))
+			TradeResponseDto("p3", "SELL", 9, 8, 7, PositionRollResponseDto(5, "DICTATOR", listOf("p1"), 4))
 		)
 		assertThat(dto.awaitingTrade).isNull()
 	}

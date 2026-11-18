@@ -19,7 +19,9 @@ class CargoServiceTest {
 
 	/** The creator's Wayfarer is in port at Tau Ceti, where they have a one-block warehouse holding 6 ISO. */
 	private val started = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 		.let { game ->
 			game.copy(
 				players = game.players.map {

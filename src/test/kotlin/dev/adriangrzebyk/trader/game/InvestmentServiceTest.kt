@@ -17,7 +17,9 @@ class InvestmentServiceTest {
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val started = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS))
+		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			ConnectionsPlaced(it).byEveryone()
+		}
 
 	/** [started] taken through Bidding, Ship-jumps and Trading to the start of Investment: advancing a phase needs no players' acts. */
 	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }

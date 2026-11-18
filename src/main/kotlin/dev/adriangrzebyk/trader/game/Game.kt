@@ -51,9 +51,10 @@ data class Game(
 
 	/**
 	 * Closes joining and sets every player up (R40, R41): 300 HT and two empty ships at the Ports of two
-	 * different systems from [picker], then turn 1 Bidding. Only the creator may start, once, with 2+ players.
+	 * different systems from [picker], and 3 + d3 connection points from [dice] to place in turn 1's Bidding (R82), each
+	 * roll logged; then turn 1 Bidding. Only the creator may start, once, with 2+ players.
 	 */
-	fun start(callerEmail: String, picker: StartingSystemPicker): Game {
+	fun start(callerEmail: String, picker: StartingSystemPicker, dice: Dice): Game {
 		if (callerEmail != creatorEmail) {
 			throw NotTheCreatorException()
 		}
@@ -70,14 +71,16 @@ data class Game(
 				Ship.emptyAt(Ship.NAMES[index * 2], first, ShipLocation.PORT),
 				Ship.emptyAt(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
 			)
-			player.startWith(STARTING_MONEY, ships)
+			val roll = dice.d3()
+			player.startWith(STARTING_MONEY, ships, Connections.BASE_STARTING_POINTS + roll) to roll
 		}
 		return copy(
 			status = GameStatus.RUNNING,
-			players = setUp,
+			players = setUp.map { it.first },
 			turn = Turn.bidding(1),
 			log = log + LogEntry(1, "Game started: ${setUp.size} players, $turns turns") +
-				LogEntry(1, "Starting positions: " + setUp.joinToString("; ") { it.startingPositions() })
+				LogEntry(1, "Starting positions: " + setUp.joinToString("; ") { it.first.startingPositions() }) +
+				setUp.map { (player, roll) -> LogEntry(1, player.connectionPointsRolledLog(roll)) }
 		)
 	}
 
@@ -311,13 +314,42 @@ data class Game(
 	}
 
 	/**
-	 * Records that [email] is done bidding (R17). Bidding closes the moment the last player signals done (D09), rolling
+	 * Records that [email] is done bidding (R17), once they have placed their starting connection points (R82,
+	 * E12-S01-3). Bidding closes the moment the last player signals done (D09), rolling
 	 * the initiative order with [dice]; a signal after that is refused (A04).
 	 */
 	fun signalDoneBidding(email: String, dice: Dice): Game {
-		playerOf(email)
+		playerOf(email).requireConnectionsPlaced()
 		val signalled = copy(turn = runningTurn().signalDoneBidding(email))
 		return if (signalled.runningTurn().everyoneDoneBidding(players.map { it.email })) signalled.advancePhase(dice) else signalled
+	}
+
+	/**
+	 * [email] places their starting connection points (R82, E12-S01-2): [Player.placeConnections] checks and applies them,
+	 * once, and the placement is public at once. Only in Bidding, which is where turn 1 starts; no player has points left
+	 * after it, so the player refuses it in any later turn.
+	 */
+	fun placeConnections(email: String, political: Int?, business: Int?, criminal: Int?): Game {
+		val player = playerOf(email)
+		val current = runningTurn()
+		current.requireBidding()
+		val placed = player.placeConnections(political, business, criminal)
+		return copy(players = replace(placed), log = log + LogEntry(current.number, placed.connectionsPlacedLog()))
+	}
+
+	/**
+	 * [email] raises their [kind] connections by one point (R83, E12-S02): once per Investment ([Turn.connectionRaisedBy]),
+	 * after their Collect like any purchase (S03-5), with [Player.raiseConnection] checking the level and the money. The
+	 * raise is public, its cost isn't (R29).
+	 */
+	fun raiseConnection(email: String, kind: ConnectionKind): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val raisedTurn = investing.connectionRaisedBy(email)
+		val raised = player.raiseConnection(kind)
+		return copy(players = replace(raised), turn = raisedTurn, log = log + LogEntry(investing.number, raised.connectionRaisedLog(kind)))
 	}
 
 	/**
@@ -711,7 +743,7 @@ data class Game(
 		}
 		val roll = dice.twoD6()
 		if (roll > units) {
-			return PositionRoll(roll, null, emptyList())
+			return PositionRoll(roll, null, emptyList(), null)
 		}
 		val tier = trader.promotionAt(good)
 		val demoted = if (tier == MarketTier.DICTATOR) {
@@ -719,7 +751,7 @@ data class Game(
 		} else {
 			emptyList()
 		}
-		return PositionRoll(roll, tier, demoted)
+		return PositionRoll(roll, tier, demoted, trader.businessAfterMarketRise())
 	}
 
 	/** This game once [positionRoll], made by [email] for [good], moved positions; unchanged when it didn't. */

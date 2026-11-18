@@ -74,6 +74,8 @@ class WholeGameTest {
 			override fun twoD6(): Int = 7
 
 			override fun d6(): Int = 3
+
+			override fun d3(): Int = 1
 		}
 
 		/** The host starts at Tau Ceti and Mu Herculis, the guest at Gamma Leporis and Beta Hydri. */
@@ -101,6 +103,11 @@ class WholeGameTest {
 		val started = post(host, "/api/games/$gameId/start")
 		assertThat(started.players.first().ships.map { it.system }).containsExactly("TAU_CETI", "MU_HERCULIS")
 		val wayfarer = started.players.first().ships.first().name
+		// R82: every d3 is a 1 here, so 4 points each; political 2 + business 2 allow 4 units of factory (R84)
+		assertThat(started.players.map { it.connectionPoints }).containsOnly(4)
+		post(guest, "/api/games/$gameId/connections/placement", """{"political": 0, "business": 0, "criminal": 4}""")
+		val placed = post(host, "/api/games/$gameId/connections/placement", """{"political": 2, "business": 2, "criminal": 0}""")
+		assertThat(placed.players.map { it.connections }).containsExactly(ConnectionsResponseDto(2, 2, 0), ConnectionsResponseDto(0, 0, 4))
 
 		// Turn 1: nobody trades; in Investment the host builds a warehouse and a 3-unit ISO factory at Tau Ceti.
 		bidPickAndFinishJumping(host, guest, gameId)
@@ -108,6 +115,14 @@ class WholeGameTest {
 		post(host, "/api/games/$gameId/investment/warehouse-blocks", """{"system": "TAU_CETI", "blocks": 1}""")
 		val built = post(host, "/api/games/$gameId/investment/factory-units", """{"system": "TAU_CETI", "goods": "ISO", "units": 3}""")
 		assertThat(built.players.first().factories).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 3))
+		assertThat(built.you!!.invest!!.factoryUnits).isEqualTo(3)
+		assertThat(built.you!!.invest!!.factoryCap).isEqualTo(4)
+		// R83: one raise per Investment, at the new level × 10 HT
+		val raised = post(host, "/api/games/$gameId/connections/raise", """{"kind": "BUSINESS"}""")
+		assertThat(raised.players.first().connections).isEqualTo(ConnectionsResponseDto(2, 3, 0))
+		assertThat(raised.you!!.money).isEqualTo(built.you!!.money - 30)
+		assertThat(raised.you!!.invest!!.raisedConnection).isTrue()
+		assertThat(raised.log.last().text).isEqualTo("Orion Freight raised business connections to 3")
 		assertThat(doneInvesting(host, guest, gameId).turn!!.number).isEqualTo(2)
 
 		// Turn 2: the factory's first output goes into the warehouse (R47, R48).

@@ -32,8 +32,9 @@ class GameBattleTest {
 	private val jumping = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
 		.start(
 			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI)
-		)
+			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
+			START_DICE
+		).let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 		.pickTurnOrderPlace("kim@example.com", 3)
 		.pickTurnOrderPlace("grace@example.com", 1)
