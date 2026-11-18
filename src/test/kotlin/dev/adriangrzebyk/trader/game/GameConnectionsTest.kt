@@ -74,7 +74,11 @@ class GameConnectionsTest {
 
 		assertThat(playerOf(game, "ada@example.com").connections).isEqualTo(Connections(3, 3, 0))
 		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(investing, "ada@example.com").money - 30)
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Orion Freight raised political connections to 3"))
+		assertThat(game.log.takeLast(2)).containsExactly(
+			LogEntry(1, "Orion Freight raised political connections to 3"),
+			// R86 (E13-S02): a political point is +1 reputation.
+			LogEntry(1, "Orion Freight's reputation: +1 for raising political connections \u2192 21")
+		)
 	}
 
 	@Test

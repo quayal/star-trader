@@ -9,7 +9,9 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * that broke away. A battle started by a ship staying in Space has no interceptions (R80). In round [round] it is at
  * [stage]: in [BattleStage.ORDERS] every player with a ship fighting gives [orders], secret until all have ([done]); in
  * [BattleStage.HITS] the owners of [pendingHits] place them; in [BattleStage.LANDING] every player with a surviving ship
- * from the battle places it ([done]).
+ * from the battle places it ([done]). [tries] are every interception try at the ship that started it, successful or not
+ * (R70), and [firingPenalized] the players who have already lost reputation for firing at a ship that didn't try to
+ * intercept any of theirs, once per battle each (R86, E13-S04).
  */
 data class Battle(
 	val system: StarSystem,
@@ -20,7 +22,9 @@ data class Battle(
 	val leftShips: List<BattleShip>,
 	val orders: List<BattleOrder>,
 	val pendingHits: List<PendingHits>,
-	val done: List<String>
+	val done: List<String>,
+	val tries: List<BattleInterception>,
+	val firingPenalized: List<String>
 ) {
 
 	/** The players with ships still fighting, in the order of [ships]. */
@@ -35,6 +39,20 @@ data class Battle(
 
 	/** Whether [ship] may break away (R74): nothing that intercepted it is still fighting. */
 	fun canBreakAway(ship: String): Boolean = interceptorsOf(ship).isEmpty()
+
+	/**
+	 * The players this round's fire orders cost reputation (R86, E13-S04), in order: each who fires at a ship that didn't
+	 * try to intercept any of their ships, once per battle. Returning fire at a ship that tried costs nothing; in a battle
+	 * nobody intercepted (R80), the first shot does.
+	 */
+	fun firingPenalties(): List<String> = fireOrders()
+		.filter { order -> tries.none { it.interceptor == order.targetShip() && ownerOf(it.ship) == ownerOf(order.ship) } }
+		.map { ownerOf(it.ship) }
+		.distinct()
+		.filterNot { it in firingPenalized }
+
+	/** This battle once [emails] have lost reputation for firing (R86): they don't again in this battle. */
+	fun firingPenalizedFor(emails: List<String>): Battle = copy(firingPenalized = firingPenalized + emails)
 
 	/** Whom this battle waits for now. */
 	fun waitingFor(): List<String> = when (stage) {
@@ -207,8 +225,8 @@ data class Battle(
 		 * The battle at [system] with every ship in Space there (R73, R80): after a ship was caught by [interceptions], or
 		 * with none when a ship stayed in Space next to other players' ships.
 		 */
-		fun start(system: StarSystem, ships: List<BattleShip>, interceptions: List<BattleInterception>) =
-			Battle(system, 1, BattleStage.ORDERS, ships, interceptions, emptyList(), emptyList(), emptyList(), emptyList())
+		fun start(system: StarSystem, ships: List<BattleShip>, interceptions: List<BattleInterception>, tries: List<BattleInterception>) =
+			Battle(system, 1, BattleStage.ORDERS, ships, interceptions, emptyList(), emptyList(), emptyList(), emptyList(), tries, emptyList())
 	}
 }
 

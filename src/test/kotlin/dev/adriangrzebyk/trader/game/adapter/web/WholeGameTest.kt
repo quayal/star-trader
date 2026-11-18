@@ -122,7 +122,7 @@ class WholeGameTest {
 		assertThat(raised.players.first().connections).isEqualTo(ConnectionsResponseDto(2, 3, 0))
 		assertThat(raised.you!!.money).isEqualTo(built.you!!.money - 30)
 		assertThat(raised.you!!.invest!!.raisedConnection).isTrue()
-		assertThat(raised.log.last().text).isEqualTo("Orion Freight raised business connections to 3")
+		assertThat(raised.log.dropLast(1).last().text).isEqualTo("Orion Freight raised business connections to 3")
 		assertThat(doneInvesting(host, guest, gameId).turn!!.number).isEqualTo(2)
 
 		// Turn 2: the factory's first output goes into the warehouse (R47, R48).

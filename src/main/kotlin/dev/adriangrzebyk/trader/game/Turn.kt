@@ -28,7 +28,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * (R70), and [battle] the battle it started (R73); while either is set, nobody jumps or lands. [battleReport] is what
  * the last battle round's salvos did (R75–R78), kept until the next round fires or a new battle starts, so it outlives
  * the battle. [connectionsRaised] lists the players who raised a connection this Investment (R83, E12-S02), once each;
- * public, and empty outside Investment.
+ * public, and empty outside Investment. [reputationBought] lists those who bought reputation this Investment (R87, E13-S03),
+ * once each, likewise.
  */
 data class Turn(
 	val number: Int,
@@ -49,7 +50,8 @@ data class Turn(
 	val interception: Interception?,
 	val battle: Battle?,
 	val battleReport: BattleReport?,
-	val connectionsRaised: List<String>
+	val connectionsRaised: List<String>,
+	val reputationBought: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -260,7 +262,8 @@ data class Turn(
 		phase = checkNotNull(TurnPhase.TRADING.next()),
 		doneInvesting = emptyList(),
 		collected = emptyList(),
-		connectionsRaised = emptyList()
+		connectionsRaised = emptyList(),
+		reputationBought = emptyList()
 	)
 
 	/** Refuses anything but Investment: before it, it hasn't started, and once it has closed the turn has moved on (A04). */
@@ -304,6 +307,18 @@ data class Turn(
 			throw InvalidGameOperationException("You've already raised a connection this Investment.")
 		}
 		return copy(connectionsRaised = connectionsRaised + email)
+	}
+
+	/** Whether [email] has bought reputation this Investment: once per Investment (R87). */
+	fun hasBoughtReputation(email: String): Boolean = email in reputationBought
+
+	/** This turn after [email] bought reputation (R87, E13-S03): once per Investment. */
+	fun reputationBoughtBy(email: String): Turn {
+		requireInvesting()
+		if (hasBoughtReputation(email)) {
+			throw InvalidGameOperationException("You've already bought reputation this Investment.")
+		}
+		return copy(reputationBought = reputationBought + email)
 	}
 
 	/** Whether every one of [emails] has signalled done investing (D09). */
@@ -458,6 +473,7 @@ data class Turn(
 			null,
 			null,
 			null,
+			emptyList(),
 			emptyList()
 		)
 	}

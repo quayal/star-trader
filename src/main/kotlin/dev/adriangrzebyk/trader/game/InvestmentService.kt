@@ -3,7 +3,7 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.StarSystem
 
-class InvestmentService(private val gameStore: GameStore) {
+class InvestmentService(private val gameStore: GameStore, private val dice: Dice) {
 
 	/**
 	 * Records [callerEmail] as done investing inside [GameStore.update], so when the last two players signal at the same
@@ -53,6 +53,9 @@ class InvestmentService(private val gameStore: GameStore) {
 	 */
 	fun raiseConnection(gameId: String, callerEmail: String, kind: ConnectionKind): Game =
 		gameStore.update(gameId) { it.raiseConnection(callerEmail, kind) }
+
+	/** [callerEmail] buys reputation inside [GameStore.update], so two presses can't both pass the once-per-Investment check (A04, R87). */
+	fun buyReputation(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.buyReputation(callerEmail, dice) }
 
 	/** [callerEmail] fits [module] to their ship [shipName] inside [GameStore.update] (A04, R65). */
 	fun addModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =

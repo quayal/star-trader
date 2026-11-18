@@ -202,6 +202,7 @@ class GameTradingTest {
 		assertThat(game.log.drop(gracesTurnToTrade.log.size)).containsExactly(
 			LogEntry(1, "Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT"),
 			LogEntry(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4"),
+			LogEntry(1, "Vega Lines's reputation: +2 for a market position rise \u2192 22"),
 			LogEntry(1, "No one else can trade at Gamma Leporis POLY"),
 			LogEntry(1, "POLY price at Gamma Leporis: 2 → 6 HT")
 		)

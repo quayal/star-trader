@@ -5,6 +5,7 @@
  */
 
 import { SHIPYARD, LOCATIONS, TIERS } from './board.js';
+import { reputationText } from './reputation.js';
 
 /** What a card shows for a section with nothing in it. */
 export const NO_TEXT = {
@@ -18,7 +19,7 @@ const LOCATION_NAMES = Object.fromEntries([...LOCATIONS, SHIPYARD].map(location 
 
 /**
  * One card per corporation, in the order players joined, with the viewer's ([viewerId]) first and marked `you`. Each
- * card has its connections (`Political 3 · Business 4 · Criminal 0`, and `5 points to place` or null), its ships (`Wayfarer — Tau Ceti, Port`, by name), market positions (`{ tier, goods, systemName }`, Dictator
+ * card has its reputation (`27 / 40`, R85), its connections (`Political 3 · Business 4 · Criminal 0`, and `5 points to place` or null), its ships (`Wayfarer — Tau Ceti, Port`, by name), market positions (`{ tier, goods, systemName }`, Dictator
  * first, then by system and good), warehouses (`Tau Ceti — 3 blocks, 30 cargo spaces`) and factories (`{ goods,
  * systemName, text }`, the text following the coloured good: ` at Sigma Draconis — 4 u per turn`). An empty section is
  * an empty list; [NO_TEXT] says what to show instead.
@@ -52,6 +53,7 @@ export function corporationCards(game, viewerId) {
 		factories: (player.factories ?? [])
 			.map(factory => ({ goods: factory.goods, systemName: systemName(factory.system), text: ` at ${systemName(factory.system)} — ${factory.size} u per turn` }))
 			.sort((a, b) => a.systemName.localeCompare(b.systemName) || a.goods.localeCompare(b.goods)),
+		reputation: reputationText(player.reputation),
 		connections: connectionsText(player.connections),
 		connectionPoints: connectionPointsText(player.connectionPoints),
 	}));

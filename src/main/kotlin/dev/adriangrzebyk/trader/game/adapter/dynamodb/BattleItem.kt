@@ -43,7 +43,13 @@ internal class BattleItem(val attributes: Map<String, AttributeValue>) {
 					)
 				}
 			),
-			DONE to strings(battle.done)
+			DONE to strings(battle.done),
+			TRIES to AttributeValue.fromL(
+				battle.tries.map {
+					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromS(it.ship), INTERCEPTOR to AttributeValue.fromS(it.interceptor)))
+				}
+			),
+			FIRING_PENALIZED to strings(battle.firingPenalized)
 		)
 	)
 
@@ -69,7 +75,12 @@ internal class BattleItem(val attributes: Map<String, AttributeValue>) {
 			val fields = item.m()
 			PendingHits(ship = fields.attribute(SHIP).s(), ownerEmail = fields.attribute(OWNER_EMAIL).s(), hits = fields.attribute(HITS).n().toInt())
 		},
-		done = attributes.attribute(DONE).l().map { it.s() }
+		done = attributes.attribute(DONE).l().map { it.s() },
+		// Absent from battles saved before E13: no tries recorded, nobody penalized yet.
+		tries = attributes[TRIES]?.l()?.map { item ->
+			BattleInterception(ship = item.m().attribute(SHIP).s(), interceptor = item.m().attribute(INTERCEPTOR).s())
+		} ?: emptyList(),
+		firingPenalized = attributes[FIRING_PENALIZED]?.l()?.map { it.s() } ?: emptyList()
 	)
 
 	private companion object {
@@ -83,6 +94,8 @@ internal class BattleItem(val attributes: Map<String, AttributeValue>) {
 		const val ORDERS = "orders"
 		const val PENDING_HITS = "pendingHits"
 		const val DONE = "done"
+		const val TRIES = "tries"
+		const val FIRING_PENALIZED = "firingPenalized"
 		const val SHIP = "ship"
 		const val OWNER_EMAIL = "ownerEmail"
 		const val ACTION = "action"

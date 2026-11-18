@@ -68,7 +68,7 @@ class GamePositionRollTest {
 
 		assertThat(game.turn!!.resolution!!.trades.single().positionRoll!!.businessConnections).isNull()
 		assertThat(playerIn(game, "kim@example.com").connections.business).isEqualTo(10)
-		assertThat(game.log.last().text).isEqualTo(
+		assertThat(game.log.map { it.text }).contains(
 			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; Orion Freight is demoted to Wholesaler"
 		)
 	}
@@ -85,8 +85,13 @@ class GamePositionRollTest {
 		assertThat(ada.marketPositions).containsExactly(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER))
 		assertThat(kimPromoted.log.drop(kimsTurnToTrade.log.size).map { it.text }).containsExactly(
 			"Altair Trade Co. could buy up to 21 u: bought 6 u at 12 HT each, paid 72 HT",
-			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; business connections rise to 4; Orion Freight is demoted to Wholesaler"
+			"Altair Trade Co. traded 6 u — rolled 6: now Dictator of POLY at Gamma Leporis; business connections rise to 4; Orion Freight is demoted to Wholesaler",
+			// R86 (E13-S02): +2 for the rise, −2 for the Dictator it demoted, each right after the roll.
+			"Altair Trade Co.'s reputation: +2 for a market position rise \u2192 22",
+			"Orion Freight's reputation: \u22122 for losing a market position \u2192 18"
 		)
+		assertThat(kim.reputation.value).isEqualTo(22)
+		assertThat(ada.reputation.value).isEqualTo(18)
 	}
 
 	@Test

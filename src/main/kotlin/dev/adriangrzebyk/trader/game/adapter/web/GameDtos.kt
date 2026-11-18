@@ -21,6 +21,7 @@ import dev.adriangrzebyk.trader.game.OutputPlacement
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.ProductionCost
+import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
@@ -96,7 +97,8 @@ data class GameResponseDto(
 				game.turn?.interception,
 				game.turn?.battle,
 				game.turn?.battleReport?.reportFor(it.email)?.let { report -> BattleReportResponseDto(report, ids) },
-				game.turn?.hasRaisedConnection(it.email) == true
+				game.turn?.hasRaisedConnection(it.email) == true,
+				game.turn?.hasBoughtReputation(it.email) == true
 			)
 		}
 	)
@@ -123,7 +125,7 @@ data class StandingResponseDto(val id: String, val corporationName: String, val 
 /**
  * Public: no money and no cargo here, ever (R29, S02-7), and no email: a player is named by their [id] ([PlayerIds]). Market positions are public (R28), and so are warehouses and
  * factories (R50, E06-S02-2), and their [connections] and the starting [connectionPoints] they still have to place (R81,
- * R82, E12-S01-10).
+ * R82, E12-S01-10), and their [reputation], 0 to 40 (R85, E13-S01-1).
  */
 data class PlayerResponseDto(
 	val id: String,
@@ -134,7 +136,8 @@ data class PlayerResponseDto(
 	val warehouses: List<WarehouseResponseDto>,
 	val factories: List<FactoryResponseDto>,
 	val connections: ConnectionsResponseDto,
-	val connectionPoints: Int
+	val connectionPoints: Int,
+	val reputation: Int
 ) {
 
 	constructor(player: Player, ids: PlayerIds) : this(
@@ -146,7 +149,8 @@ data class PlayerResponseDto(
 		player.warehouses.map { WarehouseResponseDto(it) },
 		player.factories.map { FactoryResponseDto(it) },
 		ConnectionsResponseDto(player.connections),
-		player.connectionPoints
+		player.connectionPoints,
+		player.reputation.value
 	)
 }
 
@@ -465,7 +469,8 @@ data class YouResponseDto(
 	 * whether it's Investment and [player] hasn't confirmed their collect yet; [investing] whether they may buy now
 	 * ([Game.canInvest]); [prices] are the game's, for what a factory costs; [freeShipNames] the suggestions for a new
 	 * ship's name ([Game.freeShipNames]); [battleReport] the last battle round's salvos that concern [player];
-	 * [raisedConnection] whether they raised a connection this Investment (R83).
+	 * [raisedConnection] whether they raised a connection this Investment (R83), [boughtReputation] whether they bought
+	 * reputation (R87).
 	 */
 	constructor(
 		id: String,
@@ -480,7 +485,8 @@ data class YouResponseDto(
 		interception: Interception?,
 		battle: Battle?,
 		battleReport: BattleReportResponseDto?,
-		raisedConnection: Boolean
+		raisedConnection: Boolean,
+		boughtReputation: Boolean
 	) : this(
 		id,
 		player.money,
@@ -491,7 +497,7 @@ data class YouResponseDto(
 		resolution?.takeIf { it.awaitingWholesaler() == player.email }?.let { WholesaleMaxResponseDto(player, it) },
 		player.warehouses.map { YourWarehouseResponseDto(it) },
 		CollectResponseDto(player).takeIf { collecting && player.hasFactories() },
-		InvestResponseDto(player, prices, freeShipNames, raisedConnection).takeIf { investing },
+		InvestResponseDto(player, prices, freeShipNames, raisedConnection, boughtReputation).takeIf { investing },
 		interception?.takeIf { player.email in it.asked }?.let { YourInterceptionResponseDto(it, player) },
 		battle?.takeIf { player.email in it.landers() || it.pendingHits.any { hits -> hits.ownerEmail == player.email } }
 			?.let { YourBattleResponseDto(it, player.email, id) },
@@ -526,6 +532,8 @@ data class YourWarehouseResponseDto(
  * now, and what the [shipyard] sells (E09-S02). [factoryUnits] is the units of factory they own in total and [factoryCap]
  * the most they may own, their political + business connections (R84, E12-S03-8). [connections] is what raising each
  * connection costs them now, and [raisedConnection] whether they already raised one this Investment (R83, E12-S02).
+ * [reputationCost] is what buying 1d6 of reputation costs and [boughtReputation] whether they already did this Investment
+ * (R87, E13-S03).
  * Private to the viewer, and null outside Investment and while they still have to collect.
  */
 data class InvestResponseDto(
@@ -536,10 +544,18 @@ data class InvestResponseDto(
 	val factoryUnits: Int,
 	val factoryCap: Int,
 	val connections: List<ConnectionRaiseResponseDto>,
-	val raisedConnection: Boolean
+	val raisedConnection: Boolean,
+	val reputationCost: Int,
+	val boughtReputation: Boolean
 ) {
 
-	constructor(player: Player, prices: MarketPrices, freeShipNames: List<String>, raisedConnection: Boolean) : this(
+	constructor(
+		player: Player,
+		prices: MarketPrices,
+		freeShipNames: List<String>,
+		raisedConnection: Boolean,
+		boughtReputation: Boolean
+	) : this(
 		Warehouse.BLOCK_COST,
 		StarSystem.entries.map { InvestSystemResponseDto(it, player.warehouseAt(it)?.blocks ?: 0) },
 		StarSystem.entries.flatMap { system ->
@@ -549,7 +565,9 @@ data class InvestResponseDto(
 		player.factoryUnits(),
 		player.factoryCap(),
 		ConnectionKind.entries.map { ConnectionRaiseResponseDto(it, player.connections.of(it), player.connectionRaiseCost(it)) },
-		raisedConnection
+		raisedConnection,
+		Reputation.BUY_COST,
+		boughtReputation
 	)
 }
 
