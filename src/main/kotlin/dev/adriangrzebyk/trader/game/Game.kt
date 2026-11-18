@@ -136,13 +136,45 @@ data class Game(
 	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
 	 */
 	private fun endTurn(current: Turn): Game {
-		if (current.number >= turns) {
-			return copy(status = GameStatus.FINISHED, log = log + LogEntry(current.number, gameOverText()))
-		}
+		val last = current.number >= turns
+		val settled = (if (last) this else withReputationRecovered(current.number)).withReputationBonusPaid(current.number)
+		return if (last) settled.finished(current.number) else settled.withNextTurn(current)
+	}
+
+	/** This game over after turn [number], the log ending with the winner (E05-S08-1, S08-5). */
+	private fun finished(number: Int): Game = copy(status = GameStatus.FINISHED, log = log + LogEntry(number, gameOverText()))
+
+	/** This game in the turn after [current], starting with Bidding (S07-2, S07-3). */
+	private fun withNextTurn(current: Turn): Game {
 		val next = current.next()
 		return copy(
 			turn = next,
 			log = log + LogEntry(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
+		)
+	}
+
+	/** Turn [number]'s end (R86, E13-S01-2): every player whose reputation is from 1 to 17 recovers 3, each logged. */
+	private fun withReputationRecovered(number: Int): Game {
+		val recovering = players.filter { it.reputationRecovery() > 0 }
+		val recovered = recovering.map { it.withReputationChanged(it.reputationRecovery()) to it.reputationRecovery() }
+		return copy(
+			players = players.map { player -> recovered.firstOrNull { it.first.email == player.email }?.first ?: player },
+			log = log + recovered.map { (player, delta) -> LogEntry(number, player.reputationLog(delta, "recovering")) }
+		)
+	}
+
+	/**
+	 * Turn [number]'s end (R88, E13-S01-3): every player with reputation 25 or more is paid its bonus, the last turn
+	 * included, before the winner is decided. One public line names who was paid; the amounts are private (R29).
+	 */
+	private fun withReputationBonusPaid(number: Int): Game {
+		val paid = players.filter { it.reputationBonus() > 0 }
+		if (paid.isEmpty()) {
+			return this
+		}
+		return copy(
+			players = players.map { it.receive(it.reputationBonus()) },
+			log = log + LogEntry(number, "Reputation bonus: ${paid.joinToString(", ") { it.corporationName }}")
 		)
 	}
 
@@ -349,7 +381,28 @@ data class Game(
 		requireCollected(player, investing)
 		val raisedTurn = investing.connectionRaisedBy(email)
 		val raised = player.raiseConnection(kind)
-		return copy(players = replace(raised), turn = raisedTurn, log = log + LogEntry(investing.number, raised.connectionRaisedLog(kind)))
+		val lines =
+			listOf(raised.connectionRaisedLog(kind), raised.reputationLog(kind.reputationChange, "raising ${kind.displayName} connections"))
+		return copy(players = replace(raised), turn = raisedTurn, log = log + lines.map { LogEntry(investing.number, it) })
+	}
+
+	/**
+	 * [email] buys reputation (R87, E13-S03): once per Investment ([Turn.reputationBoughtBy]), after their Collect like any
+	 * purchase (S03-5), for 20 HT and a d6 from [dice] ([Player.buyReputation]). Logged with the roll, not the cost (R29).
+	 */
+	fun buyReputation(email: String, dice: Dice): Game {
+		val player = playerOf(email)
+		val investing = runningTurn()
+		investing.requireInvesting()
+		requireCollected(player, investing)
+		val boughtTurn = investing.reputationBoughtBy(email)
+		val roll = dice.d6()
+		val bought = player.buyReputation(roll)
+		return copy(
+			players = replace(bought),
+			turn = boughtTurn,
+			log = log + LogEntry(investing.number, bought.reputationLog(roll, "buying reputation (rolled $roll)"))
+		)
 	}
 
 	/**
@@ -502,6 +555,7 @@ data class Game(
 		val tries = interception.tries()
 		val events = mutableListOf<String>()
 		val caught = mutableListOf<BattleInterception>()
+		var penalized = players
 		for ((email, name) in tries) {
 			val interceptor = checkNotNull(playerOf(email).ship(name))
 			val ours = dice.d6()
@@ -512,23 +566,35 @@ data class Game(
 			}
 			events +=
 				"Interception: ${interceptor.interceptLog(ours)} vs ${arriving.interceptLog(theirs)}: ${if (success) "intercepted" else "escapes"}"
+			// R86 (E13-S04): every try is a hostile act and costs 2d6 of reputation, unless the trying ship has a working Battle comm.
+			if (!interceptor.hasWorkingBattleComm()) {
+				val loss = dice.twoD6()
+				val trier = penalized.first { it.email == email }.withReputationChanged(-loss)
+				penalized = penalized.map { if (it.email == email) trier else it }
+				events += trier.reputationLog(-loss, "trying to intercept (rolled 2d6: $loss)")
+			}
 		}
 		if (tries.isEmpty()) {
 			events += "Nobody tries to intercept ${interception.ship}"
 		}
 		val decided = copy(
+			players = penalized,
 			turn = current.withInterception(null).recordInterceptors(tries.map { it.second }),
 			log = log + events.map { LogEntry(current.number, it) }
 		)
-		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
+		val attempts = tries.map { (_, name) -> BattleInterception(arriving.name, name) }
+		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught, attempts)
 	}
 
-	/** This game with a battle at [system] among every ship in Space there (R73, R80), [interceptions] holding their ships. */
-	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>): Game {
+	/**
+	 * This game with a battle at [system] among every ship in Space there (R73, R80), [interceptions] holding their ships;
+	 * [tries] are every try that started it, successful or not, which decides whom firing costs reputation (R86).
+	 */
+	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>, tries: List<BattleInterception>): Game {
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		return copy(
-			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions)),
+			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions, tries)),
 			log = log + LogEntry(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
 		)
 	}
@@ -557,10 +623,16 @@ data class Game(
 			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, battle.isBreakingAway(target), dice)
 		}
 		val round = battle.fired(salvos, battle.fightingShips().associateWith { shipNamed(it).hitsSurvivable() })
+		// R86 (E13-S04): firing at a ship that didn't try to intercept you costs 2d6 of reputation, once per battle.
+		val penalties = battle.firingPenalties().associateWith { dice.twoD6() }
+		val penalized = players.map { player -> penalties[player.email]?.let { player.withReputationChanged(-it) } ?: player }
+		val penaltyLog = penalties.map { (email, loss) ->
+			penalized.first { it.email == email }.reputationLog(-loss, "firing at a ship that didn't try to intercept (rolled 2d6: $loss)")
+		}
 		return copy(
-			players = players.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
-			turn = current.withBattleRound(round.battle, round.report),
-			log = log + round.log.map { LogEntry(current.number, it) }
+			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
+			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
+			log = log + (round.log + penaltyLog).map { LogEntry(current.number, it) }
 		).withBattleMovedOn()
 	}
 
@@ -648,7 +720,7 @@ data class Game(
 		)
 		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
 		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
-			return game.withBattleStarted(ship.system, emptyList())
+			return game.withBattleStarted(ship.system, emptyList(), emptyList())
 		}
 		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
 	}
@@ -843,7 +915,7 @@ data class Game(
 		val label = resolution.good.label()
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null })
 		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
-			listOfNotNull("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", positionRollText(trade, resolution.good))
+			listOf("${corporationOf(trade.offer.playerEmail)} ${trade.terms()}") + positionRollLines(trade, resolution.good)
 		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
 			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText()))
@@ -860,9 +932,17 @@ data class Game(
 	 * Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair Trade Co. is demoted
 	 * to Wholesaler".
 	 */
-	private fun positionRollText(trade: Trade, good: MarketGood): String? = trade.positionRoll?.let { roll ->
-		"${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
+	private fun positionRollLines(trade: Trade, good: MarketGood): List<String> {
+		val roll = trade.positionRoll ?: return emptyList()
+		val text = "${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
 			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler" }
+		if (roll.promotedTo == null) {
+			return listOf(text)
+		}
+		// R86 (E13-S02): the rise is +2 for its trader, the fall −2 for the Dictator it demoted; logged right after the roll.
+		val rise = playerOf(trade.offer.playerEmail).reputationLog(Player.MARKET_RISE_REPUTATION, "a market position rise")
+		val falls = roll.demoted.map { playerOf(it).reputationLog(-Player.MARKET_RISE_REPUTATION, "losing a market position") }
+		return listOf(text, rise) + falls
 	}
 
 	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */

@@ -880,6 +880,13 @@
 				</form>
 				<p class="message" id="raise-message" role="status"></p>
 			</section>
+			<!-- E13-S03 (R87): buying 1d6 of reputation, once per Investment. -->
+			<section class="panel" id="reputation-panel" aria-labelledby="reputation-title" hidden>
+				<h2 id="reputation-title">Buy reputation</h2>
+				<p class="muted" id="reputation-intro"></p>
+				<div><button class="btn" id="reputation-button" type="button">Buy reputation</button></div>
+				<p class="message" id="reputation-message" role="status"></p>
+			</section>
 			<!-- E08-S02 (R58): moving goods is on the Fleet tab since 2026-11-17; a pointer for a player with a warehouse. -->
 			<p id="cargo-pointer" hidden><a class="link" id="cargo-pointer-link" href="/"></a></p>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
@@ -1132,6 +1139,7 @@
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { NO_TEXT as NO_CORPORATION_TEXT, corporationCards } from './js/corporations.js';
+	import { BUY_BUTTON as REPUTATION_BUY_BUTTON, reputationPurchase } from './js/reputation.js';
 	import {
 		CAP_NOTE,
 		KINDS as CONNECTION_KINDS,
@@ -2085,6 +2093,7 @@
 		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
 			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
 			element('p', { class: 'muted' }, card.playerName),
+			section(card, 'reputation', 'Reputation', [card.reputation]),
 			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean)),
 			section(card, 'ships', 'Ships', card.ships),
 			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
@@ -3957,6 +3966,7 @@
 		updateBlocksForm(game);
 		updateUnitsForm(game);
 		updateRaiseForm(game);
+		updateReputationPanel(game);
 		const pointer = canBuy(game);
 		$('ship-pointer').hidden = !pointer;
 		if (pointer) {
@@ -4624,6 +4634,69 @@
 		setUnitsMessage(message, true, turnKey);
 		if (response) {
 			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		}
+	});
+
+	// ── E13-S03: buying reputation once per Investment (R87) ──
+
+	let reputationMessageKey = null;
+	let buyingReputation = false;
+
+	function setReputationMessage(text, error, key) {
+		$('reputation-message').textContent = text;
+		$('reputation-message').className = error ? 'message message--error' : 'message message--success';
+		reputationMessageKey = text ? key : null;
+	}
+
+	/** Shown while the player may buy; the button is disabled with the reason once bought, at 40, or short of money. */
+	function updateReputationPanel(game) {
+		const purchase = reputationPurchase(game);
+		$('reputation-panel').hidden = purchase === null;
+		if (purchase === null) {
+			return;
+		}
+		const turnKey = `${game.id}/${game.turn.number}`;
+		if (reputationMessageKey !== null && reputationMessageKey !== turnKey) {
+			setReputationMessage('', false, null);
+		}
+		$('reputation-intro').textContent = purchase.intro;
+		$('reputation-button').textContent = REPUTATION_BUY_BUTTON;
+		$('reputation-button').disabled = buyingReputation || !purchase.canBuy;
+		if (!purchase.canBuy && !$('reputation-message').textContent) {
+			setReputationMessage(purchase.reason, false, turnKey);
+		}
+	}
+
+	$('reputation-button').addEventListener('click', async () => {
+		const game = lastGame;
+		if (!reputationPurchase(game)?.canBuy) {
+			return;
+		}
+		const gameId = currentGameId;
+		const turnKey = `${gameId}/${game.turn.number}`;
+		buyingReputation = true;
+		$('reputation-button').disabled = true;
+		setReputationMessage('', false, null);
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/reputation/buy`, { method: 'POST' });
+		} catch {
+			response = null;
+		}
+		buyingReputation = false;
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			const bought = await response.json();
+			const now = (bought.players ?? []).find(player => player.id === bought.you?.id)?.reputation;
+			setReputationMessage(`Your reputation is now ${now} / 40.`, false, turnKey);
+			render(bought);
+			return;
+		}
+		setReputationMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
+		if (response) {
+			repollNow();
 		}
 	});
 

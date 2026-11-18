@@ -61,7 +61,10 @@ data class Ship(
 	fun interceptTotal(d6: Int): Int = intercept() + d6 + interceptModifier()
 
 	/** What this ship's crew and a working Battle comm add to its interception rolls (R71). */
-	fun interceptModifier(): Int = crewClass.interceptModifier + if (Module.BATTLE_COMM in workingModules()) 1 else 0
+	fun interceptModifier(): Int = crewClass.interceptModifier + if (hasWorkingBattleComm()) 1 else 0
+
+	/** Whether this ship has a working Battle comm module: +1 to intercept (R71), and an interception try costs no reputation (R86). */
+	fun hasWorkingBattleComm(): Boolean = Module.BATTLE_COMM in workingModules()
 
 	/** The public log's account of an interception roll (R70): "Lantern (2 + d6 4 + 0 = 6)". */
 	fun interceptLog(d6: Int): String {

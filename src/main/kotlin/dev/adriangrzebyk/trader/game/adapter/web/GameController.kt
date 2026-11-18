@@ -54,7 +54,7 @@ class GameController(
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker, dice)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
-	private val investmentService = InvestmentService(gameStore)
+	private val investmentService = InvestmentService(gameStore, dice)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
 	private val tradingService = TradingService(gameStore, dice)
 
@@ -156,6 +156,20 @@ class GameController(
 		val game = investmentService.raiseConnection(id, session.email, kind)
 
 		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player buys reputation in Investment (R87, E13-S03): 20 HT for 1d6 more. `400` at 40 or with too little money;
+	 * `409` outside Investment, before they have collected, or once they bought this Investment; `403`, `404` and `401` as
+	 * for the other actions.
+	 */
+	@PostMapping("/games/{id}/reputation/buy")
+	fun buyReputation(
+		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+		@PathVariable id: String
+	): GameResponseDto {
+		val session = sessionFor(authorization)
+		return GameResponseDto(investmentService.buyReputation(id, session.email), session.email)
 	}
 
 	/** Done is a readiness flag (R44); the last player's signal closes Investment for everyone and ends the turn (D09). */

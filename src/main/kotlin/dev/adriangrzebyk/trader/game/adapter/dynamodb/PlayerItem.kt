@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Reputation
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Player] as the attribute map nested in the game item; each ship is a [ShipItem], each market position a [MarketPositionItem], each warehouse a [WarehouseItem], each factory a [FactoryItem]. */
@@ -20,7 +21,8 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			POLITICAL to number(player.connections.political),
 			BUSINESS to number(player.connections.business),
 			CRIMINAL to number(player.connections.criminal),
-			CONNECTION_POINTS to number(player.connectionPoints)
+			CONNECTION_POINTS to number(player.connectionPoints),
+			REPUTATION to number(player.reputation.value)
 		)
 	)
 
@@ -38,7 +40,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		// Items saved before E12 have no connections: a missing level or points load as 0 (creator, 2026-11-18: saved games
 		// needn't stay compatible, the game isn't published).
 		connections = Connections(level(POLITICAL), level(BUSINESS), level(CRIMINAL)),
-		connectionPoints = level(CONNECTION_POINTS)
+		connectionPoints = level(CONNECTION_POINTS),
+		// Items saved before E13 have no reputation: they load at the start value, 20 (R85).
+		reputation = Reputation(attributes[REPUTATION]?.n()?.toInt() ?: Reputation.START)
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -56,5 +60,6 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val BUSINESS = "business"
 		const val CRIMINAL = "criminal"
 		const val CONNECTION_POINTS = "connectionPoints"
+		const val REPUTATION = "reputation"
 	}
 }

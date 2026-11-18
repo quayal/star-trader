@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
@@ -65,7 +66,8 @@ class GameItemTest {
 				warehouses = emptyList(),
 				factories = emptyList(),
 				connections = Connections(political = 3, business = 1, criminal = 2),
-				connectionPoints = 0
+				connectionPoints = 0,
+				reputation = Reputation(27)
 			),
 			Player(
 				email = "guest@example.com",
@@ -102,7 +104,8 @@ class GameItemTest {
 				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.POLY to 4))),
 				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3)),
 				connections = Connections.NONE,
-				connectionPoints = 5
+				connectionPoints = 5,
+				reputation = Reputation.INITIAL
 			)
 		),
 		turn = Turn(
@@ -124,7 +127,8 @@ class GameItemTest {
 			interception = null,
 			battle = null,
 			battleReport = null,
-			connectionsRaised = listOf("host@example.com")
+			connectionsRaised = listOf("host@example.com"),
+			reputationBought = listOf("ada@example.com")
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(

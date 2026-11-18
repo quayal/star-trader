@@ -54,6 +54,7 @@ class TurnItemTest {
 		battle = null,
 		battleReport = null,
 		connectionsRaised = listOf("ada@example.com"),
+		reputationBought = listOf("grace@example.com"),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -93,6 +94,8 @@ class TurnItemTest {
 				listOf(BattleShip("Lantern", "ada@example.com")),
 				listOf(BattleOrder("Wayfarer", BattleAction.FIRE, "Meridian", true), BattleOrder("Lantern", BattleAction.BREAK_AWAY, null, false)),
 				listOf(PendingHits("Meridian", "grace@example.com", 3)),
+				listOf("ada@example.com"),
+				listOf(BattleInterception("Meridian", "Wayfarer"), BattleInterception("Meridian", "Lantern")),
 				listOf("ada@example.com")
 			),
 			battleReport = BattleReport(
@@ -152,7 +155,8 @@ class TurnItemTest {
 					interception = null,
 					battle = null,
 					battleReport = null,
-					connectionsRaised = emptyList()
+					connectionsRaised = emptyList(),
+					reputationBought = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -220,6 +224,7 @@ class TurnItemTest {
 				"doneInvesting" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"collected" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
 				"connectionsRaised" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
+				"reputationBought" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
@@ -395,7 +400,8 @@ class TurnItemTest {
 				interception = null,
 				battle = null,
 				battleReport = null,
-				connectionsRaised = emptyList()
+				connectionsRaised = emptyList(),
+				reputationBought = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

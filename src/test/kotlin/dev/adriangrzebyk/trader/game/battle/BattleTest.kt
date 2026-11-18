@@ -15,6 +15,7 @@ class BattleTest {
 	private val started = Battle.start(
 		TAU_CETI,
 		listOf(BattleShip("Wayfarer", ada), BattleShip("Lantern", ada), BattleShip("Meridian", grace)),
+		emptyList(),
 		emptyList()
 	)
 
@@ -136,5 +137,23 @@ class BattleTest {
 		assertThat(landed.shipsToLand(ada)).isEmpty()
 		assertThat(landed.isJustOver()).isFalse()
 		assertThat(landed.isFinished()).isTrue()
+	}
+
+	@Test
+	fun shouldCostReputationToFireAtAShipThatTriedNothingOncePerBattle() {
+		// R86, E13-S04: Meridian tried to intercept Wayfarer, so Ada fires back for free; Grace firing at Lantern, which
+		// tried nothing, pays once; with no tries at all (R80), anyone who fires pays.
+		val tried = Battle.start(
+			TAU_CETI,
+			started.ships,
+			listOf(BattleInterception("Wayfarer", "Meridian")),
+			listOf(BattleInterception("Wayfarer", "Meridian"))
+		)
+			.giveOrders(ada, listOf(fire("Wayfarer", "Meridian"), fire("Lantern", "Meridian")))
+			.giveOrders(grace, listOf(fire("Meridian", "Lantern")))
+
+		assertThat(tried.firingPenalties()).containsExactly(grace)
+		assertThat(tried.firingPenalizedFor(listOf(grace)).firingPenalties()).isEmpty()
+		assertThat(ordered.firingPenalties()).containsExactly(ada, grace)
 	}
 }

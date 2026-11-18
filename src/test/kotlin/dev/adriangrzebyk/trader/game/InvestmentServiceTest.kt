@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 class InvestmentServiceTest {
 
 	private val gameStore = FakeGameStore()
-	private val service = InvestmentService(gameStore)
+	private val service = InvestmentService(gameStore, FakeDice())
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val started = Game.lobby("game-1", 20, creator).addPlayer(joiner)
@@ -49,7 +49,7 @@ class InvestmentServiceTest {
 		// A real store re-runs the change when another write lands first (GameStore.update); the turn must end only once.
 		gameStore.create(investing.signalDoneInvesting("joiner@example.com"))
 
-		InvestmentService(ReplayingGameStore(gameStore)).signalDone("game-1", "creator@example.com")
+		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).signalDone("game-1", "creator@example.com")
 
 		val stored = gameStore.find("game-1")!!
 		assertThat(stored.turn).isEqualTo(Turn.bidding(2))
@@ -106,7 +106,7 @@ class InvestmentServiceTest {
 		// a real store re-runs the change when another write lands first (GameStore.update); the output must be stored once
 		gameStore.create(withFactory)
 
-		InvestmentService(ReplayingGameStore(gameStore))
+		InvestmentService(ReplayingGameStore(gameStore), FakeDice())
 			.collect("game-1", "creator@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
 
 		val ship = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }.ship("Wayfarer")!!
@@ -139,7 +139,7 @@ class InvestmentServiceTest {
 		// the purchase is checked against the saved balance, so a replayed change charges and builds once
 		gameStore.create(investing)
 
-		InvestmentService(ReplayingGameStore(gameStore)).buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 2)
+		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 2)
 
 		val ada = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }
 		assertThat(ada.warehouseAt(TAU_CETI)!!.blocks).isEqualTo(2)
@@ -172,7 +172,7 @@ class InvestmentServiceTest {
 		gameStore.create(investing)
 		val price = investing.prices.priceOf(MarketGood(TAU_CETI, Goods.ISO))
 
-		InvestmentService(ReplayingGameStore(gameStore)).buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
+		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
 
 		val ada = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }
 		assertThat(ada.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))

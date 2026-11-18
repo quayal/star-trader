@@ -9,7 +9,7 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43). [warehouses] and [factories]
  * are public too (R50), and nobody starts with any (R40, R50). [connections] are public (R81), and [connectionPoints] are the
  * starting points they still have to place (R82): 3 + d3 from the start of the game until they place them in turn 1's
- * Bidding, then 0.
+ * Bidding, then 0. [reputation] is public too (R85).
  */
 data class Player(
 	val email: String,
@@ -21,7 +21,8 @@ data class Player(
 	val warehouses: List<Warehouse>,
 	val factories: List<Factory>,
 	val connections: Connections,
-	val connectionPoints: Int
+	val connectionPoints: Int,
+	val reputation: Reputation
 ) {
 
 	init {
@@ -296,8 +297,41 @@ data class Player(
 				"Raising ${kind.displayName} connections to ${connections.of(kind) + 1} costs $cost HT; you have $money HT."
 			)
 		}
-		return copy(money = money - cost, connections = connections.raised(kind))
+		return copy(money = money - cost, connections = connections.raised(kind), reputation = reputation.changedBy(kind.reputationChange))
 	}
+
+	/**
+	 * The public log line of a change of [delta] to this player's reputation, given after it (R86, E13-S01-4): "Vega Lines's
+	 * reputation: −7 for trying to intercept (rolled 2d6: 7) → 13". [delta] is the change the rule made, so a change
+	 * clamped to nothing still shows why.
+	 */
+	fun reputationLog(delta: Int, reason: String): String {
+		val signed = if (delta >= 0) "+$delta" else "\u2212${-delta}"
+		return "$corporationName's reputation: $signed for $reason \u2192 ${reputation.value}"
+	}
+
+	/** This player after their reputation moved by [delta], clamped to 0–40 (R86). */
+	fun withReputationChanged(delta: Int): Player = copy(reputation = reputation.changedBy(delta))
+
+	/**
+	 * This player after buying reputation in Investment (R87, E13-S03): [Reputation.BUY_COST] HT for [roll] (a d6) more.
+	 * Refused at 40 or with too little money; once per Investment is the turn's to check.
+	 */
+	fun buyReputation(roll: Int): Player {
+		if (reputation.isMax()) {
+			throw InvalidInvestmentException("Your reputation is already at ${Reputation.MAX}.")
+		}
+		if (money < Reputation.BUY_COST) {
+			throw InvalidInvestmentException("Buying reputation costs ${Reputation.BUY_COST} HT; you have $money HT.")
+		}
+		return copy(money = money - Reputation.BUY_COST, reputation = reputation.changedBy(roll))
+	}
+
+	/** What the end of a turn adds to this player's reputation (R86): 3 between 1 and 17, else 0. */
+	fun reputationRecovery(): Int = reputation.recovery()
+
+	/** The money bonus this player's reputation pays at the end of a turn (R88), 0 below 25. */
+	fun reputationBonus(): Int = reputation.bonus()
 
 	/** The public log line of this player's raise of [kind], at its new level (R83, E12-S02-5); the cost isn't said (R29). */
 	fun connectionRaisedLog(kind: ConnectionKind): String =
@@ -511,14 +545,18 @@ data class Player(
 	 * nothing for the rest of the turn, since each good resolves once a turn and its Dictator and Wholesalers are fixed
 	 * when it starts. Every rise, none → Retailer included, adds a point of business connections, up to 10 (R83, E12-S02-6).
 	 */
-	fun promotedAt(good: MarketGood): Player =
-		copy(connections = connections.afterMarketRise()).withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
+	fun promotedAt(good: MarketGood): Player = copy(
+		connections = connections.afterMarketRise(),
+		reputation = reputation.changedBy(MARKET_RISE_REPUTATION)
+	).withPosition(MarketPosition(good.system, good.goods, promotionAt(good)))
 
 	/** Whether this player is Dictator of [good] at its system (R28). */
 	fun isDictatorOf(good: MarketGood): Boolean = tierAt(good) == MarketTier.DICTATOR
 
 	/** This player as Wholesaler of [good], once someone else became its Dictator (S06-3). */
-	fun demotedAt(good: MarketGood): Player = withPosition(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
+	fun demotedAt(good: MarketGood): Player = copy(
+		reputation = reputation.changedBy(-MARKET_RISE_REPUTATION)
+	).withPosition(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
 
 	/** This player holding [position], in place of whatever they held for that good at that system. */
 	private fun withPosition(position: MarketPosition): Player {
@@ -545,8 +583,11 @@ data class Player(
 	}
 
 	companion object {
-		/** A player in the lobby: money, ships and connection points arrive when the game starts (R40, R82). */
+		/** R86: what a rise in market position adds to reputation, and a fall (a Dictator demoted) takes away. */
+		const val MARKET_RISE_REPUTATION = 2
+
+		/** A player in the lobby: money, ships and connection points arrive when the game starts (R40, R82); reputation starts at 20 (R85). */
 		fun newcomer(email: String, name: String, corporationName: String) =
-			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList(), Connections.NONE, 0)
+			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList(), Connections.NONE, 0, Reputation.INITIAL)
 	}
 }

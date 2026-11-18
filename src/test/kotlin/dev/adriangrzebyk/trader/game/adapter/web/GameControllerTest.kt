@@ -102,7 +102,8 @@ class GameControllerTest {
 					0,
 					0
 				),
-				0
+				0,
+				20
 			)
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
@@ -164,9 +165,18 @@ class GameControllerTest {
 					0,
 					0
 				),
-				0
+				0,
+				20
 			),
-			PlayerResponseDto("p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList(), ConnectionsResponseDto(0, 0, 0), 0)
+			PlayerResponseDto(
+				"p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList(),
+				ConnectionsResponseDto(
+					0,
+					0,
+					0
+				),
+				0, 20
+			)
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
@@ -1423,6 +1433,23 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldBuyReputationOncePerInvestment() {
+		// E13-S03 (R87): 20 HT for 1d6; a second buy in the same Investment is a 409.
+		val (_, other, gameId) = investingAtTau("reputation-buy")
+		val before = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.money
+
+		val bought = buyReputation(other, gameId).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val mine = bought.players.single { it.id == bought.you!!.id }
+		assertThat(bought.you!!.money).isEqualTo(before - 20)
+		assertThat(mine.reputation).isBetween(21, 26)
+		assertThat(bought.you!!.invest!!.boughtReputation).isTrue()
+		assertThat(bought.log.last().text).contains("reputation: +").contains("for buying reputation").doesNotContain("HT")
+
+		buyReputation(other, gameId).expectStatus().isEqualTo(409)
+			.expectBody(String::class.java).isEqualTo("You've already bought reputation this Investment.")
+	}
+
+	@Test
 	fun shouldReplaceACrewAndRefuseTheClassItAlreadyHas() {
 		// R89: the other's first ship is a starting Clarinet (class B, 1 crew) in port; a class A crew costs 20 HT.
 		val (_, other, gameId) = investingAtTau("crew-replace")
@@ -1518,7 +1545,7 @@ class GameControllerTest {
 		assertThat(raised.you!!.money).isEqualTo(before.you!!.money - 60)
 		assertThat(raised.players.single { it.id == raised.you!!.id }.connections).isEqualTo(ConnectionsResponseDto(5, 6, 0))
 		assertThat(raised.you!!.invest!!.raisedConnection).isTrue()
-		assertThat(raised.log.last().text).endsWith("raised business connections to 6").doesNotContain("HT")
+		assertThat(raised.log.dropLast(1).last().text).endsWith("raised business connections to 6").doesNotContain("HT")
 		raiseConnection(owner, gameId, """{"kind": "POLITICAL"}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("You've already raised a connection this Investment.")
@@ -2198,6 +2225,7 @@ class GameControllerTest {
 			val battle = Battle.start(
 				StarSystem.TAU_CETI,
 				listOf(BattleShip(ours, first), BattleShip(theirs, second)),
+				listOf(BattleInterception(theirs, ours)),
 				listOf(BattleInterception(theirs, ours))
 			)
 			game.copy(players = inSpace, turn = game.turn!!.withBattle(battle))
@@ -2530,6 +2558,12 @@ class GameControllerTest {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/ships", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
+	}
+
+	private fun buyReputation(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/reputation/buy", gameId)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun replaceCrew(token: String?, gameId: String, ship: String, body: String): RestTestClient.ResponseSpec {

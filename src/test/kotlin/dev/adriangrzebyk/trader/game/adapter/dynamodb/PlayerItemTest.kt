@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Player
+import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Warehouse
@@ -68,7 +69,8 @@ class PlayerItemTest {
 			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.ISO, size = 5)
 		),
 		connections = Connections(political = 2, business = 7, criminal = 1),
-		connectionPoints = 4
+		connectionPoints = 4,
+		reputation = Reputation(13)
 	)
 
 	@Test
@@ -101,7 +103,8 @@ class PlayerItemTest {
 			"political",
 			"business",
 			"criminal",
-			"connectionPoints"
+			"connectionPoints",
+			"reputation"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("business").n()).isEqualTo("7")
@@ -116,6 +119,9 @@ class PlayerItemTest {
 
 		assertThat(older.connections).isEqualTo(Connections.NONE)
 		assertThat(older.connectionPoints).isZero()
+		// E13: an item saved before reputation loads at the start value (R85).
+		assertThat(PlayerItem(PlayerItem(player).attributes - "reputation").toPlayer().reputation).isEqualTo(Reputation.INITIAL)
+		assertThat(PlayerItem(player).attributes.getValue("reputation").n()).isEqualTo("13")
 	}
 
 	@Test
