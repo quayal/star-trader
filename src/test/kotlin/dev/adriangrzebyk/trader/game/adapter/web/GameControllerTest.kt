@@ -1363,6 +1363,24 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldReplaceACrewAndRefuseTheClassItAlreadyHas() {
+		// R89: the other's first ship is a starting Clarinet (class B, 1 crew) in port; a class A crew costs 20 HT.
+		val (_, other, gameId) = investingAtTau("crew-replace")
+		val ship = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.ships.first().name
+		val before = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.money
+
+		val replaced = replaceCrew(other, gameId, ship, """{"crewClass": "A"}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(replaced.you!!.money).isEqualTo(before - 20)
+		assertThat(replaced.you!!.ships.single { it.name == ship }.crewClass).isEqualTo("A")
+
+		replaceCrew(other, gameId, ship, """{"crewClass": "A"}""").expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("$ship's crew is already class A.")
+		replaceCrew(other, gameId, ship, """{"crewClass": "Z"}""").expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose a crew class: A, B, C or D.")
+	}
+
+	@Test
 	fun shouldRefitInAnyPortAndRefuseShipyardActionsOutsideInvestment() {
 		// R65 (creator, 2026-11-17): the other's first ship is in port at Gamma Leporis, which has no shipyard, and refits there.
 		val (_, other, gameId) = investingAtTau("ship-refit-bad")
@@ -2377,6 +2395,13 @@ class GameControllerTest {
 
 	private fun buyShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/ships", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun replaceCrew(token: String?, gameId: String, ship: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.put().uri("/api/games/{id}/investment/ships/{ship}/crew", gameId, ship)
+			.contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

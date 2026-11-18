@@ -201,6 +201,20 @@ data class Ship(
 	/** What this ship costs to commission (R61): its hull, every module and its crew at its class. */
 	fun price(): Int = hull.price + modules.sumOf { it.price } + crewNeeded() * crewClass.pricePerCrew
 
+	/**
+	 * This ship with its whole crew replaced by one of [crewClass] (R89), refused for the class it already has. Where the
+	 * ship is and paying for it ([crewCost]) are the player's to check.
+	 */
+	fun withCrew(crewClass: CrewClass): Ship {
+		if (crewClass == this.crewClass) {
+			throw InvalidInvestmentException("$name's crew is already class ${crewClass.name}.")
+		}
+		return copy(crewClass = crewClass)
+	}
+
+	/** What a new crew of [crewClass] costs this ship (R89): every crew member it needs, at that class. The old crew isn't paid back. */
+	fun crewCost(crewClass: CrewClass): Int = crewNeeded() * crewClass.pricePerCrew
+
 	/** What selling this ship pays (R66): half its hull's and modules' prices, rounded down; its crew isn't paid back. */
 	fun saleValue(): Int = (hull.price + modules.sumOf { it.price }) / 2
 

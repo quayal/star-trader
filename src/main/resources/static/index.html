@@ -712,7 +712,7 @@
 						<p class="message message--error field-error" id="ship-modules-error" role="alert"></p>
 					</fieldset>
 					<fieldset class="offer-type">
-						<legend class="field-label">Crew class (price per crew member)</legend>
+						<legend class="field-label">Crew class</legend>
 						<div class="choices" id="ship-crew"></div>
 					</fieldset>
 					<p class="ship-cost" id="ship-cost" role="status"></p>
@@ -1854,7 +1854,7 @@
 				pendingSale = ship.name;
 				render(lastGame, false);
 			}));
-		const { add, remove } = refitOptions(shipyard, own);
+		const { add, remove, crew } = refitOptions(shipyard, own);
 		const refit = [];
 		if (own.repairCost > 0) {
 			// R79: one action repairs the hull and every damaged module, only at a shipyard.
@@ -1879,6 +1879,15 @@
 			}
 			refit.push(...remove.map(option => element('div', { class: 'fleet-ship__row' },
 				shipButton('quiet-button', `Remove one ${option.name} (+${option.refund} HT)`, () => refitShip(game, own, 'DELETE', option.id, option)))));
+			if (crew.length) {
+				// R89: the whole crew replaced by one of another class; the current class is in the ship's stats above.
+				const id = `fleet-crew-${index}`;
+				const select = element('select', { class: 'control', id },
+					...crew.map(option => element('option', { value: option.id }, `Class ${option.id} \u2014 ${option.cost} HT`)));
+				refit.push(element('div', { class: 'fleet-ship__row' },
+					element('label', { class: 'field-label', for: id }, 'Replace the crew'), select,
+					shipButton('quiet-button', 'Replace', () => replaceCrew(game, own, crew.find(option => option.id === select.value)))));
+			}
 		}
 		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Sell or refit'), sale, ...refit)];
 	}
@@ -1895,6 +1904,13 @@
 		const gameId = currentGameId;
 		const request = api(`/api/games/${encodeURIComponent(gameId)}/investment/ships/${encodeURIComponent(ship.name)}/repair`, { method: 'POST' });
 		await fleetAction(game, request, () => `Repaired ${ship.name} for ${ship.repairCost} HT.`);
+	}
+
+	/** R89: the ship's whole crew replaced by one of [option]'s class; the answer redraws Fleet with the new class and balance. */
+	async function replaceCrew(game, ship, option) {
+		const request = api(`/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}/crew`,
+			{ method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ crewClass: option.id }) });
+		await fleetAction(game, request, () => `${ship.name} has a new class ${option.id} crew, for ${option.cost} HT.`);
 	}
 
 	/** S04-1: one module added or removed; the answer redraws Fleet with the new modules and balance. */

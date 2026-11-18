@@ -233,11 +233,11 @@ export function soldText(outcome, shipName, saleValue) {
 /**
  * R65: what the viewer can do to [ship] in port or in the yard: the modules they can add (those for sale that still fit, Safe jump
  * only without one), each with its cost at the ship's crew class, and those they can remove, each with what it pays
- * back. Empty when the ship can't be refitted where it is, or the shipyard catalogue isn't open to them.
+ * back, and the crew classes it can switch to (R89), each with what the whole new crew costs. Empty when the ship can't be refitted where it is, or the shipyard catalogue isn't open to them.
  */
 export function refitOptions(shipyard, ship) {
 	if (!shipyard || !ship.canRefit) {
-		return { add: [], remove: [] };
+		return { add: [], remove: [], crew: [] };
 	}
 	const pricePerCrew = shipyard.crewClasses.find(entry => entry.id === ship.crewClass)?.pricePerCrew ?? 0;
 	const roomLeft = ship.stats.moduleCapacity - ship.stats.modulesUsed;
@@ -246,5 +246,9 @@ export function refitOptions(shipyard, ship) {
 		.filter(module => (module.takesModuleCapacity ? roomLeft > 0 : !hasSafeJump))
 		.map(module => ({ id: module.id, name: module.name, cost: module.price + module.crew * pricePerCrew }));
 	const remove = ship.modules.map(fitted => ({ id: fitted.id, name: fitted.name, refund: fitted.resaleValue }));
-	return { add, remove };
+	// R89: a whole new crew of another class, at that class's price for every crew member the ship needs; the old one isn't paid back.
+	const crew = shipyard.crewClasses
+		.filter(entry => entry.id !== ship.crewClass)
+		.map(entry => ({ id: entry.id, cost: (ship.stats.crewNeeded ?? 0) * entry.pricePerCrew }));
+	return { add, remove, crew };
 }

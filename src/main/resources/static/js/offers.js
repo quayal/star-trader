@@ -80,7 +80,7 @@ export function offerText(offer) {
 
 /** The status line after an offer is placed; it says again who can see it (R17). */
 export function placedText(offer, systemName) {
-	return `Offer placed: ${offerText(offer)}, ${systemName}. Hidden from other players until Trading.`;
+	return `Offer placed: ${offerText(offer)}, ${systemName}.`;
 }
 
 /** The × button's name on one of the player's own offers (R59): "Withdraw offer: Buy FOOD at 12 HT, Sigma Draconis". */

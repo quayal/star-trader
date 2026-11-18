@@ -280,6 +280,20 @@ data class Player(
 		return receive(module.resaleValue()).withShip(ship.withModuleRemoved(module))
 	}
 
+	/**
+	 * This player after replacing the whole crew of their ship [shipName] with one of [crewClass] (R89), in port or in the
+	 * yard like a refit (R65), paying the new crew's full price ([Ship.crewCost]).
+	 */
+	fun replaceCrew(shipName: String, crewClass: CrewClass): Player {
+		val ship = shipToRefit(shipName)
+		val replaced = ship.withCrew(crewClass)
+		val cost = ship.crewCost(crewClass)
+		if (cost > money) {
+			throw InvalidInvestmentException("A class ${crewClass.name} crew for ${ship.name} costs $cost HT; you have $money HT.")
+		}
+		return pay(cost).withShip(replaced)
+	}
+
 	/** Their ship [shipName], once checked that it's theirs and in port or in the yard, where refits happen (R65). */
 	private fun shipToRefit(shipName: String): Ship {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")

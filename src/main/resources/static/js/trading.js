@@ -251,15 +251,15 @@ export function dictatorLine(game) {
 
 /**
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
- * each trade as what took place (E05-S04-6: "Vega Lines bought 10 u for 130 HT"; the unit price is the offer's, listed
+ * each trade as what took place (E05-S04-6: "Vega Lines buys 10 u for 130 HT"; the unit price is the offer's, listed
  * above, and what the market allowed was on screen while it waited) and the position roll it made, if any (E05-S06-4),
  * then "No one else can trade at this market." once it's over, or "No one can trade at this market." when no unit
- * traded (S03-7). The price change (E05-S05-2) ends the last trade that moved units, "Star Dust sold 4 u for 48 HT; the
- * price fell to 18", or the "No one can trade" line when none did. Then each wholesale answer: "Kessler Cargo
- * (Wholesaler) bought 3 u for 30 HT" (S05-5), at that new price. Empty until the counter starts (after the Dictator).
+ * traded (S03-7). The price change (E05-S05-2) ends the last trade that moved units, "Star Dust sells 4 u for 48 HT; the
+ * price falls to 18", or the "No one can trade" line when none did. Then each wholesale answer: "Kessler Cargo
+ * (Wholesaler) buys 3 u for 30 HT" (S05-5), at that new price. Empty until the counter starts (after the Dictator).
  *
  * Each line is a list of parts: text, or `{ text, tone }` for a word shown in colour: "buyers" and "sellers" in the
- * Buy and Sell colours (`buy`, `sell`), "rose" and "fell" in green and red (`rise`, `fall`). [lineText] joins them.
+ * Buy and Sell colours (`buy`, `sell`), "rises" and "falls" in green and red (`rise`, `fall`). [lineText] joins them.
  */
 export function counterLines(game) {
 	const current = resolution(game);
@@ -294,22 +294,22 @@ export function lineText(parts) {
 	return parts.map(part => (typeof part === 'string' ? part : part.text)).join('');
 }
 
-/** E05-S05-2: "; the price rose to 12", "; the price fell to 10" or "; the price stayed at 11", ending a trade line. */
+/** E05-S05-2: "; the price rises to 12", "; the price falls to 10" or "; the price stays at 11", ending a trade line. */
 function priceParts(current) {
 	const { startPrice, newPrice } = current;
 	if (newPrice === startPrice) {
-		return [`; the price stayed at ${newPrice}`];
+		return [`; the price stays at ${newPrice}`];
 	}
-	const move = newPrice > startPrice ? { text: 'rose', tone: 'rise' } : { text: 'fell', tone: 'fall' };
+	const move = newPrice > startPrice ? { text: 'rises', tone: 'rise' } : { text: 'falls', tone: 'fall' };
 	return ['; the price ', move, ` to ${newPrice}`];
 }
 
 function wholesaleLine(game, wholesale) {
 	const who = `${corporation(game, wholesale.playerId)} (${wholesale.role})`;
 	if (!wholesale.type) {
-		return `${who} passed on wholesale`;
+		return `${who} passes on wholesale`;
 	}
-	const done = wholesale.type === 'SELL' ? 'sold' : 'bought';
+	const done = wholesale.type === 'SELL' ? 'sells' : 'buys';
 	return `${who} ${done} ${wholesale.units} u for ${wholesale.units * wholesale.price} HT`;
 }
 
@@ -317,8 +317,8 @@ function wholesaleLine(game, wholesale) {
 const TIER_NAMES = { RETAILER: 'Retailer', WHOLESALER: 'Wholesaler', DICTATOR: 'Dictator' };
 
 /**
- * E05-S06-4: a trade's position roll, if it made one: "Vega Lines traded 7 u — rolled 5: now Wholesaler of ISO at Mu
- * Herculis", "… rolled 9: no change", and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null
+ * E05-S06-4: a trade's position roll, if it made one: "Vega Lines trades 7 u — rolls 5: now Wholesaler of ISO at Mu
+ * Herculis", "… rolls 9: no change", and a Dictator's demotion, "…; Altair Trade Co. is demoted to Wholesaler". Null
  * for a trade that made no roll.
  */
 function positionRollLine(game, trade, good) {
@@ -330,12 +330,12 @@ function positionRollLine(game, trade, good) {
 		? `now ${TIER_NAMES[roll.promotedTo] ?? roll.promotedTo} of ${good.goods} at ${good.systemName}`
 		: 'no change';
 	const demoted = (roll.demoted ?? []).map(playerId => `; ${corporation(game, playerId)} is demoted to Wholesaler`).join('');
-	return `${corporation(game, trade.playerId)} traded ${trade.units} u \u2014 rolled ${roll.roll}: ${change}${demoted}`;
+	return `${corporation(game, trade.playerId)} trades ${trade.units} u \u2014 rolls ${roll.roll}: ${change}${demoted}`;
 }
 
-/** E05-S04-6: "Star Dust sold 4 u for 48 HT", or "Vega Lines bought nothing". */
+/** E05-S04-6: "Star Dust sells 4 u for 48 HT", or "Vega Lines buys nothing" (present tense, creator 2026-11-18). */
 function tradeLine(game, trade) {
-	const done = trade.type === 'SELL' ? 'sold' : 'bought';
+	const done = trade.type === 'SELL' ? 'sells' : 'buys';
 	const who = corporation(game, trade.playerId);
 	return trade.units === 0 ? `${who} ${done} nothing` : `${who} ${done} ${trade.units} u for ${trade.units * trade.price} HT`;
 }

@@ -109,7 +109,7 @@ describe('texts', () => {
 		const offer = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'POLY', type: 'SELL', price: 12 };
 
 		assert.equal(offerText(offer), 'Sell POLY at 12 HT');
-		assert.equal(placedText(offer, 'Tau Ceti'), 'Offer placed: Sell POLY at 12 HT, Tau Ceti. Hidden from other players until Trading.');
+		assert.equal(placedText(offer, 'Tau Ceti'), 'Offer placed: Sell POLY at 12 HT, Tau Ceti.');
 	});
 
 	it('names the withdraw button and its result after the offer and its system (R59)', () => {
