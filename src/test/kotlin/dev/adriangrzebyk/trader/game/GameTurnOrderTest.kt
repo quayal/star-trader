@@ -66,10 +66,10 @@ class GameTurnOrderTest {
 		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
 
 		assertThat(game.log.takeLast(4)).containsExactly(
-			LogEntry(1, "Kessler Cargo chose 3rd"),
-			LogEntry(1, "Vega Lines chose 1st"),
-			LogEntry(1, "Orion Freight gets 2nd, the only place left"),
-			LogEntry(1, "Turn order (for this turn): Vega Lines → Orion Freight → Kessler Cargo")
+			LogEntry.event(1, "Kessler Cargo chose 3rd"),
+			LogEntry.event(1, "Vega Lines chose 1st"),
+			LogEntry.event(1, "Orion Freight gets 2nd, the only place left"),
+			LogEntry.event(1, "Turn order (for this turn): Vega Lines → Orion Freight → Kessler Cargo")
 		)
 	}
 

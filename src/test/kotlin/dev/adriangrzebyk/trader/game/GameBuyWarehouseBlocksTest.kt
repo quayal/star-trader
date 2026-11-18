@@ -34,7 +34,7 @@ class GameBuyWarehouseBlocksTest {
 
 		assertThat(playerOf(game, "ada@example.com").warehouseAt(TAU_CETI)!!.blocks).isEqualTo(2)
 		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(investing, "ada@example.com").money - 40)
-		assertThat(game.log.last()).isEqualTo(LogEntry(game.turn!!.number, "Orion Freight added 2 warehouse blocks at Tau Ceti"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(game.turn!!.number, "Orion Freight added 2 warehouse blocks at Tau Ceti"))
 	}
 
 	@Test

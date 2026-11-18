@@ -10,6 +10,9 @@ data class MarketPrices(val prices: Map<MarketGood, Int>) {
 	/** [good]'s price now, which is also its start price the next time it resolves (R34). */
 	fun priceOf(good: MarketGood): Int = prices.getValue(good)
 
+	/** [good]'s price now, or null when its system doesn't trade it. */
+	fun priceAt(good: MarketGood): Int? = prices[good]
+
 	/** These prices with [good] now at [price] (R35). */
 	fun withPrice(good: MarketGood, price: Int): MarketPrices = copy(prices = prices + (good to price))
 

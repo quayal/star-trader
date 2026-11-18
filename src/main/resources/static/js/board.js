@@ -359,17 +359,26 @@ export function marketPositions(game, system) {
 /**
  * E06-S02-2, S02-3: what is built at [system], public (R50): every corporation's warehouse there (blocks and cargo
  * spaces, R45) and factory there (good and units a turn, R46), and the goods the system can produce (R46), none at
- * some systems. Older responses have no warehouses, factories or producible goods; they read as none.
+ * some systems. Older responses have no warehouses, factories or producible goods; they read as none. Each warehouse's
+ * [held] is what it holds, "3 ISO, 2 FOOD" or "Empty", for the viewer [myId]'s own (from `you.warehouses`, creator
+ * 2026-11-18), and "—" for anyone else's, which is private (R29).
  */
-export function systemHoldings(game, system) {
+export function systemHoldings(game, system, myId) {
 	const at = key => game.players.flatMap(player => (player[key] ?? [])
 		.filter(item => item.system === system.id)
-		.map(item => ({ ...item, corporationName: player.corporationName })));
+		.map(item => ({ ...item, corporationName: player.corporationName, own: player.id === myId })));
+	const ownCargo = (game.you?.warehouses ?? []).find(warehouse => warehouse.system === system.id)?.cargo;
 	return {
 		producible: system.producibleGoods ?? [],
-		warehouses: at('warehouses'),
-		factories: at('factories'),
+		warehouses: at('warehouses').map(({ own, ...warehouse }) => ({ ...warehouse, held: own ? heldText(ownCargo) : '\u2014' })),
+		factories: at('factories').map(({ own, ...factory }) => factory),
 	};
+}
+
+/** What a warehouse holds, "3 ISO, 2 FOOD", or "Empty". */
+function heldText(cargo) {
+	const held = Object.entries(cargo ?? {}).filter(([, units]) => units > 0).map(([goods, units]) => `${units} ${goods}`);
+	return held.length ? held.join(', ') : 'Empty';
 }
 
 /** S02-12: the notice over a stale board is this sentence, announced once, then the age, which isn't. */

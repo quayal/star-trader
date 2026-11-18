@@ -6,8 +6,8 @@
 export const EMPTY_LOG_TEXT = 'No public events yet.';
 
 /**
- * [log] ([{ turn, text }], oldest first) as one group per turn, newest turn first (S06-1), each turn's events in
- * the order they happened: [{ turn, title: 'Turn 4', events: [text] }].
+ * [log] ([{ turn, text }], oldest first) as one group per turn, newest turn first (S06-1), each turn's events newest
+ * first too (creator, 2026-11-18): [{ turn, title: 'Turn 4', events: [text] }].
  */
 export function logTurns(log) {
 	const byTurn = new Map();
@@ -19,7 +19,7 @@ export function logTurns(log) {
 	}
 	return [...byTurn.entries()]
 		.sort(([a], [b]) => b - a)
-		.map(([turn, events]) => ({ turn, title: `Turn ${turn}`, events }));
+		.map(([turn, events]) => ({ turn, title: `Turn ${turn}`, events: events.reverse() }));
 }
 
 /** The key a folded turn is remembered by: per game, so a fold never carries into another game (lesson 2026-11-04). */

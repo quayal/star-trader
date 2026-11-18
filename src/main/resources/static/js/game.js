@@ -49,6 +49,10 @@ export function parseRoute(hash) {
 	if (fleet) {
 		return { view: 'fleet', id: decodeURIComponent(fleet[1]) };
 	}
+	const assets = /^#game\/([^/]+)\/assets$/.exec(text);
+	if (assets) {
+		return { view: 'assets', id: decodeURIComponent(assets[1]) };
+	}
 	const corporations = /^#game\/([^/]+)\/corporations$/.exec(text);
 	if (corporations) {
 		return { view: 'corporations', id: decodeURIComponent(corporations[1]) };
@@ -96,6 +100,10 @@ export function fleetLink(id) {
 }
 
 /** The Corporations tab (E11-S01, D20) of game [id]: every public fact about every player. */
+export function assetsLink(id) {
+	return `#game/${encodeURIComponent(id)}/assets`;
+}
+
 export function corporationsLink(id) {
 	return `#game/${encodeURIComponent(id)}/corporations`;
 }

@@ -62,11 +62,11 @@ class GameLandingTest {
 	@Test
 	fun shouldLogTheLanding() {
 		assertThat(arrived.landShip("grace@example.com", ShipLocation.PORT).log.last())
-			.isEqualTo(LogEntry(1, "Landing: Vega Lines — Meridian lands at the port (Tau Ceti)"))
+			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian lands at the port (Tau Ceti)"))
 		assertThat(arrived.landShip("grace@example.com", ShipLocation.PLANET).log.last())
-			.isEqualTo(LogEntry(1, "Landing: Vega Lines — Meridian lands on the planet (Tau Ceti)"))
+			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian lands on the planet (Tau Ceti)"))
 		assertThat(arrived.landShip("grace@example.com", ShipLocation.SPACE).log.last())
-			.isEqualTo(LogEntry(1, "Landing: Vega Lines — Meridian stays in space (Tau Ceti)"))
+			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian stays in space (Tau Ceti)"))
 	}
 
 	@Test

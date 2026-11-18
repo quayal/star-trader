@@ -38,7 +38,7 @@ class GameBuyFactoryUnitsTest {
 
 		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
 		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(investing, "ada@example.com").money - 2 * (5 * price + 10))
-		assertThat(game.log.last()).isEqualTo(LogEntry(game.turn!!.number, "Orion Freight added 2 units of ISO production at Tau Ceti"))
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(game.turn!!.number, "Orion Freight added 2 units of ISO production at Tau Ceti"))
 		assertThat(game.log.last().text).doesNotContain("HT") // R50: money is private
 	}
 

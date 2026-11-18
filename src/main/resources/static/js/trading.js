@@ -101,6 +101,15 @@ export function resolvedText(game) {
 }
 
 /**
+ * How much the viewer may trade now (creator, 2026-11-18), from their own `you.tradeMax` (after money and cargo, R12,
+ * R10): "you can sell 4 u", "you can't sell any".
+ */
+function canTradeText(game, type) {
+	const max = game.you?.tradeMax ?? 0;
+	return max > 0 ? `you can ${verb(type)} ${max} u` : `you can't ${verb(type)} any`;
+}
+
+/**
  * S01-8 (D09): whom the game waits for, named. "" outside Trading; once every good is resolved, says so (the turn's end
  * is E05-S07).
  */
@@ -117,7 +126,7 @@ export function waitingText(game, playerId) {
 	const trade = awaitingTrade(game);
 	if (trade !== null) {
 		return trade.playerId === playerId
-			? `The market has reached your ${verb(trade.type)} at ${trade.price} HT: your decision.`
+			? `The market has reached your ${verb(trade.type)} at ${trade.price} HT (${canTradeText(game, trade.type)}): your decision.`
 			: `${corporation(game, trade.playerId)} can ${verb(trade.type)} up to ${trade.maxUnits} u — waiting for their decision.`;
 	}
 	const wholesaler = awaitingWholesaler(game);
@@ -597,7 +606,8 @@ export function decisionText(game, playerId) {
 	}
 	if (awaitingTrade(game)?.playerId === playerId) {
 		const { good } = resolution(game);
-		return `Your decision is needed: the market has reached your ${verb(awaitingTrade(game).type)} of ${good.goods} at ${good.systemName}.`;
+		const type = awaitingTrade(game).type;
+		return `Your decision is needed: the market has reached your ${verb(type)} of ${good.goods} at ${good.systemName} (${canTradeText(game, type)}).`;
 	}
 	if (awaitingWholesaler(game) === playerId) {
 		const { good, newPrice } = resolution(game);

@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test
 class LogTurnItemTest {
 
 	private val entries = listOf(
-		LogEntry(4, "Initiative order (bid + d2): Vega Lines → Orion Freight"),
-		LogEntry(4, "Vega Lines chose 1st")
+		LogEntry.event(4, "Initiative order (bid + d2): Vega Lines → Orion Freight"),
+		LogEntry.event(4, "Vega Lines chose 1st")
 	)
 
 	@Test

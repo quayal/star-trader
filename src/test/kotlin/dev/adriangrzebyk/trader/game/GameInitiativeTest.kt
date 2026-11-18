@@ -114,18 +114,18 @@ class GameInitiativeTest {
 	}
 
 	@Test
-	fun shouldOrderEveryPlayerByBidPlusD2HighestFirst() {
-		// Rolls are taken in join order: creator 10 + 2 = 12, joiner 12 + 1 = 13.
+	fun shouldOrderEveryPlayerByBidPlus2d6HighestFirst() {
+		// Rolls are taken in join order: creator 10 + 9 = 19, joiner 12 + 8 = 20.
 		val game = started.placeInitiativeBid("creator@example.com", 10).placeInitiativeBid("joiner@example.com", 12)
-			.advancePhase(FakeDice(2, 1))
+			.advancePhase(FakeDice(9, 8))
 
 		assertThat(game.turn?.initiative).containsExactly("joiner@example.com", "creator@example.com")
 	}
 
 	@Test
 	fun shouldTreatAPlayerWhoNeverBidAsBiddingZeroAndStillRollThem() {
-		// Q07 (proposed): no bid is a bid of 0; the creator's 0 + 2 beats the joiner's 0 + 1.
-		val game = started.placeInitiativeBid("joiner@example.com", 0).advancePhase(FakeDice(2, 1))
+		// Q07 (proposed): no bid is a bid of 0; the creator's 0 + 7 beats the joiner's 0 + 4.
+		val game = started.placeInitiativeBid("joiner@example.com", 0).advancePhase(FakeDice(7, 4))
 
 		assertThat(game.turn?.initiative).containsExactly("creator@example.com", "joiner@example.com")
 		assertThat(game.players.map { it.money }).containsExactly(300, 300)
@@ -133,37 +133,69 @@ class GameInitiativeTest {
 
 	@Test
 	fun shouldRerollATieUntilItIsBroken() {
-		// 5 + 1 and 5 + 1 tie, then 1 and 1 tie again, then the joiner's 2 beats the creator's 1.
+		// 5 + 6 and 5 + 6 tie, then 3 and 3 tie again, then the joiner's 9 beats the creator's 4.
 		val game = started.placeInitiativeBid("creator@example.com", 5).placeInitiativeBid("joiner@example.com", 5)
-			.advancePhase(FakeDice(1, 1, 1, 1, 1, 2))
+			.advancePhase(FakeDice(6, 6, 3, 3, 4, 9))
 
 		assertThat(game.turn?.initiative).containsExactly("joiner@example.com", "creator@example.com")
 	}
 
 	@Test
 	fun shouldRerollOnlyThePlayersWhoTiedAndOnlyAmongThemselves() {
-		// Creator 10 + 1 = 11 leads; joiner 0 + 2 and third 0 + 2 tie, so only they roll again: joiner 1, third 2.
-		val game = startedWithThree.placeInitiativeBid("creator@example.com", 10).advancePhase(FakeDice(1, 2, 2, 1, 2))
+		// Creator 10 + 2 = 12 leads; joiner 0 + 7 and third 0 + 7 tie, so only they roll again: joiner 5, third 8.
+		val game = startedWithThree.placeInitiativeBid("creator@example.com", 10).advancePhase(FakeDice(2, 7, 7, 5, 8))
 
 		assertThat(game.turn?.initiative).containsExactly("creator@example.com", "third@example.com", "joiner@example.com")
 	}
 
 	@Test
-	fun shouldLogTheInitiativeOrderWithoutAnyAmounts() {
-		val game = started.placeInitiativeBid("joiner@example.com", 40).advancePhase(FakeDice(1, 1))
+	fun shouldMakeEveryBidAndRollPublicInInitiativeOrderOnceBiddingCloses() {
+		// Creator 10 + 2 = 12; joiner 0 + 7 and third 0 + 7 tie, then roll 5 and 8.
+		val game = startedWithThree.placeInitiativeBid("creator@example.com", 10).advancePhase(FakeDice(2, 7, 7, 5, 8))
 
-		// R29, S06-3: the log is public, so it carries the order and never a bid or money.
-		assertThat(game.log.last()).isEqualTo(LogEntry(1, "Initiative order (bid + d2): Vega Lines → Orion Freight"))
+		assertThat(game.turn?.initiativeRolls).containsExactly(
+			InitiativeRoll("creator@example.com", 10, listOf(2)),
+			InitiativeRoll("third@example.com", 0, listOf(7, 8)),
+			InitiativeRoll("joiner@example.com", 0, listOf(7, 5))
+		)
 	}
 
 	@Test
-	fun shouldLogALaterTurnsInitiativeOrderUnderThatTurn() {
+	fun shouldHaveNoRollsWhileBiddingIsOpen() {
+		assertThat(started.placeInitiativeBid("joiner@example.com", 40).turn?.initiativeRolls).isEmpty()
+	}
+
+	@Test
+	fun shouldLogEveryBidAndRollWhenBiddingCloses() {
+		val game = started.placeInitiativeBid("joiner@example.com", 40).advancePhase(FakeDice(3, 11))
+
+		// The creator's correction (2026-11-18): everyone is told what each player paid and rolled.
+		assertThat(game.log.last()).isEqualTo(
+			LogEntry.event(1, "Initiative (bid + 2d6): Vega Lines 40 + 11 = 51 → Orion Freight 0 + 3 = 3")
+		)
+	}
+
+	@Test
+	fun shouldLogTheTieBreakRolls() {
+		val game = started.placeInitiativeBid("creator@example.com", 5).placeInitiativeBid("joiner@example.com", 5)
+			.advancePhase(FakeDice(6, 6, 4, 9))
+
+		assertThat(game.log.last()).isEqualTo(
+			LogEntry.event(
+				1,
+				"Initiative (bid + 2d6): Vega Lines 5 + 6 = 11 → Orion Freight 5 + 6 = 11 (tie rolled again: Vega Lines 9, Orion Freight 4)"
+			)
+		)
+	}
+
+	@Test
+	fun shouldLogALaterTurnsInitiativeUnderThatTurn() {
 		val turnTwo = started.advancePhase(FakeDice(1, 2)).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		val closed = turnTwo.advancePhase(FakeDice(2, 1))
 
 		// S06-1: the log is grouped by turn, so each line carries the turn it happened in.
-		assertThat(closed.log.last()).isEqualTo(LogEntry(2, "Initiative order (bid + d2): Orion Freight → Vega Lines"))
+		assertThat(closed.log.last()).isEqualTo(LogEntry.event(2, "Initiative (bid + 2d6): Orion Freight 0 + 2 = 2 → Vega Lines 0 + 1 = 1"))
 	}
 
 	@Test

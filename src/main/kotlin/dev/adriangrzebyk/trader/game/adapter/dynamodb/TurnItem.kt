@@ -17,6 +17,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			OFFERS to AttributeValue.fromL(turn.offers.map { AttributeValue.fromM(OfferItem(it).attributes) }),
 			BIDS to AttributeValue.fromL(turn.bids.map { AttributeValue.fromM(InitiativeBidItem(it).attributes) }),
 			INITIATIVE to AttributeValue.fromL(turn.initiative.map { AttributeValue.fromS(it) }),
+			INITIATIVE_ROLLS to AttributeValue.fromL(turn.initiativeRolls.map { AttributeValue.fromM(InitiativeRollItem(it).attributes) }),
 			TURN_ORDER_PICKS to AttributeValue.fromL(turn.turnOrderPicks.map { AttributeValue.fromM(TurnOrderPickItem(it).attributes) }),
 			JUMPED_SHIPS to AttributeValue.fromL(turn.jumpedShips.map { AttributeValue.fromS(it) }),
 			DONE_JUMPING to AttributeValue.fromL(turn.doneJumping.map { AttributeValue.fromS(it) }),
@@ -83,7 +84,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// Absent from items saved before 2026-11-18: no battle could remember an earlier try.
 			interceptionTries = attributes[INTERCEPTION_TRIES]?.l()?.map {
 				BattleInterception(ship = it.m().attribute(SHIP).s(), interceptor = it.m().attribute(INTERCEPTOR).s())
-			} ?: emptyList()
+			} ?: emptyList(),
+			// Absent from items saved before 2026-11-18: the order was known, but not what anyone bid or rolled.
+			initiativeRolls = attributes[INITIATIVE_ROLLS]?.l()?.map { InitiativeRollItem(it.m()).toInitiativeRoll() } ?: emptyList()
 		)
 	}
 
@@ -94,6 +97,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val OFFERS = "offers"
 		const val BIDS = "bids"
 		const val INITIATIVE = "initiative"
+		const val INITIATIVE_ROLLS = "initiativeRolls"
 		const val TURN_ORDER_PICKS = "turnOrderPicks"
 		const val JUMPED_SHIPS = "jumpedShips"
 		const val DONE_JUMPING = "doneJumping"

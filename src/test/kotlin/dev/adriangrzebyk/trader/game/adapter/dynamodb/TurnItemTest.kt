@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.InitiativeBid
+import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Offer
@@ -56,6 +57,7 @@ class TurnItemTest {
 		connectionsRaised = listOf("ada@example.com"),
 		reputationBought = listOf("grace@example.com"),
 		interceptionTries = listOf(BattleInterception("Meridian", "Wayfarer")),
+		initiativeRolls = listOf(InitiativeRoll("ada@example.com", 0, listOf(7, 9)), InitiativeRoll("grace@example.com", 40, listOf(7, 3))),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -158,7 +160,8 @@ class TurnItemTest {
 					battleReport = null,
 					connectionsRaised = emptyList(),
 					reputationBought = emptyList(),
-					interceptionTries = emptyList()
+					interceptionTries = emptyList(),
+					initiativeRolls = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -169,6 +172,7 @@ class TurnItemTest {
 		val withOneOfEach = turn.copy(
 			offers = listOf(offer),
 			bids = listOf(InitiativeBid("grace@example.com", 40)),
+			initiativeRolls = listOf(InitiativeRoll("grace@example.com", 40, listOf(7))),
 			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2)),
 			jumpedShips = listOf("Wayfarer"),
 			tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)),
@@ -213,6 +217,17 @@ class TurnItemTest {
 					)
 				),
 				"initiative" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"), AttributeValue.fromS("grace@example.com"))),
+				"initiativeRolls" to AttributeValue.fromL(
+					listOf(
+						AttributeValue.fromM(
+							mapOf(
+								"playerEmail" to AttributeValue.fromS("grace@example.com"),
+								"bid" to AttributeValue.fromN("40"),
+								"rolls" to AttributeValue.fromL(listOf(AttributeValue.fromN("7")))
+							)
+						)
+					)
+				),
 				"turnOrderPicks" to AttributeValue.fromL(
 					listOf(AttributeValue.fromM(mapOf("playerEmail" to AttributeValue.fromS("ada@example.com"), "place" to AttributeValue.fromN("2"))))
 				),
@@ -257,6 +272,11 @@ class TurnItemTest {
 				)
 			)
 		)
+	}
+
+	@Test
+	fun shouldReadNoInitiativeRollsFromAnItemSavedBeforeThem() {
+		assertThat(TurnItem(TurnItem(turn).attributes - "initiativeRolls").toTurn().initiativeRolls).isEmpty()
 	}
 
 	@Test
@@ -407,7 +427,8 @@ class TurnItemTest {
 				battleReport = null,
 				connectionsRaised = emptyList(),
 				reputationBought = emptyList(),
-				interceptionTries = emptyList()
+				interceptionTries = emptyList(),
+				initiativeRolls = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

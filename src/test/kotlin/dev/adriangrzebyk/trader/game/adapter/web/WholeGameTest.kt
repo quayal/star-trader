@@ -63,14 +63,10 @@ class WholeGameTest {
 			registry.add("star-trader.dynamodb.table-name") { "games-whole-game-test" }
 		}
 
-		/** Every 2d6 is a 7; d2 alternates 2, 1, so with rolls taken in join order the host never ties the guest. */
+		/** Every 2d6 is a 7, so the host, who always bids 1 HT more than the guest, is first in initiative. */
 		@Bean
 		@Primary
 		fun fixedDice(): Dice = object : Dice {
-			private val rolls = AtomicInteger()
-
-			override fun d2(): Int = if (rolls.getAndIncrement() % 2 == 0) 2 else 1
-
 			override fun twoD6(): Int = 7
 
 			override fun d6(): Int = 3
@@ -140,6 +136,10 @@ class WholeGameTest {
 		val loaded = post(host, "/api/games/$gameId/cargo/moves", """{"to": "$wayfarer", "goods": "ISO", "units": 3}""")
 		assertThat(loaded.you!!.ships.first().cargo).isEqualTo(mapOf("ISO" to 3))
 		assertThat(loaded.you!!.warehouses.single().cargo).isEmpty()
+		// The Assets tab: the 3 ISO, now in the ship, valued at today's price where it is (creator, 2026-11-18).
+		val isoAtTau = loaded.board.single { it.id == "TAU_CETI" }.market.single { it.goods == "ISO" }.price
+		assertThat(loaded.you!!.assets.ships.first().goods).containsExactly(HeldGoodsResponseDto("ISO", 3, isoAtTau, 3 * isoAtTau))
+		assertThat(loaded.you!!.assets.goodsValue).isEqualTo(3 * isoAtTau)
 		val isoAtMu = loaded.board.single { it.id == "MU_HERCULIS" }.market.single { it.goods == "ISO" }.price
 		val price = maxOf(1, isoAtMu - 6) // far enough under the market that it allows more than the 3 units held (R15)
 		post(host, "/api/games/$gameId/offers", """{"system": "MU_HERCULIS", "goods": "ISO", "type": "SELL", "price": $price}""")
@@ -166,6 +166,10 @@ class WholeGameTest {
 		assertThat(sold.you!!.ships.first().cargo).isEmpty()
 		assertThat(sold.you!!.money).isEqualTo(moneyBefore + 3 * price)
 		assertThat(sold.log.map { it.text }).anyMatch { it.endsWith(": sold 3 u at $price HT each, received ${3 * price} HT") }
+		// The trade history reads the trade from its log entry (creator, 2026-11-18).
+		assertThat(sold.log.mapNotNull { it.trade }).containsExactly(
+			TradeRecordResponseDto("p1", "MU_HERCULIS", "Mu Herculis", "ISO", "SELL", 3, price)
+		)
 
 		// Investment closes the last turn: the game is over, and everyone sees everyone's money (R39).
 		post(host, "/api/games/$gameId/investment/collect", """{"placements": []}""")

@@ -70,7 +70,7 @@ class GameCollectTest {
 			listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 4), OutputPlacement(TAU_CETI, Goods.ISO, null, 2))
 		)
 
-		assertThat(game.log.drop(withFactory.log.size)).containsExactly(LogEntry(1, "Orion Freight collected 6 u of ISO at Tau Ceti"))
+		assertThat(game.log.drop(withFactory.log.size)).containsExactly(LogEntry.event(1, "Orion Freight collected 6 u of ISO at Tau Ceti"))
 	}
 
 	@Test

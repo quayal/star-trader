@@ -1,7 +1,8 @@
 /*
  * Pure helpers for the initiative bid (E03-S05) on the Deck (s01) and the initiative order in the top bar. They read
  * the game shape from GET /api/games/{id} (BACKWARD_COMPATIBILITY.md §6): the caller's own bid is `you.bid` and the
- * order is `turn.initiative` (ids); nobody else's bid or money is ever sent (R29).
+ * order is `turn.initiative` (ids). Nobody else's bid is sent while Bidding is open (R29); once it closes, every player's
+ * bid and 2d6 roll is public as `turn.initiativeRolls` (creator, 2026-11-18). Money never is.
  */
 
 import { isBidding } from './offers.js';
@@ -58,4 +59,20 @@ export function initiativeText(game) {
 	}
 	const names = order.map(playerId => game.players.find(p => p.id === playerId)?.corporationName ?? playerId);
 	return `Initiative: ${names.join(' → ')}`;
+}
+
+/**
+ * Once Bidding has closed (creator, 2026-11-18): what each player bid and rolled, in initiative order, as
+ * `{ corporation, sum: '40 + 11 = 51', tie: 'tie rolled again: 9' | '' }`. Empty while Bidding is open, and for a turn
+ * saved before the rolls were kept.
+ */
+export function initiativeRolls(game) {
+	if (isBidding(game)) {
+		return [];
+	}
+	return (game.turn?.initiativeRolls ?? []).map(roll => ({
+		corporation: game.players.find(p => p.id === roll.playerId)?.corporationName ?? roll.playerId,
+		sum: `${roll.bid} + ${roll.roll} = ${roll.total}`,
+		tie: roll.tieRolls?.length ? `tie rolled again: ${roll.tieRolls.join(', ')}` : '',
+	}));
 }

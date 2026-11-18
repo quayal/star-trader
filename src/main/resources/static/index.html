@@ -294,6 +294,20 @@
 		.corporation p { margin: 0; }
 		.corporation__section { display: grid; gap: var(--space-hairline); }
 		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
+		/* Assets (creator, 2026-11-18): where the player's money sits, laid out like Corporations. */
+		.assets { display: grid; gap: var(--space-panel); max-width: 1200px; }
+		.assets > h2, .assets > p { margin: 0; }
+		.assets h2:focus { outline: none; }
+		.assets[hidden] { display: none; }
+		.assets__summary { display: flex; flex-wrap: wrap; gap: var(--space-related) var(--space-between-groups); margin: 0; }
+		.assets__summary div { display: grid; gap: var(--space-hairline); }
+		.assets__summary dt { font-size: var(--text-caption); color: var(--text-muted); }
+		.assets__summary dd { margin: 0; font-family: var(--font-display); font-size: var(--text-title); }
+		/* Your trades on the Deck (creator, 2026-11-18): newest first, Bought/Sold coloured. */
+		.trade-history { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
+		.trade-history .muted { font-family: var(--font-display); font-size: var(--text-caption); }
+		.initiative-rolls { margin: 0 0 var(--space-related); padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
+		.initiative-rolls__title { margin: var(--space-related) 0 0; }
 		/* E09: a ship's shipyard actions on Fleet, and the buy form under them. */
 		.fleet-ship__actions { display: grid; gap: var(--space-related); padding-top: var(--space-related); border-top: var(--border-width) solid var(--border-subtle); }
 		.fleet-ship__actions h4 { margin: 0; }
@@ -423,6 +437,7 @@
 	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
 	<!-- E07-S03: only while a started game is open; its href is that game's Fleet tab. -->
 	<a class="nav-item" id="nav-fleet" href="/" hidden>Fleet</a>
+	<a class="nav-item" id="nav-assets" href="/" hidden>Assets</a>
 	<!-- E11-S01 (D20): only while a started game is open; its href is that game's Corporations tab. -->
 	<a class="nav-item" id="nav-corporations" href="/" hidden>Corporations</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
@@ -545,11 +560,21 @@
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
 				</section>
+				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
+				<section class="panel" aria-labelledby="your-trades-title">
+					<h2 id="your-trades-title">Your trades</h2>
+					<ul class="trade-history" id="your-trades"></ul>
+					<p class="muted" id="your-trades-none"></p>
+					<div><button class="quiet-button" id="your-trades-more" type="button" hidden></button></div>
+				</section>
 				<!-- E04-S01: from Ship-jumps on. Static markup, updated on render, so the chosen place and focus survive the poll. -->
 				<section class="panel" id="turn-order-panel" aria-labelledby="turn-order-title" hidden>
 					<h2 id="turn-order-title" tabindex="-1">Turn order</h2>
 					<p class="muted" id="turn-order-note"></p>
 					<ol class="player-list" id="turn-order-list"></ol>
+					<!-- Creator, 2026-11-18: what everyone bid and rolled, public once Bidding has closed. -->
+					<p class="field-label initiative-rolls__title" id="initiative-rolls-title" hidden>Initiative: bid + 2d6</p>
+					<ol class="initiative-rolls" id="initiative-rolls" aria-labelledby="initiative-rolls-title" hidden></ol>
 					<form class="offer-form pick-form" id="pick-form" novalidate hidden>
 						<fieldset class="offer-type">
 							<legend class="field-label" id="pick-legend"></legend>
@@ -672,6 +697,29 @@
 				<div><button class="btn" id="battle-report-button" type="submit"></button></div>
 			</form>
 		</dialog>
+
+		<!-- Assets (creator, 2026-11-18): where the player's money sits; theirs only (R29). -->
+		<div class="assets" id="assets-panel" hidden>
+			<h2 class="system__title" id="assets-title" tabindex="-1">Assets</h2>
+			<p class="muted">Where your money is. Goods are valued at today’s price where they are; ships at what they would fetch sold.</p>
+			<section class="panel" aria-label="Summary">
+				<dl class="assets__summary" id="assets-summary"></dl>
+			</section>
+			<div class="corporations__cards">
+				<section class="panel corporation" aria-labelledby="assets-ships-title">
+					<h3 id="assets-ships-title">Ships</h3>
+					<ul class="corporation__list" id="assets-ships"></ul>
+				</section>
+				<section class="panel corporation" aria-labelledby="assets-warehouses-title">
+					<h3 id="assets-warehouses-title">Warehouses</h3>
+					<ul class="corporation__list" id="assets-warehouses"></ul>
+				</section>
+				<section class="panel corporation" aria-labelledby="assets-factories-title">
+					<h3 id="assets-factories-title">Factories</h3>
+					<ul class="corporation__list" id="assets-factories"></ul>
+				</section>
+			</div>
+		</div>
 
 		<!-- Corporations (E11-S01, D20): every public fact about every player; never money (R29) or a ship's hull, modules or cargo (R57). -->
 		<div class="corporations" id="corporations-panel" hidden>
@@ -1043,7 +1091,7 @@
 				<h3 class="field-label">Warehouses</h3>
 				<div class="table-wrap">
 					<table class="data-table" id="system-warehouses-table" hidden>
-						<thead><tr><th scope="col">Corporation</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces</th></tr></thead>
+						<thead><tr><th scope="col">Corporation</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces</th><th scope="col">Holds</th></tr></thead>
 						<tbody id="system-warehouses"></tbody>
 					</table>
 				</div>
@@ -1082,6 +1130,7 @@
 		tradingLink,
 		gameOverLink,
 		fleetLink,
+		assetsLink,
 		corporationsLink,
 		infrastructureLink,
 		validateTurns,
@@ -1311,14 +1360,16 @@
 		validateCollect,
 		validateUnits
 	} from './js/investment.js';
-	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeText, validateBid } from './js/initiative.js';
+	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
+	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
+	import { assetsView } from './js/assets.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'corporations-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1352,6 +1403,11 @@
 	let focusCorporationsTitle = false;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
 	let shownCorporationsKey = null;
+	let focusAssetsTitle = false;
+	let shownAssetsKey = null;
+	let shownTradesKey = null;
+	// Whether "Your trades" shows every trade, per game, so it doesn't carry into another game.
+	let tradesExpandedFor = null;
 	// Set when a phase change opens the Deck (E08-S03-4), so the heading of the panel that phase needs takes focus once.
 	let focusDeckHeading = false;
 	// Turns the player folded on the Game log, by foldKey(game, turn), so a poll's redraw keeps them folded (S06-1).
@@ -1404,19 +1460,21 @@
 		stopPolling();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		const { view, id } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'corporations' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
 		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
 		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
+		$('nav-assets').toggleAttribute('aria-current', view === 'assets');
 		$('nav-corporations').toggleAttribute('aria-current', view === 'corporations');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
@@ -1434,12 +1492,13 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', corporations: 'nav-corporations', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
+			focusAssetsTitle = view === 'assets';
 			focusCorporationsTitle = view === 'corporations';
 			focusOverTitle = view === 'over';
 			openGame(id);
@@ -1455,6 +1514,7 @@
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
@@ -1758,6 +1818,7 @@
 		$('nav-trading').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
+		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
@@ -1790,11 +1851,13 @@
 		$('nav-infrastructure').hidden = false;
 		$('nav-fleet').href = fleetLink(game.id);
 		$('nav-fleet').hidden = false;
+		$('nav-assets').href = assetsLink(game.id);
+		$('nav-assets').hidden = false;
 		$('nav-corporations').href = corporationsLink(game.id);
 		$('nav-corporations').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'corporations') {
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations') {
 			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1); Investment's is on s10 (E06-S08)
 		}
 		updateDecisionAlert(game, view);
@@ -1859,6 +1922,16 @@
 			return;
 		}
 		focusFleetTitle = false;
+		if (view === 'assets') {
+			renderAssets(game); // with the regular poll; it redraws only when the numbers changed
+			showPanels('assets-panel');
+			if (focusAssetsTitle) {
+				focusAssetsTitle = false;
+				$('assets-title').focus();
+			}
+			return;
+		}
+		focusAssetsTitle = false;
 		if (view === 'corporations') {
 			renderCorporations(game); // with the regular poll; it redraws only when a card changed
 			showPanels('corporations-panel');
@@ -1950,6 +2023,58 @@
 			` \u00b7 ${ship.location} \u2014 `,
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		renderYourOffers(game);
+		renderYourTrades(game);
+	}
+
+	/** Your trades (creator, 2026-11-18): newest first, the last few unless expanded; each links to its system. */
+	function renderYourTrades(game) {
+		const expanded = tradesExpandedFor === game.id;
+		const { shown, more } = shownTrades(yourTrades(game.log, viewerId), expanded);
+		const key = JSON.stringify([game.id, shown, more, expanded]);
+		if (key === shownTradesKey) {
+			return;
+		}
+		shownTradesKey = key;
+		$('your-trades').replaceChildren(...shown.map(trade => element('li', {},
+			element('span', { class: 'muted' }, trade.turn), ' ',
+			element('span', { class: `tone tone--${trade.tone}` }, trade.verb), ' ',
+			element('a', { class: 'link', href: systemLink(game.id, trade.system) }, trade.text))));
+		$('your-trades-none').textContent = shown.length ? '' : NO_TRADES_TEXT;
+		$('your-trades-none').hidden = shown.length > 0;
+		const button = $('your-trades-more');
+		button.hidden = more === 0 && !expanded;
+		button.textContent = expanded ? 'Show fewer' : `Show all (${more} more)`;
+	}
+
+	// ── Assets (creator, 2026-11-18) ──
+
+	function renderAssets(game) {
+		const view = assetsView(game);
+		const key = JSON.stringify([game.id, view]);
+		if (view === null || key === shownAssetsKey) {
+			return;
+		}
+		shownAssetsKey = key;
+		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
+		const goodsList = lines => lines.map(line => element('div', {}, `${line.units} `, good(line.goods), ` ${line.detail}`));
+		const empty = text => (text ? [element('li', { class: 'muted' }, text)] : []);
+		$('assets-summary').replaceChildren(...view.summary.map(item =>
+			element('div', {}, element('dt', {}, item.label), element('dd', {}, item.value))));
+		$('assets-ships').replaceChildren(...empty(view.notes.ships), ...view.ships.map(ship => element('li', {},
+			element('strong', {}, ship.name), ' \u2014 ',
+			element('a', { class: 'link', href: systemLink(game.id, ship.system) }, ship.where),
+			element('div', { class: 'muted' }, `Sale value ${ship.saleValue} \u00b7 goods ${ship.goodsValue}`),
+			...goodsList(ship.goods))));
+		$('assets-warehouses').replaceChildren(...empty(view.notes.warehouses), ...view.warehouses.map(warehouse => element('li', {},
+			element('a', { class: 'link', href: systemLink(game.id, warehouse.system) }, warehouse.systemName),
+			` \u00b7 ${warehouse.blocks}`,
+			element('div', { class: 'muted' }, warehouse.goods.length ? `Goods ${warehouse.goodsValue}` : 'Empty'),
+			...goodsList(warehouse.goods))));
+		$('assets-factories').replaceChildren(...empty(view.notes.factories), ...view.factories.map(factory => element('li', {},
+			good(factory.goods), ' at ',
+			element('a', { class: 'link', href: systemLink(game.id, factory.system) }, factory.systemName),
+			` \u00b7 ${factory.size}`,
+			element('div', { class: 'muted' }, `A turn’s output: ${factory.output}`))));
 	}
 
 	// ── Fleet (E07-S03) ──
@@ -3093,7 +3218,7 @@
 			$('bid-button').textContent = label;
 		}
 		const money = game.you?.money ?? 0;
-		const hint = `You have ${money} HT. Every bidder pays their bid when Bidding closes, win or lose; the order is bid + d2.`;
+		const hint = `You have ${money} HT. Every bidder pays their bid when Bidding closes, win or lose; the order is bid + 2d6, and every bid and roll is shown to all once Bidding closes.`;
 		if ($('bid-hint').textContent !== hint) {
 			$('bid-hint').textContent = hint;
 		}
@@ -3265,7 +3390,7 @@
 			setPickMessage('', false); // another game's or turn's message doesn't belong here
 		}
 		const statuses = slotStatuses(game);
-		const key = JSON.stringify([game.id, game.turn?.number, rows, statuses]);
+		const key = JSON.stringify([game.id, game.turn?.number, rows, statuses, game.turn?.initiativeRolls]);
 		if (key !== turnOrderKey) {
 			turnOrderKey = key;
 			$('turn-order-note').textContent = TURN_ORDER_NOTE;
@@ -3280,6 +3405,11 @@
 			});
 			turnOrderShown = { gameTurn, texts: items.map(item => item.textContent) };
 			$('turn-order-list').replaceChildren(...items);
+			const rolls = initiativeRolls(game);
+			$('initiative-rolls-title').hidden = rolls.length === 0;
+			$('initiative-rolls').hidden = rolls.length === 0;
+			$('initiative-rolls').replaceChildren(...rolls.map(roll => element('li', {},
+				`${roll.corporation} `, element('strong', {}, roll.sum), roll.tie ? element('span', { class: 'muted' }, ` (${roll.tie})`) : '')));
 		}
 		const free = freePlaces(game, viewerId);
 		$('pick-form').hidden = free.length === 0;
@@ -5032,7 +5162,7 @@
 			...(row.nobody
 				? [element('td', { colspan: '3', class: 'muted' }, 'Nobody holds a position for this good yet')]
 				: row.tiers.map(tier => element('td', {}, tier.holders.join(', ') || '\u2014'))))));
-		const holdings = systemHoldings(game, system);
+		const holdings = systemHoldings(game, system, viewerId);
 		$('system-producible').replaceChildren(...(holdings.producible.length
 			? ['Factories here can produce: ', ...holdings.producible.flatMap((goods, index) => [
 				index ? ', ' : '',
@@ -5047,10 +5177,18 @@
 		$('system-warehouses').replaceChildren(...holdings.warehouses.map(warehouse => element('tr', {},
 			element('td', {}, warehouse.corporationName),
 			element('td', { class: 'num' }, String(warehouse.blocks)),
-			element('td', { class: 'num' }, String(warehouse.cargoSpaces)))));
+			element('td', { class: 'num' }, String(warehouse.cargoSpaces)),
+			element('td', {}, warehouse.held))));
 		$('system-warehouses-table').hidden = holdings.warehouses.length === 0;
 		$('system-warehouses-none').hidden = holdings.warehouses.length > 0;
 	}
+
+	$('your-trades-more').addEventListener('click', () => {
+		tradesExpandedFor = tradesExpandedFor === currentGameId ? null : currentGameId;
+		if (lastGame) {
+			renderYourTrades(lastGame);
+		}
+	});
 
 	$('copy-link').addEventListener('click', async () => {
 		const input = $('lobby-link');

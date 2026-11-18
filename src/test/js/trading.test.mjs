@@ -379,14 +379,21 @@ function mine(base, { tradeMax = 5, wayfarer = { ISO: 3, CHIPS: 12 }, lantern = 
 }
 
 describe('a trader choosing an amount (E05-S04)', () => {
+	it('says how many the trader can trade now, from their own max (creator, 2026-11-18)', () => {
+		const mine = { ...game({ resolution: awaitingMe() }), you: { tradeMax: 4 } };
+
+		assert.equal(waitingText(mine, ME), 'The market has reached your sell at 10 HT (you can sell 4 u): your decision.');
+		assert.match(decisionText(mine, ME), /\(you can sell 4 u\)\.$/);
+	});
+
 	it('names whom the game waits for, with the counter\'s max, and holds Resolve next (S01-8, S01-4)', () => {
 		const waiting = game({ resolution: { ...awaitingMe(), awaitingTrade: { playerId: VEGA, type: 'BUY', price: 11, maxUnits: 4 } } });
 
 		assert.equal(waitingText(waiting, ME), 'Vega Lines can buy up to 4 u \u2014 waiting for their decision.');
-		assert.equal(waitingText(game({ resolution: awaitingMe() }), ME), 'The market has reached your sell at 10 HT: your decision.');
+		assert.equal(waitingText(game({ resolution: awaitingMe() }), ME), "The market has reached your sell at 10 HT (you can't sell any): your decision.");
 		assert.equal(resolver(waiting), null);
 		assert.equal(awaitingTrade(waiting).playerId, VEGA);
-		assert.equal(decisionText(waiting, VEGA), 'Your decision is needed: the market has reached your buy of ISO at Mu Herculis.');
+		assert.equal(decisionText(waiting, VEGA), "Your decision is needed: the market has reached your buy of ISO at Mu Herculis (you can't buy any).");
 		assert.equal(decisionText(waiting, ME), '');
 	});
 

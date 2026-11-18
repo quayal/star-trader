@@ -20,6 +20,10 @@ data class Wholesale(val playerEmail: String, val type: OfferType?, val units: I
 		OfferType.SELL -> "sold $units u at $price HT each, received ${units * price} HT"
 	}
 
+	/** This wholesale of [good] for a player's trade history (creator, 2026-11-18); null for a pass or 0 units. */
+	fun record(good: MarketGood): TradeRecord? =
+		type?.takeIf { units > 0 }?.let { TradeRecord(playerEmail, good.system, good.goods, it, units, price) }
+
 	companion object {
 		/** R37: a wholesale is at most 5 units. */
 		const val MAX_UNITS = 5

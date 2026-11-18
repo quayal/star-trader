@@ -32,20 +32,26 @@ class GameTurnEngineTest {
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
-			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com")),
+			Turn.bidding(1).copy(
+				phase = TurnPhase.SHIP_JUMPS,
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
+			),
 			Turn.bidding(
 				1
 			).copy(
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
-				initiative = listOf("creator@example.com", "joiner@example.com")
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
 			),
 			Turn.bidding(
 				1
 			).copy(
 				phase = TurnPhase.INVESTMENT,
 				tradingQueue = MarketGood.everyOnBoard(),
-				initiative = listOf("creator@example.com", "joiner@example.com")
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
 			),
 			Turn.bidding(2)
 		)
@@ -62,7 +68,8 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
-				initiative = listOf("creator@example.com", "joiner@example.com")
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
 			)
 		)
 
@@ -81,7 +88,8 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.INVESTMENT,
 				tradingQueue = MarketGood.everyOnBoard(),
-				initiative = listOf("creator@example.com", "joiner@example.com")
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
 			)
 		)
 	}
@@ -120,7 +128,11 @@ class GameTurnEngineTest {
 		assertThat(
 			game.turn
 		).isEqualTo(
-			Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("creator@example.com", "joiner@example.com"))
+			Turn.bidding(1).copy(
+				phase = TurnPhase.SHIP_JUMPS,
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
+			)
 		)
 	}
 

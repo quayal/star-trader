@@ -9,7 +9,7 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * its owner like a ship's (R29); the owner's collected output goes into it (R47). The warehouse itself is public, like
  * the board (R50). It counts as presence for Trading, and loads and unloads like a ship does (R49).
  */
-data class Warehouse(val system: StarSystem, val blocks: Int, val cargo: Map<Goods, Int>) : CargoHold {
+data class Warehouse(override val system: StarSystem, val blocks: Int, override val cargo: Map<Goods, Int>) : CargoHold {
 
 	init {
 		require(blocks >= 1) { "A warehouse has at least one block." }

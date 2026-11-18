@@ -178,7 +178,7 @@ class DynamoDbGameStoreTest {
 		assertThat(closed.turn?.doneBidding).isEmpty()
 		assertThat(closed.turn?.initiative).containsExactlyInAnyOrderElementsOf(full.players.map { it.email })
 		assertThat(closed.players.map { it.money }).allMatch { it == Game.STARTING_MONEY }
-		assertThat(closed.log.filter { it.text.startsWith("Initiative order") }).hasSize(1)
+		assertThat(closed.log.filter { it.text.startsWith("Initiative (") }).hasSize(1)
 		assertThat(storedVersion("game-1")).isEqualTo(6)
 	}
 
@@ -202,12 +202,12 @@ class DynamoDbGameStoreTest {
 	fun shouldKeepEachTurnOfTheLogInAnItemOfItsOwn() {
 		// the game item must not grow with the length of the game: DynamoDB refuses an item over 400 KB
 		val started = startedGame()
-		val later = store.update("game-1") { it.copy(log = it.log + LogEntry(2, "Turn 2 of 20 starts with Bidding")) }
+		val later = store.update("game-1") { it.copy(log = it.log + LogEntry.event(2, "Turn 2 of 20 starts with Bidding")) }
 
 		assertThat(storedItem("game-1")!!.keys).doesNotContain("log")
 		assertThat(GameItem(storedItem("game-1")!!).logTurns()).containsExactly(1, 2)
 		assertThat(LogTurnItem(storedItem("log#game-1#1")!!).entries()).isEqualTo(started.log)
-		assertThat(LogTurnItem(storedItem("log#game-1#2")!!).entries()).containsExactly(LogEntry(2, "Turn 2 of 20 starts with Bidding"))
+		assertThat(LogTurnItem(storedItem("log#game-1#2")!!).entries()).containsExactly(LogEntry.event(2, "Turn 2 of 20 starts with Bidding"))
 		assertThat(store.find("game-1")).isEqualTo(later)
 	}
 
@@ -223,11 +223,11 @@ class DynamoDbGameStoreTest {
 		// 50 turns of 150 lines of 80 characters: 600 KB of text alone, which one item could never hold
 		val started = startedGame()
 		val line = "Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT ........"
-		val long = started.log + (1..50).flatMap { turn -> List(150) { LogEntry(turn, "$line $it") } }.sortedBy { it.turn }
+		val long = started.log + (1..50).flatMap { turn -> List(150) { LogEntry.event(turn, "$line $it") } }.sortedBy { it.turn }
 		assertThat(long.sumOf { it.text.length }).isGreaterThan(600_000)
 
 		val saved = store.update("game-1") { it.copy(log = started.log + long.drop(started.log.size)) }
-		val next = store.update("game-1") { it.copy(log = it.log + LogEntry(50, "Game over: Vega Lines wins with 2,310 HT")) }
+		val next = store.update("game-1") { it.copy(log = it.log + LogEntry.event(50, "Game over: Vega Lines wins with 2,310 HT")) }
 
 		assertThat(saved.log).hasSize(7506)
 		assertThat(store.find("game-1")).isEqualTo(next)
@@ -263,7 +263,7 @@ class DynamoDbGameStoreTest {
 		startedGame()
 		val executor = Executors.newFixedThreadPool(5)
 
-		val updates = (1..5).map { n -> executor.submit { store.update("game-1") { it.copy(log = it.log + LogEntry(1, "line $n")) } } }
+		val updates = (1..5).map { n -> executor.submit { store.update("game-1") { it.copy(log = it.log + LogEntry.event(1, "line $n")) } } }
 		updates.forEach { it.get(30, TimeUnit.SECONDS) }
 		executor.shutdown()
 

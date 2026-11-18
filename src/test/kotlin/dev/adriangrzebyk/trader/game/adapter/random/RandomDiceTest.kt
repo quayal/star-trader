@@ -9,13 +9,6 @@ class RandomDiceTest {
 	private val dice = RandomDice(Random(42))
 
 	@Test
-	fun shouldRollOnlyOneOrTwoAndBothOfThem() {
-		val rolls = List(1_000) { dice.d2() }.toSet()
-
-		assertThat(rolls).containsExactlyInAnyOrder(1, 2)
-	}
-
-	@Test
 	fun shouldRollTwoD6FromTwoToTwelveAndEveryValueBetween() {
 		val rolls = List(10_000) { dice.twoD6() }.toSet()
 

@@ -247,7 +247,8 @@ class GameOfferTest {
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
 				offers = listOf(offer),
-				initiative = listOf("creator@example.com", "joiner@example.com")
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
 			)
 		)
 	}

@@ -16,6 +16,11 @@ data class Trade(val offer: Offer, val marketMax: Int, val units: Int, val posit
 		OfferType.SELL -> counter + units
 	}
 
+	/** This trade for a player's trade history (creator, 2026-11-18); null when nothing traded. */
+	fun record(): TradeRecord? = TradeRecord(offer.playerEmail, offer.system, offer.goods, offer.type, units, offer.price).takeIf {
+		tradedAny()
+	}
+
 	/** Whether any unit traded. */
 	fun tradedAny(): Boolean = units > 0
 
