@@ -25,6 +25,18 @@ class TurnTest {
 	}
 
 	@Test
+	fun shouldKeepOffersSecretUntilTradingStarts() {
+		// R17: every offer of the turn becomes public once Trading starts, and stays public through Investment
+		val offer = Offer("a", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 8)
+		val bidding = Turn.bidding(1).copy(offers = listOf(offer))
+
+		assertThat(bidding.publicOffers()).isEmpty()
+		assertThat(bidding.copy(phase = TurnPhase.SHIP_JUMPS).publicOffers()).isEmpty()
+		assertThat(bidding.copy(phase = TurnPhase.TRADING).publicOffers()).containsExactly(offer)
+		assertThat(bidding.copy(phase = TurnPhase.INVESTMENT).publicOffers()).containsExactly(offer)
+	}
+
+	@Test
 	fun shouldMoveFromTradingToInvestmentWithNobodyDone() {
 		assertThat(investment.phase).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(investment.doneInvesting).isEmpty()

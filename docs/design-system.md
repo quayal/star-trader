@@ -40,6 +40,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `--accent-selected` | Selected nav item, primary button, selected node/row, focus ring | Decoration (A02, R01.1) |
 | `--status-live / -warn / -danger` | Live/your turn · waiting/pending · outbid/error | The S/D scale |
 | `--trade-buy / -sell` (+ `--tint-*`) | The Buy/Sell column only (R04.1) | Anywhere else |
+| `--tone-buy / -sell / -rise / -fall / -alert` | One word coloured inside a sentence, through `.tone--…`: "buyers"/"sellers" first in Trading's market lines, a price that "rises"/"falls", a battle's "1 hit to place" and "ship destroyed" | Whole lines, cells or badges |
 | `--good-poly / -chips / -food / -iso` | The goods column and goods icons only (R04.1) | Anywhere else |
 | `--sd-easy / -fair / -hard / -bad` | The S/D value only (R03.5) | Buy/Sell column |
 | `--jump-high / -mid / -low` | The base jump chance numbers on the map (R68): three highest values, between, three lowest — level from `jumpChanceLevel` in `js/board.js` | Anywhere else |
@@ -72,6 +73,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.message .message--error/--success/--warn` + `role="status"` | Feedback under a form; `--warn` for a consequence to check before confirming ("the rest will be lost") | Errors the player must act on elsewhere |
 | `.data-table` (+ `.num` on numeric cells) | Tabular data with aligned numbers | One-dimensional lists of 1–3 facts |
 | `.trade .trade--buy/--sell` | The Buy/Sell cell of an offer row (R04.1) | Any other column |
+| `.tone .tone--buy/--sell/--rise/--fall/--alert` | One word in a sentence that carries the meaning (helpers return it as `{ text, tone }`) | Whole lines; the Buy/Sell cell (use `.trade`) |
 | `.good .good--poly/…` | The goods name in a goods column or on the map (R04.1); `color` in HTML, `fill` in SVG | Elsewhere |
 | `.sd-value[data-step]` | The S/D indicator. Number always shown (R03.5) | Without the number |
 | `.cargo-meter` | Used / capacity of a ship or depot (R01.3) | Percentages without the absolute numbers |

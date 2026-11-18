@@ -28,18 +28,22 @@ import {
 	resolution,
 	resolutionTitle,
 	counterLines,
+	lineText,
 	resolvedText,
 	resolver,
 	sameOrder,
 	queueOffersNote,
 	isDictatorOf,
-	yourOffer,
-	YOUR_OFFERS_NOTE,
+	queueOffers,
+	OFFERS_NOTE,
 	NO_OFFERS_LEFT_NOTE,
 	NO_OFFERS_PLACED_NOTE,
 	tradingStatus,
 	waitingText,
 } from '../../main/resources/static/js/trading.js';
+
+/** counterLines as plain text, one string per line. */
+const counterTexts = g => counterLines(g).map(lineText);
 
 const ME = 'me';
 const VEGA = 'vega';
@@ -227,35 +231,37 @@ describe('the decision alert (S01-9)', () => {
 	});
 });
 
-describe("the viewer's own offers on the goods still to resolve (E08-S01)", () => {
-	const BUY_ISO = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO', type: 'BUY', price: 11 };
-	const SELL_CHIPS = { system: 'BETA_HYDRI', systemName: 'Beta Hydri', goods: 'CHIPS', type: 'SELL', price: 7 };
-	const withOffers = (offers, options) => ({ ...game(options), you: { offers } });
+describe('the offers on the goods still to resolve, public once Trading starts (E08-S01, R17)', () => {
+	const offer = (playerId, good, type, price) => ({ playerId, system: good.system, goods: good.goods, type, price });
+	const withOffers = (offers, options) => {
+		const seen = game(options);
+		return { ...seen, turn: { ...seen.turn, publicOffers: offers } };
+	};
 
-	it('marks a good with the offer the viewer placed on it (S01-1)', () => {
-		const seen = withOffers([BUY_ISO, SELL_CHIPS]);
-		assert.deepEqual(yourOffer(seen, ISO), { type: 'BUY', typeName: 'Buy', price: 11 });
-		assert.deepEqual(yourOffer(seen, CHIPS), { type: 'SELL', typeName: 'Sell', price: 7 });
+	it("lists every offer on a good, the viewer's first as You, then the others in the order placed", () => {
+		const seen = withOffers([offer(ALTAIR, ISO, 'BUY', 12), offer(ME, ISO, 'BUY', 13), offer(VEGA, ISO, 'SELL', 9), offer(VEGA, POLY, 'SELL', 4)]);
+
+		assert.deepEqual(queueOffers(seen, ISO, ME), [
+			{ who: 'You', type: 'BUY', typeName: 'Buy', price: 13 },
+			{ who: 'Altair Trade Co.', type: 'BUY', typeName: 'Buy', price: 12 },
+			{ who: 'Vega Lines', type: 'SELL', typeName: 'Sell', price: 9 },
+		]);
+		assert.deepEqual(queueOffers(seen, POLY, ME), [{ who: 'Vega Lines', type: 'SELL', typeName: 'Sell', price: 4 }]);
 	});
 
-	it('marks nothing on a good without one, matching both the system and the good', () => {
-		const seen = withOffers([BUY_ISO]);
-		assert.equal(yourOffer(seen, POLY), null);
-		assert.equal(yourOffer(seen, { ...ISO, system: 'TAU_CETI', systemName: 'Tau Ceti' }), null);
-		assert.equal(yourOffer(seen, { ...ISO, goods: 'POLY' }), null);
+	it('lists nothing on a good without offers, matching both the system and the good', () => {
+		const seen = withOffers([offer(ME, ISO, 'BUY', 11)]);
+		assert.deepEqual(queueOffers(seen, { ...ISO, system: 'TAU_CETI', systemName: 'Tau Ceti' }, ME), []);
+		assert.deepEqual(queueOffers(seen, { ...ISO, goods: 'POLY' }, ME), []);
+		assert.deepEqual(queueOffers(game(), ISO, ME), []);
 	});
 
-	it('marks nothing when no offers of the viewer were sent', () => {
-		assert.equal(yourOffer(game(), ISO), null);
-		assert.equal(yourOffer({ ...game(), you: null }, ISO), null);
+	it('says what the lines under the goods are while one has an offer (S01-4)', () => {
+		assert.equal(queueOffersNote(withOffers([offer(VEGA, ISO, 'BUY', 11)])), OFFERS_NOTE);
 	});
 
-	it('says what the marks are while one is in the queue (S01-4)', () => {
-		assert.equal(queueOffersNote(withOffers([BUY_ISO])), YOUR_OFFERS_NOTE);
-	});
-
-	it('says so when the viewer has no offer among the goods left, or placed none', () => {
-		assert.equal(queueOffersNote(withOffers([BUY_ISO], { queue: [POLY] })), NO_OFFERS_LEFT_NOTE);
+	it('says so when no good left has an offer, or nobody placed one', () => {
+		assert.equal(queueOffersNote(withOffers([offer(VEGA, ISO, 'BUY', 11)], { queue: [POLY] })), NO_OFFERS_LEFT_NOTE);
 		assert.equal(queueOffersNote(withOffers([])), NO_OFFERS_PLACED_NOTE);
 		assert.equal(queueOffersNote(game()), NO_OFFERS_PLACED_NOTE);
 	});
@@ -274,7 +280,7 @@ describe("the viewer's own offers on the goods still to resolve (E08-S01)", () =
 	});
 
 	it('says nothing outside Trading', () => {
-		assert.equal(queueOffersNote(withOffers([BUY_ISO], { phase: 'BIDDING' })), '');
+		assert.equal(queueOffersNote(withOffers([offer(VEGA, ISO, 'BUY', 11)], { phase: 'BIDDING' })), '');
 	});
 });
 
@@ -290,10 +296,10 @@ describe('the counter (E05-S03)', () => {
 	});
 
 	it('shows the market, each trade and the end in plain terms (S03-6)', () => {
-		assert.deepEqual(counterLines(traded), [
+		assert.deepEqual(counterTexts(traded), [
 			'Market +3 \u2192 buyers first',
-			'Vega Lines could buy up to 4 u: bought 4 u at 11 HT each, paid 44 HT',
-			'Orion Freight could sell up to 5 u: sold 5 u at 10 HT each, received 50 HT',
+			'Vega Lines could buy up to 4 u: bought 4 u for 44 HT',
+			'Orion Freight could sell up to 5 u: sold 5 u for 50 HT',
 			'No one else can trade at this market.',
 		]);
 	});
@@ -314,26 +320,26 @@ describe('the counter (E05-S03)', () => {
 			}),
 		});
 
-		assert.deepEqual(counterLines(rolled).filter(line => line.includes('rolled')), [
+		assert.deepEqual(counterTexts(rolled).filter(line => line.includes('rolled')), [
 			'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis',
 			'Orion Freight traded 6 u \u2014 rolled 9: no change',
 			'Altair Trade Co. traded 8 u \u2014 rolled 4: now Dictator of ISO at Mu Herculis; Vega Lines is demoted to Wholesaler',
 		]);
-		assert.equal(counterLines(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis');
+		assert.equal(counterTexts(rolled)[2], 'Vega Lines traded 7 u \u2014 rolled 5: now Wholesaler of ISO at Mu Herculis');
 	});
 
 	it('favours sellers below 0 and buyers at 0, and says when nobody could trade (S03-7)', () => {
-		assert.deepEqual(counterLines(game({ resolution: resolving({ awaiting: null, startingCounter: -2 }) })), [
+		assert.deepEqual(counterTexts(game({ resolution: resolving({ awaiting: null, startingCounter: -2 }) })), [
 			'Market \u22122 \u2192 sellers first',
 			'No one can trade at this market.',
 		]);
-		assert.equal(counterLines(game({ resolution: resolving({ awaiting: null, startingCounter: 0 }) }))[0], 'Market 0 \u2192 buyers first');
+		assert.equal(counterTexts(game({ resolution: resolving({ awaiting: null, startingCounter: 0 }) }))[0], 'Market 0 \u2192 buyers first');
 	});
 
 	it('shows nothing before the counter starts, so not while the Dictator decides (R38)', () => {
-		assert.deepEqual(counterLines(game({ resolution: resolving() })), []);
-		assert.deepEqual(counterLines(game()), []);
-		assert.deepEqual(counterLines(game({ resolution: { good: ISO, offers: [], dictator: null, awaitingDictator: null, finished: true } })), []);
+		assert.deepEqual(counterTexts(game({ resolution: resolving() })), []);
+		assert.deepEqual(counterTexts(game()), []);
+		assert.deepEqual(counterTexts(game({ resolution: { good: ISO, offers: [], dictator: null, awaitingDictator: null, finished: true } })), []);
 	});
 });
 
@@ -461,7 +467,7 @@ describe('a trader choosing an amount (E05-S04)', () => {
 			},
 		});
 
-		assert.deepEqual(counterLines(nothing), [
+		assert.deepEqual(counterTexts(nothing), [
 			'Market +3 \u2192 buyers first',
 			'Orion Freight could sell up to 2 u: sold nothing',
 			'Vega Lines could buy up to 3 u: bought nothing',
@@ -519,10 +525,10 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 			}),
 		});
 
-		assert.deepEqual(counterLines(answered).slice(2), [
+		assert.deepEqual(counterTexts(answered).slice(2), [
 			'No one else can trade at this market.',
-			'ISO price at Mu Herculis: 11 \u2192 10 HT',
-			'Orion Freight (Wholesaler) bought 3 u at 10 HT each, paid 30 HT',
+			'ISO price at Mu Herculis falls to 10 HT',
+			'Orion Freight (Wholesaler) bought 3 u for 30 HT',
 			'Altair Trade Co. (Dictator) passed on wholesale',
 		]);
 	});
@@ -530,7 +536,19 @@ describe('the price change and the wholesale step (E05-S05)', () => {
 	it('shows the price change even when nobody traded (S05-2)', () => {
 		const none = game({ resolution: { ...resolving({ awaiting: null, startingCounter: 13 }), startPrice: 11, newPrice: 7, wholesales: [] } });
 
-		assert.deepEqual(counterLines(none), ['Market +13 \u2192 buyers first', 'No one can trade at this market.', 'ISO price at Mu Herculis: 11 \u2192 7 HT']);
+		assert.deepEqual(counterTexts(none), ['Market +13 \u2192 buyers first', 'No one can trade at this market.', 'ISO price at Mu Herculis falls to 7 HT']);
+	});
+
+	it('colours the side the market favours and the way the price moves (creator, 2026-11-18)', () => {
+		const at = (startingCounter, newPrice) => counterLines(game({
+			resolution: { ...resolving({ awaiting: null, startingCounter }), startPrice: 11, newPrice, wholesales: [] },
+		}));
+
+		assert.deepEqual(at(3, 12)[0], ['Market +3 \u2192 ', { text: 'buyers', tone: 'buy' }, ' first']);
+		assert.deepEqual(at(-3, 12)[0], ['Market \u22123 \u2192 ', { text: 'sellers', tone: 'sell' }, ' first']);
+		assert.deepEqual(at(3, 12).at(-1), ['ISO price at Mu Herculis ', { text: 'rises', tone: 'rise' }, ' to 12 HT']);
+		assert.deepEqual(at(3, 7).at(-1), ['ISO price at Mu Herculis ', { text: 'falls', tone: 'fall' }, ' to 7 HT']);
+		assert.deepEqual(at(3, 11).at(-1), ['ISO price at Mu Herculis stays at 11 HT']);
 	});
 
 	it('names whom the wholesale step waits for, holds Resolve next, and alerts only them (S01-8, S01-9, S05-4)', () => {

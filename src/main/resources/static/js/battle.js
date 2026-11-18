@@ -105,7 +105,7 @@ export function battleShipRows(game) {
 		ownerId: ship.ownerId,
 		hull: `${ship.hull.name}, hull ${ship.hullDamage} / ${ship.stats.shields} hit`,
 		stats: `weapons ${ship.stats.weapons}, rockets ${ship.stats.rocketWeapons}, shields ${ship.stats.shields}, intercept ${ship.stats.intercept}, crew ${ship.crewClass}`,
-		modules: ship.modules.map(module => `${module.name} × ${module.count}${module.damaged ? ` (${module.damaged} damaged)` : ''}`).join(', ') || 'no modules',
+		modules: ship.modules.length ? ship.modules.map(module => `${module.name} × ${module.count}${module.damaged ? ` (${module.damaged} damaged)` : ''}`) : ['no modules'],
 		note: left ? 'broke away' : ship.interceptedBy?.length ? `intercepted by ${ship.interceptedBy.join(' and ')}` : '',
 	});
 	return [...battle.ships.map(ship => row(ship, false)), ...battle.leftShips.map(ship => row(ship, true))];
@@ -215,8 +215,9 @@ export function reportTitle(game) {
 
 /**
  * R75–R78: what the last round's salvos did to and from the viewer's ships, one line each, worded from the outcome the
- * server decided: `{ key, text }`. The key identifies the line for "already seen"; a line about the viewer's own ship
- * reads the same whether or not they've placed its hits yet, so placing them doesn't bring it back.
+ * server decided: `{ key, text, parts }`. [parts] is the text with "ship destroyed" as `{ text, tone: 'alert' }`, shown
+ * red and bold. The key identifies the salvo for "already seen", not its outcome: a target placing its hits changes the
+ * firer's line ("wait for …" → "… applied the damage") but mustn't bring the report back for either of them.
  */
 export function reportLines(game, playerId) {
 	const report = game.you?.battleReport;
@@ -228,9 +229,12 @@ export function reportLines(game, playerId) {
 		const text = result.firerOwnerId === playerId
 			? `${firers.size > 1 ? `${result.firer}: ` : ''}${firedText(game, result)}`
 			: takenText(game, result);
-		return { key: `${game.id}/${game.turn?.number}/${report.system}/${report.round}/${text}`, text };
+		const parts = text.endsWith(`, ${DESTROYED}.`) ? [text.slice(0, -DESTROYED.length - 1), { text: DESTROYED, tone: 'alert' }, '.'] : [text];
+		return { key: `${game.id}/${game.turn?.number}/${report.system}/${report.round}/${result.firer}/${result.target}`, text, parts };
 	});
 }
+
+const DESTROYED = 'ship destroyed';
 
 function damage(result) {
 	return `${result.rockets ? ' with rockets' : ''} for ${result.hits} damage`;
@@ -248,7 +252,7 @@ function firedText(game, result) {
 	case 'PLACED':
 		return `You hit ${result.target}${damage(result)}, ${owner} applied the damage.`;
 	default:
-		return `You hit ${result.target}${damage(result)}, ship destroyed.`;
+		return `You hit ${result.target}${damage(result)}, ${DESTROYED}.`;
 	}
 }
 
@@ -260,7 +264,7 @@ function takenText(game, result) {
 	case 'NO_DAMAGE':
 		return `${firer} fired${result.rockets ? ' rockets' : ''} at your ${result.target}: no damage.`;
 	case 'DESTROYED':
-		return `${firer} hit your ${result.target}${damage(result)}, ship destroyed.`;
+		return `${firer} hit your ${result.target}${damage(result)}, ${DESTROYED}.`;
 	default:
 		return `${firer} hit your ${result.target}${damage(result)}.`;
 	}

@@ -1,8 +1,8 @@
 /*
  * Pure helpers for the Trading screen (s03, E05-S01 to S05) and the Trading parts of the top bar and the decision alert.
  * They read `turn.initiative`, `turn.tradingQueue`, `turn.resolvedGoods` and `turn.resolution` from GET /api/games/{id}
- * (BACKWARD_COMPATIBILITY.md §6). Those are public (R25, R36): the only offers are those a resolution has disclosed
- * (E05-S02-1), and the viewer's own `you.offers`, which mark the goods still to resolve for them alone (E08-S01, R17). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get,
+ * (BACKWARD_COMPATIBILITY.md §6). Those are public (R25, R36), and so is `turn.publicOffers`: every offer of the turn
+ * once Trading has started (R17), listed under the goods still to resolve (E08-S01). The amount form (E05-S04) also reads the viewer's own `you.tradeMax` and `you.ships`, which only they get,
  * and the wholesale form (E05-S05) their `you.wholesaleMax`.
  */
 
@@ -166,13 +166,23 @@ export function queueNote(game, playerId) {
 	return who === playerId ? YOUR_QUEUE_NOTE : `Order decided by ${corporation(game, who)} (first in initiative); it can change until each one resolves.`;
 }
 
+function publicOffers(game) {
+	return game.turn?.publicOffers ?? [];
+}
+
 /**
- * E08-S01-1: the viewer's own offer on [good] this turn, as its mark in the queue, or null when they have none there.
- * Only ever their own: nobody else's offers are sent before a good resolves (R17).
+ * E08-S01-1: every offer on [good] this turn, as the queue lists them under it: [playerId]'s own first, as "You", then
+ * the others in the order they were placed. Offers are public once Trading has started (R17).
  */
-export function yourOffer(game, good) {
-	const offer = (game.you?.offers ?? []).find(candidate => candidate.system === good.system && candidate.goods === good.goods);
-	return offer ? { type: offer.type, typeName: TYPE_NAMES[offer.type] ?? offer.type, price: offer.price } : null;
+export function queueOffers(game, good, playerId) {
+	const offers = publicOffers(game).filter(offer => offer.system === good.system && offer.goods === good.goods);
+	return [...offers.filter(offer => offer.playerId === playerId), ...offers.filter(offer => offer.playerId !== playerId)]
+		.map(offer => ({
+			who: offer.playerId === playerId ? 'You' : corporation(game, offer.playerId),
+			type: offer.type,
+			typeName: TYPE_NAMES[offer.type] ?? offer.type,
+			price: offer.price,
+		}));
 }
 
 export const DICTATOR_MARK = "You're Dictator here: you place your offer when it resolves";
@@ -186,19 +196,19 @@ export function isDictatorOf(game, good, playerId) {
 	return positions.some(position => position.system === good.system && position.goods === good.goods && position.tier === 'DICTATOR');
 }
 
-export const YOUR_OFFERS_NOTE = 'Your own offers are marked. Only you see them until their good resolves.';
-export const NO_OFFERS_LEFT_NOTE = 'None of the remaining goods has an offer of yours.';
-export const NO_OFFERS_PLACED_NOTE = 'You placed no offers this turn.';
+export const OFFERS_NOTE = 'Each good lists the offers on it: every offer became public when Trading started.';
+export const NO_OFFERS_LEFT_NOTE = 'None of the remaining goods has an offer.';
+export const NO_OFFERS_PLACED_NOTE = 'Nobody placed an offer this turn.';
 
-/** E08-S01-4: the line under the queue: what the marks are, or that the viewer has no offer among the goods left. "" outside Trading. */
+/** E08-S01-4: the line under the queue: what the offers under the goods are, or that none is left. "" outside Trading. */
 export function queueOffersNote(game) {
 	if (!isTrading(game)) {
 		return '';
 	}
-	if (queue(game).some(good => yourOffer(game, good) !== null)) {
-		return YOUR_OFFERS_NOTE;
+	if (queue(game).some(good => queueOffers(game, good, null).length > 0)) {
+		return OFFERS_NOTE;
 	}
-	return (game.you?.offers ?? []).length > 0 ? NO_OFFERS_LEFT_NOTE : NO_OFFERS_PLACED_NOTE;
+	return publicOffers(game).length > 0 ? NO_OFFERS_LEFT_NOTE : NO_OFFERS_PLACED_NOTE;
 }
 
 /** The resolution panel's heading: "Now resolving: Mu Herculis · ISO", or "Resolved: …" once finished; "" with none. */
@@ -242,10 +252,14 @@ export function dictatorLine(game) {
 /**
  * E05-S03 (S03-6, D07): how the market traded, in plain terms with no dice arithmetic: "Market +3 → buyers first",
  * each trade with what the market allowed and what took place (E05-S04-6: "Vega Lines could buy up to 12 u: bought
- * 10 u at 13 HT each, paid 130 HT") and the position roll it made, if any (E05-S06-4), then "No one else can trade at this market." once it's over, or "No one can trade
- * at this market." when no unit traded (S03-7). Then the price change, "ISO price at Mu Herculis: 11 → 10 HT" (E05-S05-2),
- * and each wholesale answer: "Kessler Cargo (Wholesaler) bought 3 u at 10 HT each, paid 30 HT" (S05-5). Empty until the
- * counter starts (after the Dictator).
+ * 10 u for 130 HT"; the unit price is the offer's, listed above) and the position roll it made, if any (E05-S06-4),
+ * then "No one else can trade at this market." once it's over, or "No one can trade at this market." when no unit
+ * traded (S03-7). Then the price change, "ISO price at Mu Herculis falls to 10 HT" (E05-S05-2), and each wholesale
+ * answer: "Kessler Cargo (Wholesaler) bought 3 u for 30 HT" (S05-5), at that new price. Empty until the counter starts
+ * (after the Dictator).
+ *
+ * Each line is a list of parts: text, or `{ text, tone }` for a word shown in colour: "buyers" and "sellers" in the
+ * Buy and Sell colours (`buy`, `sell`), "rises" and "falls" in green and red (`rise`, `fall`). [lineText] joins them.
  */
 export function counterLines(game) {
 	const current = resolution(game);
@@ -255,20 +269,36 @@ export function counterLines(game) {
 	}
 	const signed = counter > 0 ? `+${counter}` : String(counter).replace('-', '\u2212');
 	const trades = current.trades ?? [];
+	const side = counter >= 0 ? { text: 'buyers', tone: 'buy' } : { text: 'sellers', tone: 'sell' };
 	const lines = [
-		`Market ${signed} \u2192 ${counter >= 0 ? 'buyers' : 'sellers'} first`,
-		...trades.flatMap(trade => [tradeLine(game, trade), positionRollLine(game, trade, current.good)].filter(Boolean)),
+		[`Market ${signed} \u2192 `, side, ' first'],
+		...trades.flatMap(trade => [tradeLine(game, trade), positionRollLine(game, trade, current.good)].filter(Boolean)).map(line => [line]),
 	];
 	const over = current.newPrice !== null && current.newPrice !== undefined;
 	if (over || current.finished) {
-		lines.push(trades.some(trade => trade.units > 0) ? 'No one else can trade at this market.' : 'No one can trade at this market.');
+		lines.push([trades.some(trade => trade.units > 0) ? 'No one else can trade at this market.' : 'No one can trade at this market.']);
 	}
 	if (over) {
-		const { good } = current;
-		lines.push(`${good.goods} price at ${good.systemName}: ${current.startPrice} \u2192 ${current.newPrice} HT`);
-		lines.push(...(current.wholesales ?? []).map(wholesale => wholesaleLine(game, wholesale)));
+		lines.push(priceLine(current));
+		lines.push(...(current.wholesales ?? []).map(wholesale => [wholesaleLine(game, wholesale)]));
 	}
 	return lines;
+}
+
+/** A line of [counterLines] as plain text. */
+export function lineText(parts) {
+	return parts.map(part => (typeof part === 'string' ? part : part.text)).join('');
+}
+
+/** E05-S05-2: "ISO price at Mu Herculis rises to 12 HT", "… falls to 10 HT", or "… stays at 11 HT". */
+function priceLine(current) {
+	const { good, startPrice, newPrice } = current;
+	const where = `${good.goods} price at ${good.systemName} `;
+	if (newPrice === startPrice) {
+		return [`${where}stays at ${newPrice} HT`];
+	}
+	const move = newPrice > startPrice ? { text: 'rises', tone: 'rise' } : { text: 'falls', tone: 'fall' };
+	return [where, move, ` to ${newPrice} HT`];
 }
 
 function wholesaleLine(game, wholesale) {
@@ -276,8 +306,8 @@ function wholesaleLine(game, wholesale) {
 	if (!wholesale.type) {
 		return `${who} passed on wholesale`;
 	}
-	const [done, total] = wholesale.type === 'SELL' ? ['sold', 'received'] : ['bought', 'paid'];
-	return `${who} ${done} ${wholesale.units} u at ${wholesale.price} HT each, ${total} ${wholesale.units * wholesale.price} HT`;
+	const done = wholesale.type === 'SELL' ? 'sold' : 'bought';
+	return `${who} ${done} ${wholesale.units} u for ${wholesale.units * wholesale.price} HT`;
 }
 
 /** R28: the market-position tiers' names. */
@@ -301,11 +331,11 @@ function positionRollLine(game, trade, good) {
 }
 
 function tradeLine(game, trade) {
-	const [action, done, total] = trade.type === 'SELL' ? ['sell', 'sold', 'received'] : ['buy', 'bought', 'paid'];
+	const [action, done] = trade.type === 'SELL' ? ['sell', 'sold'] : ['buy', 'bought'];
 	const allowed = `${corporation(game, trade.playerId)} could ${action} up to ${trade.marketMax ?? trade.units} u`;
 	return trade.units === 0
 		? `${allowed}: ${done} nothing`
-		: `${allowed}: ${done} ${trade.units} u at ${trade.price} HT each, ${total} ${trade.units * trade.price} HT`;
+		: `${allowed}: ${done} ${trade.units} u for ${trade.units * trade.price} HT`;
 }
 
 /** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */

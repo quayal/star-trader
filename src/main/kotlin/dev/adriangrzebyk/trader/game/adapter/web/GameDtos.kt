@@ -213,8 +213,8 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
  * now, or the last one resolved, and null before the first. [doneInvesting] lists who has signalled done during
  * Investment (R44), so everyone sees who the game waits for (D09). [collected] lists the players with factories who have
- * confirmed where their output goes (R47, E06-S03-5), public in the same way. Offers never go here except the disclosed ones of
- * [resolution] (R17, E05-S02-1), and bids never do (R29).
+ * confirmed where their output goes (R47, E06-S03-5), public in the same way. Offers go here only once Trading has
+ * started, when every offer of the turn becomes public as [publicOffers] (R17); bids never do (R29).
  */
 data class TurnResponseDto(
 	val number: Int,
@@ -231,7 +231,8 @@ data class TurnResponseDto(
 	val doneInvesting: List<String>,
 	val collected: List<String>,
 	val interception: InterceptionResponseDto?,
-	val battle: BattleResponseDto?
+	val battle: BattleResponseDto?,
+	val publicOffers: List<PublicOfferResponseDto>
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -250,7 +251,8 @@ data class TurnResponseDto(
 		ids.ofAll(turn.doneInvesting),
 		ids.ofAll(turn.collected),
 		turn.interception?.let { InterceptionResponseDto(it, ids) },
-		turn.battle?.let { BattleResponseDto(it, ids, ships) }
+		turn.battle?.let { BattleResponseDto(it, ids, ships) },
+		turn.publicOffers().map { PublicOfferResponseDto(it, ids) }
 	)
 }
 
@@ -368,6 +370,18 @@ data class AwaitingTradeResponseDto(val playerId: String, val type: String, val 
 data class DisclosedOfferResponseDto(val playerId: String, val type: String, val price: Int) {
 
 	constructor(offer: Offer, ids: PlayerIds) : this(ids.of(offer.playerEmail), offer.type.name, offer.price)
+}
+
+/** One of this turn's offers once Trading has started and every offer is public (R17): who, where, and the terms. */
+data class PublicOfferResponseDto(val playerId: String, val system: String, val goods: String, val type: String, val price: Int) {
+
+	constructor(offer: Offer, ids: PlayerIds) : this(
+		ids.of(offer.playerEmail),
+		offer.system.name,
+		offer.goods.name,
+		offer.type.name,
+		offer.price
+	)
 }
 
 /** One good at one system, as Trading resolves it: [system] and [goods] are the constants, [systemName] for display. */

@@ -119,7 +119,7 @@ describe('a battle (E10-S03, S04)', () => {
 		assert.equal(rows.length, 2);
 		assert.equal(rows[0].hull, 'Clarinet, hull 1 / 2 hit');
 		assert.equal(rows[0].stats, 'weapons 6, rockets 5, shields 2, intercept 2, crew B');
-		assert.equal(rows[0].modules, 'Cargo × 4 (1 damaged), Light weapons × 1');
+		assert.deepEqual(rows[0].modules, ['Cargo × 4 (1 damaged)', 'Light weapons × 1']);
 		assert.equal(rows[0].note, '');
 		assert.equal(rows[1].note, 'intercepted by Wayfarer');
 		assert.equal(fightTitle(game({ battle: battle() })), 'Battle at Tau Ceti — round 2');
@@ -243,6 +243,21 @@ describe('the battle report (R75–R78)', () => {
 		assert.equal(placed[0].key, waiting[0].key);
 		assert.deepEqual(texts(reported(result('Meridian', VEGA, 'Wayfarer', ME, 'DESTROYED', { rockets: true }))),
 			['Meridian (Vega Lines) hit your Wayfarer with rockets for 4 damage, ship destroyed.']);
+	});
+
+	it("keeps a firer's line seen once the target places its hits, so the report doesn't come back", () => {
+		const waiting = reportLines(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'AWAITING_PLACEMENT')), ME);
+		const placed = reportLines(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'PLACED')), ME);
+
+		assert.notEqual(placed[0].text, waiting[0].text);
+		assert.equal(placed[0].key, waiting[0].key);
+	});
+
+	it('marks "ship destroyed" to show in red and bold', () => {
+		assert.deepEqual(reportLines(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'DESTROYED')), ME)[0].parts,
+			['You hit Lantern for 4 damage, ', { text: 'ship destroyed', tone: 'alert' }, '.']);
+		assert.deepEqual(reportLines(reported(result('Wayfarer', ME, 'Lantern', VEGA, 'PLACED')), ME)[0].parts,
+			['You hit Lantern for 4 damage, Vega Lines applied the damage.']);
 	});
 
 	it('says nothing without a report', () => {

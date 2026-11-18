@@ -54,6 +54,13 @@
 	--trade-buy: var(--green-400);          /* R04.1 */
 	--trade-sell: var(--red-400);           /* R04.1 */
 
+	/* Words coloured inside a sentence (creator's UI feedback, 2026-11-18): the side the market favours, a price move, a loss */
+	--tone-buy: var(--trade-buy);           /* "buyers first" in Trading's market lines */
+	--tone-sell: var(--trade-sell);         /* "sellers first" */
+	--tone-rise: var(--green-400);          /* a price that "rises" */
+	--tone-fall: var(--red-400);            /* a price that "falls" */
+	--tone-alert: var(--status-danger);     /* "1 hit to place", "ship destroyed" in a battle */
+
 	/* Goods: goods column and goods icons only (R04.1, conflict 49) */
 	--good-poly: var(--blue-400);           /* R04.1 (lighter than "dark blue" for contrast, tokens.md flag 2) */
 	--good-chips: var(--pink-400);          /* R04.1 */
