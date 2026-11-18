@@ -2,7 +2,10 @@ package dev.adriangrzebyk.trader.game.battle
 
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.CorporationNames
+import dev.adriangrzebyk.trader.game.InterceptionRoll
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.Notice
+import dev.adriangrzebyk.trader.game.NoticeKind
 
 /**
  * A ship that just arrived in Space at [system] (R70): [ship], [ownerEmail]'s. Every player [asked] has ships in Space
@@ -29,6 +32,10 @@ data class Interception(
 
 	/** The public log line when everyone asked declined (R70). */
 	fun nobodyTriedText(): String = "Nobody tries to intercept $ship"
+
+	/** The pop-up notice of [roll], one try at this ship (R70, R71), for the player who tried and the ship's owner (creator, 2026-11-18). */
+	fun tryNotice(roll: InterceptionRoll): Notice =
+		Notice(NoticeKind.INTERCEPTION, system, listOf(roll.interceptorEmail, ownerEmail), null, roll)
 
 	/** Whether everyone asked has answered: the tries can be rolled. */
 	fun isDecided(): Boolean = awaiting().isEmpty()

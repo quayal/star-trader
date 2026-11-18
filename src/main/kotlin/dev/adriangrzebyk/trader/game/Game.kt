@@ -566,9 +566,8 @@ data class Game(
 				arriving.interceptLog(theirs),
 				success
 			)
-			val notice = Notice(NoticeKind.INTERCEPTION, interception.system, listOf(email, interception.ownerEmail), null, roll)
-			val line = "Interception: ${roll.interceptorRoll} vs ${roll.arrivingRoll}: ${if (success) "intercepted" else "escapes"}"
-			events += LogEntry.notice(current.number, line, notice)
+			val notice = interception.tryNotice(roll)
+			events += LogEntry.notice(current.number, roll.logText(), notice)
 			// R86 (E13-S04): every try is a hostile act and costs 2d6 of reputation, unless the trying ship has a working Battle comm.
 			if (!interceptor.hasWorkingBattleComm()) {
 				val loss = dice.twoD6()
@@ -597,8 +596,8 @@ data class Game(
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		val battle = Battle.start(system, fighting, interceptions, current.interceptionTries)
-		val notice = Notice(NoticeKind.BATTLE_STARTED, system, battle.landers(), null, null)
-		return copy(turn = current.withBattleStarted(battle), log = log + LogEntry.notice(current.number, battle.startedText(), notice))
+		val started = LogEntry.notice(current.number, battle.startedText(), battle.notice(NoticeKind.BATTLE_STARTED))
+		return copy(turn = current.withBattleStarted(battle), log = log + started)
 	}
 
 	/**
@@ -635,7 +634,7 @@ data class Game(
 			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
 			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
 			log = log + (round.log + penaltyLog).map {
-				LogEntry.notice(current.number, it, Notice(NoticeKind.BATTLE_ROUND, battle.system, battle.landers(), battle.round, null))
+				LogEntry.notice(current.number, it, battle.roundNotice())
 			}
 		).withBattleMovedOn()
 	}
@@ -655,7 +654,7 @@ data class Game(
 			players = replace(hit),
 			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
 			log = log + destroyed.map {
-				LogEntry.notice(current.number, "$it is destroyed", Notice(NoticeKind.SHIP_DESTROYED, battle.system, battle.landers(), null, null))
+				LogEntry.notice(current.number, "$it is destroyed", battle.notice(NoticeKind.SHIP_DESTROYED))
 			}
 		).withBattleMovedOn()
 	}
@@ -686,7 +685,7 @@ data class Game(
 	private fun withBattleMovedOn(): Game {
 		val current = runningTurn()
 		val battle = checkNotNull(current.battle)
-		val over = Notice(NoticeKind.BATTLE_OVER, battle.system, battle.landers(), null, null)
+		val over = battle.notice(NoticeKind.BATTLE_OVER)
 		val events = listOfNotNull(battle.overText().takeIf { battle.isJustOver() }).map { LogEntry.notice(current.number, it, over) }
 		if (!battle.isFinished()) {
 			return copy(log = log + events)

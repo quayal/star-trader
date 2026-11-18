@@ -31,4 +31,8 @@ data class InterceptionRoll(
 	val arrivingShip: String,
 	val arrivingRoll: String,
 	val success: Boolean
-)
+) {
+
+	/** The public log line (R71): "Interception: Meridian (2 + d6 3 + 1 = 6) vs Wayfarer (…): intercepted" or "…: escapes". */
+	fun logText(): String = "Interception: $interceptorRoll vs $arrivingRoll: ${if (success) "intercepted" else "escapes"}"
+}

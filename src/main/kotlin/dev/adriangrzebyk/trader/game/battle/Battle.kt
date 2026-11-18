@@ -2,6 +2,8 @@ package dev.adriangrzebyk.trader.game.battle
 
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.Notice
+import dev.adriangrzebyk.trader.game.NoticeKind
 
 /**
  * A battle in Space at [system] (R73–R77), a sub-phase of Ship-jumps. [ships] are the ships still fighting, [interceptions]
@@ -169,6 +171,12 @@ data class Battle(
 
 	/** The public log line once no ship fights any more (R77). */
 	fun overText(): String = "The battle at ${system.displayName} is over"
+
+	/** The pop-up notice of a moment of this battle (creator, 2026-11-18), for everyone with a ship in it. */
+	fun notice(kind: NoticeKind): Notice = Notice(kind, system, landers(), null, null)
+
+	/** The pop-up notice of this round's salvos, for the bystanders' cards (creator, 2026-11-18). */
+	fun roundNotice(): Notice = Notice(NoticeKind.BATTLE_ROUND, system, landers(), round, null)
 
 	/** Whether [email] has a part in this battle: a surviving ship from it, or hits to place (R74–R77). */
 	fun involves(email: String): Boolean = email in landers() || pendingHitsOwnedBy(email).isNotEmpty()
