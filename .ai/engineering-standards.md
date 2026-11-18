@@ -180,11 +180,23 @@ two or more fields of another object (`it.system == x && it.goods == y`, `battle
 a DTO or item constructor; a method of one part taking another part as a parameter; `Game.kt` getting longer from rules
 whose data lives in a part.
 
+## 14. Boundaries are tested
+
+§1 and §2 are checked by `src/test/kotlin/dev/adriangrzebyk/trader/ArchitectureTest.kt` (Konsist, plain JUnit), so a
+slip fails `./gradlew check` instead of waiting for review (creator, 2026-11-19):
+
+1. No file in a concept's domain (`game`, `game.battle`, `login`, `board`, anything not under `..adapter..`) imports
+   `org.springframework`, `software.amazon`, `com.fasterxml` or `jakarta`. `web`, the top-level Spring config, is exempt.
+2. No file outside an `..adapter..` package imports from one.
+3. `board`, the board's fixed catalogue, imports nothing from `game` or `login`.
+4. `game`'s domain imports nothing from `login`; its web adapter may (for `SessionStore`).
+
+A new concept package or a new adapter kind extends the test's lists in the same change.
+
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
-- Whether to adopt detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
-  self-enforcing — worth revisiting once a couple of real features exist to encode rules against. ktlint is
-  in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's functions-in-classes rule does).
+- Whether to adopt detekt. ktlint is in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's
+  functions-in-classes rule does); package boundaries are tested by Konsist (§14).
 - A worked example (one concept's port + fake + real adapter) as a template for agents to copy — deferred
   until the first real feature is built, which becomes the example.
