@@ -26,6 +26,9 @@ data class Warehouse(override val system: StarSystem, val blocks: Int, override 
 
 	override fun cargoName(): String = "Your warehouse at ${system.displayName}"
 
+	override fun lots(): List<GoodsLot> =
+		cargo.filterValues { it > 0 }.toSortedMap().map { (goods, units) -> GoodsLot(goods, units, system, null) }
+
 	/** How many units of [goods] this warehouse holds. */
 	override fun holding(goods: Goods): Int = cargo[goods] ?: 0
 

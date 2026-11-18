@@ -49,6 +49,10 @@ export function parseRoute(hash) {
 	if (fleet) {
 		return { view: 'fleet', id: decodeURIComponent(fleet[1]) };
 	}
+	const fleetShip = /^#game\/([^/]+)\/fleet\/([^/]+)$/.exec(text);
+	if (fleetShip) {
+		return { view: 'fleet', id: decodeURIComponent(fleetShip[1]), ship: decodeURIComponent(fleetShip[2]) };
+	}
 	const assets = /^#game\/([^/]+)\/assets$/.exec(text);
 	if (assets) {
 		return { view: 'assets', id: decodeURIComponent(assets[1]) };
@@ -99,11 +103,17 @@ export function fleetLink(id) {
 	return `#game/${encodeURIComponent(id)}/fleet`;
 }
 
-/** The Corporations tab (E11-S01, D20) of game [id]: every public fact about every player. */
+/** The Fleet tab of game [id] with the card of the player's ship [ship] in view (creator, 2026-11-18). */
+export function fleetShipLink(id, ship) {
+	return `#game/${encodeURIComponent(id)}/fleet/${encodeURIComponent(ship)}`;
+}
+
+/** The Assets tab (creator, 2026-11-18) of game [id]: where the player's money sits. */
 export function assetsLink(id) {
 	return `#game/${encodeURIComponent(id)}/assets`;
 }
 
+/** The Corporations tab (E11-S01, D20) of game [id]: every public fact about every player. */
 export function corporationsLink(id) {
 	return `#game/${encodeURIComponent(id)}/corporations`;
 }

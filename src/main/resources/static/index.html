@@ -315,6 +315,7 @@
 		.fleet__ships { display: grid; gap: var(--space-panel); }
 		.fleet-ship { display: grid; gap: var(--space-related); min-width: 0; }
 		.fleet-ship h3 { margin: 0; font-size: var(--text-title); }
+		.fleet-ship h3:focus { outline: none; }
 		.fleet-ship .facts { margin: 0; }
 		.fleet-ship__flags { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
@@ -341,6 +342,11 @@
 		.assets__summary div { display: grid; gap: var(--space-hairline); }
 		.assets__summary dt { font-size: var(--text-caption); color: var(--text-muted); }
 		.assets__summary dd { margin: 0; font-family: var(--font-display); font-size: var(--text-title); }
+		.assets__group { display: grid; gap: var(--space-related); }
+		.assets__group > h3 { margin: 0; font-size: var(--text-title); }
+		.assets__goods { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+		.assets__good-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-group); }
+		.assets__good-head strong { font-family: var(--font-display); font-size: var(--text-title); }
 		/* Your trades on the Deck (creator, 2026-11-18): newest first, Bought/Sold coloured. */
 		.trade-history { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		.trade-history .muted { font-family: var(--font-display); font-size: var(--text-caption); }
@@ -754,15 +760,15 @@
 		<!-- Assets (creator, 2026-11-18): where the player's money sits; theirs only (R29). -->
 		<div class="assets" id="assets-panel" hidden>
 			<h2 class="system__title" id="assets-title" tabindex="-1">Assets</h2>
-			<p class="muted">Where your money is. Goods are valued at today’s price where they are; ships at what they would fetch sold.</p>
+			<p class="muted">Where your money is. Goods are valued at each good’s mean price across the systems that trade it today, wherever they are; ships at what they would fetch sold.</p>
 			<section class="panel" aria-label="Summary">
 				<dl class="assets__summary" id="assets-summary"></dl>
 			</section>
+			<section class="assets__group" aria-labelledby="assets-goods-title">
+				<h3 id="assets-goods-title">Goods</h3>
+				<div class="corporations__cards assets__goods" id="assets-goods"></div>
+			</section>
 			<div class="corporations__cards">
-				<section class="panel corporation" aria-labelledby="assets-ships-title">
-					<h3 id="assets-ships-title">Ships</h3>
-					<ul class="corporation__list" id="assets-ships"></ul>
-				</section>
 				<section class="panel corporation" aria-labelledby="assets-warehouses-title">
 					<h3 id="assets-warehouses-title">Warehouses</h3>
 					<ul class="corporation__list" id="assets-warehouses"></ul>
@@ -1182,6 +1188,7 @@
 		tradingLink,
 		gameOverLink,
 		fleetLink,
+		fleetShipLink,
 		assetsLink,
 		corporationsLink,
 		infrastructureLink,
@@ -1452,6 +1459,7 @@
 	let focusInfrastructureTitle = false;
 	// Set when the player opens Fleet (E07-S03), so its heading takes focus once.
 	let focusFleetTitle = false;
+	let focusFleetShip = null; // the ship whose card a `#game/{id}/fleet/{ship}` link brings into view (creator, 2026-11-18)
 	// Set when the player opens Corporations (E11-S01), so its heading takes focus once.
 	let focusCorporationsTitle = false;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
@@ -1515,7 +1523,7 @@
 		if ($('notice-dialog').open) {
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
 		}
-		const { view, id } = parseRoute(location.hash);
+		const { view, id, ship } = parseRoute(location.hash);
 		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
@@ -1554,6 +1562,7 @@
 			focusTradingTitle = view === 'trading';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
+			focusFleetShip = view === 'fleet' ? ship ?? null : null;
 			focusAssetsTitle = view === 'assets';
 			focusCorporationsTitle = view === 'corporations';
 			focusOverTitle = view === 'over';
@@ -1972,13 +1981,20 @@
 			}
 			updateCargoForm(game); // R58: moving goods sits with the ships it moves between
 			showPanels('fleet-panel');
-			if (focusFleetTitle) {
-				focusFleetTitle = false;
+			const shipTitle = focusFleetShip === null ? null
+				: [...$('fleet-ships').querySelectorAll('h3')].find(title => title.textContent === focusFleetShip);
+			if (shipTitle) {
+				shipTitle.focus();
+				shipTitle.scrollIntoView({ block: 'start' });
+			} else if (focusFleetTitle) {
 				$('fleet-panel-title').focus();
 			}
+			focusFleetTitle = false;
+			focusFleetShip = null;
 			return;
 		}
 		focusFleetTitle = false;
+		focusFleetShip = null;
 		if (view === 'assets') {
 			renderAssets(game); // with the regular poll; it redraws only when the numbers changed
 			showPanels('assets-panel');
@@ -2113,20 +2129,21 @@
 		}
 		shownAssetsKey = key;
 		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
-		const goodsList = lines => lines.map(line => element('div', {}, `${line.units} `, good(line.goods), ` ${line.detail}`));
 		const empty = text => (text ? [element('li', { class: 'muted' }, text)] : []);
 		$('assets-summary').replaceChildren(...view.summary.map(item =>
 			element('div', {}, element('dt', {}, item.label), element('dd', {}, item.value))));
-		$('assets-ships').replaceChildren(...empty(view.notes.ships), ...view.ships.map(ship => element('li', {},
-			element('strong', {}, ship.name), ' \u2014 ',
-			element('a', { class: 'link', href: systemLink(game.id, ship.system) }, ship.where),
-			element('div', { class: 'muted' }, `Sale value ${ship.saleValue} \u00b7 goods ${ship.goodsValue}`),
-			...goodsList(ship.goods))));
+		$('assets-goods').replaceChildren(...(view.notes.goods ? [element('p', { class: 'muted' }, view.notes.goods)] : []), ...view.goods.map(stock =>
+			element('section', { class: 'panel corporation', 'aria-label': stock.goods },
+				element('div', { class: 'assets__good-head' }, good(stock.goods), element('strong', {}, stock.units)),
+				element('p', { class: 'muted' }, `${stock.value} \u00b7 ${stock.price}`),
+				element('ul', { class: 'corporation__list' }, ...stock.lots.map(lot => element('li', {},
+					`${lot.units} \u2014 `,
+					lot.ship === null ? 'Warehouse' : element('a', { class: 'link', href: fleetShipLink(game.id, lot.ship) }, lot.ship),
+					' at ',
+					element('a', { class: 'link', href: systemLink(game.id, lot.system) }, lot.systemName)))))));
 		$('assets-warehouses').replaceChildren(...empty(view.notes.warehouses), ...view.warehouses.map(warehouse => element('li', {},
 			element('a', { class: 'link', href: systemLink(game.id, warehouse.system) }, warehouse.systemName),
-			` \u00b7 ${warehouse.blocks}`,
-			element('div', { class: 'muted' }, warehouse.goods.length ? `Goods ${warehouse.goodsValue}` : 'Empty'),
-			...goodsList(warehouse.goods))));
+			` \u00b7 ${warehouse.blocks}`)));
 		$('assets-factories').replaceChildren(...empty(view.notes.factories), ...view.factories.map(factory => element('li', {},
 			good(factory.goods), ' at ',
 			element('a', { class: 'link', href: systemLink(game.id, factory.system) }, factory.systemName),
@@ -2341,7 +2358,7 @@
 				element('td', {}, element('div', { class: 'fleet-ship__flags' }, element('strong', {}, module.name), ...flagBadges(module.flags))),
 				...module.cells.map(cell => element('td', { class: 'num' }, cell))));
 			return element('section', { class: 'panel fleet-ship', 'aria-labelledby': titleId },
-				element('h3', { id: titleId }, ship.name),
+				element('h3', { id: titleId, tabindex: '-1' }, ship.name),
 				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
 				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
 				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, stat.value)))),

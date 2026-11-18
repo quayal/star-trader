@@ -12,11 +12,8 @@ data class Factory(val system: StarSystem, val goods: Goods, val size: Int) {
 	/** Whether this is the factory for [goods] at [system]. */
 	fun isFor(system: StarSystem, goods: Goods): Boolean = this.system == system && this.goods == goods
 
-	/** Today's price of what it makes, where it makes it ([prices]), or null where that good isn't traded. */
-	fun outputPrice(prices: MarketPrices): Int? = prices.priceAt(MarketGood(system, goods))
-
-	/** What one turn's output is worth at today's [prices] (creator, 2026-11-18): a factory has no resale value of its own. */
-	fun outputValue(prices: MarketPrices): Int = size * (outputPrice(prices) ?: 0)
+	/** What one turn's output is worth at its good's mean price across the systems that trade it today ([prices]) (creator, 2026-11-18). */
+	fun outputValue(prices: MarketPrices): Int = size * prices.averagePrice(goods)
 
 	/** This factory with [units] more units a turn (R46): there is no cap. */
 	fun addUnits(units: Int): Factory = copy(size = size + units)

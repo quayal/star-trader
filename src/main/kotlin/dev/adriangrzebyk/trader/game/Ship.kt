@@ -258,6 +258,9 @@ data class Ship(
 
 	override fun cargoName(): String = name
 
+	override fun lots(): List<GoodsLot> =
+		cargo.filterValues { it > 0 }.toSortedMap().map { (goods, units) -> GoodsLot(goods, units, system, name) }
+
 	/** How many units of [goods] this ship carries. */
 	override fun holding(goods: Goods): Int = cargo[goods] ?: 0
 
