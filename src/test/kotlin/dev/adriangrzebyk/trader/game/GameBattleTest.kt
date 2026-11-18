@@ -113,6 +113,51 @@ class GameBattleTest {
 	}
 
 	@Test
+	fun shouldGiveATryAndItsReputationLossOneNoticeWithBothRolls() {
+		// Creator, 2026-11-18: the pop-up card of a try, worded for each player from these facts.
+		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(3, 3))
+
+		val notice = Notice(
+			NoticeKind.INTERCEPTION,
+			TAU_CETI,
+			listOf("ada@example.com", "grace@example.com"),
+			null,
+			InterceptionRoll(
+				"ada@example.com",
+				"Wayfarer",
+				"Wayfarer (2 + d6 3 + 0 = 5)",
+				"grace@example.com",
+				"Meridian",
+				"Meridian (2 + d6 3 + 0 = 5)",
+				false
+			)
+		)
+		assertThat(game.log.takeLast(2).map { it.notice }).containsExactly(notice, notice)
+	}
+
+	@Test
+	fun shouldGiveNoNoticeWhenNobodyTries() {
+		assertThat(arrived.answerInterception("ada@example.com", null, dice()).log.last().notice).isNull()
+	}
+
+	@Test
+	fun shouldGiveTheBattleItsStartRoundAndEndNotices() {
+		val game = fighting
+			.giveBattleOrders("ada@example.com", listOf(breakAway("Wayfarer")), dice())
+			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), dice())
+		val both = listOf("ada@example.com", "grace@example.com")
+
+		assertThat(fighting.log.last().notice).isEqualTo(Notice(NoticeKind.BATTLE_STARTED, TAU_CETI, both, null, null))
+		assertThat(game.log.takeLast(4).map { it.notice }).containsExactly(
+			Notice(NoticeKind.BATTLE_ROUND, TAU_CETI, both, 1, null),
+			Notice(NoticeKind.BATTLE_ROUND, TAU_CETI, both, 1, null),
+			Notice(NoticeKind.BATTLE_ROUND, TAU_CETI, both, 1, null),
+			// Wayfarer broke away, so it is listed after the ship still fighting.
+			Notice(NoticeKind.BATTLE_OVER, TAU_CETI, both.reversed(), null, null)
+		)
+	}
+
+	@Test
 	fun shouldUseUpTheJumpOfAShipThatTriedToIntercept() {
 		// R72: Wayfarer tried and failed; it can't jump in Ada's slot.
 		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(1, 6))
@@ -374,7 +419,7 @@ class GameBattleTest {
 		assertThat(battle.ships).containsExactly(BattleShip("Wayfarer", "ada@example.com"), BattleShip("Meridian", "grace@example.com"))
 		assertThat(battle.interceptions).isEmpty()
 		assertThat(battle.canBreakAway("Meridian")).isTrue()
-		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Battle at Tau Ceti: Wayfarer, Meridian"))
+		assertThat(game.log.last().text).isEqualTo("Battle at Tau Ceti: Wayfarer, Meridian")
 		// Both decline: the battle is over without a shot, and the jumps go on once both have placed their ships.
 		val declined = game
 			.giveBattleOrders("ada@example.com", listOf(breakAway("Wayfarer")), dice())

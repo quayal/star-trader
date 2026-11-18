@@ -555,7 +555,7 @@ data class Game(
 		val current = runningTurn()
 		val arriving = shipNamed(interception.ship)
 		val tries = interception.tries()
-		val events = mutableListOf<String>()
+		val events = mutableListOf<LogEntry>()
 		val caught = mutableListOf<BattleInterception>()
 		var penalized = players
 		for ((email, name) in tries) {
@@ -566,24 +566,34 @@ data class Game(
 			if (success) {
 				caught += BattleInterception(arriving.name, interceptor.name)
 			}
-			events +=
-				"Interception: ${interceptor.interceptLog(ours)} vs ${arriving.interceptLog(theirs)}: ${if (success) "intercepted" else "escapes"}"
+			val roll = InterceptionRoll(
+				email,
+				interceptor.name,
+				interceptor.interceptLog(ours),
+				interception.ownerEmail,
+				arriving.name,
+				arriving.interceptLog(theirs),
+				success
+			)
+			val notice = Notice(NoticeKind.INTERCEPTION, interception.system, listOf(email, interception.ownerEmail), null, roll)
+			val line = "Interception: ${roll.interceptorRoll} vs ${roll.arrivingRoll}: ${if (success) "intercepted" else "escapes"}"
+			events += LogEntry.notice(current.number, line, notice)
 			// R86 (E13-S04): every try is a hostile act and costs 2d6 of reputation, unless the trying ship has a working Battle comm.
 			if (!interceptor.hasWorkingBattleComm()) {
 				val loss = dice.twoD6()
 				val trier = penalized.first { it.email == email }.withReputationChanged(-loss)
 				penalized = penalized.map { if (it.email == email) trier else it }
-				events += trier.reputationLog(-loss, "trying to intercept (rolled 2d6: $loss)")
+				events += LogEntry.notice(current.number, trier.reputationLog(-loss, "trying to intercept (rolled 2d6: $loss)"), notice)
 			}
 		}
 		if (tries.isEmpty()) {
-			events += "Nobody tries to intercept ${interception.ship}"
+			events += LogEntry.event(current.number, "Nobody tries to intercept ${interception.ship}")
 		}
 		val attempts = tries.map { (_, name) -> BattleInterception(arriving.name, name) }
 		val decided = copy(
 			players = penalized,
 			turn = current.withInterception(null).recordInterceptionTries(attempts),
-			log = log + events.map { LogEntry.event(current.number, it) }
+			log = log + events
 		)
 		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
 	}
@@ -595,9 +605,11 @@ data class Game(
 	private fun withBattleStarted(system: StarSystem, interceptions: List<BattleInterception>): Game {
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
+		val battle = Battle.start(system, fighting, interceptions, current.interceptionTries)
+		val notice = Notice(NoticeKind.BATTLE_STARTED, system, battle.landers(), null, null)
 		return copy(
-			turn = current.withBattleStarted(Battle.start(system, fighting, interceptions, current.interceptionTries)),
-			log = log + LogEntry.event(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}")
+			turn = current.withBattleStarted(battle),
+			log = log + LogEntry.notice(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}", notice)
 		)
 	}
 
@@ -634,7 +646,9 @@ data class Game(
 		return copy(
 			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
 			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
-			log = log + (round.log + penaltyLog).map { LogEntry.event(current.number, it) }
+			log = log + (round.log + penaltyLog).map {
+				LogEntry.notice(current.number, it, Notice(NoticeKind.BATTLE_ROUND, battle.system, battle.landers(), battle.round, null))
+			}
 		).withBattleMovedOn()
 	}
 
@@ -652,7 +666,9 @@ data class Game(
 		return copy(
 			players = replace(hit),
 			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
-			log = log + destroyed.map { LogEntry.event(current.number, "$it is destroyed") }
+			log = log + destroyed.map {
+				LogEntry.notice(current.number, "$it is destroyed", Notice(NoticeKind.SHIP_DESTROYED, battle.system, battle.landers(), null, null))
+			}
 		).withBattleMovedOn()
 	}
 
@@ -684,7 +700,11 @@ data class Game(
 		val battle = checkNotNull(current.battle)
 		val events = if (battle.isJustOver()) {
 			listOf(
-				LogEntry.event(current.number, "The battle at ${battle.system.displayName} is over")
+				LogEntry.notice(
+					current.number,
+					"The battle at ${battle.system.displayName} is over",
+					Notice(NoticeKind.BATTLE_OVER, battle.system, battle.landers(), null, null)
+				)
 			)
 		} else {
 			emptyList()
@@ -917,7 +937,7 @@ data class Game(
 		val label = resolution.good.label()
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null }).map { LogEntry.event(turn, it) }
 		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
-			listOf(LogEntry(turn, "${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", trade.record())) +
+			listOf(LogEntry.trade(turn, "${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", trade.record())) +
 				positionRollLines(trade, resolution.good).map { LogEntry.event(turn, it) }
 		}
 		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
@@ -926,7 +946,7 @@ data class Game(
 			emptyList()
 		}
 		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0).map {
-			LogEntry(
+			LogEntry.trade(
 				turn,
 				"${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}",
 				it.record(resolution.good)

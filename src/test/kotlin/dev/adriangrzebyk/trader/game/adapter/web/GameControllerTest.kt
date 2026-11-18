@@ -341,7 +341,7 @@ class GameControllerTest {
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
 			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
 		}
-		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null))
+		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null, null))
 		joinGame(signIn("start-late@example.com"), game.id)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("This game has already started")
@@ -802,7 +802,7 @@ class GameControllerTest {
 
 		// S06-1: every entry carries its turn; S06-3: none names an offer or money (R17, R29). Bids are public once Bidding
 		// has closed (creator, 2026-11-18), so the initiative line names the 23.
-		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null}")
+		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null,\"notice\":null}")
 		assertThat(log.map { it.turn }).containsOnly(1)
 		// 2 at the start, a roll and a placement for each player (R82), and the initiative line
 		assertThat(log.map { it.text }).hasSize(7).noneMatch { text ->
@@ -1134,8 +1134,8 @@ class GameControllerTest {
 			.isEqualTo(ended.turn)
 		// S07-3: turn 2 starts its own group in the log.
 		assertThat(ended.log.takeLast(2)).containsExactly(
-			LogEntryResponseDto(1, "All goods resolved", null),
-			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired", null)
+			LogEntryResponseDto(1, "All goods resolved", null, null),
+			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired", null, null)
 		)
 		resolveNext("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)

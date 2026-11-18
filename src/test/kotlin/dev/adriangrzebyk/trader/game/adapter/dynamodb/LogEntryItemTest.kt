@@ -1,6 +1,9 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.InterceptionRoll
 import dev.adriangrzebyk.trader.game.LogEntry
+import dev.adriangrzebyk.trader.game.Notice
+import dev.adriangrzebyk.trader.game.NoticeKind
 import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.trading.Goods
 import dev.adriangrzebyk.trader.trading.OfferType
@@ -13,7 +16,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 class LogEntryItemTest {
 
 	private val entry = LogEntry.event(4, "Initiative (bid + 2d6): Vega Lines 0 + 9 = 9 → Orion Freight 0 + 3 = 3")
-	private val trade = LogEntry(
+	private val trade = LogEntry.trade(
 		4,
 		"Vega Lines could buy up to 5 u: bought 3 u at 12 HT each, paid 36 HT",
 		TradeRecord("grace@example.com", StarSystem.TAU_CETI, Goods.FOOD, OfferType.BUY, 3, 12)
@@ -30,6 +33,30 @@ class LogEntryItemTest {
 
 		assertThat(stored.keys).containsExactlyInAnyOrder("turn", "text")
 		assertThat(stored.getValue("turn").n()).isEqualTo("4")
+	}
+
+	@Test
+	fun shouldReadBackANoticeWithAndWithoutItsOptionalParts() {
+		val roll =
+			InterceptionRoll(
+				"ada@example.com",
+				"Wayfarer",
+				"Wayfarer (2 + d6 5 + 0 = 7)",
+				"grace@example.com",
+				"Meridian",
+				"Meridian (2 + d6 2 + 0 = 4)",
+				true
+			)
+		val tried = LogEntry.notice(
+			2,
+			"Interception: …",
+			Notice(NoticeKind.INTERCEPTION, StarSystem.TAU_CETI, listOf("ada@example.com"), null, roll)
+		)
+		val round = LogEntry.notice(2, "Battle at Tau Ceti, round 3", Notice(NoticeKind.BATTLE_ROUND, StarSystem.TAU_CETI, emptyList(), 3, null))
+
+		assertThat(LogEntryItem(LogEntryItem(tried).attribute).toLogEntry()).isEqualTo(tried)
+		assertThat(LogEntryItem(LogEntryItem(round).attribute).toLogEntry()).isEqualTo(round)
+		assertThat(LogEntryItem(round).attribute.m().getValue("notice").m().keys).containsExactlyInAnyOrder("kind", "system", "players", "round")
 	}
 
 	@Test
