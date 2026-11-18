@@ -55,6 +55,7 @@ class TurnItemTest {
 		battleReport = null,
 		connectionsRaised = listOf("ada@example.com"),
 		reputationBought = listOf("grace@example.com"),
+		interceptionTries = listOf(BattleInterception("Meridian", "Wayfarer")),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -156,7 +157,8 @@ class TurnItemTest {
 					battle = null,
 					battleReport = null,
 					connectionsRaised = emptyList(),
-					reputationBought = emptyList()
+					reputationBought = emptyList(),
+					interceptionTries = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -225,6 +227,9 @@ class TurnItemTest {
 				"collected" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
 				"connectionsRaised" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"reputationBought" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
+				"interceptionTries" to AttributeValue.fromL(
+					listOf(AttributeValue.fromM(mapOf("ship" to AttributeValue.fromS("Meridian"), "interceptor" to AttributeValue.fromS("Wayfarer"))))
+				),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
@@ -401,7 +406,8 @@ class TurnItemTest {
 				battle = null,
 				battleReport = null,
 				connectionsRaised = emptyList(),
-				reputationBought = emptyList()
+				reputationBought = emptyList(),
+				interceptionTries = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

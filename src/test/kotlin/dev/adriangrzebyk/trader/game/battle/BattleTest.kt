@@ -156,4 +156,17 @@ class BattleTest {
 		assertThat(tried.firingPenalizedFor(listOf(grace)).firingPenalties()).isEmpty()
 		assertThat(ordered.firingPenalties()).containsExactly(ada, grace)
 	}
+
+	@Test
+	fun shouldKeepOnlyTheTriesBetweenItsOwnShips() {
+		// R86: a try earlier in the turn counts in a later battle (R80) only when both ships fight in it.
+		val battle = Battle.start(
+			TAU_CETI,
+			started.ships,
+			emptyList(),
+			listOf(BattleInterception("Wayfarer", "Meridian"), BattleInterception("Corvid", "Meridian"))
+		)
+
+		assertThat(battle.tries).containsExactly(BattleInterception("Wayfarer", "Meridian"))
+	}
 }

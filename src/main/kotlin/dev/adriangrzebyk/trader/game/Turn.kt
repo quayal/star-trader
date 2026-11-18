@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.game.battle.Battle
+import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.trading.Goods
@@ -29,7 +30,8 @@ import dev.adriangrzebyk.trader.trading.StarSystem
  * the last battle round's salvos did (R75–R78), kept until the next round fires or a new battle starts, so it outlives
  * the battle. [connectionsRaised] lists the players who raised a connection this Investment (R83, E12-S02), once each;
  * public, and empty outside Investment. [reputationBought] lists those who bought reputation this Investment (R87, E13-S03),
- * once each, likewise.
+ * once each, likewise. [interceptionTries] are every interception try this turn, successful or not (R70), public: a battle
+ * started later in the turn at the same system still knows who tried whom first (R86).
  */
 data class Turn(
 	val number: Int,
@@ -51,7 +53,8 @@ data class Turn(
 	val battle: Battle?,
 	val battleReport: BattleReport?,
 	val connectionsRaised: List<String>,
-	val reputationBought: List<String>
+	val reputationBought: List<String>,
+	val interceptionTries: List<BattleInterception>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -226,8 +229,14 @@ data class Turn(
 	fun withHitsPlaced(changed: Battle, ships: Set<String>, destroyed: Set<String>): Turn =
 		copy(battle = changed, battleReport = battleReport?.hitsPlaced(ships, destroyed))
 
-	/** This turn after [ships] tried to intercept (R72): like a jump, it's their move for the turn. */
-	fun recordInterceptors(ships: List<String>): Turn = copy(jumpedShips = jumpedShips + ships.filterNot { it in jumpedShips })
+	/**
+	 * This turn after [tries] (R72): like a jump, each is the trying ship's move for the turn, and it's remembered for any
+	 * battle later this turn (R86).
+	 */
+	fun recordInterceptionTries(tries: List<BattleInterception>): Turn = copy(
+		jumpedShips = jumpedShips + tries.map { it.interceptor }.filterNot { it in jumpedShips },
+		interceptionTries = interceptionTries + tries
+	)
 
 	/** Whether [ship] has already jumped this turn (each ship jumps at most once, R26). */
 	fun hasJumped(ship: Ship): Boolean = ship.name in jumpedShips
@@ -473,6 +482,7 @@ data class Turn(
 			null,
 			null,
 			null,
+			emptyList(),
 			emptyList(),
 			emptyList()
 		)

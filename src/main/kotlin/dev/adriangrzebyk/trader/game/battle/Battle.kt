@@ -223,10 +223,14 @@ data class Battle(
 	companion object {
 		/**
 		 * The battle at [system] with every ship in Space there (R73, R80): after a ship was caught by [interceptions], or
-		 * with none when a ship stayed in Space next to other players' ships.
+		 * with none when a ship stayed in Space next to other players' ships. Of [tries], this turn's interception tries, it
+		 * keeps those between two of [ships], which decide whose fire costs reputation (R86), even with no interception.
 		 */
-		fun start(system: StarSystem, ships: List<BattleShip>, interceptions: List<BattleInterception>, tries: List<BattleInterception>) =
-			Battle(system, 1, BattleStage.ORDERS, ships, interceptions, emptyList(), emptyList(), emptyList(), emptyList(), tries, emptyList())
+		fun start(system: StarSystem, ships: List<BattleShip>, interceptions: List<BattleInterception>, tries: List<BattleInterception>): Battle {
+			val names = ships.map { it.name }.toSet()
+			val here = tries.filter { it.ship in names && it.interceptor in names }
+			return Battle(system, 1, BattleStage.ORDERS, ships, interceptions, emptyList(), emptyList(), emptyList(), emptyList(), here, emptyList())
+		}
 	}
 }
 

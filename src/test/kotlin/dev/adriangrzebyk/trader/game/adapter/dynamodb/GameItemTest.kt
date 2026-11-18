@@ -128,7 +128,8 @@ class GameItemTest {
 			battle = null,
 			battleReport = null,
 			connectionsRaised = listOf("host@example.com"),
-			reputationBought = listOf("ada@example.com")
+			reputationBought = listOf("ada@example.com"),
+			interceptionTries = emptyList()
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(
