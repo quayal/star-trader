@@ -71,7 +71,7 @@ export function deckDecisionText(game, playerId) {
 	if (game.turn?.interception || game.turn?.battle) {
 		return ''; // the jumps wait for the fight; its own alert says what's needed (E10)
 	}
-	return jumper(game) === playerId ? "Your decision is needed: it's your turn to jump your ships, or to finish jumping." : '';
+	return jumper(game) === playerId ? "Your decision is needed: it's your turn to jump ships." : '';
 }
 
 /** S02-1: per turn-order place, "jumping now", "done" or "" (also "" for every place before the order is set). */

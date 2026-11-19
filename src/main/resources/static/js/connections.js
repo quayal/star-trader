@@ -19,9 +19,7 @@ export const PLACE_BUTTON = 'Place connections';
 export const PLACE_WHOLE_NUMBER = 'Enter a whole number from 0 to 10 for each connection.';
 /** E12 edge case: putting everything into criminal is allowed, so the form says what it costs. */
 export const CAP_NOTE = 'Factories are capped at political + business.';
-export const RAISE_BUTTON = 'Raise';
 export const RAISED_TEXT = "You've raised a connection this Investment.";
-export const RAISE_INTRO = 'Once per Investment, raise one connection by one point, for the new level × 10 HT.';
 
 /** The viewer's public entry in `players[]`, or undefined for someone who isn't playing. */
 function viewer(game) {
@@ -84,35 +82,6 @@ export function canRaise(game) {
 }
 
 /**
- * The raise options (E12-S02-4): `{ kind, label, disabled }` per connection, "Political 3 → 4 — 40 HT", or "Business
- * 10 — the most there is" at 10, where it can't rise.
- */
-export function raiseOptions(game) {
-	return (game.you?.invest?.connections ?? []).map(entry => {
-		const name = KINDS.find(kind => kind.kind === entry.kind)?.name ?? entry.name;
-		return entry.cost == null
-			? { kind: entry.kind, label: `${name} ${entry.level} — the most there is`, disabled: true }
-			: { kind: entry.kind, label: `${name} ${entry.level} → ${entry.level + 1} — ${entry.cost} HT`, disabled: false };
-	});
-}
-
-/** The raise to send, or the error the server would give for a level at 10 or too little money (E12-S02-4). */
-export function validateRaise(game, kind) {
-	const entry = (game.you?.invest?.connections ?? []).find(connection => connection.kind === kind);
-	if (!entry) {
-		return { error: 'Choose political, business or criminal connections.' };
-	}
-	if (entry.cost == null) {
-		return { error: `Your ${entry.name} connections are already at 10.` };
-	}
-	const money = game.you.money ?? 0;
-	if (entry.cost > money) {
-		return { error: `Raising ${entry.name} connections to ${entry.level + 1} costs ${entry.cost} HT; you have ${money} HT.` };
-	}
-	return { kind };
-}
-
-/**
  * The factory cap on Infrastructure (E12-S03-8): `{ text, room, refusal }`, the text "Factory units: 5 of 7 (political
  * 3 + business 4)", the units the viewer may still add, and the server's refusal for going over. Null outside Investment.
  */
@@ -137,4 +106,31 @@ export function maxFactoryUnits(game, factory) {
 		return 0;
 	}
 	return Math.max(0, Math.min(Math.floor((game.you.money ?? 0) / factory.unitCost), cap.room));
+}
+
+/**
+ * The raise buttons on the viewer's own Corporations card (creator, 2026-11-19): null when they can't buy now, else
+ * `{ raised, buttons }`. Once a connection was raised this Investment, `raised` is [RAISED_TEXT] and there are no
+ * buttons. Otherwise one `{ kind, label, disabled, reason }` per connection, "Raise Political to 4 — 40 HT", disabled
+ * with the reason at 10 or when the money doesn't cover it (R83).
+ */
+export function raiseButtons(game) {
+	if (!canBuy(game)) {
+		return null;
+	}
+	if (!canRaise(game)) {
+		return { raised: RAISED_TEXT, buttons: [] };
+	}
+	const money = game.you.money ?? 0;
+	const buttons = (game.you.invest.connections ?? []).map(entry => {
+		const name = KINDS.find(kind => kind.kind === entry.kind)?.name ?? entry.name;
+		if (entry.cost == null) {
+			return { kind: entry.kind, label: `Raise ${name}`, disabled: true, reason: `${name} is at 10, the most there is.` };
+		}
+		const label = `Raise ${name} to ${entry.level + 1} — ${entry.cost} HT`;
+		return entry.cost > money
+			? { kind: entry.kind, label, disabled: true, reason: `You have ${money} HT.` }
+			: { kind: entry.kind, label, disabled: false, reason: '' };
+	});
+	return { raised: '', buttons };
 }

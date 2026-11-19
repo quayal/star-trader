@@ -120,7 +120,7 @@ export function waitingText(game, playerId) {
 	const dictator = awaitingDictator(game);
 	if (dictator !== null) {
 		return dictator === playerId
-			? `You're Dictator of ${resolution(game).good.goods} here: place an offer before the roll, or pass.`
+			? `You're Dictator of ${resolution(game).good.goods} here${priceNote(game)}: place an offer before the roll, or pass.`
 			: `Waiting for ${corporation(game, dictator)} (Dictator) to decide.`;
 	}
 	const trade = awaitingTrade(game);
@@ -559,8 +559,24 @@ export function validateTrade(form, amountText, splitTexts) {
 }
 
 /** S02-2: the Dictator form's question, for the Dictator asked; "" for everyone else. */
+/**
+ * The market price of the good resolving, from the board, so whoever is asked to decide sees it (creator, 2026-11-20);
+ * null when the board doesn't list it.
+ */
+export function resolvingPrice(game) {
+	const good = resolution(game)?.good;
+	const system = good ? (game.board ?? []).find(entry => entry.id === good.system) : null;
+	return system?.market?.find(entry => entry.goods === good.goods)?.price ?? null;
+}
+
+/** " (market price 12 HT)" after the good a decision is about, or nothing when the price isn't known. */
+export function priceNote(game) {
+	const price = resolvingPrice(game);
+	return price === null ? '' : ` (market price ${price} HT)`;
+}
+
 export function dictatorQuestion(game, playerId) {
-	return awaitingDictator(game) === playerId ? `You're Dictator of ${resolution(game).good.goods} here. Place an offer before the roll?` : '';
+	return awaitingDictator(game) === playerId ? `You're Dictator of ${resolution(game).good.goods} here${priceNote(game)}. Place an offer before the roll?` : '';
 }
 
 /** The good a Dictator form belongs to, so what was typed is dropped when another good (or game, or turn) asks. */
@@ -602,7 +618,7 @@ export function sameOrder(a, b) {
 export function decisionText(game, playerId) {
 	if (awaitingDictator(game) === playerId) {
 		const { good } = resolution(game);
-		return `Your decision is needed: you're Dictator of ${good.goods} at ${good.systemName}. Place an offer or pass.`;
+		return `Your decision is needed: you're Dictator of ${good.goods} at ${good.systemName}${priceNote(game)}. Place an offer or pass.`;
 	}
 	if (awaitingTrade(game)?.playerId === playerId) {
 		const { good } = resolution(game);

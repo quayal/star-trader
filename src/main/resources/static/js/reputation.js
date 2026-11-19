@@ -7,7 +7,12 @@
 import { canBuy } from './investment.js';
 
 export const MAX_REPUTATION = 40;
-export const BUY_BUTTON = 'Buy reputation';
+
+/** The button on the viewer's own Corporations card (creator, 2026-11-19): "Buy 1d6 reputation — 20 HT". */
+export function buyLabel(cost) {
+	return `Buy 1d6 reputation — ${cost} HT`;
+}
+
 export const BOUGHT_TEXT = "You've bought reputation this Investment.";
 
 /** E13-S01-1: "27 / 40" for the Corporations card; a response from before reputation reads as the start value, 20. */
@@ -21,7 +26,7 @@ export function myReputation(game) {
 }
 
 /**
- * E13-S03: what Infrastructure says about buying, `{ intro, canBuy, reason }`. [canBuy] is false once bought this
+ * E13-S03: what the viewer's Corporations card says about buying, `{ intro, cost, canBuy, reason }`. [canBuy] is false once bought this
  * Investment, at 40, or with too little money, and [reason] then says why, in the server's words.
  */
 export function reputationPurchase(game) {
@@ -32,14 +37,14 @@ export function reputationPurchase(game) {
 	const reputation = myReputation(game);
 	const intro = `Your reputation is ${reputation} / ${MAX_REPUTATION}. Once per Investment, buy 1d6 more for ${cost} HT.`;
 	if (game.you.invest.boughtReputation) {
-		return { intro, canBuy: false, reason: BOUGHT_TEXT };
+		return { intro, cost, canBuy: false, reason: BOUGHT_TEXT };
 	}
 	if (reputation >= MAX_REPUTATION) {
-		return { intro, canBuy: false, reason: `Your reputation is already at ${MAX_REPUTATION}.` };
+		return { intro, cost, canBuy: false, reason: `Your reputation is already at ${MAX_REPUTATION}.` };
 	}
 	const money = game.you.money ?? 0;
 	if (money < cost) {
-		return { intro, canBuy: false, reason: `Buying reputation costs ${cost} HT; you have ${money} HT.` };
+		return { intro, cost, canBuy: false, reason: `Buying reputation costs ${cost} HT; you have ${money} HT.` };
 	}
-	return { intro, canBuy: true, reason: '' };
+	return { intro, cost, canBuy: true, reason: '' };
 }

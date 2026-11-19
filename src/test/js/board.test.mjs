@@ -229,8 +229,8 @@ describe('Warehouses and factories (E06-S02)', () => {
 
 	it("lists every corporation's warehouses and factories at the system, to everyone, and none elsewhere", () => {
 		const holdings = systemHoldings(built, { ...tauCeti, producibleGoods: ['ISO'] }, 'someone-else');
-		assert.deepEqual(holdings.warehouses, [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20, corporationName: 'Orion Freight', held: '\u2014' }]);
-		assert.deepEqual(holdings.factories, [{ system: 'TAU_CETI', goods: 'ISO', size: 3, corporationName: 'Vega Lines' }]);
+		assert.deepEqual(holdings.warehouses, [{ system: 'TAU_CETI', blocks: 2, cargoSpaces: 20, corporationName: 'Orion Freight', own: false, held: '\u2014' }]);
+		assert.deepEqual(holdings.factories, [{ system: 'TAU_CETI', goods: 'ISO', size: 3, corporationName: 'Vega Lines', own: false }]);
 	});
 
 	it('shows what your own warehouse holds, and nobody else\'s (creator, 2026-11-18; R29)', () => {

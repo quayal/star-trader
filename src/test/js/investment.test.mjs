@@ -25,18 +25,20 @@ import {
 	isDoneInvesting,
 	infrastructureState,
 	factoriesAt,
-	factorySystems,
-	goodsOptionLabel,
 	investFactories,
 	investSystems,
 	infrastructureStatusText,
 	isInvesting,
 	isInvestmentClosedRefusal,
+	investButtonLabel,
+	investDialogText,
+	investMaxText,
+	maxBlocks,
 	ownFactoryRows,
 	ownWarehouseRows,
+	systemInvestActions,
 	parseBlocks,
 	parseUnits,
-	systemOptionLabel,
 	unitsCostText,
 	unitsText,
 	validateBlocks,
@@ -297,8 +299,8 @@ describe('the Infrastructure screen (E06-S08)', () => {
 				},
 			}));
 			assert.deepEqual(rows, [
-				{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2, cargoUsed: 4, cargoSpaces: 20, held: '4 ISO, 9 CHIPS' },
-				{ system: 'MU_HERCULIS', systemName: 'Mu Herculis', blocks: 1, cargoUsed: 0, cargoSpaces: 10, held: 'Empty' },
+				{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2, cargoUsed: 4, cargoSpaces: 20, held: '4 ISO, 9 CHIPS', invest: null },
+				{ system: 'MU_HERCULIS', systemName: 'Mu Herculis', blocks: 1, cargoUsed: 0, cargoSpaces: 10, held: 'Empty', invest: null },
 			]);
 		});
 
@@ -320,7 +322,7 @@ describe('the Infrastructure screen (E06-S08)', () => {
 					{ id: ME, factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 6 }] },
 				],
 			}, ME);
-			assert.deepEqual(rows, [{ systemName: 'Tau Ceti', goods: 'ISO', size: 6 }]);
+			assert.deepEqual(rows, [{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', size: 6, invest: null }]);
 		});
 
 		it('is empty for a viewer with none', () => {
@@ -354,11 +356,6 @@ describe('buying warehouse blocks (E06-S04)', () => {
 			assert.equal(warehouseText(3), '3 blocks, 30 cargo spaces');
 			assert.equal(blocksText(1), '1 block');
 			assert.equal(blocksText(2), '2 blocks');
-		});
-
-		it('names a system in the picker with what is there', () => {
-			assert.equal(systemOptionLabel(invest.systems[0]), 'Tau Ceti \u2014 2 blocks, 20 cargo spaces');
-			assert.equal(systemOptionLabel(invest.systems[1]), 'Mu Herculis \u2014 no warehouse yet');
 		});
 	});
 
@@ -432,25 +429,10 @@ describe('building or extending a factory (E06-S05)', () => {
 		const sigmaFood = { system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis', goods: 'FOOD', size: 2, price: 15, unitCost: 85 };
 		const all = withInvest([poly, iso, sigmaFood, sigmaIso]);
 
-		it('lists each system that can produce something once, in the order given', () => {
-			assert.deepEqual(factorySystems(all), [
-				{ system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' },
-				{ system: 'TAU_CETI', systemName: 'Tau Ceti' },
-				{ system: 'SIGMA_DRACONIS', systemName: 'Sigma Draconis' },
-			]);
-			assert.deepEqual(factorySystems(withInvest([])), []);
-			assert.deepEqual(factorySystems(withInvest(null)), []);
-		});
-
 		it('lists what a system can produce', () => {
 			assert.deepEqual(factoriesAt(all, 'SIGMA_DRACONIS').map(f => f.goods), ['FOOD', 'ISO']);
 			assert.deepEqual(factoriesAt(all, 'TAU_CETI').map(f => f.goods), ['ISO']);
 			assert.deepEqual(factoriesAt(all, 'BETA_HYDRI'), []);
-		});
-
-		it('says what the viewer makes of a good now, or that there is no factory yet', () => {
-			assert.equal(goodsOptionLabel(iso), 'ISO \u2014 makes 6 a turn');
-			assert.equal(goodsOptionLabel(poly), 'POLY \u2014 no factory yet');
 		});
 	});
 
@@ -495,5 +477,81 @@ describe('building or extending a factory (E06-S05)', () => {
 			assert.deepEqual(validateUnits('5', iso, 300), { error: '5 units cost 350 HT; you have 300 HT.' });
 			assert.deepEqual(validateUnits('1', iso, 10), { error: '1 unit costs 70 HT; you have 10 HT.' });
 		});
+	});
+});
+
+describe('investing from the tables (creator, 2026-11-19)', () => {
+	const board = [{ id: 'TAU_CETI', name: 'Tau Ceti' }, { id: 'MU_HERCULIS', name: 'Mu Herculis' }, { id: 'BETA_HYDRI', name: 'Beta Hydri' }];
+	const invest = {
+		blockCost: 20,
+		systems: [
+			{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2 },
+			{ system: 'MU_HERCULIS', systemName: 'Mu Herculis', blocks: 0 },
+			{ system: 'BETA_HYDRI', systemName: 'Beta Hydri', blocks: 0 },
+		],
+		factories: [
+			{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', size: 6, price: 30, unitCost: 160 },
+			{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'FOOD', size: 0, price: 10, unitCost: 60 },
+			{ system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'CHIPS', size: 0, price: 40, unitCost: 210 },
+		],
+	};
+	const warehouse = { system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2, cargoSpaces: 20, cargo: {}, cargoUsed: 0 };
+	const investing = (you = {}) => ({
+		...game(),
+		board,
+		players: [{ id: ME, factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 6 }] }],
+		you: { id: ME, money: 70, warehouses: [warehouse], invest, ...you },
+	});
+
+	it('adds to every owned warehouse, and builds in every other system, only while the viewer may buy', () => {
+		assert.deepEqual(ownWarehouseRows(investing()).map(row => [row.systemName, row.invest]), [
+			['Tau Ceti', 'add'], ['Mu Herculis', 'build'], ['Beta Hydri', 'build'],
+		]);
+		assert.deepEqual(ownWarehouseRows(investing({ invest: null })).map(row => [row.systemName, row.invest]), [['Tau Ceti', null]]);
+	});
+
+	it('adds to every owned factory, and builds every other good a system produces', () => {
+		assert.deepEqual(ownFactoryRows(investing(), ME).map(row => [row.systemName, row.goods, row.size, row.invest]), [
+			['Tau Ceti', 'ISO', 6, 'add'], ['Tau Ceti', 'FOOD', 0, 'build'], ['Mu Herculis', 'CHIPS', 0, 'build'],
+		]);
+		assert.deepEqual(ownFactoryRows(investing({ invest: null }), ME).map(row => row.invest), [null]);
+	});
+
+	it("says what the viewer may do at one system's tables", () => {
+		assert.deepEqual(systemInvestActions(investing(), 'TAU_CETI'), {
+			warehouse: 'add',
+			factories: [{ goods: 'ISO', size: 6, invest: 'add' }, { goods: 'FOOD', size: 0, invest: 'build' }],
+		});
+		assert.deepEqual(systemInvestActions(investing(), 'BETA_HYDRI'), { warehouse: 'build', factories: [] });
+		assert.deepEqual(systemInvestActions(investing({ invest: null }), 'TAU_CETI'), { warehouse: null, factories: [] });
+	});
+
+	it('labels the row buttons', () => {
+		assert.equal(investButtonLabel('blocks', 'add'), 'Add blocks');
+		assert.equal(investButtonLabel('blocks', 'build'), 'Build warehouse');
+		assert.equal(investButtonLabel('units', 'add'), 'Add units');
+		assert.equal(investButtonLabel('units', 'build'), 'Build factory');
+	});
+
+	it('caps the blocks at what the money pays for', () => {
+		assert.equal(maxBlocks(investing()), 3);
+		assert.equal(maxBlocks(investing({ money: 19 })), 0);
+	});
+
+	it('titles the dialog by what is bought, and gives up once it no longer can be', () => {
+		assert.equal(investDialogText(investing(), { kind: 'blocks', system: 'TAU_CETI' }).title, 'Add warehouse blocks at Tau Ceti');
+		assert.equal(investDialogText(investing(), { kind: 'blocks', system: 'MU_HERCULIS' }).title, 'Build a warehouse at Mu Herculis');
+		const build = investDialogText(investing(), { kind: 'units', system: 'TAU_CETI', goods: 'FOOD' });
+		assert.equal(build.title, 'Build a factory for FOOD at Tau Ceti');
+		assert.equal(build.factory.unitCost, 60);
+		assert.equal(investDialogText(investing(), { kind: 'units', system: 'TAU_CETI', goods: 'ISO' }).title, 'Add ISO units at Tau Ceti');
+		assert.equal(investDialogText(investing(), { kind: 'units', system: 'BETA_HYDRI', goods: 'ISO' }), null);
+		assert.equal(investDialogText(investing({ invest: null }), { kind: 'blocks', system: 'TAU_CETI' }), null);
+	});
+
+	it('says the most the viewer can add, or why none', () => {
+		assert.equal(investMaxText('blocks', 3), 'You can add up to 3 blocks.');
+		assert.equal(investMaxText('units', 1), 'You can add up to 1 unit.');
+		assert.equal(investMaxText('blocks', 0), "You can't pay for a block.");
 	});
 });
