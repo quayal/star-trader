@@ -1132,11 +1132,8 @@ class GameControllerTest {
 		assertThat(ended.turn!!.resolution).isNull()
 		assertThat(pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn)
 			.isEqualTo(ended.turn)
-		// S07-3: turn 2 starts its own group in the log.
-		assertThat(ended.log.takeLast(2)).containsExactly(
-			LogEntryResponseDto(1, "All goods resolved", null, null),
-			LogEntryResponseDto(2, "Turn 2 of 20 starts with Bidding; turn 1's offers have expired", null, null)
-		)
+		// Creator, 2026-11-19: no line announces turn 2; the log's last line is turn 1's.
+		assertThat(ended.log.last()).isEqualTo(LogEntryResponseDto(1, "All goods resolved", null, null))
 		resolveNext("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")

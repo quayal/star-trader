@@ -116,14 +116,12 @@ class GameTurnEndTest {
 	}
 
 	@Test
-	fun shouldLogTheEndOfTheTurnAndStartANewGroupForTheNextOne() {
-		// S07-3: the new turn's first line is logged under its own number, so the log starts a new group
+	fun shouldLogTheEndOfTheTurnButNotTheStartOfTheNextOne() {
+		// Creator, 2026-11-19: the log groups by turn and the top bar shows it, so no line says a turn starts.
 		val game = afterInvesting(investing(3))
 
-		assertThat(game.log.takeLast(2)).containsExactly(
-			LogEntry.event(1, "All goods resolved"),
-			LogEntry.event(2, "Turn 2 of 3 starts with Bidding; turn 1's offers have expired")
-		)
+		assertThat(game.turn!!.number).isEqualTo(2)
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "All goods resolved"))
 	}
 
 	@Test

@@ -515,9 +515,6 @@ data class Turn(
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
 
-	/** The public log line opening this turn (S07-2, S07-3), of [turns]: "Turn 3 of 20 starts with Bidding; turn 2's offers have expired". */
-	fun startedText(turns: Int): String = "Turn $number of $turns starts with Bidding; turn ${number - 1}'s offers have expired"
-
 	/**
 	 * [rolls] ordered by [score], highest first (R27). Players who tie roll 2d6 again among themselves, and only those
 	 * rolls order them, until no tie is left; each reroll is kept on its player's roll. Rolls are taken in [rolls]' order.

@@ -260,6 +260,20 @@ describe('the battle report (R75–R78)', () => {
 			['You hit Lantern for 4 damage, Vega Lines applied the damage.']);
 	});
 
+	it('shows what each salvo rolled (creator, 2026-11-19)', () => {
+		const rolled = reportLines(reported(
+			result('Wayfarer', ME, 'Lantern', VEGA, 'PLACED', { hits: 2, rolls: { firepower: 6, roll: 4, shields: 2, rocketRoll: null } }),
+			result('Meridian', VEGA, 'Wayfarer', ME, 'DESTROYED', { rockets: true, hits: 1, rolls: { firepower: 3, roll: 5, shields: 2, rocketRoll: 1 } }),
+			result('Comet', ME, 'Lantern', VEGA, 'BROKE_AWAY', { hits: 0, rolls: null }),
+		), ME);
+
+		assert.deepEqual(rolled.map(line => line.rolls), [
+			'Roll: weapons 6 + d6 4 = 10 vs shields 2 \u2192 2 hits',
+			'Roll: rockets 3 + d6 5 = 8 vs shields 2 \u2192 1 hit; rocket d6 1',
+			'',
+		]);
+	});
+
 	it('says nothing without a report', () => {
 		assert.deepEqual(reportLines(game(), ME), []);
 		assert.equal(reportTitle(game()), '');

@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
+import dev.adriangrzebyk.trader.game.battle.SalvoRolls
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [BattleReport] as the attribute map nested in its turn's item (engineering standards §12). */
@@ -24,7 +25,7 @@ internal class BattleReportItem(val attributes: Map<String, AttributeValue>) {
 							ROCKETS to AttributeValue.fromBool(result.rockets),
 							HITS to number(result.hits),
 							OUTCOME to AttributeValue.fromS(result.outcome.name)
-						)
+						) + listOfNotNull(result.rolls?.let { ROLLS to AttributeValue.fromM(SalvoRollsItem(it).attributes) })
 					)
 				}
 			)
@@ -43,7 +44,8 @@ internal class BattleReportItem(val attributes: Map<String, AttributeValue>) {
 				targetOwnerEmail = fields.attribute(TARGET_OWNER_EMAIL).s(),
 				rockets = fields.attribute(ROCKETS).bool(),
 				hits = fields.attribute(HITS).n().toInt(),
-				outcome = SalvoOutcome.valueOf(fields.attribute(OUTCOME).s())
+				outcome = SalvoOutcome.valueOf(fields.attribute(OUTCOME).s()),
+				rolls = fields[ROLLS]?.m()?.let { SalvoRollsItem(it).toSalvoRolls() }
 			)
 		}
 	)
@@ -59,5 +61,32 @@ internal class BattleReportItem(val attributes: Map<String, AttributeValue>) {
 		const val ROCKETS = "rockets"
 		const val HITS = "hits"
 		const val OUTCOME = "outcome"
+		const val ROLLS = "rolls"
+	}
+}
+
+/** A salvo's [SalvoRolls] as the attribute map nested in its result; a rocket roll only when there was one. */
+internal class SalvoRollsItem(val attributes: Map<String, AttributeValue>) {
+
+	constructor(rolls: SalvoRolls) : this(
+		mapOf(
+			FIREPOWER to number(rolls.firepower),
+			ROLL to number(rolls.roll),
+			SHIELDS to number(rolls.shields)
+		) + listOfNotNull(rolls.rocketRoll?.let { ROCKET_ROLL to number(it) })
+	)
+
+	fun toSalvoRolls(): SalvoRolls = SalvoRolls(
+		firepower = attributes.attribute(FIREPOWER).n().toInt(),
+		roll = attributes.attribute(ROLL).n().toInt(),
+		shields = attributes.attribute(SHIELDS).n().toInt(),
+		rocketRoll = attributes[ROCKET_ROLL]?.n()?.toInt()
+	)
+
+	private companion object {
+		const val FIREPOWER = "firepower"
+		const val ROLL = "roll"
+		const val SHIELDS = "shields"
+		const val ROCKET_ROLL = "rocketRoll"
 	}
 }

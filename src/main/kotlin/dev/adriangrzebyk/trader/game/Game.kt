@@ -146,11 +146,11 @@ data class Game(
 		return copy(status = GameStatus.FINISHED, log = log + LogEntry.event(number, text))
 	}
 
-	/** This game in the turn after [current], starting with Bidding (S07-2, S07-3). */
-	private fun withNextTurn(current: Turn): Game {
-		val next = current.next()
-		return copy(turn = next, log = log + LogEntry.event(next.number, next.startedText(turns)))
-	}
+	/**
+	 * This game in the turn after [current], starting with Bidding (S07-2). No log line says so: the log groups its
+	 * lines by turn, and the top bar shows the turn (creator, 2026-11-19).
+	 */
+	private fun withNextTurn(current: Turn): Game = copy(turn = current.next())
 
 	/** Turn [number]'s end (R86, E13-S01-2): every player whose reputation is from 1 to 17 recovers 3, each logged. */
 	private fun withReputationRecovered(number: Int): Game {

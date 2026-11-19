@@ -27,6 +27,7 @@ import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
+import dev.adriangrzebyk.trader.game.battle.SalvoRolls
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -105,8 +106,17 @@ class TurnItemTest {
 				StarSystem.TAU_CETI,
 				1,
 				listOf(
-					SalvoResult("Wayfarer", "ada@example.com", "Meridian", "grace@example.com", true, 3, SalvoOutcome.AWAITING_PLACEMENT),
-					SalvoResult("Meridian", "grace@example.com", "Lantern", "ada@example.com", false, 0, SalvoOutcome.BROKE_AWAY)
+					SalvoResult(
+						"Wayfarer",
+						"ada@example.com",
+						"Meridian",
+						"grace@example.com",
+						true,
+						3,
+						SalvoOutcome.AWAITING_PLACEMENT,
+						SalvoRolls(6, 5, 2, 4)
+					),
+					SalvoResult("Meridian", "grace@example.com", "Lantern", "ada@example.com", false, 0, SalvoOutcome.BROKE_AWAY, null)
 				)
 			)
 		)

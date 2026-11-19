@@ -47,13 +47,14 @@ class InvestmentServiceTest {
 	@Test
 	fun shouldEndTheTurnOnceEvenWhenTheStoreReplaysTheChange() {
 		// A real store re-runs the change when another write lands first (GameStore.update); the turn must end only once.
-		gameStore.create(investing.signalDoneInvesting("joiner@example.com"))
+		val oneDone = investing.signalDoneInvesting("joiner@example.com")
+		gameStore.create(oneDone)
 
 		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).signalDone("game-1", "creator@example.com")
 
 		val stored = gameStore.find("game-1")!!
 		assertThat(stored.turn).isEqualTo(Turn.bidding(2))
-		assertThat(stored.log.count { it.text.startsWith("Turn 2 of 20 starts") }).isEqualTo(1)
+		assertThat(stored.log).isEqualTo(oneDone.signalDoneInvesting("creator@example.com").log)
 	}
 
 	@Test

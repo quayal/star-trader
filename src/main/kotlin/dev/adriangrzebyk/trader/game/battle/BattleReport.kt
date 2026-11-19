@@ -20,7 +20,8 @@ data class BattleReport(val system: StarSystem, val round: Int, val results: Lis
 
 /**
  * One salvo of a round as the players it concerns are told (R75, R76): [firer] (of [firerOwnerEmail]) at [target] (of
- * [targetOwnerEmail]), with [rockets] or not, for [hits], and what came of it.
+ * [targetOwnerEmail]), with [rockets] or not, for [hits], what came of it, and the [rolls] that made it (creator,
+ * 2026-11-19): null for a salvo at a ship that broke away, which rolls nothing, and for a report saved before rolls were kept.
  */
 data class SalvoResult(
 	val firer: String,
@@ -29,7 +30,8 @@ data class SalvoResult(
 	val targetOwnerEmail: String,
 	val rockets: Boolean,
 	val hits: Int,
-	val outcome: SalvoOutcome
+	val outcome: SalvoOutcome,
+	val rolls: SalvoRolls?
 ) {
 
 	/** Whether [email] fired this salvo or took it. */
@@ -54,10 +56,16 @@ data class SalvoResult(
 				salvo.target in destroyed -> SalvoOutcome.DESTROYED
 				else -> SalvoOutcome.AWAITING_PLACEMENT
 			}
-			return SalvoResult(salvo.firer, firerOwnerEmail, salvo.target, targetOwnerEmail, salvo.rockets, salvo.hits, outcome)
+			return SalvoResult(salvo.firer, firerOwnerEmail, salvo.target, targetOwnerEmail, salvo.rockets, salvo.hits, outcome, salvo.rolls())
 		}
 	}
 }
+
+/**
+ * What a salvo rolled (R75): [firepower] + [roll] (d6) against [shields] on the battle table, and with rockets that hit,
+ * [rocketRoll] (d6), which destroys the target at or below the hits.
+ */
+data class SalvoRolls(val firepower: Int, val roll: Int, val shields: Int, val rocketRoll: Int?)
 
 /** What came of a salvo (R74–R76). */
 enum class SalvoOutcome { BROKE_AWAY, NO_DAMAGE, DESTROYED, AWAITING_PLACEMENT, PLACED, DESTROYED_WHEN_PLACED }

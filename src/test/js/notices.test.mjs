@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { MAX_TOASTS, cardsFrom, moveCard, noticeCards, toasts } from '../../main/resources/static/js/notices.js';
+import { MAX_TOASTS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts } from '../../main/resources/static/js/notices.js';
 
 const players = [
 	{ id: 'p1', corporationName: 'Orion Freight' },
@@ -44,6 +44,15 @@ describe('noticeCards (creator, 2026-11-18)', () => {
 
 		assert.equal(card.title, 'You evaded an interception');
 		assert.equal(card.lead, 'Evil Corp tried to intercept your Wayfarer with Meridian at Tau Ceti. Wayfarer evaded them.');
+	});
+
+	it('shows the evaded card before the landing dialog, only to the player who evaded (creator, 2026-11-19)', () => {
+		const caught = game([{ turn: 2, text: '…: intercepted', notice: tried(true) }]);
+
+		assert.equal(evasionFirst(noticeCards(failed, 0, 'p1')), true);
+		assert.equal(evasionFirst(noticeCards(failed, 0, 'p2')), false);
+		assert.equal(evasionFirst(noticeCards(caught, 0, 'p1')), false);
+		assert.equal(evasionFirst(noticeCards(failed, 3, 'p1')), false);
 	});
 
 	it('words a success for each side, and tells a bystander too', () => {

@@ -10,7 +10,9 @@ import {
 	movableGoods,
 	moveHint,
 	moveMax,
+	moveSlider,
 	movedText,
+	sliderText,
 	validateMove,
 } from '../../main/resources/static/js/cargo.js';
 
@@ -52,7 +54,7 @@ function game({
 	};
 }
 
-const holders = options => cargoHolders(game(options), ME);
+const holders = (options, system = 'TAU_CETI') => cargoHolders(game(options), ME, system);
 const holder = (key, options) => holders(options).find(entry => entry.key === key);
 const ship = options => holder('ship:Wayfarer', options);
 const warehouse = options => holder('warehouse:TAU_CETI', options);
@@ -67,7 +69,7 @@ describe('moving goods between two holders in the same port (R58, E08-S02, revis
 			assert.equal(canMoveCargo({ ...game(), you: null }), false);
 		});
 
-		it('points Infrastructure to Fleet only for a player with a warehouse', () => {
+		it("points Infrastructure to a system's page only for a player with a warehouse", () => {
 			assert.equal(hasWarehouse(game()), true);
 			assert.equal(hasWarehouse(game({ warehouses: [] })), false);
 		});
@@ -90,9 +92,14 @@ describe('moving goods between two holders in the same port (R58, E08-S02, revis
 			assert.deepEqual(holders({ comet: true }).map(entry => entry.key), ['ship:Wayfarer', 'warehouse:TAU_CETI', 'ship:Comet']);
 		});
 
+		it('lists only the holders at the system whose page it is (creator, 2026-11-19)', () => {
+			assert.equal(holders().some(entry => entry.ship === 'Lantern'), false);
+			assert.deepEqual(holders({ comet: true }, 'MU_HERCULIS'), []);
+		});
+
 		it('leaves out a ship alone in its port, and one in Space or on the Planet', () => {
 			// Lantern is alone at Mu Herculis
-			assert.equal(holders().some(entry => entry.ship === 'Lantern'), false);
+			assert.deepEqual(holders({}, 'MU_HERCULIS'), []);
 			assert.deepEqual(holders({ location: 'SPACE' }), []);
 			assert.deepEqual(holders({ location: 'PLANET' }), []);
 			assert.deepEqual(holders({ comet: true, cometLocation: 'SPACE', warehouses: [] }), []);
@@ -125,6 +132,24 @@ describe('moving goods between two holders in the same port (R58, E08-S02, revis
 		it('is empty for a source holding nothing, or none', () => {
 			assert.deepEqual(movableGoods(ship({ shipCargo: {}, shipUsed: 0 })), []);
 			assert.deepEqual(movableGoods(undefined), []);
+		});
+	});
+
+	describe('moveSlider and sliderText (creator, 2026-11-19)', () => {
+		it('runs from 1 to the most that can move, starting at the most', () => {
+			assert.deepEqual(moveSlider(warehouse(), ship(), 'ISO', ''), { max: 5, value: 5 });
+			assert.equal(sliderText(5, 5), '5 of 5 u');
+		});
+
+		it('keeps a pick that still fits, and drops one that no longer does', () => {
+			assert.deepEqual(moveSlider(warehouse(), ship(), 'ISO', '2'), { max: 5, value: 2 });
+			assert.deepEqual(moveSlider(ship(), warehouse(), 'ISO', '5'), { max: 3, value: 3 });
+		});
+
+		it('is empty when nothing can move', () => {
+			assert.deepEqual(moveSlider(warehouse(), ship({ shipUsed: 8 }), 'ISO', '3'), { max: 0, value: 0 });
+			assert.deepEqual(moveSlider(undefined, ship(), 'ISO', '3'), { max: 0, value: 0 });
+			assert.equal(sliderText(0, 0), '0 u');
 		});
 	});
 
