@@ -15,6 +15,7 @@ import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
+import dev.adriangrzebyk.trader.game.battle.SalvoRolls
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -235,8 +236,26 @@ class GameBattleTest {
 		val fired = fireFirstRound()
 
 		assertThat(fired.turn!!.battleReport!!.results).containsExactly(
-			SalvoResult("Wayfarer", "ada@example.com", "Meridian", "grace@example.com", false, 1, SalvoOutcome.AWAITING_PLACEMENT),
-			SalvoResult("Meridian", "grace@example.com", "Wayfarer", "ada@example.com", true, 1, SalvoOutcome.AWAITING_PLACEMENT)
+			SalvoResult(
+				"Wayfarer",
+				"ada@example.com",
+				"Meridian",
+				"grace@example.com",
+				false,
+				1,
+				SalvoOutcome.AWAITING_PLACEMENT,
+				SalvoRolls(6, 6, 2, null)
+			),
+			SalvoResult(
+				"Meridian",
+				"grace@example.com",
+				"Wayfarer",
+				"ada@example.com",
+				true,
+				1,
+				SalvoOutcome.AWAITING_PLACEMENT,
+				SalvoRolls(5, 4, 2, 3)
+			)
 		)
 		val placed = fired.placeBattleHits("grace@example.com", mapOf("Meridian" to HitPlacement(1, emptyList(), emptyMap())))
 		assertThat(placed.turn!!.battleReport!!.results.map { it.outcome })

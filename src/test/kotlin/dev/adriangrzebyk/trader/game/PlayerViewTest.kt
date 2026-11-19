@@ -169,7 +169,7 @@ class PlayerViewTest {
 	@Test
 	fun shouldSendEachPlayerOnlyTheSalvosThatConcernThem() {
 		// R75–R78: Ada fired at Grace; Kim had no part in it
-		val salvo = SalvoResult("Wayfarer", ada, "Meridian", grace, false, 1, SalvoOutcome.AWAITING_PLACEMENT)
+		val salvo = SalvoResult("Wayfarer", ada, "Meridian", grace, false, 1, SalvoOutcome.AWAITING_PLACEMENT, null)
 		val game = withTurn { it.copy(battleReport = BattleReport(TAU_CETI, 1, listOf(salvo))) }
 
 		assertThat(game.viewFor(grace)!!.battleReport!!.results).containsExactly(salvo)

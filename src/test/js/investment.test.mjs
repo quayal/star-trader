@@ -297,8 +297,8 @@ describe('the Infrastructure screen (E06-S08)', () => {
 				},
 			}));
 			assert.deepEqual(rows, [
-				{ systemName: 'Tau Ceti', blocks: 2, cargoUsed: 4, cargoSpaces: 20, held: '4 ISO, 9 CHIPS' },
-				{ systemName: 'Mu Herculis', blocks: 1, cargoUsed: 0, cargoSpaces: 10, held: 'Empty' },
+				{ system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 2, cargoUsed: 4, cargoSpaces: 20, held: '4 ISO, 9 CHIPS' },
+				{ system: 'MU_HERCULIS', systemName: 'Mu Herculis', blocks: 1, cargoUsed: 0, cargoSpaces: 10, held: 'Empty' },
 			]);
 		});
 

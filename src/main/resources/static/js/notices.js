@@ -84,8 +84,9 @@ function cardFor(game, notice, texts, myId) {
 }
 
 /**
- * The cards for [game]'s log entries from index [from] on, oldest first: `{ key, end, title, lead, tone, lines }`, where
- * [end] is the log length the card covers up to (what dismissing it marks as seen). A battle round is left out for the
+ * The cards for [game]'s log entries from index [from] on, oldest first: `{ key, end, evaded, title, lead, tone, lines }`,
+ * where [end] is the log length the card covers up to (what dismissing it marks as seen) and [evaded] says it tells
+ * [myId] their arriving ship evaded an interception. A battle round is left out for the
  * players fighting in it, who get the battle report instead.
  */
 export function noticeCards(game, from, myId) {
@@ -107,7 +108,20 @@ export function noticeCards(game, from, myId) {
 	}
 	return groups
 		.filter(group => !(group.notice.kind === 'BATTLE_ROUND' && group.notice.playerIds.includes(myId)))
-		.map(group => ({ key: `${game.id}/log/${group.start}`, end: group.end, ...cardFor(game, group.notice, group.texts, myId) }));
+		.map(group => ({
+			key: `${game.id}/log/${group.start}`,
+			end: group.end,
+			evaded: group.notice.kind === 'INTERCEPTION' && group.notice.interception.arrivingId === myId && !group.notice.interception.success,
+			...cardFor(game, group.notice, group.texts, myId),
+		}));
+}
+
+/**
+ * Whether [cards] tell [myId]'s arriving ship evaded an interception: then that card shows before the landing dialog
+ * asks where the ship ends up (creator, 2026-11-19).
+ */
+export function evasionFirst(cards) {
+	return cards.some(card => card.evaded);
 }
 
 /**

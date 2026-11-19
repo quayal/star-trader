@@ -119,9 +119,25 @@
 		.offer-type { border: 0; padding: 0; margin: 0; }
 		.pick-form[hidden], .raise-form[hidden] { display: none; }
 		/* E10: the interception and battle panel on the Deck. */
-		.fight-form[hidden], .fight-panel[hidden], .fight-panel .message:empty, .fight-panel .muted:empty { display: none; }
-		.fight-ships { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-related); }
-		.fight-ships > li { display: grid; gap: var(--space-hairline); }
+		.fight-form[hidden], .fight-panel[hidden], .fight-panel .muted:empty, .battle .message:empty, .battle .muted:empty, .battle p:empty { display: none; }
+		/* The battle dialog (creator, 2026-11-19): wide, so the ships sit side by side and the form below them. */
+		.battle {
+			width: min(960px, calc(100vw - 2 * var(--space-panel)));
+			max-height: calc(100vh - 2 * var(--space-panel));
+			padding: var(--space-panel);
+			background: var(--surface-panel);
+			color: var(--text-primary);
+			border: var(--border-width) solid var(--status-danger);
+			border-radius: var(--radius-panel);
+			box-shadow: var(--glow-danger);
+		}
+		.battle[open] { display: grid; gap: var(--space-related); }
+		.battle::backdrop { background: var(--surface-backdrop); }
+		.battle__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-related); }
+		.battle h2, .battle p { margin: 0; }
+		.fight-ships { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-related); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+		.fight-ships > li { display: grid; gap: var(--space-hairline); align-content: start; padding: var(--space-group); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-panel); }
+		.fight-ships > li.fight-ship--mine { border-color: var(--accent-selected); }
 		.fight-modules { margin: 0; padding-left: var(--space-panel); }
 		.fight-fields { display: grid; gap: var(--space-between-groups); }
 		.fight-fields fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
@@ -183,6 +199,8 @@
 		.battle-report form { display: grid; gap: var(--space-related); max-width: none; }
 		.battle-report h2 { margin: 0; }
 		.battle-report ul { margin: 0; padding-left: var(--space-panel); display: grid; gap: var(--space-group); }
+		/* Creator, 2026-11-19: each salvo's rolls under what it did. */
+		.battle-report__roll { display: block; color: var(--text-muted); font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
 		.landing form { display: grid; gap: var(--space-related); max-width: none; }
 		.landing h2 { margin: 0; }
 		.landing fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
@@ -217,7 +235,8 @@
 		.offer-row__withdraw:hover:not(:disabled) { border-color: var(--accent-selected); }
 		.offer-row__withdraw:disabled { color: var(--text-muted); border-color: var(--border-subtle); cursor: not-allowed; }
 		.system__body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: var(--space-panel); align-items: start; }
-		.system__main { display: grid; gap: var(--space-panel); }
+		.system__main, .system__side { display: grid; gap: var(--space-panel); align-content: start; }
+		.system__side > [hidden] { display: none; }
 		.system__body > [hidden] { display: none; }
 		@media (max-width: 900px) {
 			.system__body { grid-template-columns: minmax(0, 1fr); }
@@ -384,9 +403,14 @@
 		.fleet #ship-panel { display: grid; gap: var(--space-related); }
 		.fleet #ship-panel p:empty, .fleet p#ship-closed:empty { display: none; }
 		.fleet #ship-panel[hidden] { display: none; } /* after the rule above, which sets display */
-		.fleet #cargo-panel { display: grid; gap: var(--space-related); max-width: 960px; }
-		.fleet #cargo-panel p:empty { display: none; }
-		.fleet #cargo-panel[hidden], .fleet #cargo-form[hidden] { display: none; } /* after the rules above, which set display */
+		#cargo-panel { display: grid; gap: var(--space-related); }
+		#cargo-panel p:empty { display: none; }
+		#cargo-panel[hidden], #cargo-form[hidden] { display: none; } /* after the rules above, which set display */
+		/* A slider with its value beside it (creator, 2026-11-19: "try sliders, not numbers"). */
+		.slider { display: flex; align-items: center; gap: var(--space-related); }
+		.slider__range { flex: 1; min-width: 0; accent-color: var(--accent-selected); }
+		.slider__range:disabled { opacity: 0.5; }
+		.slider__value { min-width: 7ch; font-family: var(--font-display); font-variant-numeric: tabular-nums; color: var(--text-primary); }
 		.ship-buy { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: var(--space-between-groups); align-items: start; }
 		@media (max-width: 1100px) {
 			.ship-buy { grid-template-columns: minmax(0, 1fr); }
@@ -637,17 +661,11 @@
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
-				<!-- E10: interception and battle, static markup; its form is rebuilt only when what it asks changes. -->
-				<section class="panel fight-panel" id="fight-panel" aria-labelledby="fight-title" hidden>
-					<h2 id="fight-title" tabindex="-1"></h2>
-					<p id="fight-text"></p>
-					<ul class="fight-ships" id="fight-ships"></ul>
-					<form class="offer-form fight-form" id="fight-form" novalidate hidden>
-						<div class="fight-fields" id="fight-fields"></div>
-						<div><button class="btn" id="fight-button" type="submit"></button></div>
-					</form>
-					<p class="muted" id="fight-waiting"></p>
-					<p class="message" id="fight-message" role="status" tabindex="-1"></p>
+				<!-- E10: an interception or battle under way; the battle itself is in its own dialog (creator, 2026-11-19). -->
+				<section class="panel fight-panel" id="fight-panel" aria-labelledby="fight-summary-title" hidden>
+					<h2 id="fight-summary-title"></h2>
+					<p class="muted" id="fight-summary-waiting"></p>
+					<div><button class="btn" id="fight-open" type="button"></button></div>
 				</section>
 				<!-- E04-S02: static markup, updated on render, so the chosen ship and destination survive the poll. -->
 				<section class="panel" id="jump-panel" aria-labelledby="jump-title" hidden>
@@ -733,6 +751,23 @@
 			</form>
 		</dialog>
 
+		<!-- E10, creator 2026-11-19: the whole interception or battle in its own dialog, for complete focus. Static markup;
+		     its form is rebuilt only when what it asks changes. It opens itself for a player with a step to take. -->
+		<dialog class="battle" id="fight-dialog" aria-labelledby="fight-title">
+			<div class="battle__head">
+				<h2 id="fight-title" tabindex="-1"></h2>
+				<button class="quiet-button" id="fight-hide" type="button">Hide</button>
+			</div>
+			<p id="fight-text"></p>
+			<ul class="fight-ships" id="fight-ships"></ul>
+			<form class="offer-form fight-form" id="fight-form" novalidate hidden>
+				<div class="fight-fields" id="fight-fields"></div>
+				<div><button class="btn" id="fight-button" type="submit"></button></div>
+			</form>
+			<p class="muted" id="fight-waiting"></p>
+			<p class="message" id="fight-message" role="status" tabindex="-1"></p>
+		</dialog>
+
 		<!-- Notifications (creator, 2026-11-18): one card at a time from a queue of interception and battle moments, then your move. -->
 		<dialog class="notice" id="notice-dialog" aria-labelledby="notice-title">
 			<form id="notice-form" method="dialog">
@@ -802,34 +837,6 @@
 			<p class="message" id="fleet-message" role="status" tabindex="-1" hidden></p>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
-			<!-- E08-S02 (R58, revised 2026-11-17): between two ships in the same port, or a ship and the warehouse there, in every phase. Static markup, so the picks and the typed number survive the poll. -->
-			<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
-				<h2 id="cargo-title">Move goods</h2>
-				<p class="muted" id="cargo-intro"></p>
-				<p id="cargo-none"></p>
-				<form class="offer-form" id="cargo-form" novalidate>
-					<div>
-						<label class="field-label" for="cargo-from">From</label>
-						<select class="control" id="cargo-from"></select>
-					</div>
-					<div>
-						<label class="field-label" for="cargo-to">To</label>
-						<select class="control" id="cargo-to"></select>
-					</div>
-					<div>
-						<label class="field-label" for="cargo-goods">Goods</label>
-						<select class="control" id="cargo-goods"></select>
-					</div>
-					<div>
-						<label class="field-label" for="cargo-units">Units</label>
-						<input class="control price-input" id="cargo-units" inputmode="numeric" aria-describedby="cargo-hint cargo-error">
-						<p class="message muted" id="cargo-hint" role="status"></p>
-						<p class="message message--error field-error" id="cargo-error" role="alert"></p>
-					</div>
-					<div><button class="btn" id="cargo-button" type="submit"></button></div>
-					<p class="message" id="cargo-message" role="status"></p>
-				</form>
-			</section>
 			<!-- Why there is no buy form now: output to place first, or not Investment. -->
 			<p class="muted" id="ship-closed"></p>
 			<!-- E09-S06-1 (R61), on Fleet since 2026-11-17 beside the ships the player has: static markup, so the typed name, the picks and the counts survive the poll. -->
@@ -993,8 +1000,8 @@
 				<div><button class="btn" id="reputation-button" type="button">Buy reputation</button></div>
 				<p class="message" id="reputation-message" role="status"></p>
 			</section>
-			<!-- E08-S02 (R58): moving goods is on the Fleet tab since 2026-11-17; a pointer for a player with a warehouse. -->
-			<p id="cargo-pointer" hidden><a class="link" id="cargo-pointer-link" href="/"></a></p>
+			<!-- E08-S02 (R58): moving goods is on each system's page since 2026-11-19; a pointer for a player with a warehouse. -->
+			<p class="muted" id="cargo-pointer" hidden></p>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
 				<h3 class="field-label" id="own-warehouses-title">Your warehouses</h3>
 				<div class="table-wrap">
@@ -1156,10 +1163,42 @@
 				<p class="muted" id="system-warehouses-none" hidden>Nobody has a warehouse here.</p>
 			</details>
 			</div>
-			<section class="panel" id="system-offer-panel" aria-labelledby="system-offer-title" hidden>
-				<h2 id="system-offer-title">Place an offer</h2>
-				<div id="system-offer"></div>
-			</section>
+			<div class="system__side">
+				<section class="panel" id="system-offer-panel" aria-labelledby="system-offer-title" hidden>
+					<h2 id="system-offer-title">Place an offer</h2>
+					<div id="system-offer"></div>
+				</section>
+				<!-- E08-S02 (R58; on the system page with a slider since 2026-11-19): between two of the viewer's ships in port here, or a ship and the warehouse here, in every phase. Static markup, so the picks survive the poll. -->
+				<section class="panel" id="cargo-panel" aria-labelledby="cargo-title" hidden>
+					<h2 id="cargo-title">Move goods</h2>
+					<p class="muted" id="cargo-intro"></p>
+					<form class="offer-form" id="cargo-form" novalidate>
+						<div>
+							<label class="field-label" for="cargo-from">From</label>
+							<select class="control" id="cargo-from"></select>
+						</div>
+						<div>
+							<label class="field-label" for="cargo-to">To</label>
+							<select class="control" id="cargo-to"></select>
+						</div>
+						<div>
+							<label class="field-label" for="cargo-goods">Goods</label>
+							<select class="control" id="cargo-goods"></select>
+						</div>
+						<div>
+							<label class="field-label" for="cargo-units">Units</label>
+							<div class="slider">
+								<input class="slider__range" id="cargo-units" type="range" min="1" max="1" step="1" value="1" aria-describedby="cargo-hint cargo-error">
+								<output class="slider__value" id="cargo-units-value" for="cargo-units"></output>
+							</div>
+							<p class="message muted" id="cargo-hint" role="status"></p>
+							<p class="message message--error field-error" id="cargo-error" role="alert"></p>
+						</div>
+						<div><button class="btn" id="cargo-button" type="submit"></button></div>
+						<p class="message" id="cargo-message" role="status"></p>
+					</form>
+				</section>
+			</div>
 			</div>
 		</div>
 	</div>
@@ -1198,10 +1237,9 @@
 	} from './js/game.js';
 	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
 	import {
-		INFRASTRUCTURE_MOVE_LINK,
+		INFRASTRUCTURE_MOVE_TEXT,
 		MOVE_BUTTON,
 		MOVE_INTRO,
-		NO_SHIP_IN_PORT_TEXT,
 		canMoveCargo,
 		cargoHolders,
 		destinationsFor,
@@ -1209,6 +1247,8 @@
 		movableGoods,
 		moveHint,
 		movedText as cargoMovedText,
+		moveSlider,
+		sliderText,
 		validateMove,
 	} from './js/cargo.js';
 	import {
@@ -1422,7 +1462,7 @@
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
-	import { TOAST_MS, cardsFrom, moveCard, noticeCards, toasts } from './js/notices.js';
+	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -1927,6 +1967,7 @@
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
+		updateFight(game); // likewise: the battle in its own dialog (creator, 2026-11-19), under the report
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
 		views.game.classList.add('view--wide');
@@ -1943,6 +1984,7 @@
 				renderSystem(game, system);
 			}
 			updateOfferForm(systemOfferForm, game, system.id);
+			updateCargoForm(game, system.id); // R58: moving goods between the viewer's holders at this system (creator, 2026-11-19)
 			showPanels('system-panel');
 			if (focusSystemTitle) {
 				focusSystemTitle = false;
@@ -1979,7 +2021,6 @@
 			if ($('ship-closed').textContent !== closed) {
 				$('ship-closed').textContent = closed;
 			}
-			updateCargoForm(game); // R58: moving goods sits with the ships it moves between
 			showPanels('fleet-panel');
 			const shipTitle = focusFleetShip === null ? null
 				: [...$('fleet-ships').querySelectorAll('h3')].find(title => title.textContent === focusFleetShip);
@@ -2045,7 +2086,6 @@
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
-		updateFightPanel(game);
 		showPanels('deck-panel');
 		if (focusDeckHeading) {
 			focusDeckHeading = false;
@@ -3625,12 +3665,13 @@
 	 */
 	function afterJumpStep(game, announce = '') {
 		render(game);
-		if ($('landing-dialog').open || $('deck-panel').hidden) {
-			return; // showModal() has put focus in the dialog; off the Deck there's no form to return to
+		if ($('landing-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
+			return; // showModal() has put focus in the dialog (the evaded card comes before the landing); off the Deck there's no form to return to
 		}
 		if (isFighting(game)) {
 			setJumpMessage('', false);
-			$('fight-title').focus(); // E10: the jump stopped for an interception; the fight panel says what's next
+			// E10: the jump stopped for an interception; the battle dialog (or, if it isn't open, the Deck's panel) says what's next.
+			$($('fight-dialog').open ? 'fight-title' : 'fight-open').focus();
 			return;
 		}
 		if (!$('jump-panel').hidden) {
@@ -3693,6 +3734,10 @@
 	let fightSending = false;
 	// The game and turn the fight message belongs to (lesson 2026-11-04).
 	let fightMessageKey = null;
+	// The step the viewer hid the dialog at: it opens itself again only for a later step (creator, 2026-11-19).
+	let fightHiddenKey = null;
+	// The step the dialog shows now.
+	let fightStepKey = null;
 
 	function setFightMessage(text, error) {
 		if ($('fight-message').textContent !== text) {
@@ -3701,45 +3746,82 @@
 		$('fight-message').className = error ? 'message message--error' : 'message';
 	}
 
-	/** R70–R78: who fights, what each ship is, and the one form the viewer has to fill now, if any. */
-	function updateFightPanel(game) {
+	/**
+	 * R70–R78: who fights, what each ship is, and the one form the viewer has to fill now, if any, in the battle dialog;
+	 * a short panel on the Deck reopens it. The dialog opens itself for a player with a step to take or ships in the
+	 * battle, unless they hid it at this very step, and waits while another dialog is open (creator, 2026-11-19).
+	 */
+	function updateFight(game) {
 		const messageKey = `${game.id}/${game.turn?.number}`;
 		if (messageKey !== fightMessageKey) {
 			fightMessageKey = messageKey;
 			setFightMessage('', false);
 		}
+		const dialog = $('fight-dialog');
 		const fighting = isFighting(game);
 		$('fight-panel').hidden = !fighting;
 		if (!fighting) {
 			fightFormKey = null;
 			fightStep = null;
+			fightStepKey = null;
+			if (dialog.open) {
+				dialog.close();
+			}
 			return;
 		}
-		$('fight-title').textContent = fightTitle(game);
+		const title = fightTitle(game);
+		const waiting = waitingText(game, viewerId);
+		const step = interceptors(game).length ? 'INTERCEPT' : battleStep(game, viewerId);
+		const involved = step !== null || Boolean(game.you?.battle);
+		$('fight-summary-title').textContent = title;
+		if ($('fight-summary-waiting').textContent !== waiting) {
+			$('fight-summary-waiting').textContent = waiting;
+		}
+		$('fight-open').textContent = involved ? 'Return to the battle' : 'Watch the battle';
+		$('fight-title').textContent = title;
 		$('fight-text').textContent = interceptionText(game);
 		const rows = battleShipRows(game);
 		const rowsKey = JSON.stringify(rows);
 		if ($('fight-ships').dataset.key !== rowsKey) {
 			$('fight-ships').dataset.key = rowsKey;
-			$('fight-ships').replaceChildren(...rows.map(row => element('li', {},
+			$('fight-ships').replaceChildren(...rows.map(row => element('li', { class: row.ownerId === viewerId ? 'fight-ship--mine' : '' },
 				element('span', {}, element('strong', {}, row.name), ` — ${row.owner}`,
 					...(row.note ? [' ', element('span', { class: row.note.startsWith('intercepted') ? 'badge badge--warn' : 'badge' }, row.note)] : [])),
 				element('span', { class: 'muted' }, `${row.hull}; ${row.stats}`),
 				element('ul', { class: 'fight-modules muted' }, ...row.modules.map(module => element('li', {}, module))))));
 		}
-		$('fight-waiting').textContent = waitingText(game, viewerId);
-		const step = interceptors(game).length ? 'INTERCEPT' : battleStep(game, viewerId);
+		if ($('fight-waiting').textContent !== waiting) {
+			$('fight-waiting').textContent = waiting;
+		}
+		const stepKey = JSON.stringify([game.id, game.turn.number, game.turn.battle?.system ?? game.turn.interception?.system,
+			game.turn.battle?.round, game.turn.battle?.stage, step]);
+		if (fightStepKey !== null && stepKey !== fightStepKey) {
+			setFightMessage('', false); // "Decision sent." was about the step before
+		}
+		fightStepKey = stepKey;
 		const formKey = JSON.stringify([game.id, game.turn.number, step, game.turn.battle?.round, game.turn.battle?.stage,
 			game.you?.interception, game.you?.battle, step === 'HITS' ? game.turn.battle.ships : null, step === 'ORDERS' ? targets(game, viewerId) : null]);
 		$('fight-form').hidden = step === null;
 		fightStep = step;
-		if (formKey === fightFormKey) {
-			return;
+		if (formKey !== fightFormKey) {
+			fightFormKey = formKey;
+			$('fight-fields').replaceChildren(...fightFields(game, step));
+			updateOverflowNotes();
+			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		fightFormKey = formKey;
-		$('fight-fields').replaceChildren(...fightFields(game, step));
-		updateOverflowNotes();
-		$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
+		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog'].some(id => $(id).open);
+		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
+			dialog.showModal();
+			$('fight-title').focus();
+		}
+	}
+
+	/** Hide (or Escape): the dialog stays shut until the viewer's next step, or until they reopen it from the Deck. */
+	function hideFight() {
+		fightHiddenKey = fightStepKey;
+		if ($('fight-dialog').open) {
+			$('fight-dialog').close();
+		}
 	}
 
 	/** The form's fields for [step]. Ids are by place, not ship name, so any name is safe in an id. */
@@ -3929,12 +4011,13 @@
 		if (!unseen && !dialog.open) {
 			return;
 		}
-		const linesKey = JSON.stringify(lines.map(line => [line.key, line.text]));
+		const linesKey = JSON.stringify(lines.map(line => [line.key, line.text, line.rolls]));
 		if (dialog.dataset.key !== linesKey) {
 			dialog.dataset.key = linesKey;
 			shownReportLines = lines;
 			$('battle-report-title').textContent = reportTitle(game);
-			$('battle-report-lines').replaceChildren(...lines.map(line => element('li', {}, ...toned(line.parts))));
+			$('battle-report-lines').replaceChildren(...lines.map(line => element('li', {}, ...toned(line.parts),
+				...(line.rolls ? [element('span', { class: 'battle-report__roll' }, line.rolls)] : []))));
 			$('battle-report-button').textContent = REPORT_BUTTON;
 		}
 		if (!dialog.open) {
@@ -3992,7 +4075,8 @@
 			return [];
 		}
 		const cards = noticeCards(game, cardsSeenFrom(game.id, game.log.length), viewerId);
-		const move = moveCard(game, viewerId);
+		const found = moveCard(game, viewerId);
+		const move = found?.focus === 'fight-title' ? null : found; // the battle dialog opens itself for these (creator, 2026-11-19)
 		const moves = readStore('sessionStorage', MOVES_SEEN, []);
 		return move && !moves.includes(move.key) ? [...cards, { ...move, move: true }] : cards;
 	}
@@ -4047,6 +4131,8 @@
 		// Escape counts as Next: the card is seen either way.
 		const dismissed = answer === 'all' ? noticeQueue : noticeQueue.slice(0, 1);
 		dismissed.forEach(card => (card.move ? markMoveSeen(card.key) : markCardsSeen(gameId, card.end)));
+		updateLanding(lastGame); // a landing held back for the evaded card opens now, before any further card
+		updateFight(lastGame); // likewise the battle dialog, which waits for the cards
 		const go = answer !== 'all' && dismissed[0]?.move ? dismissed[0].link : null;
 		if (go && location.hash !== go) {
 			location.hash = go; // route() redraws, and the next card (if any) opens with it
@@ -4101,6 +4187,9 @@
 		if (!landing) {
 			closeLanding(); // landed (here or in another tab), or nothing to land
 			return;
+		}
+		if (!$('landing-dialog').open && evasionFirst(noticeCards(game, cardsSeenFrom(game.id, game.log.length), viewerId))) {
+			return; // "You evaded an interception" first; closing that card opens this (creator, 2026-11-19)
 		}
 		const key = JSON.stringify([game.id, game.turn.number, landing.ship.name]);
 		if (key !== landingKey) {
@@ -4215,6 +4304,18 @@
 	$('pick-form').addEventListener('submit', submitPick);
 	$('jump-form').addEventListener('submit', submitJump);
 	$('fight-form').addEventListener('submit', submitFight);
+	$('fight-hide').addEventListener('click', hideFight);
+	$('fight-dialog').addEventListener('cancel', event => {
+		event.preventDefault();
+		hideFight();
+	});
+	$('fight-open').addEventListener('click', () => {
+		fightHiddenKey = null;
+		if (!$('fight-dialog').open) {
+			$('fight-dialog').showModal();
+			$('fight-title').focus();
+		}
+	});
 	$('fight-fields').addEventListener('input', updateOverflowNotes);
 	$('finish-button').addEventListener('click', () => sendJumpStep('finish', null));
 	$('landing-form').addEventListener('submit', event => {
@@ -4226,7 +4327,10 @@
 	// (an unchanged game answers 304 and renders nothing).
 	['battle-report-dialog', 'landing-dialog'].forEach(id => $(id).addEventListener('close', () => {
 		if (lastGame && lastGame.id === currentGameId) {
-			setTimeout(() => updateNotices(lastGame)); // after the closing dialog has left the top layer
+			setTimeout(() => {
+				updateFight(lastGame); // the battle dialog waited for it too (creator, 2026-11-19)
+				updateNotices(lastGame);
+			}); // after the closing dialog has left the top layer
 		}
 	}));
 	$('landing-dialog').addEventListener('cancel', event => {
@@ -4354,15 +4458,14 @@
 		}
 		const cargoPointer = hasWarehouse(game);
 		$('cargo-pointer').hidden = !cargoPointer;
-		if (cargoPointer) {
-			$('cargo-pointer-link').href = fleetLink(game.id);
-			$('cargo-pointer-link').textContent = INFRASTRUCTURE_MOVE_LINK;
+		if (cargoPointer && $('cargo-pointer').textContent !== INFRASTRUCTURE_MOVE_TEXT) {
+			$('cargo-pointer').textContent = INFRASTRUCTURE_MOVE_TEXT;
 		}
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, viewerId);
 			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', {},
-				element('th', { scope: 'row' }, row.systemName),
+				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
 				element('td', { class: 'num' }, String(row.blocks)),
 				element('td', { class: 'num' }, `${row.cargoUsed} / ${row.cargoSpaces}`),
 				element('td', {}, row.held))));
@@ -4688,7 +4791,7 @@
 		}
 	});
 
-	// ── E08-S02: moving goods between two ships in the same port, or a ship and the warehouse there (R58), on Fleet ──
+	// ── E08-S02: moving goods between two ships in the same port, or a ship and the warehouse there (R58), on the system page ──
 
 	// What the pickers were drawn from, and for which game: they're drawn again only when a ship or a warehouse changes,
 	// so a pick survives the poll, and a new game starts afresh (lesson 2026-11-04: a select's kept choice is keyed by game).
@@ -4696,10 +4799,12 @@
 	let shownCargoGame = null;
 	let cargoMessageKey = null;
 	let submittingCargo = false;
+	// The system whose page the form is on.
+	let cargoSystem = null;
 
 	/** The picked From and To holders; either is undefined when the list changed under the pick. */
 	function pickedEnds(game) {
-		const holders = cargoHolders(game, viewerId);
+		const holders = cargoHolders(game, viewerId, cargoSystem);
 		const from = holders.find(entry => entry.key === $('cargo-from').value);
 		const to = destinationsFor(holders, from).find(entry => entry.key === $('cargo-to').value);
 		return { from, to };
@@ -4728,19 +4833,42 @@
 		}
 	}
 
-	/** How many units can move, under the Units field; with nothing to move the button waits. */
+	/**
+	 * The slider's range and how many units can move, under it; the pick is kept while it still fits (a poll doesn't
+	 * move the thumb). With nothing to move the slider and the button wait.
+	 */
 	function updateCargoHint(game) {
 		const { from, to } = pickedEnds(game);
-		const text = moveHint(from, to, $('cargo-goods').value);
+		const goods = $('cargo-goods').value;
+		const text = moveHint(from, to, goods);
 		if ($('cargo-hint').textContent !== text) {
 			$('cargo-hint').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
-		$('cargo-button').disabled = submittingCargo || !from || !to || $('cargo-goods').options.length === 0;
+		const slider = $('cargo-units');
+		const { max, value } = moveSlider(from, to, goods, slider.dataset.picked ?? '');
+		slider.max = String(Math.max(1, max));
+		slider.value = String(Math.max(1, value));
+		slider.disabled = max === 0;
+		updateSliderText();
+		$('cargo-button').disabled = submittingCargo || max === 0;
+	}
+
+	function updateSliderText() {
+		const slider = $('cargo-units');
+		const text = slider.disabled ? sliderText(0, 0) : sliderText(Number(slider.value), Number(slider.max));
+		if ($('cargo-units-value').textContent !== text) {
+			$('cargo-units-value').textContent = text;
+		}
+	}
+
+	/** Forgets the slider's pick, so it starts again at the most that can move. */
+	function resetCargoSlider() {
+		delete $('cargo-units').dataset.picked;
 	}
 
 	/** The holders in From's port for To, then the goods From holds; picks are kept while they're still there. */
 	function fillCargoDestinationsAndGoods(game) {
-		const holders = cargoHolders(game, viewerId);
+		const holders = cargoHolders(game, viewerId, cargoSystem);
 		const from = holders.find(entry => entry.key === $('cargo-from').value);
 		fillHolderSelect($('cargo-to'), destinationsFor(holders, from), $('cargo-to').value);
 		const chosen = $('cargo-goods').value;
@@ -4752,13 +4880,19 @@
 		updateCargoHint(game);
 	}
 
-	/** S02-7, S02-8: the panel in every phase of a running game; the form while two of the player's holders share a port. */
-	function updateCargoForm(game) {
+	/**
+	 * S02-7, S02-8: on [systemId]'s page, in every phase of a running game, while two of the viewer's holders are there
+	 * (creator, 2026-11-19: on the system page, not Fleet).
+	 */
+	function updateCargoForm(game, systemId) {
 		const panel = $('cargo-panel');
-		panel.hidden = !canMoveCargo(game);
-		if (cargoMessageKey !== null && cargoMessageKey !== game.id) {
+		const messageKey = `${game.id}/${systemId}`;
+		if (cargoMessageKey !== null && cargoMessageKey !== messageKey) {
 			setCargoMessage('', false, null);
 		}
+		cargoSystem = systemId;
+		const holders = canMoveCargo(game) ? cargoHolders(game, viewerId, systemId) : [];
+		panel.hidden = holders.length === 0;
 		if (panel.hidden) {
 			shownCargoKey = null;
 			return;
@@ -4767,26 +4901,16 @@
 			$('cargo-intro').textContent = MOVE_INTRO;
 			$('cargo-button').textContent = MOVE_BUTTON;
 		}
-		const holders = cargoHolders(game, viewerId);
-		$('cargo-form').hidden = holders.length === 0;
-		const none = holders.length === 0 ? NO_SHIP_IN_PORT_TEXT : '';
-		if ($('cargo-none').textContent !== none) {
-			$('cargo-none').textContent = none;
-		}
-		if (holders.length === 0) {
-			shownCargoKey = null;
-			return;
-		}
-		const key = JSON.stringify([game.id, holders]);
+		const key = JSON.stringify([game.id, systemId, holders]);
 		if (key !== shownCargoKey) {
-			const sameGame = shownCargoKey !== null && shownCargoGame === game.id;
+			const sameGame = shownCargoKey !== null && shownCargoGame === messageKey;
 			fillHolderSelect($('cargo-from'), holders, sameGame ? $('cargo-from').value : null);
 			if (!sameGame) {
-				$('cargo-units').value = ''; // another game's, or the form was away: nothing typed carries over
+				resetCargoSlider(); // another game's or system's, or the form was away: no pick carries over
 				setCargoError('');
 			}
 			shownCargoKey = key;
-			shownCargoGame = game.id;
+			shownCargoGame = messageKey;
 			fillCargoDestinationsAndGoods(game);
 		}
 		updateCargoHint(game);
@@ -4795,17 +4919,24 @@
 	// Another holder changes what can move; typing again clears a shown error, which was about what was there before.
 	$('cargo-from').addEventListener('change', () => {
 		setCargoError('');
+		resetCargoSlider();
 		fillCargoDestinationsAndGoods(lastGame);
 	});
 	$('cargo-to').addEventListener('change', () => {
 		setCargoError('');
+		resetCargoSlider();
 		updateCargoHint(lastGame);
 	});
 	$('cargo-goods').addEventListener('change', () => {
 		setCargoError('');
+		resetCargoSlider();
 		updateCargoHint(lastGame);
 	});
-	$('cargo-units').addEventListener('input', () => setCargoError(''));
+	$('cargo-units').addEventListener('input', () => {
+		setCargoError('');
+		$('cargo-units').dataset.picked = $('cargo-units').value; // the player's pick, kept through polls
+		updateSliderText();
+	});
 
 	/** S02-2: checked here first, then by the server; the answer redraws the screen with what each now holds. */
 	$('cargo-form').addEventListener('submit', async (event) => {
@@ -4839,8 +4970,8 @@
 			return;
 		}
 		if (response?.ok) {
-			setCargoMessage(cargoMovedText(from, to, goods, checked.body.units), false, gameId);
-			$('cargo-units').value = '';
+			setCargoMessage(cargoMovedText(from, to, goods, checked.body.units), false, `${gameId}/${cargoSystem}`);
+			resetCargoSlider();
 			render(await response.json());
 			return;
 		}
@@ -4850,7 +4981,7 @@
 			$('cargo-units').focus();
 			return;
 		}
-		setCargoMessage(message, true, gameId);
+		setCargoMessage(message, true, `${gameId}/${cargoSystem}`);
 		if (response) {
 			repollNow(); // e.g. the ship has left port, or the game is over: the screen catches up
 		}

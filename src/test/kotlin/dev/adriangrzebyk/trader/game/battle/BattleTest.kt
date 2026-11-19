@@ -74,9 +74,9 @@ class BattleTest {
 
 		assertThat(round.report.round).isEqualTo(1)
 		assertThat(round.report.results).containsExactly(
-			SalvoResult("Wayfarer", ada, "Meridian", grace, false, 0, SalvoOutcome.NO_DAMAGE),
-			SalvoResult("Lantern", ada, "Meridian", grace, true, 2, SalvoOutcome.DESTROYED),
-			SalvoResult("Meridian", grace, "Wayfarer", ada, false, 1, SalvoOutcome.AWAITING_PLACEMENT)
+			SalvoResult("Wayfarer", ada, "Meridian", grace, false, 0, SalvoOutcome.NO_DAMAGE, SalvoRolls(6, 7, 2, null)),
+			SalvoResult("Lantern", ada, "Meridian", grace, true, 2, SalvoOutcome.DESTROYED, SalvoRolls(6, 7, 2, 1)),
+			SalvoResult("Meridian", grace, "Wayfarer", ada, false, 1, SalvoOutcome.AWAITING_PLACEMENT, SalvoRolls(6, 7, 2, null))
 		)
 	}
 

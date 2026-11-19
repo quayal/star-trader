@@ -14,6 +14,7 @@ import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
+import dev.adriangrzebyk.trader.game.battle.SalvoRolls
 import java.math.BigDecimal
 
 /**
@@ -156,7 +157,10 @@ data class BattleReportResponseDto(val system: String, val systemName: String, v
 	)
 }
 
-/** One salvo's result (R75, R76); [outcome] is a [dev.adriangrzebyk.trader.game.battle.SalvoOutcome] name. */
+/**
+ * One salvo's result (R75, R76); [outcome] is a [dev.adriangrzebyk.trader.game.battle.SalvoOutcome] name, [rolls] what it
+ * rolled, or null when it rolled nothing (creator, 2026-11-19).
+ */
 data class SalvoResultResponseDto(
 	val firer: String,
 	val firerOwnerId: String,
@@ -164,7 +168,8 @@ data class SalvoResultResponseDto(
 	val targetOwnerId: String,
 	val rockets: Boolean,
 	val hits: Int,
-	val outcome: String
+	val outcome: String,
+	val rolls: SalvoRollsResponseDto?
 ) {
 
 	constructor(result: SalvoResult, ids: PlayerIds) : this(
@@ -174,8 +179,15 @@ data class SalvoResultResponseDto(
 		ids.of(result.targetOwnerEmail),
 		result.rockets,
 		result.hits,
-		result.outcome.name
+		result.outcome.name,
+		result.rolls?.let { SalvoRollsResponseDto(it) }
 	)
+}
+
+/** What a salvo rolled (R75): firepower + d6 against shields, and the rocket d6 when there was one. */
+data class SalvoRollsResponseDto(val firepower: Int, val roll: Int, val shields: Int, val rocketRoll: Int?) {
+
+	constructor(rolls: SalvoRolls) : this(rolls.firepower, rolls.roll, rolls.shields, rolls.rocketRoll)
 }
 
 /** One of the viewer's own orders this round (R74). */

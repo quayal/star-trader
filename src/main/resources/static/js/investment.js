@@ -187,6 +187,7 @@ export function ownWarehouseRows(game) {
 	return (game.you?.warehouses ?? []).map(warehouse => {
 		const held = Object.entries(warehouse.cargo).map(([goods, units]) => `${units} ${goods}`);
 		return {
+			system: warehouse.system,
 			systemName: warehouse.systemName,
 			blocks: warehouse.blocks,
 			cargoUsed: warehouse.cargoUsed,

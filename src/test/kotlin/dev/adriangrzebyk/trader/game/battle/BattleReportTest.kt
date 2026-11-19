@@ -15,12 +15,28 @@ class BattleReportTest {
 		TAU_CETI,
 		2,
 		listOf(
-			SalvoResult("Wayfarer", ada, "Meridian", grace, false, 2, SalvoOutcome.AWAITING_PLACEMENT),
-			SalvoResult("Lantern", ada, "Halcyon", grace, true, 3, SalvoOutcome.AWAITING_PLACEMENT),
-			SalvoResult("Meridian", grace, "Wayfarer", ada, false, 0, SalvoOutcome.NO_DAMAGE),
-			SalvoResult("Corvid", kim, "Halcyon", grace, false, 1, SalvoOutcome.AWAITING_PLACEMENT)
+			SalvoResult("Wayfarer", ada, "Meridian", grace, false, 2, SalvoOutcome.AWAITING_PLACEMENT, null),
+			SalvoResult("Lantern", ada, "Halcyon", grace, true, 3, SalvoOutcome.AWAITING_PLACEMENT, null),
+			SalvoResult("Meridian", grace, "Wayfarer", ada, false, 0, SalvoOutcome.NO_DAMAGE, null),
+			SalvoResult("Corvid", kim, "Halcyon", grace, false, 1, SalvoOutcome.AWAITING_PLACEMENT, null)
 		)
 	)
+
+	@Test
+	fun shouldKeepTheRollsThatMadeEachSalvo() {
+		// Creator, 2026-11-19: the results show the rolls, not only the log.
+		val rocketSalvo = Salvo("Lantern", "Halcyon", true, 6, 4, 2, 2, 3, false)
+		val result = SalvoResult.of(rocketSalvo, ada, grace, emptySet())
+
+		assertThat(result.rolls).isEqualTo(SalvoRolls(6, 4, 2, 3))
+	}
+
+	@Test
+	fun shouldKeepNoRollsForASalvoAtAShipThatBrokeAway() {
+		val missed = Salvo("Lantern", "Halcyon", false, 6, 0, 2, 0, null, true)
+
+		assertThat(SalvoResult.of(missed, ada, grace, emptySet()).rolls).isNull()
+	}
 
 	@Test
 	fun shouldTellEachPlayerOnlyTheSalvosTheirShipsFiredOrTook() {

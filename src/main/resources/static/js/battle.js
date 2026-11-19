@@ -215,8 +215,8 @@ export function reportTitle(game) {
 
 /**
  * R75–R78: what the last round's salvos did to and from the viewer's ships, one line each, worded from the outcome the
- * server decided: `{ key, text, parts }`. [parts] is the text with "ship destroyed" as `{ text, tone: 'alert' }`, shown
- * red and bold. The key identifies the salvo for "already seen", not its outcome: a target placing its hits changes the
+ * server decided: `{ key, text, parts, rolls }`. [parts] is the text with "ship destroyed" as `{ text, tone: 'alert' }`,
+ * shown red and bold; [rolls] what the salvo rolled (creator, 2026-11-19), or "" when it rolled nothing. The key identifies the salvo for "already seen", not its outcome: a target placing its hits changes the
  * firer's line ("wait for …" → "… applied the damage") but mustn't bring the report back for either of them.
  */
 export function reportLines(game, playerId) {
@@ -230,11 +230,27 @@ export function reportLines(game, playerId) {
 			? `${firers.size > 1 ? `${result.firer}: ` : ''}${firedText(game, result)}`
 			: takenText(game, result);
 		const parts = text.endsWith(`, ${DESTROYED}.`) ? [text.slice(0, -DESTROYED.length - 1), { text: DESTROYED, tone: 'alert' }, '.'] : [text];
-		return { key: `${game.id}/${game.turn?.number}/${report.system}/${report.round}/${result.firer}/${result.target}`, text, parts };
+		return { key: `${game.id}/${game.turn?.number}/${report.system}/${report.round}/${result.firer}/${result.target}`, text, parts, rolls: rollsText(result) };
 	});
 }
 
 const DESTROYED = 'ship destroyed';
+
+/**
+ * R75: what a salvo rolled, "Roll: weapons 6 + d6 4 = 10 vs shields 2 → 2 hits" ("rockets 6 + …" for a rocket
+ * salvo), and "; rocket d6 3" when its rockets hit. What came of it is the line above, decided by the server. "" without
+ * rolls.
+ */
+export function rollsText(result) {
+	const rolls = result.rolls;
+	if (!rolls) {
+		return '';
+	}
+	const hits = result.hits === 1 ? '1 hit' : `${result.hits} hits`;
+	const firepower = result.rockets ? 'rockets' : 'weapons';
+	const salvo = `Roll: ${firepower} ${rolls.firepower} + d6 ${rolls.roll} = ${rolls.firepower + rolls.roll} vs shields ${rolls.shields} \u2192 ${hits}`;
+	return rolls.rocketRoll === null || rolls.rocketRoll === undefined ? salvo : `${salvo}; rocket d6 ${rolls.rocketRoll}`;
+}
 
 function damage(result) {
 	return `${result.rockets ? ' with rockets' : ''} for ${result.hits} damage`;

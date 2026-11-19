@@ -23,6 +23,9 @@ data class Salvo(
 	/** Whether the rocket roll destroyed the target outright (R75). */
 	fun destroysTarget(): Boolean = rocketRoll != null && rocketRoll <= hits
 
+	/** What this salvo rolled, for the players it concerns; null when it [missed] and rolled nothing. */
+	fun rolls(): SalvoRolls? = if (missed) null else SalvoRolls(firepower, roll, shields, rocketRoll)
+
 	/** The public log line (R78): "Salvo: Lantern → Wayfarer, 6 + d6 4 = 10 vs shields 2: 1 hit". */
 	fun log(): String {
 		val kind = if (rockets) "Rocket salvo" else "Salvo"
