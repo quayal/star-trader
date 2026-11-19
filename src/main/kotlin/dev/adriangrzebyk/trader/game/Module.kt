@@ -38,4 +38,9 @@ enum class Module(
 
 	/** What removing this module pays back (R65): half its price, rounded down; its crew isn't paid back. */
 	fun resaleValue(): Int = price / 2
+
+	companion object {
+		/** Every module a shipyard sells, in declaration order (R61, R56: no military one). */
+		fun forSale(): List<Module> = entries.filter { it.isForSale() }
+	}
 }

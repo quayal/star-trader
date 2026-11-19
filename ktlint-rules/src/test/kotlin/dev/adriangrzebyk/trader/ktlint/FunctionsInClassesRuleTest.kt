@@ -105,7 +105,7 @@ class FunctionsInClassesRuleTest {
 			"""
 			package dev.adriangrzebyk.trader.game
 
-			import dev.adriangrzebyk.trader.trading.TradeOffer
+			import dev.adriangrzebyk.trader.board.TradeOffer
 
 			fun describe(game: Game): String = game.id
 
@@ -123,7 +123,7 @@ class FunctionsInClassesRuleTest {
 			"""
 			package dev.adriangrzebyk.trader.game
 
-			import dev.adriangrzebyk.trader.trading.TradeOffer
+			import dev.adriangrzebyk.trader.board.TradeOffer
 
 			fun main(args: Array<String>) = Unit
 

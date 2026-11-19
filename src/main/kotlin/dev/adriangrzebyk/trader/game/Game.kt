@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
@@ -8,10 +11,6 @@ import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
-import java.util.Locale
 
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
@@ -142,16 +141,15 @@ data class Game(
 	}
 
 	/** This game over after turn [number], the log ending with the winner (E05-S08-1, S08-5). */
-	private fun finished(number: Int): Game = copy(status = GameStatus.FINISHED, log = log + LogEntry.event(number, gameOverText()))
+	private fun finished(number: Int): Game {
+		val text = corporationNames().winText(winners().map { it.email }, winners().first().money)
+		return copy(status = GameStatus.FINISHED, log = log + LogEntry.event(number, text))
+	}
 
 	/** This game in the turn after [current], starting with Bidding (S07-2, S07-3). */
 	private fun withNextTurn(current: Turn): Game {
 		val next = current.next()
-		return copy(
-			turn = next,
-			log =
-			log + LogEntry.event(next.number, "Turn ${next.number} of $turns starts with Bidding; turn ${current.number}'s offers have expired")
-		)
+		return copy(turn = next, log = log + LogEntry.event(next.number, next.startedText(turns)))
 	}
 
 	/** Turn [number]'s end (R86, E13-S01-2): every player whose reputation is from 1 to 17 recovers 3, each logged. */
@@ -189,16 +187,8 @@ data class Game(
 	/** The players with the most money (R39); several when they tie, and they share the win (E05-S08-4, proposed). */
 	fun winners(): List<Player> = players.filter { it.money == players.maxOf { player -> player.money } }
 
-	/**
-	 * S08-5: "Game over: Vega Lines wins with 2,310 HT", or for a shared win "Game over: Vega Lines and Kessler Cargo win
-	 * with 2,310 HT".
-	 */
-	private fun gameOverText(): String {
-		val names = winners().map { it.corporationName }
-		val who = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
-		val verb = if (names.size == 1) "wins" else "win"
-		return "Game over: $who $verb with ${String.format(Locale.US, "%,d", winners().first().money)} HT"
-	}
+	/** The result once the game is over (E05-S08-2, R39: then everyone's money is public), and null until then (R29). */
+	fun result(): GameResult? = if (status == GameStatus.FINISHED) GameResult(standings(), winners()) else null
 
 	/**
 	 * Records that [email] is done investing (R44, E06-S01-2). Investment closes the moment the last player signals done
@@ -206,10 +196,7 @@ data class Game(
 	 */
 	fun signalDoneInvesting(email: String): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
-		val signalled = copy(turn = runningTurn().signalDoneInvesting(email))
+		val signalled = copy(turn = investmentAfterCollect(player).signalDoneInvesting(email))
 		val current = signalled.runningTurn()
 		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
 	}
@@ -241,9 +228,7 @@ data class Game(
 	 * flag (D09): a player who signalled done may still invest until everyone has.
 	 */
 	fun buyWarehouseBlocks(email: String, system: StarSystem, blocks: Int): Game =
-		withInvestment(email, "added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}") {
-			it.buyWarehouseBlocks(system, blocks)
-		}
+		withInvestment(email, { it.warehouseBlocksLog(system, blocks) }) { it.buyWarehouseBlocks(system, blocks) }
 
 	/**
 	 * [email] buys [units] of production of [goods] at [system] (R46, E06-S05): [Player.buyFactoryUnits] checks and applies
@@ -255,12 +240,9 @@ data class Game(
 	 */
 	fun buyFactoryUnits(email: String, system: StarSystem, goods: Goods, units: Int): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
+		val investing = investmentAfterCollect(player)
 		val bought = player.buyFactoryUnits(system, goods, units, prices)
-		val amount = if (units == 1) "1 unit" else "$units units"
-		val line = "${player.corporationName} added $amount of ${goods.name} production at ${system.displayName}"
+		val line = player.factoryUnitsLog(system, goods, units)
 		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
 		return copy(players = replace(bought), turn = settled, log = log + LogEntry.event(investing.number, line))
 	}
@@ -276,7 +258,7 @@ data class Game(
 		if (isShipNameTaken(ship.name)) {
 			throw InvalidInvestmentException("There's already a ship called ${ship.name} in this game.")
 		}
-		return withInvestment(email, "ordered ${ship.name} at the ${shipyard.displayName} shipyard") { it.buyShip(ship) }
+		return withInvestment(email, { it.shipOrderedLog(ship.name, shipyard) }) { it.buyShip(ship) }
 	}
 
 	/** The suggested names no ship in this game uses yet, ignoring case (R62), in [Ship.NAMES] order. */
@@ -302,19 +284,44 @@ data class Game(
 	 * [email] sells their ship [shipName] (R66): see [Player.sellShip]. The sale is public, without the amount (R29); what
 	 * happened to the cargo is private, so isn't logged.
 	 */
-	fun sellShip(email: String, shipName: String): Game = withInvestment(email, "sold $shipName") { it.sellShip(shipName) }
+	fun sellShip(email: String, shipName: String): Game = withInvestment(email, { it.shipSoldLog(shipName) }) { it.sellShip(shipName) }
 
 	/**
-	 * This game once [change] applied to [email] in Investment, after their Collect (S03-5), with "{corporation} [event]"
-	 * in the public log when there is one.
+	 * This game once [change] applied to [email] in Investment, after their Collect (S03-5), with the line [logged] writes
+	 * from the player in the public log when there is one.
 	 */
-	private fun withInvestment(email: String, event: String?, change: (Player) -> Player): Game {
+	private fun withInvestment(email: String, logged: ((Player) -> String)?, change: (Player) -> Player): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
-		val line = event?.let { LogEntry.event(investing.number, "${player.corporationName} $it") }
+		val investing = investmentAfterCollect(player)
+		val line = logged?.let { LogEntry.event(investing.number, it(player)) }
 		return copy(players = replace(change(player)), log = log + listOfNotNull(line))
+	}
+
+	/**
+	 * What [email] may see of this game beyond its public state ([PlayerView], R17, R29, A05), or null when they aren't a
+	 * member. Each part decides whether its data is theirs: the counter's awaited trade, the wholesale ask, the interception
+	 * question, the battle and its report; this only looks the parts up for the viewer.
+	 */
+	fun viewFor(email: String): PlayerView? {
+		val player = players.firstOrNull { it.email == email } ?: return null
+		val resolution = turn?.resolution
+		return PlayerView(
+			player = player,
+			offers = turn?.offersOf(email).orEmpty(),
+			bid = turn?.bidOf(email),
+			tradeMax = resolution?.awaitingTradeOf(email)?.let { player.tradeMax(it.offer, it.marketMax) },
+			wholesaleAsk = resolution?.takeIf { it.isAskingWholesaler(email) },
+			factoriesToCollect = player.factories.takeIf { turn?.isCollecting(email) == true && player.hasFactories() },
+			investment = InvestmentView(
+				freeShipNames(),
+				turn?.hasRaisedConnection(email) == true,
+				turn?.hasBoughtReputation(email) == true
+			).takeIf { canInvest(email) },
+			interception = turn?.interception?.takeIf { it.asks(email) },
+			battle = turn?.battle?.takeIf { it.involves(email) },
+			battleReport = turn?.battleReport?.reportFor(email),
+			prices = prices
+		)
 	}
 
 	/**
@@ -327,11 +334,14 @@ data class Game(
 		return status == GameStatus.RUNNING && current.phase == TurnPhase.INVESTMENT && !(player.hasFactories() && !current.hasCollected(email))
 	}
 
-	/** Refuses [player] with factories who hasn't confirmed their collect in [investing]: nothing is done or built before (S03-5). */
-	private fun requireCollected(player: Player, investing: Turn) {
+	/** The running Investment, once checked that [player] has confirmed their collect if they have factories: nothing is done or built before (S03-5). */
+	private fun investmentAfterCollect(player: Player): Turn {
+		val investing = runningTurn()
+		investing.requireInvesting()
 		if (player.hasFactories() && !investing.hasCollected(player.email)) {
 			throw InvalidGameOperationException("Collect your output first.")
 		}
+		return investing
 	}
 
 	/**
@@ -377,9 +387,7 @@ data class Game(
 	 */
 	fun raiseConnection(email: String, kind: ConnectionKind): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
+		val investing = investmentAfterCollect(player)
 		val raisedTurn = investing.connectionRaisedBy(email)
 		val raised = player.raiseConnection(kind)
 		val lines =
@@ -393,9 +401,7 @@ data class Game(
 	 */
 	fun buyReputation(email: String, dice: Dice): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
-		requireCollected(player, investing)
+		val investing = investmentAfterCollect(player)
 		val boughtTurn = investing.reputationBoughtBy(email)
 		val roll = dice.d6()
 		val bought = player.buyReputation(roll)
@@ -445,23 +451,9 @@ data class Game(
 	 * then the full order (S01-5).
 	 */
 	fun pickTurnOrderPlace(email: String, place: Int?): Game {
-		playerOf(email)
-		val current = runningTurn()
-		current.requireShipJumps()
-		val picker = current.picker() ?: throw InvalidGameOperationException("The turn order is already set.")
-		if (picker != email) {
-			throw NotYourTurnException("It's ${corporationOf(picker)}'s turn to choose a place.")
-		}
+		val current = turnAwaiting(email, Turn::pickerToDecide, Turn::pickerWaitingText)
 		val settled = current.pickPlace(email, place)
-		val picks = settled.turnOrderPicks.drop(current.turnOrderPicks.size)
-		// The first pick is [email]'s own; a second is the last place, filled without asking.
-		val events = picks.mapIndexed { index, pick ->
-			val corporation = corporationOf(pick.playerEmail)
-			if (index == 0) "$corporation chose ${ordinal(pick.place)}" else "$corporation gets ${ordinal(pick.place)}, the only place left"
-		}.toMutableList()
-		if (settled.picker() == null) {
-			events += "Turn order (for this turn): " + settled.turnOrder().joinToString(" → ") { corporationOf(checkNotNull(it)) }
-		}
+		val events = settled.turnOrderLog(current.turnOrderPicks.size, corporationNames())
 		return copy(turn = settled, log = log + events.map { LogEntry.event(current.number, it) }).withEmptyJumpSlotsSkipped()
 	}
 
@@ -472,7 +464,7 @@ data class Game(
 	 * was the last ship to jump, as a landing does. Either way the jump and its roll are logged (S02-7).
 	 */
 	fun jumpShip(email: String, shipName: String?, destination: StarSystem?, dice: Dice): Game {
-		val current = jumpSlotOf(email)
+		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		current.refuseWhileAShipWaitsToLand()
 		val player = playerOf(email)
@@ -489,7 +481,7 @@ data class Game(
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,
-				log = log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${ship.failedJumpLog(destination, roll)}")
+				log = log + LogEntry.event(current.number, player.failedJumpLog(ship.name, destination, roll))
 			)
 			return if (recorded.haveAllJumped(player.jumpableShips())) failed.endJumpSlot(email) else failed
 		}
@@ -497,8 +489,7 @@ data class Game(
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log =
-			log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(shipName)).jumpLog()} (rolled $roll)")
+			log = log + LogEntry.event(current.number, moved.jumpedLog(ship.name, roll))
 		).withInterceptionAsked(ship.name, email, destination)
 	}
 
@@ -508,7 +499,7 @@ data class Game(
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log = log + LogEntry.event(current.number, "Jump: ${player.corporationName} — ${checkNotNull(moved.ship(ship.name)).jumpLog()}")
+			log = log + LogEntry.event(current.number, moved.jumpedLog(ship.name, null))
 		).withInterceptionAsked(ship.name, player.email, ship.system)
 	}
 
@@ -522,10 +513,10 @@ data class Game(
 			return this
 		}
 		val current = runningTurn()
-		val text = "Interception: ${asked.joinToString(", ") { corporationOf(it) }} may try to stop $shipName at ${system.displayName}"
+		val interception = Interception(system, shipName, ownerEmail, asked, emptyList())
 		return copy(
-			turn = current.withInterception(Interception(system, shipName, ownerEmail, asked, emptyList())),
-			log = log + LogEntry.event(current.number, text)
+			turn = current.withInterception(interception),
+			log = log + LogEntry.event(current.number, interception.askedText(corporationNames()))
 		)
 	}
 
@@ -575,9 +566,8 @@ data class Game(
 				arriving.interceptLog(theirs),
 				success
 			)
-			val notice = Notice(NoticeKind.INTERCEPTION, interception.system, listOf(email, interception.ownerEmail), null, roll)
-			val line = "Interception: ${roll.interceptorRoll} vs ${roll.arrivingRoll}: ${if (success) "intercepted" else "escapes"}"
-			events += LogEntry.notice(current.number, line, notice)
+			val notice = interception.tryNotice(roll)
+			events += LogEntry.notice(current.number, roll.logText(), notice)
 			// R86 (E13-S04): every try is a hostile act and costs 2d6 of reputation, unless the trying ship has a working Battle comm.
 			if (!interceptor.hasWorkingBattleComm()) {
 				val loss = dice.twoD6()
@@ -587,7 +577,7 @@ data class Game(
 			}
 		}
 		if (tries.isEmpty()) {
-			events += LogEntry.event(current.number, "Nobody tries to intercept ${interception.ship}")
+			events += LogEntry.event(current.number, interception.nobodyTriedText())
 		}
 		val attempts = tries.map { (_, name) -> BattleInterception(arriving.name, name) }
 		val decided = copy(
@@ -606,11 +596,8 @@ data class Game(
 		val current = runningTurn()
 		val fighting = players.flatMap { player -> player.shipsInSpaceAt(system).map { BattleShip(it.name, player.email) } }
 		val battle = Battle.start(system, fighting, interceptions, current.interceptionTries)
-		val notice = Notice(NoticeKind.BATTLE_STARTED, system, battle.landers(), null, null)
-		return copy(
-			turn = current.withBattleStarted(battle),
-			log = log + LogEntry.notice(current.number, "Battle at ${system.displayName}: ${fighting.joinToString(", ") { it.name }}", notice)
-		)
+		val started = LogEntry.notice(current.number, battle.startedText(), battle.notice(NoticeKind.BATTLE_STARTED))
+		return copy(turn = current.withBattleStarted(battle), log = log + started)
 	}
 
 	/**
@@ -647,7 +634,7 @@ data class Game(
 			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
 			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
 			log = log + (round.log + penaltyLog).map {
-				LogEntry.notice(current.number, it, Notice(NoticeKind.BATTLE_ROUND, battle.system, battle.landers(), battle.round, null))
+				LogEntry.notice(current.number, it, battle.roundNotice())
 			}
 		).withBattleMovedOn()
 	}
@@ -667,7 +654,7 @@ data class Game(
 			players = replace(hit),
 			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
 			log = log + destroyed.map {
-				LogEntry.notice(current.number, "$it is destroyed", Notice(NoticeKind.SHIP_DESTROYED, battle.system, battle.landers(), null, null))
+				LogEntry.notice(current.number, "$it is destroyed", battle.notice(NoticeKind.SHIP_DESTROYED))
 			}
 		).withBattleMovedOn()
 	}
@@ -683,7 +670,7 @@ data class Game(
 		val landed = battle.landedBy(email, locations.keys)
 		val survivors = battle.survivorsOf(email)
 		val placed = locations.entries.fold(player) { owner, (ship, location) -> owner.landShip(ship, location) }
-		val events = survivors.map { "Landing: ${player.corporationName} — ${checkNotNull(placed.ship(it)).landingLog()}" }
+		val events = survivors.map { placed.landedLog(it) }
 		return copy(
 			players = replace(placed),
 			turn = current.withBattle(landed),
@@ -698,17 +685,8 @@ data class Game(
 	private fun withBattleMovedOn(): Game {
 		val current = runningTurn()
 		val battle = checkNotNull(current.battle)
-		val events = if (battle.isJustOver()) {
-			listOf(
-				LogEntry.notice(
-					current.number,
-					"The battle at ${battle.system.displayName} is over",
-					Notice(NoticeKind.BATTLE_OVER, battle.system, battle.landers(), null, null)
-				)
-			)
-		} else {
-			emptyList()
-		}
+		val over = battle.notice(NoticeKind.BATTLE_OVER)
+		val events = listOfNotNull(battle.overText().takeIf { battle.isJustOver() }).map { LogEntry.notice(current.number, it, over) }
 		if (!battle.isFinished()) {
 			return copy(log = log + events)
 		}
@@ -727,7 +705,7 @@ data class Game(
 	 * ships starts a battle instead (R80); the slot goes on once it's over.
 	 */
 	fun landShip(email: String, location: ShipLocation?): Game {
-		val current = jumpSlotOf(email)
+		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		val shipName = current.shipWaitingToLand()
 		if (location == null) {
@@ -738,7 +716,7 @@ data class Game(
 		val game = copy(
 			players = replace(landed),
 			turn = current.landed(),
-			log = log + LogEntry.event(current.number, "Landing: ${landed.corporationName} — ${ship.landingLog()}")
+			log = log + LogEntry.event(current.number, landed.landedLog(shipName))
 		)
 		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
 		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
@@ -749,7 +727,7 @@ data class Game(
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */
 	fun finishJumping(email: String): Game {
-		val current = jumpSlotOf(email)
+		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		current.refuseWhileAShipWaitsToLand()
 		return endJumpSlot(email)
@@ -759,7 +737,8 @@ data class Game(
 	 * [email] puts the goods still to resolve in [order] (R25, S01-3); only the first player in initiative may, at any
 	 * time during Trading, and [Turn.reorderQueue] refuses an order that's gone stale. Not logged: only the resolutions are.
 	 */
-	fun reorderTradingQueue(email: String, order: List<MarketGood>): Game = copy(turn = resolverTurnOf(email).reorderQueue(order))
+	fun reorderTradingQueue(email: String, order: List<MarketGood>): Game =
+		copy(turn = turnAwaiting(email, Turn::resolverToDecide, Turn::resolverWaitingText).reorderQueue(order))
 
 	/**
 	 * [email] resolves the next good in the queue (R25, S01-4), which only the first player in initiative may, and only
@@ -768,12 +747,8 @@ data class Game(
 	 * it is logged: "Resolving: Mu Herculis ISO (chosen by Vega Lines)" (S01-5), the offers, then the counter.
 	 */
 	fun resolveNextGood(email: String, dice: Dice): Game {
-		val current = resolverTurnOf(email)
-		current.resolution?.awaitingDictator()?.let { throw InvalidGameOperationException(waitingForDictator(it)) }
-		current.resolution?.awaitingTrade()?.let { throw InvalidGameOperationException(waitingForTrader(it)) }
-		current.resolution?.let { previous ->
-			previous.awaitingWholesaler()?.let { throw InvalidGameOperationException(waitingForWholesaler(previous)) }
-		}
+		val current = turnAwaiting(email, Turn::resolverToDecide, Turn::resolverWaitingText)
+		current.resolution?.waitingText(corporationNames())?.let { throw InvalidGameOperationException(it) }
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
 		val wholesalers = players.filter { it.isWholesalerOf(good) }.map { it.email }
@@ -782,7 +757,7 @@ data class Game(
 		return withResolutionMoved(
 			started,
 			null,
-			listOf("Resolving: ${good.label()} (chosen by ${corporationOf(email)})", disclosure(resolution))
+			listOf(resolution.resolvingText(email, corporationNames()), resolution.disclosure(corporationNames()))
 		)
 	}
 
@@ -792,10 +767,14 @@ data class Game(
 	 * Then the counter starts with a roll from [dice] (E05-S03).
 	 */
 	fun placeDictatorOffer(email: String, type: OfferType, price: Int?, dice: Dice): Game {
-		val current = dictatorTurnOf(email)
+		val current = turnAwaiting(email, Turn::dictatorToDecide, Turn::dictatorWaitingText)
 		val offer = playerOf(email).dictatorOffer(checkNotNull(current.resolution).good, type, price)
 		val decided = current.placeDictatorOffer(offer, dice)
-		return withResolutionMoved(decided, current.resolution, listOf("${corporationOf(email)} (Dictator) offers to ${offer.terms()}"))
+		return withResolutionMoved(
+			decided,
+			current.resolution,
+			listOf(checkNotNull(current.resolution).dictatorOfferText(offer, corporationNames()))
+		)
 	}
 
 	/**
@@ -803,9 +782,9 @@ data class Game(
 	 * with a roll from [dice] (E05-S03).
 	 */
 	fun passAsDictator(email: String, dice: Dice): Game {
-		val current = dictatorTurnOf(email)
+		val current = turnAwaiting(email, Turn::dictatorToDecide, Turn::dictatorWaitingText)
 		val decided = current.dictatorPassed(dice)
-		return withResolutionMoved(decided, current.resolution, listOf("${corporationOf(email)} (Dictator) passed"))
+		return withResolutionMoved(decided, current.resolution, listOf(checkNotNull(current.resolution).dictatorPassedText(corporationNames())))
 	}
 
 	/**
@@ -817,7 +796,7 @@ data class Game(
 	 * there (R43, E05-S06), logged right after it. Then the counter reaches the next offer.
 	 */
 	fun trade(email: String, amount: Int?, loads: List<ShipLoad>, dice: Dice, warehouseUnits: Int = 0): Game {
-		val current = traderTurnOf(email)
+		val current = turnAwaiting(email, Turn::traderToDecide, Turn::traderWaitingText)
 		val awaited = current.tradeAwaited()
 		val trader = playerOf(email).trade(awaited.offer, awaited.marketMax, amount, loads, warehouseUnits)
 		val units = checkNotNull(amount)
@@ -871,7 +850,7 @@ data class Game(
 	 * bought nothing".
 	 */
 	fun tradeNothing(email: String): Game {
-		val current = traderTurnOf(email)
+		val current = turnAwaiting(email, Turn::traderToDecide, Turn::traderWaitingText)
 		val awaited = current.tradeAwaited()
 		val max = playerOf(email).tradeMax(awaited.offer, awaited.marketMax)
 		if (max > 0) {
@@ -891,7 +870,7 @@ data class Game(
 	 * bought 3 u at 10 HT each, paid 30 HT".
 	 */
 	fun wholesale(email: String, type: OfferType?, amount: Int?, loads: List<ShipLoad>, warehouseUnits: Int = 0): Game {
-		val current = wholesalerTurnOf(email)
+		val current = turnAwaiting(email, Turn::wholesalerToDecide, Turn::wholesalerWaitingText)
 		if (type == null) {
 			throw InvalidTradeException("Choose Buy or Sell, or pass.")
 		}
@@ -904,7 +883,7 @@ data class Game(
 
 	/** [email], asked in the wholesale step, passes (S05-4: always possible); logged: "Kessler Cargo (Wholesaler) passed on wholesale". */
 	fun passWholesale(email: String): Game {
-		val current = wholesalerTurnOf(email)
+		val current = turnAwaiting(email, Turn::wholesalerToDecide, Turn::wholesalerWaitingText)
 		return withResolutionMoved(current.recordWholesale(null, 0), current.resolution, emptyList())
 	}
 
@@ -925,132 +904,26 @@ data class Game(
 		return if (after.isEveryGoodResolved()) moved.endTrading(after) else moved
 	}
 
-	/**
-	 * The public log lines of what [resolution] did in turn [turn] since [before] (null for a good that just started
-	 * resolving), as it happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first" when the
-	 * counter starts, each trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130
-	 * HT") and its position roll, if any (E05-S06-4), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change, "ISO price at Mu
-	 * Herculis: 11 → 10 HT" (S05-2), then each wholesale answer (S05-5). None while the Dictator is still asked.
-	 */
-	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> {
-		val market = resolution.marketText() ?: return emptyList()
-		val label = resolution.good.label()
-		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null }).map { LogEntry.event(turn, it) }
-		val trades = resolution.trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
-			listOf(LogEntry.trade(turn, "${corporationOf(trade.offer.playerEmail)} ${trade.terms()}", trade.record())) +
-				positionRollLines(trade, resolution.good).map { LogEntry.event(turn, it) }
+	/** The public log of what [resolution] did in turn [turn] since [before] ([Resolution.logSince]), with the reputation each rise moved. */
+	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> =
+		resolution.logSince(before, corporationNames()).flatMap { line ->
+			listOf(LogEntry.trade(turn, line.text, line.trade)) + line.rise?.let { marketRiseLog(it) }.orEmpty().map { LogEntry.event(turn, it) }
 		}
-		val ended = if (resolution.isTradingOver() && before?.isTradingOver() != true) {
-			listOf("${resolution.endText()} at $label", checkNotNull(resolution.priceText())).map { LogEntry.event(turn, it) }
-		} else {
-			emptyList()
-		}
-		val wholesales = resolution.wholesales.drop(before?.wholesales?.size ?: 0).map {
-			LogEntry.trade(
-				turn,
-				"${corporationOf(it.playerEmail)} (${resolution.wholesaleRole(it.playerEmail)}) ${it.terms()}",
-				it.record(resolution.good)
-			)
-		}
-		return started + trades + ended + wholesales
-	}
+
+	/** R86 (E13-S02): a position rise is +2 reputation for its trader and −2 for each Dictator it demoted, logged after the roll. */
+	private fun marketRiseLog(rise: MarketRise): List<String> =
+		listOf(playerOf(rise.riser).reputationLog(Player.MARKET_RISE_REPUTATION, "a market position rise")) +
+			rise.demoted.map { playerOf(it).reputationLog(-Player.MARKET_RISE_REPUTATION, "losing a market position") }
 
 	/**
-	 * The public log line of [trade]'s position roll, if it made one (E05-S06-4): "Vega Lines traded 7 u — rolled 5: now
-	 * Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair Trade Co. is demoted
-	 * to Wholesaler".
+	 * The running turn, once checked that its step waits for [email]: [awaited] says whom it waits for, and anyone else is
+	 * refused with [waitingText] (R04: an ordered step out of turn is refused, naming whom it waits for).
 	 */
-	private fun positionRollLines(trade: Trade, good: MarketGood): List<String> {
-		val roll = trade.positionRoll ?: return emptyList()
-		val text = "${corporationOf(trade.offer.playerEmail)} traded ${trade.units} u — ${roll.outcome(good)}" +
-			roll.demoted.joinToString("") { "; ${corporationOf(it)} is demoted to Wholesaler" }
-		if (roll.promotedTo == null) {
-			return listOf(text)
-		}
-		// R86 (E13-S02): the rise is +2 for its trader, the fall −2 for the Dictator it demoted; logged right after the roll.
-		val rise = playerOf(trade.offer.playerEmail).reputationLog(Player.MARKET_RISE_REPUTATION, "a market position rise")
-		val falls = roll.demoted.map { playerOf(it).reputationLog(-Player.MARKET_RISE_REPUTATION, "losing a market position") }
-		return listOf(text, rise) + falls
-	}
-
-	/** The running turn, once checked that its resolution waits for [email] to trade wholesale or pass (R37, R04). */
-	private fun wholesalerTurnOf(email: String): Turn {
+	private fun turnAwaiting(email: String, awaited: (Turn) -> String, waitingText: (Turn, CorporationNames) -> String): Turn {
 		playerOf(email)
 		val current = runningTurn()
-		if (current.wholesalerToDecide() != email) {
-			throw NotYourTurnException(waitingForWholesaler(checkNotNull(current.resolution)))
-		}
-		return current
-	}
-
-	/** S01-8 (D09): "Waiting for Kessler Cargo (Wholesaler) to trade up to 5 u at 10 HT, or pass." */
-	private fun waitingForWholesaler(resolution: Resolution): String {
-		val email = checkNotNull(resolution.awaitingWholesaler())
-		val price = checkNotNull(resolution.newPrice())
-		return "Waiting for ${corporationOf(
-			email
-		)} (${resolution.wholesaleRole(email)}) to trade up to ${Wholesale.MAX_UNITS} u at $price HT, or pass."
-	}
-
-	/** The running turn, once checked that its resolution waits for [email], as Dictator, to decide (R38, R04). */
-	private fun dictatorTurnOf(email: String): Turn {
-		playerOf(email)
-		val current = runningTurn()
-		val dictator = current.dictatorToDecide()
-		if (dictator != email) {
-			throw NotYourTurnException(waitingForDictator(dictator))
-		}
-		return current
-	}
-
-	/** The running turn, once checked that its resolution waits for [email] to choose an amount (E05-S04, R04). */
-	private fun traderTurnOf(email: String): Turn {
-		playerOf(email)
-		val current = runningTurn()
-		val awaited = current.tradeAwaited()
-		if (awaited.offer.playerEmail != email) {
-			throw NotYourTurnException(waitingForTrader(awaited))
-		}
-		return current
-	}
-
-	/** S01-8 (D09): "Vega Lines can buy up to 4 u — waiting for their decision." The counter's max: money stays private (R29). */
-	private fun waitingForTrader(awaited: AwaitedTrade): String {
-		val verb = awaited.offer.type.name.lowercase()
-		return "${corporationOf(awaited.offer.playerEmail)} can $verb up to ${awaited.marketMax} u — waiting for their decision."
-	}
-
-	/** S01-8 (D09): "Waiting for Altair Trade Co. (Dictator) to decide." */
-	private fun waitingForDictator(email: String): String = "Waiting for ${corporationOf(email)} (Dictator) to decide."
-
-	/** The public log line disclosing [resolution]'s offers (S02-1): "Offers for Mu Herculis ISO: Vega Lines — buy at 11 HT". */
-	private fun disclosure(resolution: Resolution): String {
-		val label = resolution.good.label()
-		if (resolution.offers.isEmpty()) {
-			return "No offers for $label"
-		}
-		return "Offers for $label: " + resolution.offers.joinToString("; ") { "${corporationOf(it.playerEmail)} — ${it.terms()}" }
-	}
-
-	/** The running turn, once checked that it's Trading and [email] is first in initiative (R25, R04). */
-	private fun resolverTurnOf(email: String): Turn {
-		playerOf(email)
-		val current = runningTurn()
-		current.requireTrading()
-		val resolver = current.firstInInitiative()
-		if (resolver != email) {
-			throw NotYourTurnException("Order decided by ${corporationOf(resolver)} (first in initiative).")
-		}
-		return current
-	}
-
-	/** The running turn, once checked that it's [email]'s jump slot (R04: an ordered step out of turn is refused). */
-	private fun jumpSlotOf(email: String): Turn {
-		playerOf(email)
-		val current = runningTurn()
-		val jumper = current.currentJumper()
-		if (jumper != email) {
-			throw NotYourTurnException("It's ${corporationOf(jumper)}'s turn to jump.")
+		if (awaited(current) != email) {
+			throw NotYourTurnException(waitingText(current, corporationNames()))
 		}
 		return current
 	}
@@ -1081,13 +954,10 @@ data class Game(
 	 */
 	private fun closeBidding(current: Turn, dice: Dice): Game {
 		val closed = current.closeBidding(players.map { it.email }, dice)
-		val order = closed.initiativeRolls.joinToString(" → ") { it.logText(corporationOf(it.playerEmail)) }
-		val ties = closed.initiativeRolls.mapNotNull { it.tieLogText(corporationOf(it.playerEmail)) }
-		val tieText = if (ties.isEmpty()) "" else " (tie rolled again: ${ties.joinToString(", ")})"
 		return copy(
 			players = players.map { it.pay(current.bidAmountOf(it.email)) },
 			turn = closed,
-			log = log + LogEntry.event(current.number, "Initiative (bid + 2d6): $order$tieText")
+			log = log + LogEntry.event(current.number, closed.initiativeLog(corporationNames()))
 		)
 	}
 
@@ -1096,7 +966,10 @@ data class Game(
 
 	private fun replace(player: Player): List<Player> = players.map { if (it.email == player.email) player else it }
 
-	private fun corporationOf(email: String): String = players.first { it.email == email }.corporationName
+	private fun corporationOf(email: String): String = corporationNames().of(email)
+
+	/** Every player's corporation by email: how a part names players in a log line or a refusal ([CorporationNames]). */
+	private fun corporationNames(): CorporationNames = CorporationNames(players.associate { it.email to it.corporationName })
 
 	private fun runningTurn(): Turn = when (status) {
 		GameStatus.LOBBY -> throw InvalidGameOperationException("This game hasn't started")
@@ -1129,9 +1002,3 @@ data class Game(
 }
 
 /** 1st, 2nd, 3rd, 4th … for a place in the turn order (players are at most six, so no 11th–13th). */
-private fun ordinal(place: Int): String = place.toString() + when (place) {
-	1 -> "st"
-	2 -> "nd"
-	3 -> "rd"
-	else -> "th"
-}

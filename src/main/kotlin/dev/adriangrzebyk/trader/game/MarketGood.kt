@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 
 /** One good at one system: what a Trading resolution is about (R25, R36). Public, like the board. */
 data class MarketGood(val system: StarSystem, val goods: Goods) {

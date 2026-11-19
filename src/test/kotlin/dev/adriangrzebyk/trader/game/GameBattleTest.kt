@@ -1,5 +1,11 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
+import dev.adriangrzebyk.trader.board.StarSystem.EPSILON_ERIDANI
+import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
+import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
+import dev.adriangrzebyk.trader.board.StarSystem.SIGMA_DRACONIS
+import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import dev.adriangrzebyk.trader.game.battle.BattleAction
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
@@ -9,12 +15,6 @@ import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
-import dev.adriangrzebyk.trader.trading.StarSystem.BETA_HYDRI
-import dev.adriangrzebyk.trader.trading.StarSystem.EPSILON_ERIDANI
-import dev.adriangrzebyk.trader.trading.StarSystem.GAMMA_LEPORIS
-import dev.adriangrzebyk.trader.trading.StarSystem.MU_HERCULIS
-import dev.adriangrzebyk.trader.trading.StarSystem.SIGMA_DRACONIS
-import dev.adriangrzebyk.trader.trading.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

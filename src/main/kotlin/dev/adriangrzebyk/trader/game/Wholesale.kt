@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.board.OfferType
 
 /**
  * What [playerEmail], asked in a resolution's wholesale step (R37), answered: Buy or Sell ([type]) of [units] at [price]

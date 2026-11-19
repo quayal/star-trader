@@ -17,7 +17,7 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 ## 1. Package by game concept, discovered as needed
 
-- Top-level packages are named after game concepts (e.g. `trading`, `phases`), never technical layers
+- Top-level packages are named after game concepts (e.g. `game`, `login`, `board`), never technical layers
   (`controller`, `api`, `service`, `persistence`, `dto`).
 - The package list isn't decided upfront — when starting new work, ask "what game concept does this
   belong to?" and put it there, creating a new package if none fits.
@@ -32,8 +32,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 
 - *Inside* a concept package, layering by technical role is expected and good: the concept's domain code
   (entities, value objects, and the port interfaces it needs from the outside world) sits at the top of
-  the package; adapters implementing those ports live in sub-packages, e.g. `trading/adapter/web`,
-  `trading/adapter/persistence`. This is layering-as-detail-inside-a-slice — different from the top-level
+  the package; adapters implementing those ports live in sub-packages, e.g. `game/adapter/web`,
+  `game/adapter/dynamodb`. This is layering-as-detail-inside-a-slice — different from the top-level
   layering rule #1 forbids.
 - Hard dependency rule: domain code imports nothing from Spring, Jackson, or a persistence client — ever.
   Adapters depend inward on domain interfaces; domain never imports an adapter.
@@ -128,8 +128,8 @@ working solution, say so and ask rather than silently defaulting to "the proper 
 ## 11. No global or unscoped state
 
 - All game state is keyed by game id from the start, even before persistence exists. (The first attempt's
-  `TradeOfferBook` — a single global in-memory list with no game boundary — is the concrete example of
-  what this rule rules out.)
+  `TradeOfferBook` — a single global in-memory list with no game boundary, deleted on 2026-11-19 — is the
+  concrete example of what this rule rules out.)
 
 ## 12. Stored data is mapped field by field, and the mapping grows with the model
 
@@ -158,6 +158,7 @@ Write the rule down as one sentence ("a rocket roll at or below the hits destroy
 
 | # | Question | If yes, it goes… | Example here |
 |---|---|---|---|
+| 0 | Is it about what one player may see of a game (confidential data, R17, R29, §10)? | `PlayerView`, built by `Game.viewFor(email)`: the root looks the parts up for the viewer and each part decides whether its data is theirs. The DTO only maps the view. | `Resolution.awaitingTradeOf(email)`, `Battle.involves(email)`, `Interception.asks(email)` (creator, 2026-11-19) |
 | 1 | Does it turn our data into HTTP/JSON/storage shapes or back? | A constructor or method of the adapter-side class. It only maps: an `if`, `filter` or `firstOrNull` over domain fields means a rule got in, so go on to row 4. | `InvestFactoryResponseDto(player, …)`, `BattleItem(battle)` |
 | 2 | Does it need the outside world: randomness, time, I/O, another service? | Behind a port with a fake (§4). The domain gets the port or the value it produced passed in. | `Dice`, `FakeDice` |
 | 3 | Does it load, save or run something as one transaction for a request? | An application service: load, call one method on the aggregate, save. No rule in it. | `ShipJumpsService.giveOrders` |
@@ -180,11 +181,23 @@ two or more fields of another object (`it.system == x && it.goods == y`, `battle
 a DTO or item constructor; a method of one part taking another part as a parameter; `Game.kt` getting longer from rules
 whose data lives in a part.
 
+## 14. Boundaries are tested
+
+§1 and §2 are checked by `src/test/kotlin/dev/adriangrzebyk/trader/ArchitectureTest.kt` (Konsist, plain JUnit), so a
+slip fails `./gradlew check` instead of waiting for review (creator, 2026-11-19):
+
+1. No file in a concept's domain (`game`, `game.battle`, `login`, `board`, anything not under `..adapter..`) imports
+   `org.springframework`, `software.amazon`, `com.fasterxml` or `jakarta`. `web`, the top-level Spring config, is exempt.
+2. No file outside an `..adapter..` package imports from one.
+3. `board`, the board's fixed catalogue, imports nothing from `game` or `login`.
+4. `game`'s domain imports nothing from `login`; its web adapter may (for `SessionStore`).
+
+A new concept package or a new adapter kind extends the test's lists in the same change.
+
 ## Not decided yet
 
 - The actual target package list — left to emerge from real features, not fixed in advance.
-- Whether to adopt detekt or an architecture-boundary test (e.g. Konsist) to make rules #1/#2
-  self-enforcing — worth revisiting once a couple of real features exist to encode rules against. ktlint is
-  in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's functions-in-classes rule does).
+- Whether to adopt detekt. ktlint is in use, and `ktlint-rules/` is where a syntactic project rule goes (as §5's
+  functions-in-classes rule does); package boundaries are tested by Konsist (§14).
 - A worked example (one concept's port + fake + real adapter) as a template for agents to copy — deferred
   until the first real feature is built, which becomes the example.

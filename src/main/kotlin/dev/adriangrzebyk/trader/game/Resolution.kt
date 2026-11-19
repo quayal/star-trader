@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.SupplyDemand
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.SupplyDemand
 
 /**
  * How one good at one system resolves in Trading (R34). Public: once a good starts resolving, its [offers] are disclosed
@@ -37,6 +37,74 @@ data class Resolution(
 	 * a unit (S03-3).
 	 */
 	fun awaitingTrade(): AwaitedTrade? = startingCounter?.let { nextTrade() }
+
+	/** The public log line disclosing the offers (S02-1): "Offers for Mu Herculis ISO: Vega Lines — buy at 11 HT". */
+	fun disclosure(names: CorporationNames): String {
+		val label = good.label()
+		if (offers.isEmpty()) {
+			return "No offers for $label"
+		}
+		return "Offers for $label: " + offers.joinToString("; ") { "${names.of(it.playerEmail)} — ${it.terms()}" }
+	}
+
+	/** The public log line once [resolver] chose this good (S01-5): "Resolving: Mu Herculis ISO (chosen by Vega Lines)". */
+	fun resolvingText(resolver: String, names: CorporationNames): String = "Resolving: ${good.label()} (chosen by ${names.of(resolver)})"
+
+	/** The public log line of the Dictator's [offer] (S02-3): "Altair Trade Co. (Dictator) offers to sell at 10 HT". */
+	fun dictatorOfferText(offer: Offer, names: CorporationNames): String =
+		"${names.of(checkNotNull(dictator))} (Dictator) offers to ${offer.terms()}"
+
+	/** The public log line of the Dictator passing (S02-2): "Altair Trade Co. (Dictator) passed". */
+	fun dictatorPassedText(names: CorporationNames): String = "${names.of(checkNotNull(dictator))} (Dictator) passed"
+
+	/** S01-8 (D09): "Waiting for Altair Trade Co. (Dictator) to decide." */
+	fun waitingForDictatorText(names: CorporationNames): String =
+		"Waiting for ${names.of(checkNotNull(awaitingDictator()))} (Dictator) to decide."
+
+	/** S01-8 (D09): "Waiting for Kessler Cargo (Wholesaler) to trade up to 5 u at 10 HT, or pass." */
+	fun waitingForWholesalerText(names: CorporationNames): String {
+		val email = checkNotNull(awaitingWholesaler())
+		return "Waiting for ${names.of(
+			email
+		)} (${wholesaleRole(email)}) to trade up to ${Wholesale.MAX_UNITS} u at ${checkNotNull(newPrice())} HT, or pass."
+	}
+
+	/** What this resolution still waits for, in the order it asks (S01-8): the Dictator, a trader, a wholesaler; null once finished. */
+	fun waitingText(names: CorporationNames): String? = awaitingDictator()?.let { waitingForDictatorText(names) }
+		?: awaitingTrade()?.waitingText(names)
+		?: awaitingWholesaler()?.let { waitingForWholesalerText(names) }
+
+	/**
+	 * The public log lines of what this resolution did since [before] (null for a good that just started resolving), as it
+	 * happens (S03-6, D07: no dice arithmetic): "Mu Herculis ISO: market +3 → buyers first" when the counter starts, each
+	 * trade when it's made ("Vega Lines could buy up to 12 u: bought 10 u at 13 HT each, paid 130 HT") and its position
+	 * roll, if any (E05-S06-4), then once trading is over "No one else can trade at Mu Herculis ISO" and the price change,
+	 * "ISO price at Mu Herculis: 11 → 10 HT" (S05-2), then each wholesale answer (S05-5). None while the Dictator is asked.
+	 */
+	fun logSince(before: Resolution?, names: CorporationNames): List<ResolutionLine> {
+		val market = marketText() ?: return emptyList()
+		val label = good.label()
+		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null }).map { ResolutionLine.event(it) }
+		val traded = trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
+			listOf(ResolutionLine(trade.logText(names), trade.record(), null)) +
+				listOfNotNull(trade.positionLogText(good, names)?.let { ResolutionLine(it, null, trade.marketRise()) })
+		}
+		val ended = if (isTradingOver() && before?.isTradingOver() != true) {
+			listOf("${endText()} at $label", checkNotNull(priceText())).map { ResolutionLine.event(it) }
+		} else {
+			emptyList()
+		}
+		val wholesaled = wholesales.drop(before?.wholesales?.size ?: 0).map {
+			ResolutionLine("${names.of(it.playerEmail)} (${wholesaleRole(it.playerEmail)}) ${it.terms()}", it.record(good), null)
+		}
+		return started + traded + ended + wholesaled
+	}
+
+	/** The trade the counter waits for when it is [email]'s offer (E05-S04), or null. */
+	fun awaitingTradeOf(email: String): AwaitedTrade? = awaitingTrade()?.takeIf { it.isFor(email) }
+
+	/** Whether the wholesale step is asking [email] now (R37). */
+	fun isAskingWholesaler(email: String): Boolean = awaitingWholesaler() == email
 
 	/** Whether the counter has started and no offer can trade any more (S03-3): the price then changes (R35). */
 	fun isTradingOver(): Boolean = startingCounter != null && awaitingTrade() == null

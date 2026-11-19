@@ -1,8 +1,8 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * A player's ship: a [hull] with [modules] (R51, R52). Its name and position are public, like the board; its [cargo]

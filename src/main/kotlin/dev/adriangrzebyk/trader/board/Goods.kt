@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.trading
+package dev.adriangrzebyk.trader.board
 
 /** [takesCargoSpace]: R42, POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
 enum class Goods(val takesCargoSpace: Boolean) {

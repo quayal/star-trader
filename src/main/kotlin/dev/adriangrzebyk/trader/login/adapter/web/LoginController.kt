@@ -10,15 +10,14 @@ import dev.adriangrzebyk.trader.login.OneTimeCodeDeliveryException
 import dev.adriangrzebyk.trader.login.OneTimeCodeGenerator
 import dev.adriangrzebyk.trader.login.OneTimeCodeSender
 import dev.adriangrzebyk.trader.login.OneTimeCodeStore
+import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import dev.adriangrzebyk.trader.login.SessionTokenGenerator
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
@@ -66,17 +65,7 @@ class LoginController(
 		return SessionTokenResponseDto(session.token)
 	}
 
+	/** The signed-in caller's session ([SessionArgumentResolver]: `401` for a missing, malformed or unknown token). */
 	@GetMapping("/login/session")
-	fun session(@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?): SessionResponseDto {
-		val token = authorization?.takeIf { it.startsWith(BEARER_PREFIX, ignoreCase = true) }
-			?.substring(BEARER_PREFIX.length)?.trim()
-		val session = token?.takeIf { it.isNotEmpty() }?.let { sessionStore.find(it) }
-			?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
-
-		return SessionResponseDto(session.playerName, session.corporationName, session.email)
-	}
-
-	companion object {
-		private const val BEARER_PREFIX = "Bearer "
-	}
+	fun session(session: Session): SessionResponseDto = SessionResponseDto(session.playerName, session.corporationName, session.email)
 }

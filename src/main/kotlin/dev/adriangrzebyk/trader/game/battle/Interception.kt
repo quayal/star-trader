@@ -1,7 +1,11 @@
 package dev.adriangrzebyk.trader.game.battle
 
+import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.CorporationNames
+import dev.adriangrzebyk.trader.game.InterceptionRoll
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
-import dev.adriangrzebyk.trader.trading.StarSystem
+import dev.adriangrzebyk.trader.game.Notice
+import dev.adriangrzebyk.trader.game.NoticeKind
 
 /**
  * A ship that just arrived in Space at [system] (R70): [ship], [ownerEmail]'s. Every player [asked] has ships in Space
@@ -18,6 +22,20 @@ data class Interception(
 
 	/** The players asked who haven't answered yet, in the order they were asked. */
 	fun awaiting(): List<String> = asked.filter { email -> answers.none { it.playerEmail == email } }
+
+	/** Whether [email] is asked: only they see the question and their own answer (R70). */
+	fun asks(email: String): Boolean = email in asked
+
+	/** The public log line (R70): "Interception: Vega Lines, Kessler Cargo may try to stop Wayfarer at Tau Ceti". */
+	fun askedText(names: CorporationNames): String =
+		"Interception: ${asked.joinToString(", ") { names.of(it) }} may try to stop $ship at ${system.displayName}"
+
+	/** The public log line when everyone asked declined (R70). */
+	fun nobodyTriedText(): String = "Nobody tries to intercept $ship"
+
+	/** The pop-up notice of [roll], one try at this ship (R70, R71), for the player who tried and the ship's owner (creator, 2026-11-18). */
+	fun tryNotice(roll: InterceptionRoll): Notice =
+		Notice(NoticeKind.INTERCEPTION, system, listOf(roll.interceptorEmail, ownerEmail), null, roll)
 
 	/** Whether everyone asked has answered: the tries can be rolled. */
 	fun isDecided(): Boolean = awaiting().isEmpty()

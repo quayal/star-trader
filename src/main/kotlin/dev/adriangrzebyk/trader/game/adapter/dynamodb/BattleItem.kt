@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleAction
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
@@ -7,7 +8,6 @@ import dev.adriangrzebyk.trader.game.battle.BattleOrder
 import dev.adriangrzebyk.trader.game.battle.BattleShip
 import dev.adriangrzebyk.trader.game.battle.BattleStage
 import dev.adriangrzebyk.trader.game.battle.PendingHits
-import dev.adriangrzebyk.trader.trading.StarSystem
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Battle] as the attribute map nested in its turn's item (engineering standards §12). */

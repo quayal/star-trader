@@ -1,7 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.game.Wholesale
-import dev.adriangrzebyk.trader.trading.OfferType
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Wholesale] as the attribute map nested in its resolution (engineering standards §12). */

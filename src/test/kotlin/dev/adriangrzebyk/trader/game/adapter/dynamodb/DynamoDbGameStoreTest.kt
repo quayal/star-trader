@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.ConnectionsPlaced
 import dev.adriangrzebyk.trader.game.FakeStartingSystemPicker
 import dev.adriangrzebyk.trader.game.Game
@@ -11,7 +12,6 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.START_DICE
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.adapter.random.RandomDice
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach

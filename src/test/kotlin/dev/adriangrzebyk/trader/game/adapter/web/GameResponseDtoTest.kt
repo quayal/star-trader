@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.ConnectionsPlaced
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.FakeDice
@@ -19,9 +22,6 @@ import dev.adriangrzebyk.trader.game.START_DICE
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

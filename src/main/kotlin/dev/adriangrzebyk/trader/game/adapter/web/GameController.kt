@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.BiddingService
 import dev.adriangrzebyk.trader.game.CargoService
 import dev.adriangrzebyk.trader.game.Dice
@@ -16,10 +18,6 @@ import dev.adriangrzebyk.trader.game.ShipJumpsService
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.game.TradingService
 import dev.adriangrzebyk.trader.login.Session
-import dev.adriangrzebyk.trader.login.SessionStore
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.StarSystem
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -27,7 +25,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -40,13 +37,7 @@ import org.springframework.web.server.ResponseStatusException
  */
 @RestController
 @RequestMapping("/api")
-class GameController(
-	idGenerator: GameIdGenerator,
-	gameStore: GameStore,
-	startingSystemPicker: StartingSystemPicker,
-	dice: Dice,
-	private val sessionStore: SessionStore
-) {
+class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startingSystemPicker: StartingSystemPicker, dice: Dice) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
@@ -60,11 +51,7 @@ class GameController(
 
 	@PostMapping("/games")
 	@ResponseStatus(HttpStatus.CREATED)
-	fun createGame(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@RequestBody(required = false) request: CreateGameRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun createGame(@RequestBody(required = false) request: CreateGameRequestDto?, session: Session): GameResponseDto {
 		val creator = Player.newcomer(session.email, session.playerName, session.corporationName)
 		val game = try {
 			gameCreationService.createGame(creator, request?.wholeTurns())
@@ -77,11 +64,7 @@ class GameController(
 	}
 
 	@PostMapping("/games/{id}/join")
-	fun joinGame(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun joinGame(@PathVariable id: String, session: Session): GameResponseDto {
 		val player = Player.newcomer(session.email, session.playerName, session.corporationName)
 		val game = gameJoiningService.joinGame(id, player)
 
@@ -93,23 +76,14 @@ class GameController(
 	 * only the newer ones with `logOffset` saying where they start; without it, the whole log.
 	 */
 	@GetMapping("/games/{id}")
-	fun pollGame(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestParam(required = false) logAfter: Int?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun pollGame(@PathVariable id: String, @RequestParam(required = false) logAfter: Int?, session: Session): GameResponseDto {
 		val game = gamePollingService.poll(id, session.email)
 
 		return GameResponseDto(game, session.email, logAfter ?: 0)
 	}
 
 	@PostMapping("/games/{id}/start")
-	fun startGame(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun startGame(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = gameStartingService.startGame(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -122,11 +96,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/connections/placement")
 	fun placeConnections(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: PlaceConnectionsRequestDto?
+		@RequestBody(required = false) request: PlaceConnectionsRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val placement = request ?: PlaceConnectionsRequestDto()
 		val game = biddingService.placeConnections(
 			id,
@@ -146,11 +119,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/connections/raise")
 	fun raiseConnection(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: RaiseConnectionRequestDto?
+		@RequestBody(required = false) request: RaiseConnectionRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val kind = (request ?: RaiseConnectionRequestDto()).connectionKind()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose political, business or criminal connections.")
 		val game = investmentService.raiseConnection(id, session.email, kind)
@@ -164,21 +136,12 @@ class GameController(
 	 * for the other actions.
 	 */
 	@PostMapping("/games/{id}/reputation/buy")
-	fun buyReputation(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(investmentService.buyReputation(id, session.email), session.email)
-	}
+	fun buyReputation(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(investmentService.buyReputation(id, session.email), session.email)
 
 	/** Done is a readiness flag (R44); the last player's signal closes Investment for everyone and ends the turn (D09). */
 	@PostMapping("/games/{id}/investment/done")
-	fun signalDoneInvesting(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun signalDoneInvesting(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = investmentService.signalDone(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -191,11 +154,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/investment/collect")
 	fun collectOutput(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: CollectRequestDto?
+		@RequestBody(required = false) request: CollectRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val placements = (request ?: CollectRequestDto()).outputPlacements()
 			?: throw ResponseStatusException(
 				HttpStatus.BAD_REQUEST,
@@ -213,11 +175,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/investment/warehouse-blocks")
 	fun buyWarehouseBlocks(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: BuyBlocksRequestDto?
+		@RequestBody(required = false) request: BuyBlocksRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val order = request ?: BuyBlocksRequestDto()
 		val system = order.starSystem()
 		val blocks = order.wholeBlocks()
@@ -237,11 +198,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/investment/factory-units")
 	fun buyFactoryUnits(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: BuyUnitsRequestDto?
+		@RequestBody(required = false) request: BuyUnitsRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val order = request ?: BuyUnitsRequestDto()
 		val system = order.starSystem()
 		val goods = order.goodsConstant()
@@ -261,12 +221,7 @@ class GameController(
 	 * as for the other actions.
 	 */
 	@PostMapping("/games/{id}/investment/ships")
-	fun buyShip(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: BuyShipRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun buyShip(@PathVariable id: String, @RequestBody(required = false) request: BuyShipRequestDto?, session: Session): GameResponseDto {
 		val order = request ?: BuyShipRequestDto()
 		val shipyard = order.shipyardSystem() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a shipyard.")
 		val hull = order.hullConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a hull.")
@@ -285,12 +240,11 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/investment/ships/{ship}/modules")
 	fun addModule(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
 		@PathVariable ship: String,
-		@RequestBody(required = false) request: FitModuleRequestDto?
+		@RequestBody(required = false) request: FitModuleRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val module = request?.moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
 		return GameResponseDto(investmentService.addModule(id, session.email, ship, module), session.email)
 	}
@@ -301,13 +255,7 @@ class GameController(
 	 * leave too little cargo space for its POLY and ISO; `409` outside Investment or before they have collected.
 	 */
 	@DeleteMapping("/games/{id}/investment/ships/{ship}/modules/{module}")
-	fun removeModule(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@PathVariable ship: String,
-		@PathVariable module: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun removeModule(@PathVariable id: String, @PathVariable ship: String, @PathVariable module: String, session: Session): GameResponseDto {
 		val fitted = moduleNamed(module) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
 		return GameResponseDto(investmentService.removeModule(id, session.email, ship, fitted), session.email)
 	}
@@ -319,12 +267,11 @@ class GameController(
 	 */
 	@PutMapping("/games/{id}/investment/ships/{ship}/crew")
 	fun replaceCrew(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
 		@PathVariable ship: String,
-		@RequestBody(required = false) request: ReplaceCrewRequestDto?
+		@RequestBody(required = false) request: ReplaceCrewRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val crewClass = request?.crewClassConstant()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a crew class: A, B, C or D.")
 		return GameResponseDto(investmentService.replaceCrew(id, session.email, ship, crewClass), session.email)
@@ -335,14 +282,8 @@ class GameController(
 	 * isn't damaged, isn't at a shipyard, or costs more than they have; `409` outside Investment or before they have collected.
 	 */
 	@PostMapping("/games/{id}/investment/ships/{ship}/repair")
-	fun repairShip(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@PathVariable ship: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(investmentService.repairShip(id, session.email, ship), session.email)
-	}
+	fun repairShip(@PathVariable id: String, @PathVariable ship: String, session: Session): GameResponseDto =
+		GameResponseDto(investmentService.repairShip(id, session.email, ship), session.email)
 
 	/**
 	 * The player sells their ship (R66, E09-S05), wherever it is, for half its hull and modules. Its cargo goes into their
@@ -350,14 +291,8 @@ class GameController(
 	 * Investment or before they have collected.
 	 */
 	@DeleteMapping("/games/{id}/investment/ships/{ship}")
-	fun sellShip(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@PathVariable ship: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(investmentService.sellShip(id, session.email, ship), session.email)
-	}
+	fun sellShip(@PathVariable id: String, @PathVariable ship: String, session: Session): GameResponseDto =
+		GameResponseDto(investmentService.sellShip(id, session.email, ship), session.email)
 
 	/**
 	 * The player moves goods between two of their holders in the same port (R58, E08-S02, revised 2026-11-17): `{ from,
@@ -367,12 +302,7 @@ class GameController(
 	 * starts and once it's over; `403`, `404` and `401` as for the other actions.
 	 */
 	@PostMapping("/games/{id}/cargo/moves")
-	fun moveCargo(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: MoveCargoRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun moveCargo(@PathVariable id: String, @RequestBody(required = false) request: MoveCargoRequestDto?, session: Session): GameResponseDto {
 		val move = request ?: MoveCargoRequestDto()
 		val goods = move.goodsConstant()
 		val units = move.wholeUnits()
@@ -389,11 +319,7 @@ class GameController(
 
 	/** Done is a readiness flag (R17); the last player's signal closes Bidding for everyone (D09). */
 	@PostMapping("/games/{id}/bidding/done")
-	fun signalDoneBidding(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun signalDoneBidding(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = biddingService.signalDone(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -406,11 +332,10 @@ class GameController(
 	@PostMapping("/games/{id}/offers")
 	@ResponseStatus(HttpStatus.CREATED)
 	fun placeOffer(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: PlaceOfferRequestDto?
+		@RequestBody(required = false) request: PlaceOfferRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val system = request?.system() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a star system.")
 		val goods = request.goods() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a good.")
 		val type = request.type() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Buy or Sell.")
@@ -424,13 +349,7 @@ class GameController(
 	 * game. Withdrawing an offer they don't have changes nothing; `409` "Bidding has closed" once it has (A04).
 	 */
 	@DeleteMapping("/games/{id}/offers/{system}/{goods}")
-	fun withdrawOffer(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@PathVariable system: String,
-		@PathVariable goods: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun withdrawOffer(@PathVariable id: String, @PathVariable system: String, @PathVariable goods: String, session: Session): GameResponseDto {
 		val starSystem = StarSystem.entries.firstOrNull { it.name == system }
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a star system.")
 		val good = Goods.entries.firstOrNull { it.name == goods }
@@ -446,11 +365,10 @@ class GameController(
 	 */
 	@PutMapping("/games/{id}/bidding/bid")
 	fun placeInitiativeBid(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: PlaceBidRequestDto?
+		@RequestBody(required = false) request: PlaceBidRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val game = biddingService.placeInitiativeBid(id, session.email, request?.wholeAmount())
 
 		return GameResponseDto(game, session.email)
@@ -462,35 +380,24 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/ship-jumps/turn-order")
 	fun pickTurnOrderPlace(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: PickPlaceRequestDto?
+		@RequestBody(required = false) request: PickPlaceRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val game = shipJumpsService.pickPlace(id, session.email, request?.wholePlace())
 
 		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/ship-jumps/jumps")
-	fun jumpShip(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: JumpShipRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun jumpShip(@PathVariable id: String, @RequestBody(required = false) request: JumpShipRequestDto?, session: Session): GameResponseDto {
 		val game = shipJumpsService.jump(id, session.email, request?.ship, request?.destination())
 
 		return GameResponseDto(game, session.email)
 	}
 
 	@PostMapping("/games/{id}/ship-jumps/landing")
-	fun landShip(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: LandShipRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun landShip(@PathVariable id: String, @RequestBody(required = false) request: LandShipRequestDto?, session: Session): GameResponseDto {
 		val game = shipJumpsService.land(id, session.email, request?.location())
 
 		return GameResponseDto(game, session.email)
@@ -502,13 +409,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/ship-jumps/interception")
 	fun intercept(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: InterceptionRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(shipJumpsService.intercept(id, session.email, request?.ship), session.email)
-	}
+		@RequestBody(required = false) request: InterceptionRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(shipJumpsService.intercept(id, session.email, request?.ship), session.email)
 
 	/**
 	 * The player's orders for this battle round (R74, E10-S03): `{ orders: [{ ship, action, target, rockets }] }`. `400` for
@@ -516,13 +420,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/ship-jumps/battle/orders")
 	fun giveBattleOrders(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: BattleOrdersRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(shipJumpsService.giveOrders(id, session.email, request?.battleOrders().orEmpty()), session.email)
-	}
+		@RequestBody(required = false) request: BattleOrdersRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(shipJumpsService.giveOrders(id, session.email, request?.battleOrders().orEmpty()), session.email)
 
 	/**
 	 * Where the player puts the hits their ships took this round (R76, E10-S03): `{ ships: [{ ship, hull, modules: [{ module,
@@ -530,13 +431,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/ship-jumps/battle/hits")
 	fun placeBattleHits(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: BattleHitsRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(shipJumpsService.placeHits(id, session.email, request?.placements().orEmpty()), session.email)
-	}
+		@RequestBody(required = false) request: BattleHitsRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(shipJumpsService.placeHits(id, session.email, request?.placements().orEmpty()), session.email)
 
 	/**
 	 * Where the player's surviving ships end up once the battle is over (R77, E10-S04): `{ ships: [{ ship, location }] }`.
@@ -544,20 +442,13 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/ship-jumps/battle/landing")
 	fun landAfterBattle(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: BattleLandingRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
-		return GameResponseDto(shipJumpsService.landAfterBattle(id, session.email, request?.locations().orEmpty()), session.email)
-	}
+		@RequestBody(required = false) request: BattleLandingRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(shipJumpsService.landAfterBattle(id, session.email, request?.locations().orEmpty()), session.email)
 
 	@PostMapping("/games/{id}/ship-jumps/finish")
-	fun finishJumping(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun finishJumping(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = shipJumpsService.finishJumping(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -570,11 +461,10 @@ class GameController(
 	 */
 	@PutMapping("/games/{id}/trading/queue")
 	fun reorderTradingQueue(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: ReorderQueueRequestDto?
+		@RequestBody(required = false) request: ReorderQueueRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val order = request?.order() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Send the remaining goods in their new order.")
 		val game = tradingService.reorderQueue(id, session.email, order)
 
@@ -583,11 +473,7 @@ class GameController(
 
 	/** The first player in initiative resolves the next good in the queue (R25, S01-4); `409` as for the queue. */
 	@PostMapping("/games/{id}/trading/resolve-next")
-	fun resolveNextGood(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun resolveNextGood(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = tradingService.resolveNext(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -600,11 +486,10 @@ class GameController(
 	 */
 	@PostMapping("/games/{id}/trading/dictator-offer")
 	fun placeDictatorOffer(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
 		@PathVariable id: String,
-		@RequestBody(required = false) request: DictatorOfferRequestDto?
+		@RequestBody(required = false) request: DictatorOfferRequestDto?,
+		session: Session
 	): GameResponseDto {
-		val session = sessionFor(authorization)
 		val type = request?.type() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Buy or Sell.")
 		val game = tradingService.placeDictatorOffer(id, session.email, type, request.wholePrice())
 
@@ -613,11 +498,7 @@ class GameController(
 
 	/** The Dictator asked passes (R38, E05-S02-2); `409` as for the Dictator's offer. */
 	@PostMapping("/games/{id}/trading/dictator-pass")
-	fun passAsDictator(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun passAsDictator(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = tradingService.passAsDictator(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -629,12 +510,7 @@ class GameController(
 	 * decision." for anyone else, "No trade is waiting for a decision." when nobody is asked, or outside Trading.
 	 */
 	@PostMapping("/games/{id}/trading/trade")
-	fun trade(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: TradeRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun trade(@PathVariable id: String, @RequestBody(required = false) request: TradeRequestDto?, session: Session): GameResponseDto {
 		val loads = (request ?: TradeRequestDto()).loads()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for each ship.")
 		val warehouseUnits = (request ?: TradeRequestDto()).warehouseUnits()
@@ -652,12 +528,7 @@ class GameController(
 	 * Trading.
 	 */
 	@PostMapping("/games/{id}/trading/wholesale")
-	fun wholesale(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String,
-		@RequestBody(required = false) request: WholesaleRequestDto?
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun wholesale(@PathVariable id: String, @RequestBody(required = false) request: WholesaleRequestDto?, session: Session): GameResponseDto {
 		val wholesale = request ?: WholesaleRequestDto()
 		val loads = wholesale.trade().loads()
 			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units, 0 or more, for each ship.")
@@ -670,11 +541,7 @@ class GameController(
 
 	/** The player the wholesale step asks passes (S05-4); `409`, `403`, `404` and `401` as for `/trading/wholesale`. */
 	@PostMapping("/games/{id}/trading/wholesale-pass")
-	fun passWholesale(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun passWholesale(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = tradingService.passWholesale(id, session.email)
 
 		return GameResponseDto(game, session.email)
@@ -682,24 +549,9 @@ class GameController(
 
 	/** The trader the counter reached trades nothing (E05-S04-5); `409`, `403`, `404` and `401` as for `/trading/trade`. */
 	@PostMapping("/games/{id}/trading/trade-nothing")
-	fun tradeNothing(
-		@RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-		@PathVariable id: String
-	): GameResponseDto {
-		val session = sessionFor(authorization)
+	fun tradeNothing(@PathVariable id: String, session: Session): GameResponseDto {
 		val game = tradingService.tradeNothing(id, session.email)
 
 		return GameResponseDto(game, session.email)
-	}
-
-	private fun sessionFor(authorization: String?): Session {
-		val token = authorization?.takeIf { it.startsWith(BEARER_PREFIX, ignoreCase = true) }
-			?.substring(BEARER_PREFIX.length)?.trim()
-		return token?.takeIf { it.isNotEmpty() }?.let { sessionStore.find(it) }
-			?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
-	}
-
-	companion object {
-		private const val BEARER_PREFIX = "Bearer "
 	}
 }

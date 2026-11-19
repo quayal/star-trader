@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.trading
+package dev.adriangrzebyk.trader.board
 
 /** A supply/demand (S/D) indicator, and how it relates to the price modifier of an offer. */
 @JvmInline

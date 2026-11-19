@@ -20,6 +20,17 @@ data class PositionRoll(val roll: Int, val promotedTo: MarketTier?, val demoted:
 		return "rolled $roll: ${change ?: "no change"}$business"
 	}
 
+	/** Whether the roll moved its trader up a tier (R43). */
+	fun rose(): Boolean = promotedTo != null
+
+	/**
+	 * The public log line of this roll (E05-S06-4), made by [trader] after trading [units] of [good]: "Vega Lines traded
+	 * 7 u — rolled 5: now Wholesaler of ISO at Mu Herculis", "… rolled 9: no change", or, becoming Dictator, "…; Altair
+	 * Trade Co. is demoted to Wholesaler".
+	 */
+	fun logText(trader: String, units: Int, good: MarketGood, names: CorporationNames): String =
+		"${names.of(trader)} traded $units u — ${outcome(good)}" + demoted.joinToString("") { "; ${names.of(it)} is demoted to Wholesaler" }
+
 	companion object {
 		/** R43: only a trade of at least 6 units of a good rolls for a position. */
 		const val MIN_UNITS = 6

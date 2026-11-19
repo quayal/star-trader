@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.trading
+package dev.adriangrzebyk.trader.board
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

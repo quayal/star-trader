@@ -1,12 +1,12 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
 
 /**
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).
@@ -156,6 +156,18 @@ data class Turn(
 	}
 
 	/**
+	 * The public log line of the initiative once Bidding closed, in initiative order (creator, 2026-11-18): "Initiative
+	 * (bid + 2d6): Vega Lines 40 + 11 = 51 → Orion Freight 0 + 3 = 3", then any tie's rolls: " (tie rolled again: Vega
+	 * Lines 9, Orion Freight 4)".
+	 */
+	fun initiativeLog(names: CorporationNames): String {
+		val order = initiativeRolls.joinToString(" → ") { it.logText(names.of(it.playerEmail)) }
+		val ties = initiativeRolls.mapNotNull { it.tieLogText(names.of(it.playerEmail)) }
+		val tieText = if (ties.isEmpty()) "" else " (tie rolled again: ${ties.joinToString(", ")})"
+		return "Initiative (bid + 2d6): $order$tieText"
+	}
+
+	/**
 	 * This turn after [email] picked [place] (1 = first) in the turn order (R26). A place that isn't free is refused.
 	 * When only one place is left, its player gets it without being asked (S01-6, proposed). Checking that it's
 	 * [email]'s pick is the caller's, which knows the players' names.
@@ -167,6 +179,35 @@ data class Turn(
 			throw InvalidPlaceException()
 		}
 		return withPick(TurnOrderPick(email, place)).withLastPlaceFilled()
+	}
+
+	/** Whose pick it is, once checked that this is Ship-jumps and the turn order isn't set yet (R26). */
+	fun pickerToDecide(): String {
+		requireShipJumps()
+		return picker() ?: throw InvalidGameOperationException("The turn order is already set.")
+	}
+
+	/** Refusing a pick out of turn (R04): "It's Vega Lines's turn to choose a place." */
+	fun pickerWaitingText(names: CorporationNames): String = "It's ${names.of(pickerToDecide())}'s turn to choose a place."
+
+	/**
+	 * The public log lines of the picks after the first [picksBefore] (S01-5): the picker's own ("Vega Lines chose 1st"),
+	 * then a last place filled without asking ("Orion Freight gets 2nd, the only place left"), and once every place is
+	 * taken, the full order.
+	 */
+	fun turnOrderLog(picksBefore: Int, names: CorporationNames): List<String> {
+		val picks = turnOrderPicks.drop(picksBefore).mapIndexed { index, pick ->
+			val corporation = names.of(pick.playerEmail)
+			if (index == 0) "$corporation chose ${ordinal(pick.place)}" else "$corporation gets ${ordinal(pick.place)}, the only place left"
+		}
+		val order = if (picker() ==
+			null
+		) {
+			listOf("Turn order (for this turn): " + turnOrder().joinToString(" → ") { names.of(checkNotNull(it)) })
+		} else {
+			emptyList()
+		}
+		return picks + order
 	}
 
 	private fun withPick(pick: TurnOrderPick): Turn = copy(turnOrderPicks = turnOrderPicks + pick)
@@ -192,6 +233,9 @@ data class Turn(
 		// Only a game saved before initiative existed (E03-S05) can be in Ship-jumps with nobody to jump.
 		return jumper() ?: throw InvalidGameOperationException("Nobody is jumping now.")
 	}
+
+	/** Refusing a jump out of turn (R04): "It's Vega Lines's turn to jump." */
+	fun jumperWaitingText(names: CorporationNames): String = "It's ${names.of(currentJumper())}'s turn to jump."
 
 	/** S02-3, S03-6: a jump isn't finished until its ship has landed, so nothing else happens in the slot until then. */
 	fun refuseWhileAShipWaitsToLand() {
@@ -350,6 +394,15 @@ data class Turn(
 	fun firstInInitiative(): String =
 		initiative.firstOrNull() ?: throw InvalidGameOperationException("Nobody is first in initiative this turn.")
 
+	/** Who orders the queue and resolves each good, once checked that it's Trading (R25). */
+	fun resolverToDecide(): String {
+		requireTrading()
+		return firstInInitiative()
+	}
+
+	/** Refusing the resolver's step to anyone else (R04): "Order decided by Vega Lines (first in initiative)." */
+	fun resolverWaitingText(names: CorporationNames): String = "Order decided by ${names.of(firstInInitiative())} (first in initiative)."
+
 	/**
 	 * This turn with the goods still to resolve in [order] (R25, S01-3). [order] must hold exactly the goods still queued:
 	 * one resolved in between makes it stale, and it's refused rather than half-applied (A04).
@@ -396,6 +449,9 @@ data class Turn(
 		return resolution?.awaitingDictator() ?: throw InvalidGameOperationException("No Dictator decision is pending.")
 	}
 
+	/** Refusing the Dictator's step to anyone else (R04, S01-8). */
+	fun dictatorWaitingText(names: CorporationNames): String = checkNotNull(resolution).waitingForDictatorText(names)
+
 	/**
 	 * This turn after the Dictator placed [offer] for the good resolving (R38, S02-2, S02-3); then the counter starts
 	 * with a roll from [dice] (S03-1).
@@ -414,6 +470,12 @@ data class Turn(
 		return resolution?.awaitingTrade() ?: throw InvalidGameOperationException("No trade is waiting for a decision.")
 	}
 
+	/** The player whose offer the counter waits for (E05-S04), once checked that one is. */
+	fun traderToDecide(): String = tradeAwaited().traderEmail()
+
+	/** Refusing the awaited trader's step to anyone else (R04, S01-8). */
+	fun traderWaitingText(names: CorporationNames): String = tradeAwaited().waitingText(names)
+
 	/**
 	 * This turn after the awaited trade's player traded [units] (E05-S04) and made [positionRoll], if any (R43); once
 	 * nothing is left, its good counts as resolved.
@@ -428,6 +490,9 @@ data class Turn(
 		requireTrading()
 		return resolution?.awaitingWholesaler() ?: throw InvalidGameOperationException("No wholesale decision is pending.")
 	}
+
+	/** Refusing the wholesale step to anyone but the wholesaler asked (R04, S01-8). */
+	fun wholesalerWaitingText(names: CorporationNames): String = checkNotNull(resolution).waitingForWholesalerText(names)
 
 	/** This turn after the wholesaler asked traded [units] of [type], or passed (S05-4); after the last, its good counts as resolved. */
 	fun recordWholesale(type: OfferType?, units: Int): Turn = withResolution(resolutionNow().withWholesale(type, units))
@@ -449,6 +514,9 @@ data class Turn(
 
 	/** The start of the turn after this one. */
 	fun next(): Turn = bidding(number + 1)
+
+	/** The public log line opening this turn (S07-2, S07-3), of [turns]: "Turn 3 of 20 starts with Bidding; turn 2's offers have expired". */
+	fun startedText(turns: Int): String = "Turn $number of $turns starts with Bidding; turn ${number - 1}'s offers have expired"
 
 	/**
 	 * [rolls] ordered by [score], highest first (R27). Players who tie roll 2d6 again among themselves, and only those
@@ -489,4 +557,12 @@ data class Turn(
 			emptyList()
 		)
 	}
+}
+
+/** A place in the turn order for the log: 1st, 2nd, 3rd, 4th… */
+private fun ordinal(place: Int): String = place.toString() + when (place) {
+	1 -> "st"
+	2 -> "nd"
+	3 -> "rd"
+	else -> "th"
 }

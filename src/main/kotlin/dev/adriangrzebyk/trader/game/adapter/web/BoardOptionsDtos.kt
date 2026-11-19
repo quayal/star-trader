@@ -1,7 +1,7 @@
-package dev.adriangrzebyk.trader.trading.adapter.web
+package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.trading.Goods
-import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.OfferType
 
 data class GoodsMarket(val goods: Goods, val price: Int, val indicator: Int)
 

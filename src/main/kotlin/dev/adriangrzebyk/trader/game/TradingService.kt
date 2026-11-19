@@ -1,6 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.trading.OfferType
+import dev.adriangrzebyk.trader.board.OfferType
 
 /** Trading's actions, each applied inside [GameStore.update]; [dice] rolls each resolution's counter (R34) and
  * each position roll after a trade of 6 or more units (R43). */

@@ -32,6 +32,7 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.assertj:assertj-core")
+	testImplementation("com.lemonappdev:konsist:0.17.3")
 	testImplementation("org.junit.jupiter:junit-jupiter-params")
 	testImplementation("org.testcontainers:testcontainers")
 

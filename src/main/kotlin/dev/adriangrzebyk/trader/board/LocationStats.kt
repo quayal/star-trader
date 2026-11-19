@@ -1,4 +1,4 @@
-package dev.adriangrzebyk.trader.trading
+package dev.adriangrzebyk.trader.board
 
 /**
  * R31: a system's three locations and their statistics — the Port's class and legal system, Space's police and

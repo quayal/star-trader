@@ -1,8 +1,8 @@
-package dev.adriangrzebyk.trader.trading.adapter.web
+package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.trading.OfferType
-import dev.adriangrzebyk.trader.trading.StarSystem
-import dev.adriangrzebyk.trader.trading.TradeDesk
+import dev.adriangrzebyk.trader.board.OfferType
+import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.Offer
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
  */
 @RestController
 @RequestMapping("/api")
-class TradeOfferController {
+class BoardOptionsController {
 
 	@GetMapping("/options")
 	fun options(): TradeOfferOptions = TradeOfferOptions(
@@ -27,7 +27,7 @@ class TradeOfferController {
 			)
 		},
 		offerTypes = OfferType.entries,
-		minPrice = TradeDesk.MIN_PRICE,
-		maxPrice = TradeDesk.MAX_PRICE
+		minPrice = Offer.MIN_PRICE,
+		maxPrice = Offer.MAX_PRICE
 	)
 }
