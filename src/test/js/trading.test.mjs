@@ -31,6 +31,7 @@ import {
 	lineText,
 	resolvedText,
 	resolver,
+	resolvingPrice,
 	sameOrder,
 	queueOffersNote,
 	isDictatorOf,
@@ -185,6 +186,16 @@ describe('a good resolving (E05-S02)', () => {
 	it('asks only the Dictator the form question', () => {
 		assert.equal(dictatorQuestion(asking, ALTAIR), "You're Dictator of ISO here. Place an offer before the roll?");
 		assert.equal(dictatorQuestion(asking, VEGA), '');
+	});
+
+	it('gives the market price of the good with the question, when the board lists it (creator, 2026-11-20)', () => {
+		const priced = { ...asking, board: [{ id: 'MU_HERCULIS', market: [{ goods: 'POLY', price: 5 }, { goods: 'ISO', price: 12 }] }] };
+
+		assert.equal(resolvingPrice(priced), 12);
+		assert.equal(dictatorQuestion(priced, ALTAIR), "You're Dictator of ISO here (market price 12 HT). Place an offer before the roll?");
+		assert.equal(waitingText(priced, ALTAIR), "You're Dictator of ISO here (market price 12 HT): place an offer before the roll, or pass.");
+		assert.equal(decisionText(priced, ALTAIR), "Your decision is needed: you're Dictator of ISO at Mu Herculis (market price 12 HT). Place an offer or pass.");
+		assert.equal(resolvingPrice(asking), null);
 	});
 
 	it('keys the form by game, turn and good', () => {

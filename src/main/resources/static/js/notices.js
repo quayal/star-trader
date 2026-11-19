@@ -8,7 +8,7 @@
 import { battleStep, interceptors } from './battle.js';
 import { deckLink, tradingLink } from './game.js';
 import { jumper } from './ship-jumps.js';
-import { awaitingDictator, awaitingTrade, awaitingWholesaler, resolution } from './trading.js';
+import { awaitingDictator, awaitingTrade, awaitingWholesaler, priceNote, resolution } from './trading.js';
 import { picker } from './turn-order.js';
 
 /** At most this many toasts show at once; the rest are counted. */
@@ -153,13 +153,13 @@ export function moveCard(game, myId) {
 		return { key: `${base}/pick`, title: 'Your move: turn order', lead: 'Choose your place in the turn order.', link: deck, focus: 'turn-order-title' };
 	}
 	if (!game.turn.interception && !game.turn.battle && jumper(game) === myId) {
-		return { key: `${base}/jump`, title: 'Your move: jump', lead: 'It’s your turn to jump your ships, or to finish jumping.', link: deck, focus: 'jump-title' };
+		return { key: `${base}/jump`, title: 'Your move: jump', lead: 'It’s your turn to jump ships.', link: deck, focus: 'jump-title' };
 	}
 	const good = resolution(game)?.good;
 	const at = good ? `${good.goods} at ${good.systemName}` : '';
 	const goodKey = good ? `${good.system}/${good.goods}` : '';
 	if (awaitingDictator(game) === myId) {
-		return { key: `${base}/dictator/${goodKey}`, title: 'Your move: Dictator', lead: `You’re Dictator of ${at}. Place an offer or pass.`, link: trading, focus: 'trading-title' };
+		return { key: `${base}/dictator/${goodKey}`, title: 'Your move: Dictator', lead: `You’re Dictator of ${at}${priceNote(game)}. Place an offer or pass.`, link: trading, focus: 'trading-title' };
 	}
 	const trade = awaitingTrade(game);
 	if (trade?.playerId === myId) {

@@ -8,9 +8,9 @@ import {
 	parseLevel,
 	placementTotalText,
 	pointsToPlace,
-	raiseOptions,
+	RAISED_TEXT,
+	raiseButtons,
 	validatePlacement,
-	validateRaise,
 	canRaise,
 } from '../../main/resources/static/js/connections.js';
 import { validateUnits } from '../../main/resources/static/js/investment.js';
@@ -78,26 +78,10 @@ describe('placing the starting connection points (E12-S01)', () => {
 });
 
 describe('raising a connection (E12-S02)', () => {
-	it('lists each connection with its next level and cost, and none past 10 (R83)', () => {
-		assert.deepEqual(raiseOptions(investing(invest)), [
-			{ kind: 'POLITICAL', label: 'Political 3 → 4 — 40 HT', disabled: false },
-			{ kind: 'BUSINESS', label: 'Business 4 → 5 — 50 HT', disabled: false },
-			{ kind: 'CRIMINAL', label: 'Criminal 10 — the most there is', disabled: true },
-		]);
-	});
-
 	it('allows one raise per Investment', () => {
 		assert.equal(canRaise(investing(invest)), true);
 		assert.equal(canRaise(investing({ ...invest, raisedConnection: true })), false);
 		assert.equal(canRaise(bidding(0)), false);
-	});
-
-	it("refuses a raise at 10 or beyond the viewer's money, as the server would", () => {
-		assert.deepEqual(validateRaise(investing(invest), 'POLITICAL'), { kind: 'POLITICAL' });
-		assert.deepEqual(validateRaise(investing(invest), 'CRIMINAL'), { error: 'Your criminal connections are already at 10.' });
-		assert.deepEqual(validateRaise(investing(invest, 35), 'POLITICAL'), {
-			error: 'Raising political connections to 4 costs 40 HT; you have 35 HT.',
-		});
 	});
 });
 
@@ -122,5 +106,23 @@ describe('the factory cap (E12-S03)', () => {
 		const cap = factoryCap(investing(invest));
 		assert.deepEqual(validateUnits('3', { unitCost: 70 }, 30, cap), { error: 'You can only own 7 units of factory (POL: 3, BUSS: 4).' });
 		assert.deepEqual(validateUnits('2', { unitCost: 70 }, 300, cap), { units: 2 });
+	});
+});
+
+describe('raise buttons on the Corporations card (creator, 2026-11-19)', () => {
+	it('offers each connection with its next level and cost, disabled with the reason at 10 or short of money', () => {
+		assert.deepEqual(raiseButtons(investing(invest, 45)), {
+			raised: '',
+			buttons: [
+				{ kind: 'POLITICAL', label: 'Raise Political to 4 \u2014 40 HT', disabled: false, reason: '' },
+				{ kind: 'BUSINESS', label: 'Raise Business to 5 \u2014 50 HT', disabled: true, reason: 'You have 45 HT.' },
+				{ kind: 'CRIMINAL', label: 'Raise Criminal', disabled: true, reason: 'Criminal is at 10, the most there is.' },
+			],
+		});
+	});
+
+	it('says a connection was raised this Investment, and shows nothing outside it', () => {
+		assert.deepEqual(raiseButtons(investing({ ...invest, raisedConnection: true })), { raised: RAISED_TEXT, buttons: [] });
+		assert.equal(raiseButtons(bidding(0)), null);
 	});
 });

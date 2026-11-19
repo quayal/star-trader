@@ -182,9 +182,13 @@ export function infrastructureStatusText(game, playerId) {
 	return others.length ? `${DONE_INVESTING_TEXT}. Waiting for ${others.join(', ')}.` : DONE_INVESTING_TEXT;
 }
 
-/** The viewer's own warehouses for the screen (S08-6): where, blocks, "used / spaces", and what is held ("Empty" when nothing). */
+/**
+ * The viewer's own warehouses for the screen (S08-6): where, blocks, "used / spaces", and what is held ("Empty" when
+ * nothing). While the viewer may buy (creator, 2026-11-19), each row's `invest` is 'add', and every system where they
+ * have none yet follows as a row with `invest` 'build' and `blocks` 0; otherwise `invest` is null and only owned rows show.
+ */
 export function ownWarehouseRows(game) {
-	return (game.you?.warehouses ?? []).map(warehouse => {
+	const owned = (game.you?.warehouses ?? []).map(warehouse => {
 		const held = Object.entries(warehouse.cargo).map(([goods, units]) => `${units} ${goods}`);
 		return {
 			system: warehouse.system,
@@ -193,18 +197,70 @@ export function ownWarehouseRows(game) {
 			cargoUsed: warehouse.cargoUsed,
 			cargoSpaces: warehouse.cargoSpaces,
 			held: held.length ? held.join(', ') : 'Empty',
+			invest: canBuy(game) ? 'add' : null,
 		};
 	});
+	if (!canBuy(game)) {
+		return owned;
+	}
+	const build = investSystems(game)
+		.filter(entry => !owned.some(row => row.system === entry.system))
+		.map(entry => ({ system: entry.system, systemName: entry.systemName, blocks: 0, cargoUsed: 0, cargoSpaces: 0, held: '', invest: 'build' }));
+	return [...owned, ...build];
 }
 
-/** The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by playerId. */
+/**
+ * The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by
+ * playerId. While the viewer may buy (creator, 2026-11-19), each row's `invest` is 'add', and every good a system can
+ * produce where they have no factory follows with `invest` 'build' and `size` 0; otherwise `invest` is null.
+ */
 export function ownFactoryRows(game, playerId) {
 	const me = game.players.find(player => player.id === playerId);
-	return (me?.factories ?? []).map(factory => ({
+	const buying = canBuildFactory(game);
+	const owned = (me?.factories ?? []).map(factory => ({
+		system: factory.system,
 		systemName: game.board.find(system => system.id === factory.system)?.name ?? factory.system,
 		goods: factory.goods,
 		size: factory.size,
+		invest: buying ? 'add' : null,
 	}));
+	if (!buying) {
+		return owned;
+	}
+	const build = investFactories(game)
+		.filter(entry => !owned.some(row => row.system === entry.system && row.goods === entry.goods))
+		.map(entry => ({ system: entry.system, systemName: entry.systemName, goods: entry.goods, size: 0, invest: 'build' }));
+	return [...owned, ...build];
+}
+
+/**
+ * What the viewer may do at one system's Warehouses and Factories tables (creator, 2026-11-19): `{ warehouse, factories }`,
+ * `warehouse` being 'add' (they own one here), 'build' (they don't) or null when they can't buy now, and `factories` the
+ * goods produced here, each `{ goods, size, invest }` with 'add' or 'build'. Empty outside Investment.
+ */
+export function systemInvestActions(game, systemId) {
+	if (!canBuy(game)) {
+		return { warehouse: null, factories: [] };
+	}
+	const blocks = investSystems(game).find(entry => entry.system === systemId)?.blocks ?? 0;
+	return {
+		warehouse: blocks > 0 ? 'add' : 'build',
+		factories: factoriesAt(game, systemId).map(entry => ({ goods: entry.goods, size: entry.size, invest: entry.size > 0 ? 'add' : 'build' })),
+	};
+}
+
+/** A row's button: "Add blocks", "Build warehouse", "Add units", "Build factory". */
+export function investButtonLabel(kind, invest) {
+	if (kind === 'blocks') {
+		return invest === 'build' ? 'Build warehouse' : BLOCKS_BUTTON;
+	}
+	return invest === 'build' ? 'Build factory' : UNITS_BUTTON;
+}
+
+/** The most blocks the viewer's money pays for. */
+export function maxBlocks(game) {
+	const cost = game.you?.invest?.blockCost;
+	return cost ? Math.max(0, Math.floor((game.you.money ?? 0) / cost)) : 0;
 }
 
 // ── Buying warehouse blocks (E06-S04, R45) ──
@@ -237,11 +293,6 @@ export function warehouseText(blocks) {
 /** "1 block", "3 blocks". */
 export function blocksText(blocks) {
 	return `${blocks} ${blocks === 1 ? 'block' : 'blocks'}`;
-}
-
-/** A system's option in the picker: "Tau Ceti — 2 blocks, 20 cargo spaces". */
-export function systemOptionLabel(system) {
-	return `${system.systemName} \u2014 ${warehouseText(system.blocks)}`;
 }
 
 /** The number of blocks typed, or null when it isn't a whole number, 1 or more. */
@@ -292,21 +343,9 @@ export function canBuildFactory(game) {
 	return canBuy(game) && investFactories(game).length > 0;
 }
 
-/** The systems that can produce something, in the order of the list (map order): `[{ system, systemName }]` for the System dropdown. */
-export function factorySystems(game) {
-	const seen = new Set();
-	return investFactories(game).filter(entry => !seen.has(entry.system) && seen.add(entry.system))
-		.map(entry => ({ system: entry.system, systemName: entry.systemName }));
-}
-
 /** What [systemId] can produce, for the Goods dropdown. */
 export function factoriesAt(game, systemId) {
 	return investFactories(game).filter(entry => entry.system === systemId);
-}
-
-/** A goods option: "ISO \u2014 makes 6 a turn", or "\u2014 no factory yet". */
-export function goodsOptionLabel(factory) {
-	return `${factory.goods} \u2014 ${factory.size === 0 ? 'no factory yet' : `makes ${factory.size} a turn`}`;
 }
 
 /** "1 unit", "3 units". */
@@ -345,4 +384,47 @@ export function validateUnits(text, factory, money, cap = null) {
 		return { error: `${unitsText(units)} ${units === 1 ? 'costs' : 'cost'} ${cost} HT; you have ${money} HT.` };
 	}
 	return { units };
+}
+
+// ── The invest dialog (creator, 2026-11-19): opened from a warehouse or factory row ──
+
+
+/**
+ * What the dialog for [target] (`{ kind: 'blocks', system }` or `{ kind: 'units', system, goods }`) shows: `{ title,
+ * intro, factory }`, `factory` being the `you.invest.factories` entry for units. Null when the viewer can't buy it now
+ * (Investment closed, or the good isn't produced there), so the page closes the dialog.
+ */
+export function investDialogText(game, target) {
+	if (!canBuy(game) || !target) {
+		return null;
+	}
+	if (target.kind === 'blocks') {
+		const system = investSystems(game).find(entry => entry.system === target.system);
+		if (!system) {
+			return null;
+		}
+		const { blockCost } = game.you.invest;
+		return {
+			title: system.blocks === 0 ? `Build a warehouse at ${system.systemName}` : `Add warehouse blocks at ${system.systemName}`,
+			intro: `You have ${warehouseText(system.blocks)} here. ${blockCost} HT a block, ${CARGO_SPACES_PER_BLOCK} cargo spaces each. New blocks first count next turn.`,
+			factory: null,
+		};
+	}
+	const factory = factoriesAt(game, target.system).find(entry => entry.goods === target.goods);
+	if (!factory) {
+		return null;
+	}
+	return {
+		title: factory.size === 0 ? `Build a factory for ${factory.goods} at ${factory.systemName}` : `Add ${factory.goods} units at ${factory.systemName}`,
+		intro: `${factory.size === 0 ? 'No factory here yet' : `It makes ${factory.size} a turn`}. ${factory.unitCost} HT a unit (5 × the ${factory.price} HT price + 10).`,
+		factory,
+	};
+}
+
+/** "Most you can add: 4 blocks", or why it's none. [max] is what the money (and, for units, the cap) allows. */
+export function investMaxText(kind, max) {
+	if (max > 0) {
+		return `You can add up to ${kind === 'blocks' ? blocksText(max) : unitsText(max)}.`;
+	}
+	return kind === 'blocks' ? "You can't pay for a block." : "You can't add a unit: you're short of money or at your factory cap.";
 }

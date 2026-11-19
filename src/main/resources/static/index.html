@@ -117,7 +117,7 @@
 		.offer-form .message { margin: var(--space-hairline) 0 0; }
 		.offer-form .message:empty { display: none; }
 		.offer-type { border: 0; padding: 0; margin: 0; }
-		.pick-form[hidden], .raise-form[hidden] { display: none; }
+		.pick-form[hidden] { display: none; }
 		/* E10: the interception and battle panel on the Deck. */
 		.fight-form[hidden], .fight-panel[hidden], .fight-panel .muted:empty, .battle .message:empty, .battle .muted:empty, .battle p:empty { display: none; }
 		/* The battle dialog (creator, 2026-11-19): wide, so the ships sit side by side and the form below them. */
@@ -157,6 +157,14 @@
 			border-radius: var(--radius-panel);
 		}
 		.landing::backdrop, .battle-report::backdrop, .notice::backdrop { background: var(--surface-backdrop); }
+		/* Creator, 2026-11-19: the invest dialog, opened from a warehouse or factory row. */
+		.invest form { max-width: none; }
+		.invest h2, .invest p { margin: 0; }
+		.invest__actions { display: flex; flex-wrap: wrap; gap: var(--space-related); align-items: center; }
+		.invest-cell { text-align: right; white-space: nowrap; }
+		.invest-row td, .invest-row th { color: var(--text-muted); }
+		.corporation__actions { display: grid; gap: var(--space-group); margin-top: var(--space-group); }
+		.corporation__action { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-group); }
 		/* Notifications (creator, 2026-11-18): interception and battle cards, your-move cards, and fading toasts. */
 		.notice {
 			width: min(520px, calc(100vw - 2 * var(--space-panel)));
@@ -523,6 +531,8 @@
 	<!-- E03-S04: on s01 and s02 during Bidding. Static markup, toggled on render, so focus survives the poll. -->
 	<div class="topbar__done" id="done-bar" hidden>
 		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
+		<!-- Creator, 2026-11-20: Investment's done button on the Deck and System details too, not only on Infrastructure. -->
+		<button class="btn" id="done-investing-button" type="button" hidden>I'm done investing</button>
 		<!-- A live region that stays in the tree: its text appears when the player is done, so it's announced. -->
 		<p id="done-text" role="status" tabindex="-1"></p>
 		<!-- E06-S08-4: while the player still has to collect, on the screens that aren't Infrastructure. -->
@@ -792,6 +802,30 @@
 			</form>
 		</dialog>
 
+		<!-- Creator, 2026-11-19: adding warehouse blocks (E06-S04) or factory units (E06-S05), opened from a row of a
+		     warehouses or factories table. Static markup, so a poll redrawing the tables keeps the amount. -->
+		<dialog class="landing invest" id="invest-dialog" aria-labelledby="invest-title">
+			<form class="offer-form" id="invest-form" novalidate>
+				<h2 id="invest-title"></h2>
+				<p class="muted" id="invest-intro"></p>
+				<p id="invest-cap" hidden></p>
+				<div>
+					<label class="field-label" for="invest-units" id="invest-units-label">How many</label>
+					<div class="slider">
+						<input class="slider__range" id="invest-units" type="range" min="1" max="1" step="1" value="1" aria-describedby="invest-max invest-cost invest-error">
+						<output class="slider__value" id="invest-units-value" for="invest-units"></output>
+					</div>
+					<p class="message muted" id="invest-max"></p>
+					<p class="message" id="invest-cost" role="status"></p>
+					<p class="message message--error field-error" id="invest-error" role="alert"></p>
+				</div>
+				<div class="invest__actions">
+					<button class="btn" id="invest-button" type="submit">Confirm</button>
+					<button class="quiet-button" id="invest-cancel" type="button">Cancel</button>
+				</div>
+			</form>
+		</dialog>
+
 		<!-- Assets (creator, 2026-11-18): where the player's money sits; theirs only (R29). -->
 		<div class="assets" id="assets-panel" hidden>
 			<h2 class="system__title" id="assets-title" tabindex="-1">Assets</h2>
@@ -819,6 +853,8 @@
 		<div class="corporations" id="corporations-panel" hidden>
 			<h2 class="system__title" id="corporations-title" tabindex="-1">Corporations</h2>
 			<p class="muted">What every player can see about each corporation.</p>
+			<!-- Creator, 2026-11-19: in Investment the player raises a connection and buys reputation on their own card. -->
+			<p class="message" id="corporations-message" role="status" tabindex="-1"></p>
 			<div class="corporations__cards" id="corporations-cards"></div>
 		</div>
 
@@ -924,6 +960,10 @@
 				<p class="muted" id="invest-note"></p>
 				<!-- Buying a ship is on Fleet, beside the ships the player has. -->
 				<p id="ship-pointer" hidden><a class="link" id="ship-pointer-link" href="/">Buy a ship on the Fleet tab</a></p>
+				<!-- Creator, 2026-11-19: raising a connection (E12-S02) and buying reputation (E13-S03) are on the player's own Corporations card. -->
+				<p id="corporation-pointer" hidden><a class="link" id="corporation-pointer-link" href="/">Raise a connection or buy reputation on your Corporations card</a></p>
+				<!-- Creator, 2026-11-19: warehouses and factories are bought from the tables below; what the last purchase did. -->
+				<p class="message message--success" id="infra-invest-message" role="status" tabindex="-1"></p>
 			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
@@ -937,85 +977,24 @@
 					<p class="message" id="collect-message" role="status"></p>
 				</form>
 			</section>
-			<!-- E06-S04: static markup, so the typed number and focus survive the poll. -->
-			<section class="panel" id="blocks-panel" aria-labelledby="blocks-title" hidden>
-				<h2 id="blocks-title">Add warehouse blocks</h2>
-				<p class="muted" id="blocks-intro"></p>
-				<form class="offer-form" id="blocks-form" novalidate>
-					<div>
-						<label class="field-label" for="blocks-system">System</label>
-						<select class="control" id="blocks-system"></select>
-					</div>
-					<div>
-						<label class="field-label" for="blocks-count">Blocks</label>
-						<input class="control price-input" id="blocks-count" inputmode="numeric" value="1" aria-describedby="blocks-cost blocks-error">
-						<p class="message muted" id="blocks-cost" role="status"></p>
-						<p class="message message--error field-error" id="blocks-error" role="alert"></p>
-					</div>
-					<div><button class="btn" id="blocks-button" type="submit">Add blocks</button></div>
-					<p class="message" id="blocks-message" role="status"></p>
-				</form>
-			</section>
-			<!-- E06-S05: static markup, so the typed number and focus survive the poll. -->
-			<section class="panel" id="units-panel" aria-labelledby="units-title" hidden>
-				<h2 id="units-title">Add factory units</h2>
-				<p id="units-cap"></p>
-				<form class="offer-form" id="units-form" novalidate>
-					<div>
-						<label class="field-label" for="units-system">System</label>
-						<select class="control" id="units-system"></select>
-					</div>
-					<div>
-						<label class="field-label" for="units-good">Goods</label>
-						<select class="control" id="units-good"></select>
-					</div>
-					<div>
-						<label class="field-label" for="units-count">Units</label>
-						<input class="control price-input" id="units-count" inputmode="numeric" value="1" aria-describedby="units-cost units-error">
-						<p class="message muted" id="units-cost" role="status"></p>
-						<p class="message message--error field-error" id="units-error" role="alert"></p>
-					</div>
-					<div><button class="btn" id="units-button" type="submit">Add units</button></div>
-					<p class="message" id="units-message" role="status"></p>
-				</form>
-			</section>
-			<!-- E12-S02: static markup, so the chosen connection survives the poll. -->
-			<section class="panel" id="raise-panel" aria-labelledby="raise-title" hidden>
-				<h2 id="raise-title">Raise a connection</h2>
-				<p class="muted" id="raise-intro"></p>
-				<form class="offer-form raise-form" id="raise-form" novalidate>
-					<div>
-						<label class="field-label" for="raise-kind">Connection</label>
-						<select class="control" id="raise-kind" aria-describedby="raise-error"></select>
-						<p class="message message--error field-error" id="raise-error" role="alert"></p>
-					</div>
-					<div><button class="btn" id="raise-button" type="submit">Raise</button></div>
-				</form>
-				<p class="message" id="raise-message" role="status"></p>
-			</section>
-			<!-- E13-S03 (R87): buying 1d6 of reputation, once per Investment. -->
-			<section class="panel" id="reputation-panel" aria-labelledby="reputation-title" hidden>
-				<h2 id="reputation-title">Buy reputation</h2>
-				<p class="muted" id="reputation-intro"></p>
-				<div><button class="btn" id="reputation-button" type="button">Buy reputation</button></div>
-				<p class="message" id="reputation-message" role="status"></p>
-			</section>
 			<!-- E08-S02 (R58): moving goods is on each system's page since 2026-11-19; a pointer for a player with a warehouse. -->
 			<p class="muted" id="cargo-pointer" hidden></p>
 			<section class="panel" aria-labelledby="own-warehouses-title" id="own-warehouses-panel" hidden>
 				<h3 class="field-label" id="own-warehouses-title">Your warehouses</h3>
 				<div class="table-wrap">
 					<table class="data-table">
-						<thead><tr><th scope="col">System</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces used</th><th scope="col">Holding</th></tr></thead>
+						<thead><tr><th scope="col">System</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces used</th><th scope="col">Holding</th><th scope="col"><span class="visually-hidden">Invest</span></th></tr></thead>
 						<tbody id="own-warehouses"></tbody>
 					</table>
 				</div>
 			</section>
 			<section class="panel" aria-labelledby="own-factories-title" id="own-factories-panel" hidden>
 				<h3 class="field-label" id="own-factories-title">Your factories</h3>
+				<!-- E12-S03-8 (R84): the factory cap, while the player may add units. -->
+				<p id="units-cap" hidden></p>
 				<div class="table-wrap">
 					<table class="data-table">
-						<thead><tr><th scope="col">System</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th></tr></thead>
+						<thead><tr><th scope="col">System</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th><th scope="col"><span class="visually-hidden">Invest</span></th></tr></thead>
 						<tbody id="own-factories"></tbody>
 					</table>
 				</div>
@@ -1098,7 +1077,7 @@
 						<div class="dictator-actions">
 							<button class="btn" id="trade-button" type="submit">Confirm</button>
 							<button class="btn" id="trade-nothing-button" type="button">Trade nothing</button>
-							<button class="text-action" id="trade-pass-button" type="button" hidden>Pass</button>
+							<button class="btn btn--danger" id="trade-pass-button" type="button" hidden>Pass</button>
 						</div>
 					</form>
 				</section>
@@ -1145,10 +1124,12 @@
 			<details class="panel section">
 				<summary>Warehouses and factories</summary>
 				<p id="system-producible"></p>
+				<!-- Creator, 2026-11-19: in Investment the player builds and extends from these tables; what the last purchase did. -->
+				<p class="message message--success" id="system-invest-message" role="status" tabindex="-1"></p>
 				<h3 class="field-label">Factories</h3>
 				<div class="table-wrap">
 					<table class="data-table" id="system-factories-table" hidden>
-						<thead><tr><th scope="col">Corporation</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th></tr></thead>
+						<thead><tr><th scope="col">Corporation</th><th scope="col">Goods</th><th scope="col" class="num">Units a turn</th><th scope="col"><span class="visually-hidden">Invest</span></th></tr></thead>
 						<tbody id="system-factories"></tbody>
 					</table>
 				</div>
@@ -1156,7 +1137,7 @@
 				<h3 class="field-label">Warehouses</h3>
 				<div class="table-wrap">
 					<table class="data-table" id="system-warehouses-table" hidden>
-						<thead><tr><th scope="col">Corporation</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces</th><th scope="col">Holds</th></tr></thead>
+						<thead><tr><th scope="col">Corporation</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Cargo spaces</th><th scope="col">Holds</th><th scope="col"><span class="visually-hidden">Invest</span></th></tr></thead>
 						<tbody id="system-warehouses"></tbody>
 					</table>
 				</div>
@@ -1287,24 +1268,19 @@
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { NO_TEXT as NO_CORPORATION_TEXT, corporationCards } from './js/corporations.js';
-	import { BUY_BUTTON as REPUTATION_BUY_BUTTON, reputationPurchase } from './js/reputation.js';
+	import { buyLabel as buyReputationLabel, reputationPurchase } from './js/reputation.js';
 	import {
 		CAP_NOTE,
 		KINDS as CONNECTION_KINDS,
 		PLACE_BUTTON,
-		RAISED_TEXT,
-		RAISE_BUTTON,
-		RAISE_INTRO,
-		canRaise,
 		factoryCap,
 		isPlacing,
 		maxFactoryUnits,
 		placementHint,
 		placementTotalText,
 		pointsToPlace,
-		raiseOptions,
-		validatePlacement,
-		validateRaise
+		raiseButtons,
+		validatePlacement
 	} from './js/connections.js';
 	import {
 		BUY_BUTTON,
@@ -1418,15 +1394,12 @@
 	} from './js/offers.js';
 	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
-		BLOCKS_BUTTON,
-		CARGO_SPACES_PER_BLOCK,
 		COLLECT_BUTTON,
 		COLLECT_ELSEWHERE_TEXT,
 		COLLECT_FIRST_TEXT,
 		COLLECT_INTRO,
 		INFRASTRUCTURE_LINK_TEXT,
 		INVEST_NOTE,
-		UNITS_BUTTON,
 		NOT_INVESTING_TEXT,
 		blocksCostText,
 		blocksText,
@@ -1442,23 +1415,24 @@
 		doneInvestingRefusedText,
 		infrastructureState,
 		infrastructureStatusText,
-		factoriesAt,
-		factorySystems,
-		goodsOptionLabel,
-		investFactories,
+		investButtonLabel,
+		investDialogText,
+		investMaxText,
 		investSystems,
 		isCollecting,
-		isInvestmentClosedRefusal,
 		isInvesting,
+		isInvestmentClosedRefusal,
+		maxBlocks,
 		ownFactoryRows,
 		ownWarehouseRows,
-		systemOptionLabel,
+		systemInvestActions,
 		unitsCostText,
 		unitsText,
 		validateBlocks,
 		validateCollect,
 		validateUnits
 	} from './js/investment.js';
+	import { keepGoodsColoured } from './js/goods-colour.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
@@ -1467,6 +1441,7 @@
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
+	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
 		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'game-over-panel'];
@@ -1963,13 +1938,14 @@
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
 		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations') {
-			updateDoneBar(game); // "I'm done bidding" is on s01 and s02 only (S04-1); Investment's is on s10 (E06-S08)
+			updateDoneBar(game); // "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02; s10 has its own
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		updateFight(game); // likewise: the battle in its own dialog (creator, 2026-11-19), under the report
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
+		updateInvestDialog(game); // closes itself once Investment does (creator, 2026-11-19)
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
 		const changed = key !== renderedKey;
@@ -2347,22 +2323,36 @@
 	/** E11-S01: one panel per corporation, the viewer's first; redrawn only when something on a card changed. */
 	function renderCorporations(game) {
 		const cards = corporationCards(game, viewerId);
-		const key = JSON.stringify([game.id, cards]);
+		// Creator, 2026-11-19: in Investment the viewer's own card raises a connection and buys reputation.
+		const raise = raiseButtons(game);
+		const purchase = reputationPurchase(game);
+		if (corporationsMessageKey !== null && corporationsMessageKey !== `${game.id}/${game.turn.number}`) {
+			setCorporationsMessage('', false, null);
+		}
+		const key = JSON.stringify([game.id, cards, raise, purchase]);
 		if (key === shownCorporationsKey) {
 			return;
 		}
 		shownCorporationsKey = key;
-		const section = (card, field, title, items) => element('section', { class: 'corporation__section', 'aria-labelledby': `corporation-${card.id}-${field}` },
+		const section = (card, field, title, items, actions = []) => element('section', { class: 'corporation__section', 'aria-labelledby': `corporation-${card.id}-${field}` },
 			element('h4', { id: `corporation-${card.id}-${field}` }, title),
 			items.length === 0
 				? element('p', { class: 'muted' }, NO_CORPORATION_TEXT[field])
-				: element('ul', { class: 'corporation__list' }, ...items.map(item => element('li', {}, ...[item].flat()))));
+				: element('ul', { class: 'corporation__list' }, ...items.map(item => element('li', {}, ...[item].flat()))),
+			...(actions.length ? [element('div', { class: 'corporation__actions' }, ...actions)] : []));
+		const action = (attributes, label, disabled, reason) => element('div', { class: 'corporation__action' },
+			element('button', { class: 'quiet-button', type: 'button', ...attributes, ...(disabled ? { disabled: '' } : {}) }, label),
+			...(reason ? [element('span', { class: 'muted' }, reason)] : []));
+		const raiseActions = !raise ? [] : raise.raised
+			? [element('p', { class: 'muted' }, raise.raised)]
+			: raise.buttons.map(entry => action({ 'data-card-action': 'raise', 'data-kind': entry.kind }, entry.label, entry.disabled, entry.reason));
+		const reputationActions = !purchase ? [] : [action({ 'data-card-action': 'reputation' }, buyReputationLabel(purchase.cost), !purchase.canBuy, purchase.reason)];
 		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
 		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
 			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
 			element('p', { class: 'muted' }, card.playerName),
-			section(card, 'reputation', 'Reputation', [card.reputation]),
-			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean)),
+			section(card, 'reputation', 'Reputation', [card.reputation], card.you ? reputationActions : []),
+			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean), card.you ? raiseActions : []),
 			section(card, 'ships', 'Ships', card.ships),
 			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
 				[`${position.tier} \u2014 `, good(position.goods), ` at ${position.systemName}`])),
@@ -3809,7 +3799,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -4092,7 +4082,7 @@
 			}
 			return;
 		}
-		if (!dialog.open && ($('landing-dialog').open || $('battle-report-dialog').open)) {
+		if (!dialog.open && ($('landing-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
 			return; // one modal at a time; the landing and the battle report come first
 		}
 		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines]));
@@ -4325,7 +4315,7 @@
 	$('battle-report-dialog').addEventListener('close', rememberReportLines);
 	// The cards wait while the landing or the battle report is open; once it closes they show, without waiting for a poll
 	// (an unchanged game answers 304 and renders nothing).
-	['battle-report-dialog', 'landing-dialog'].forEach(id => $(id).addEventListener('close', () => {
+	['battle-report-dialog', 'landing-dialog', 'invest-dialog'].forEach(id => $(id).addEventListener('close', () => {
 		if (lastGame && lastGame.id === currentGameId) {
 			setTimeout(() => {
 				updateFight(lastGame); // the battle dialog waited for it too (creator, 2026-11-19)
@@ -4372,8 +4362,12 @@
 		}
 		const bidding = isBidding(game);
 		const collecting = isCollecting(game);
+		const investState = infrastructureState(game, viewerId);
 		$('done-button').hidden = !bidding || isDone(game, viewerId);
-		const text = bidding && isDone(game, viewerId) ? DONE_TEXT : collecting ? COLLECT_ELSEWHERE_TEXT : '';
+		$('done-investing-button').hidden = investState !== 'invest';
+		const text = bidding && isDone(game, viewerId) ? DONE_TEXT
+			: collecting ? COLLECT_ELSEWHERE_TEXT
+			: investState === 'done' ? infrastructureStatusText(game, viewerId) : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -4382,7 +4376,7 @@
 		if ($('collect-link').textContent !== INFRASTRUCTURE_LINK_TEXT) {
 			$('collect-link').textContent = INFRASTRUCTURE_LINK_TEXT;
 		}
-		$('done-bar').hidden = !bidding && !collecting && !$('done-message').textContent;
+		$('done-bar').hidden = !bidding && !collecting && investState !== 'invest' && investState !== 'done' && !$('done-message').textContent;
 	}
 
 	async function signalDone() {
@@ -4447,15 +4441,17 @@
 			$('invest-note').textContent = note;
 		}
 		updateCollectForm(game);
-		updateBlocksForm(game);
-		updateUnitsForm(game);
-		updateRaiseForm(game);
-		updateReputationPanel(game);
+		clearStaleInvestMessage(game);
 		const pointer = canBuy(game);
 		$('ship-pointer').hidden = !pointer;
+		$('corporation-pointer').hidden = !pointer;
 		if (pointer) {
 			$('ship-pointer-link').href = fleetLink(game.id);
+			$('corporation-pointer-link').href = corporationsLink(game.id);
 		}
+		const cap = canBuildFactory(game) ? factoryCap(game)?.text ?? '' : '';
+		showText('units-cap', cap);
+		$('units-cap').hidden = !cap;
 		const cargoPointer = hasWarehouse(game);
 		$('cargo-pointer').hidden = !cargoPointer;
 		if (cargoPointer && $('cargo-pointer').textContent !== INFRASTRUCTURE_MOVE_TEXT) {
@@ -4464,135 +4460,184 @@
 		if (changed) {
 			const warehouses = ownWarehouseRows(game);
 			const factories = ownFactoryRows(game, viewerId);
-			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', {},
+			// Creator, 2026-11-19: while the player may buy, each row adds to what they own, and the muted rows build anew.
+			$('own-warehouses').replaceChildren(...warehouses.map(row => element('tr', row.invest === 'build' ? { class: 'invest-row' } : {},
 				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
-				element('td', { class: 'num' }, String(row.blocks)),
-				element('td', { class: 'num' }, `${row.cargoUsed} / ${row.cargoSpaces}`),
-				element('td', {}, row.held))));
-			$('own-factories').replaceChildren(...factories.map(row => element('tr', {},
-				element('th', { scope: 'row' }, row.systemName),
+				element('td', { class: 'num' }, row.invest === 'build' ? '\u2014' : String(row.blocks)),
+				element('td', { class: 'num' }, row.invest === 'build' ? '\u2014' : `${row.cargoUsed} / ${row.cargoSpaces}`),
+				element('td', {}, row.invest === 'build' ? 'No warehouse yet' : row.held),
+				investCell(row.invest && investButton('blocks', row.invest, row.system)))));
+			$('own-factories').replaceChildren(...factories.map(row => element('tr', row.invest === 'build' ? { class: 'invest-row' } : {},
+				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
 				element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
-				element('td', { class: 'num' }, String(row.size)))));
+				element('td', { class: 'num' }, row.invest === 'build' ? 'No factory yet' : String(row.size)),
+				investCell(row.invest && investButton('units', row.invest, row.system, row.goods)))));
 			$('own-warehouses-panel').hidden = warehouses.length === 0;
 			$('own-factories-panel').hidden = factories.length === 0;
 			$('own-assets-none').hidden = warehouses.length > 0 || factories.length > 0;
 		}
 	}
 
-	// ── E06-S04: buying warehouse blocks ──
+	// ── Investing from the tables (creator, 2026-11-19): warehouse blocks (E06-S04, R45) and factory units (E06-S05, R46) ──
+	//
+	// Each row of a warehouses or factories table, on Infrastructure and on System details, has a button while the player
+	// may buy; it opens one shared dialog with a slider. The server still checks everything.
 
-	/** What the picker was drawn from; it's drawn again only when the systems or what is owned there change, so a pick survives the poll. */
-	let shownBlocksKey = null;
-	let blocksMessageKey = null;
-	let submittingBlocks = false;
+	/** What the open dialog buys: `{ kind: 'blocks', system }` or `{ kind: 'units', system, goods }`. */
+	let investTarget = null;
+	let investMessageKey = null;
+	let submittingInvest = false;
 
-	function setBlocksError(text) {
-		$('blocks-error').textContent = text;
-		if (text) {
-			$('blocks-count').setAttribute('aria-invalid', 'true');
-		} else {
-			$('blocks-count').removeAttribute('aria-invalid');
+	/** A row's button that opens the dialog for [kind] ('blocks' or 'units') at [system] (and [goods]). */
+	function investButton(kind, invest, system, goods = '') {
+		return element('button', { class: 'quiet-button', type: 'button', 'data-invest': kind, 'data-system': system, 'data-goods': goods },
+			investButtonLabel(kind, invest));
+	}
+
+	/** The cell that holds a row's button, empty when there's nothing to buy. */
+	function investCell(button) {
+		return element('td', { class: 'invest-cell' }, ...(button ? [button] : []));
+	}
+
+	/** Text set only on a change, so a live region isn't re-announced every poll. */
+	function showText(id, text) {
+		if ($(id).textContent !== text) {
+			$(id).textContent = text;
 		}
 	}
 
-	function setBlocksMessage(text, error, key) {
-		$('blocks-message').textContent = text;
-		$('blocks-message').className = error ? 'message message--error' : 'message message--success';
-		blocksMessageKey = text ? key : null;
+	/** What the last purchase did, on whichever screen it was made from; it goes with the turn. */
+	function setInvestMessage(text, key) {
+		showText('infra-invest-message', text);
+		showText('system-invest-message', text);
+		investMessageKey = text ? key : null;
 	}
 
-	function updateBlocksCost(game) {
-		const text = blocksCostText($('blocks-count').value, game.you.invest.blockCost);
-		if ($('blocks-cost').textContent !== text) {
-			$('blocks-cost').textContent = text;
+	function clearStaleInvestMessage(game) {
+		if (investMessageKey !== null && investMessageKey !== `${game.id}/${game.turn.number}`) {
+			setInvestMessage('', null);
 		}
 	}
 
-	function updateBlocksForm(game) {
-		const panel = $('blocks-panel');
-		panel.hidden = !canBuy(game);
-		if (panel.hidden) {
-			shownBlocksKey = null;
+	function investMax(game, text) {
+		return investTarget.kind === 'blocks' ? maxBlocks(game) : maxFactoryUnits(game, text.factory);
+	}
+
+	function updateInvestCost(game, text) {
+		const amount = $('invest-units').value;
+		const blocks = investTarget.kind === 'blocks';
+		showText('invest-units-value', blocks ? blocksText(Number(amount)) : unitsText(Number(amount)));
+		const cost = blocks ? blocksCostText(amount, game.you.invest.blockCost) : unitsCostText(amount, text.factory);
+		showText('invest-cost', cost ? `${cost} · you have ${game.you.money} HT` : '');
+	}
+
+	/** Draws the open dialog from [game], and closes it once what it buys can't be bought any more (Investment closed). */
+	function updateInvestDialog(game) {
+		if (!$('invest-dialog').open) {
 			return;
 		}
-		const turnKey = `${game.id}/${game.turn.number}`;
-		if (blocksMessageKey !== null && blocksMessageKey !== turnKey) {
-			setBlocksMessage('', false, null);
+		const text = investDialogText(game, investTarget);
+		if (!text) {
+			$('invest-dialog').close();
+			return;
 		}
-		const { blockCost } = game.you.invest;
-		const systems = investSystems(game);
-		const key = `${turnKey}/${JSON.stringify(game.you.invest)}`;
-		if (shownBlocksKey !== key) {
-			const chosen = $('blocks-system').value;
-			$('blocks-system').replaceChildren(...systems.map(system => element('option', { value: system.system }, systemOptionLabel(system))));
-			if (systems.some(system => system.system === chosen)) {
-				$('blocks-system').value = chosen;
-			}
-			if (shownBlocksKey === null || !shownBlocksKey.startsWith(`${turnKey}/`)) {
-				$('blocks-count').value = '1'; // a new turn starts from one block
-			}
-			shownBlocksKey = key;
-			$('blocks-intro').textContent = `${blockCost} HT a block, ${CARGO_SPACES_PER_BLOCK} cargo spaces each. New blocks first count next turn.`;
-			$('blocks-button').textContent = BLOCKS_BUTTON;
+		showText('invest-title', text.title);
+		showText('invest-intro', text.intro);
+		const cap = investTarget.kind === 'units' ? factoryCap(game)?.text ?? '' : '';
+		showText('invest-cap', cap);
+		$('invest-cap').hidden = !cap;
+		showText('invest-units-label', investTarget.kind === 'blocks' ? 'Blocks' : 'Units');
+		const max = investMax(game, text);
+		const range = $('invest-units');
+		range.max = String(Math.max(1, max));
+		if (Number(range.value) > max) {
+			range.value = String(Math.max(1, max));
 		}
-		updateBlocksCost(game);
-		$('blocks-button').disabled = submittingBlocks;
+		range.disabled = max === 0;
+		showText('invest-max', investMaxText(investTarget.kind, max));
+		$('invest-button').disabled = submittingInvest || max === 0;
+		updateInvestCost(game, text);
 	}
 
-	// Typing again clears a shown error: it was about what was there before.
-	$('blocks-count').addEventListener('input', () => {
-		setBlocksError('');
-		if (lastGame?.you?.invest) {
-			updateBlocksCost(lastGame);
+	function openInvestDialog(target) {
+		if (!lastGame || submittingInvest || !investDialogText(lastGame, target)) {
+			return;
+		}
+		investTarget = target;
+		$('invest-units').value = '1'; // not the most, as Move goods starts: here the most spends the money
+		$('invest-error').textContent = '';
+		$('invest-dialog').showModal();
+		updateInvestDialog(lastGame);
+		$('invest-units').focus();
+	}
+
+	document.addEventListener('click', (event) => {
+		const button = event.target.closest?.('[data-invest]');
+		if (button) {
+			openInvestDialog({ kind: button.dataset.invest, system: button.dataset.system, goods: button.dataset.goods || undefined });
 		}
 	});
 
-	/** S04-2, S04-3: checked here first, then by the server; the answer redraws the screen with the new blocks and balance. */
-	$('blocks-form').addEventListener('submit', async (event) => {
+	$('invest-units').addEventListener('input', () => {
+		$('invest-error').textContent = '';
+		const text = lastGame && investDialogText(lastGame, investTarget);
+		if (text) {
+			updateInvestCost(lastGame, text);
+		}
+	});
+
+	$('invest-cancel').addEventListener('click', () => $('invest-dialog').close());
+
+	/** Checked here first, then by the server; the answer redraws the tables with the new size and balance. */
+	$('invest-form').addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const game = lastGame;
-		if (!game?.you?.invest) {
+		const target = investTarget;
+		const text = game && investDialogText(game, target);
+		if (!text || submittingInvest) {
 			return;
 		}
-		const checked = validateBlocks($('blocks-count').value, game.you.invest.blockCost, game.you.money);
-		setBlocksError(checked.error ?? '');
+		const amount = $('invest-units').value;
+		const blocks = target.kind === 'blocks';
+		const checked = blocks
+			? validateBlocks(amount, game.you.invest.blockCost, game.you.money)
+			: validateUnits(amount, text.factory, game.you.money, factoryCap(game));
+		$('invest-error').textContent = checked.error ?? '';
 		if (checked.error) {
-			$('blocks-count').focus();
 			return;
 		}
 		const gameId = currentGameId;
-		const system = $('blocks-system').value;
-		const systemName = game.you.invest.systems.find(entry => entry.system === system)?.systemName ?? system;
 		const turnKey = `${gameId}/${game.turn.number}`;
-		submittingBlocks = true;
-		$('blocks-button').disabled = true;
-		setBlocksMessage('', false, null);
+		const systemName = blocks ? investSystems(game).find(entry => entry.system === target.system)?.systemName ?? target.system : text.factory.systemName;
+		const [path, body, done] = blocks
+			? ['warehouse-blocks', { system: target.system, blocks: checked.blocks }, `Added ${blocksText(checked.blocks)} at ${systemName}.`]
+			: ['factory-units', { system: target.system, goods: target.goods, units: checked.units },
+				`Added ${unitsText(checked.units)} of ${target.goods} production at ${systemName}.`];
+		submittingInvest = true;
+		$('invest-button').disabled = true;
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/warehouse-blocks`,
-				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ system, blocks: checked.blocks }) });
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/${path}`,
+				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 		} catch {
 			response = null;
 		}
-		submittingBlocks = false;
-		$('blocks-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		submittingInvest = false;
+		$('invest-button').disabled = false;
 		if (gameId !== currentGameId) {
+			$('invest-dialog').close();
 			return;
 		}
 		if (response?.ok) {
-			setBlocksMessage(`Added ${blocksText(checked.blocks)} at ${systemName}.`, false, turnKey);
+			$('invest-dialog').close();
+			setInvestMessage(done, turnKey);
 			render(await response.json());
+			$(parseRoute(location.hash).view === 'system' ? 'system-invest-message' : 'infra-invest-message').focus(); // the row's button was redrawn
 			return;
 		}
-		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
-		if (response?.status === 400) {
-			setBlocksError(message);
-			$('blocks-count').focus();
-			return;
-		}
-		setBlocksMessage(message, true, turnKey);
-		if (response) {
-			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
+		$('invest-error').textContent = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response && response.status !== 400) {
+			repollNow(); // e.g. Investment closed: the screen catches up, and the dialog closes with it
 		}
 	});
 
@@ -4987,343 +5032,79 @@
 		}
 	});
 
-	// ── E06-S05: building or extending a factory ──
+	// ── Creator, 2026-11-19: raising a connection (E12-S02, R83) and buying reputation (E13-S03, R87) on the player's own Corporations card ──
 
-	/** What the picker was drawn from; it's drawn again only when the goods or the sizes change, so a pick survives the poll. */
-	let shownUnitsKey = null;
-	let unitsMessageKey = null;
-	let submittingUnits = false;
+	let corporationsMessageKey = null;
+	let buyingOnCard = false;
 
-	/** The picked system and good's entry, or undefined when the list changed under the pick. */
-	function pickedFactory(game) {
-		return investFactories(game).find(entry => entry.system === $('units-system').value && entry.goods === $('units-good').value);
+	function setCorporationsMessage(text, error, key) {
+		$('corporations-message').textContent = text;
+		$('corporations-message').className = error ? 'message message--error' : 'message message--success';
+		corporationsMessageKey = text ? key : null;
 	}
 
-	/** The Goods dropdown for the picked system, keeping the pick when that system still makes it. */
-	function fillGoods(game) {
-		const chosen = $('units-good').value;
-		const goods = factoriesAt(game, $('units-system').value);
-		$('units-good').replaceChildren(...goods.map(entry => element('option', { value: entry.goods }, goodsOptionLabel(entry))));
-		if (goods.some(entry => entry.goods === chosen)) {
-			$('units-good').value = chosen;
-		}
-	}
-
-	function setUnitsError(text) {
-		$('units-error').textContent = text;
-		if (text) {
-			$('units-count').setAttribute('aria-invalid', 'true');
-		} else {
-			$('units-count').removeAttribute('aria-invalid');
-		}
-	}
-
-	function setUnitsMessage(text, error, key) {
-		$('units-message').textContent = text;
-		$('units-message').className = error ? 'message message--error' : 'message message--success';
-		unitsMessageKey = text ? key : null;
-	}
-
-	/** E12-S03-8: the cost of what was typed, and the most units the player can add of the picked good. */
-	function updateUnitsCost(game) {
-		const factory = pickedFactory(game);
-		const cost = factory ? unitsCostText($('units-count').value, factory) : '';
-		const max = factory ? `You can add up to ${unitsText(maxFactoryUnits(game, factory))} here.` : '';
-		const text = cost ? `${cost}. ${max}` : max;
-		if ($('units-cost').textContent !== text) {
-			$('units-cost').textContent = text;
-		}
-		const cap = factoryCap(game)?.text ?? '';
-		if ($('units-cap').textContent !== cap) {
-			if ($('units-cap').textContent) {
-				setUnitsError(''); // a refusal about the old cap no longer holds once a raise moved it
-			}
-			$('units-cap').textContent = cap;
-		}
-	}
-
-	function updateUnitsForm(game) {
-		const panel = $('units-panel');
-		panel.hidden = !canBuildFactory(game);
-		if (panel.hidden) {
-			shownUnitsKey = null;
-			return;
-		}
-		const turnKey = `${game.id}/${game.turn.number}`;
-		if (unitsMessageKey !== null && unitsMessageKey !== turnKey) {
-			setUnitsMessage('', false, null);
-		}
-		const key = `${turnKey}/${JSON.stringify(investFactories(game))}`;
-		if (shownUnitsKey !== key) {
-			const chosen = $('units-system').value;
-			const systems = factorySystems(game);
-			$('units-system').replaceChildren(...systems.map(entry => element('option', { value: entry.system }, entry.systemName)));
-			if (systems.some(entry => entry.system === chosen)) {
-				$('units-system').value = chosen;
-			}
-			fillGoods(game);
-			if (shownUnitsKey === null || !shownUnitsKey.startsWith(`${turnKey}/`)) {
-				$('units-count').value = '1'; // a new turn starts from one unit
-			}
-			shownUnitsKey = key;
-			$('units-button').textContent = UNITS_BUTTON;
-		}
-		updateUnitsCost(game);
-		$('units-button').disabled = submittingUnits;
-	}
-
-	// A new system lists its own goods, as the offer form does.
-	$('units-system').addEventListener('change', () => {
-		setUnitsError('');
-		if (lastGame?.you?.invest) {
-			fillGoods(lastGame);
-			updateUnitsCost(lastGame);
-		}
-	});
-
-	$('units-good').addEventListener('change', () => {
-		setUnitsError('');
-		if (lastGame?.you?.invest) {
-			updateUnitsCost(lastGame);
-		}
-	});
-
-	// Typing again clears a shown error: it was about what was there before.
-	$('units-count').addEventListener('input', () => {
-		setUnitsError('');
-		if (lastGame?.you?.invest) {
-			updateUnitsCost(lastGame);
-		}
-	});
-
-	/** S05-3, S05-4: checked here first, then by the server; the answer redraws the screen with the new size and balance. */
-	$('units-form').addEventListener('submit', async (event) => {
-		event.preventDefault();
+	/** One click is the purchase, as the old Raise and Buy reputation buttons were; the answer redraws the card. */
+	$('corporations-cards').addEventListener('click', async (event) => {
+		const button = event.target.closest('[data-card-action]');
 		const game = lastGame;
-		const factory = game?.you?.invest ? pickedFactory(game) : undefined;
-		if (!factory) {
+		if (!button || !game || buyingOnCard) {
 			return;
 		}
-		const checked = validateUnits($('units-count').value, factory, game.you.money, factoryCap(game));
-		setUnitsError(checked.error ?? '');
-		if (checked.error) {
-			$('units-count').focus();
+		const raise = button.dataset.cardAction === 'raise';
+		const kind = button.dataset.kind;
+		if (raise ? !raiseButtons(game)?.buttons.some(entry => entry.kind === kind && !entry.disabled) : !reputationPurchase(game)?.canBuy) {
 			return;
 		}
 		const gameId = currentGameId;
 		const turnKey = `${gameId}/${game.turn.number}`;
-		submittingUnits = true;
-		$('units-button').disabled = true;
-		setUnitsMessage('', false, null);
+		buyingOnCard = true;
+		button.disabled = true;
+		setCorporationsMessage('', false, null);
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/factory-units`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ system: factory.system, goods: factory.goods, units: checked.units }),
-			});
+			response = raise
+				? await api(`/api/games/${encodeURIComponent(gameId)}/connections/raise`,
+					{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) })
+				: await api(`/api/games/${encodeURIComponent(gameId)}/reputation/buy`, { method: 'POST' });
 		} catch {
 			response = null;
 		}
-		submittingUnits = false;
-		$('units-button').disabled = false; // static markup shared by every game, so re-enabled even if the player left
-		if (gameId !== currentGameId) {
-			return;
-		}
-		if (response?.ok) {
-			setUnitsMessage(`Added ${unitsText(checked.units)} of ${factory.goods} production at ${factory.systemName}.`, false, turnKey);
-			render(await response.json());
-			return;
-		}
-		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
-		if (response?.status === 400) {
-			setUnitsError(message);
-			$('units-count').focus();
-			return;
-		}
-		setUnitsMessage(message, true, turnKey);
-		if (response) {
-			repollNow(); // e.g. Investment closed, or the output isn't collected yet: the screen catches up
-		}
-	});
-
-	// ── E13-S03: buying reputation once per Investment (R87) ──
-
-	let reputationMessageKey = null;
-	let buyingReputation = false;
-
-	function setReputationMessage(text, error, key) {
-		$('reputation-message').textContent = text;
-		$('reputation-message').className = error ? 'message message--error' : 'message message--success';
-		reputationMessageKey = text ? key : null;
-	}
-
-	/** Shown while the player may buy; the button is disabled with the reason once bought, at 40, or short of money. */
-	function updateReputationPanel(game) {
-		const purchase = reputationPurchase(game);
-		$('reputation-panel').hidden = purchase === null;
-		if (purchase === null) {
-			return;
-		}
-		const turnKey = `${game.id}/${game.turn.number}`;
-		if (reputationMessageKey !== null && reputationMessageKey !== turnKey) {
-			setReputationMessage('', false, null);
-		}
-		$('reputation-intro').textContent = purchase.intro;
-		$('reputation-button').textContent = REPUTATION_BUY_BUTTON;
-		$('reputation-button').disabled = buyingReputation || !purchase.canBuy;
-		if (!purchase.canBuy && !$('reputation-message').textContent) {
-			setReputationMessage(purchase.reason, false, turnKey);
-		}
-	}
-
-	$('reputation-button').addEventListener('click', async () => {
-		const game = lastGame;
-		if (!reputationPurchase(game)?.canBuy) {
-			return;
-		}
-		const gameId = currentGameId;
-		const turnKey = `${gameId}/${game.turn.number}`;
-		buyingReputation = true;
-		$('reputation-button').disabled = true;
-		setReputationMessage('', false, null);
-		let response;
-		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/reputation/buy`, { method: 'POST' });
-		} catch {
-			response = null;
-		}
-		buyingReputation = false;
+		buyingOnCard = false;
 		if (gameId !== currentGameId) {
 			return;
 		}
 		if (response?.ok) {
 			const bought = await response.json();
-			const now = (bought.players ?? []).find(player => player.id === bought.you?.id)?.reputation;
-			setReputationMessage(`Your reputation is now ${now} / 40.`, false, turnKey);
+			const me = (bought.players ?? []).find(player => player.id === bought.you?.id);
+			const name = CONNECTION_KINDS.find(entry => entry.kind === kind)?.id ?? kind;
+			setCorporationsMessage(raise ? `Your ${name} connections are now ${me?.connections?.[name]}.` : `Your reputation is now ${me?.reputation} / 40.`, false, turnKey);
 			render(bought);
+			$('corporations-message').focus(); // the card's button was redrawn
 			return;
 		}
-		setReputationMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
+		setCorporationsMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
+		shownCorporationsKey = null; // redraw the card, so the button is enabled again
+		renderCorporations(game);
 		if (response) {
 			repollNow();
 		}
 	});
 
-	// ── E12-S02: raising one connection per Investment (R83) ──
-
-	let raiseMessageKey = null;
-	let submittingRaise = false;
-
-	function setRaiseMessage(text, error, key) {
-		$('raise-message').textContent = text;
-		$('raise-message').className = error ? 'message message--error' : 'message message--success';
-		raiseMessageKey = text ? key : null;
-	}
-
-	/** Shown while the player may buy; once they raised one this Investment, the form gives way to a line saying so. */
-	function updateRaiseForm(game) {
-		const panel = $('raise-panel');
-		panel.hidden = !canBuy(game);
-		if (panel.hidden) {
-			return;
-		}
-		const turnKey = `${game.id}/${game.turn.number}`;
-		if (raiseMessageKey !== null && raiseMessageKey !== turnKey) {
-			setRaiseMessage('', false, null);
-		}
-		$('raise-intro').textContent = RAISE_INTRO;
-		$('raise-form').hidden = !canRaise(game);
-		if (!canRaise(game)) {
-			if (!$('raise-message').textContent) {
-				setRaiseMessage(RAISED_TEXT, false, turnKey);
-			}
-			return;
-		}
-		const options = raiseOptions(game);
-		const chosen = $('raise-kind').value;
-		const key = JSON.stringify(options);
-		if ($('raise-kind').dataset.key !== key) {
-			$('raise-kind').dataset.key = key;
-			$('raise-kind').replaceChildren(...options.map(option =>
-				element('option', option.disabled ? { value: option.kind, disabled: '' } : { value: option.kind }, option.label)));
-			const keep = options.find(option => option.kind === chosen && !option.disabled) ?? options.find(option => !option.disabled);
-			if (keep) {
-				$('raise-kind').value = keep.kind;
-			}
-		}
-		$('raise-button').textContent = RAISE_BUTTON;
-		$('raise-button').disabled = submittingRaise || options.every(option => option.disabled);
-	}
-
-	$('raise-kind').addEventListener('change', () => {
-		$('raise-error').textContent = '';
-	});
-
-	$('raise-form').addEventListener('submit', async (event) => {
-		event.preventDefault();
-		const game = lastGame;
-		if (!game?.you?.invest) {
-			return;
-		}
-		const checked = validateRaise(game, $('raise-kind').value);
-		$('raise-error').textContent = checked.error ?? '';
-		if (checked.error) {
-			$('raise-kind').focus();
-			return;
-		}
-		const gameId = currentGameId;
-		const turnKey = `${gameId}/${game.turn.number}`;
-		submittingRaise = true;
-		$('raise-button').disabled = true;
-		setRaiseMessage('', false, null);
-		let response;
-		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/connections/raise`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ kind: checked.kind }),
-			});
-		} catch {
-			response = null;
-		}
-		submittingRaise = false;
-		$('raise-button').disabled = false; // static markup shared by every game
-		if (gameId !== currentGameId) {
-			return;
-		}
-		if (response?.ok) {
-			const raised = await response.json();
-			const name = CONNECTION_KINDS.find(kind => kind.kind === checked.kind)?.id ?? checked.kind;
-			const level = (raised.players ?? []).find(player => player.id === raised.you?.id)?.connections?.[name];
-			setRaiseMessage(`Your ${name} connections are now ${level}.`, false, turnKey);
-			render(raised);
-			return;
-		}
-		const message = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
-		if (response?.status === 400) {
-			$('raise-error').textContent = message;
-			$('raise-kind').focus();
-			return;
-		}
-		setRaiseMessage(message, true, turnKey);
-		if (response) {
-			repollNow();
-		}
-	});
-
-	async function signalDoneInvesting() {
-		const button = $('infra-done-button');
+	/** From Infrastructure's button or the top bar's (creator, 2026-11-20); the answer is said beside the button pressed. */
+	async function signalDoneInvesting(event) {
+		const button = event.currentTarget;
+		const inTopBar = button.id === 'done-investing-button';
 		const gameId = currentGameId;
 		const turnKey = `${gameId}/${lastGame.turn.number}`;
-		setInfraMessage('', false, null);
+		const say = (text, error) => (inTopBar ? setDoneMessage(text, error) : setInfraMessage(text, error, turnKey));
+		say('', false);
 		button.disabled = true;
 		let response;
 		try {
 			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/done`, { method: 'POST' });
 		} catch {
 			button.disabled = false;
-			setInfraMessage(UNREACHABLE, true, turnKey);
+			say(UNREACHABLE, true);
 			return;
 		}
 		button.disabled = false; // static markup shared by every game, so re-enabled even if the player has left
@@ -5332,14 +5113,15 @@
 		}
 		if (response.ok) {
 			const game = await response.json();
-			setInfraMessage(doneInvestingAcceptedText(game), false, turnKey);
+			say(doneInvestingAcceptedText(game), false);
 			render(game);
-			$('infrastructure-status').focus(); // the button is gone; keep focus on the status that replaced it
+			// the button is gone; keep focus on what replaced it (in the top bar, as "I'm done bidding" does)
+			$(inTopBar ? (isInvesting(game) ? 'done-text' : 'done-message') : 'infrastructure-status').focus();
 			return;
 		}
 		const message = await errorText(response, '');
 		const closed = isInvestmentClosedRefusal(response.status, message);
-		setInfraMessage(doneInvestingRefusedText(response.status, message, "Couldn't signal done. Try again."), !closed, turnKey);
+		say(doneInvestingRefusedText(response.status, message, "Couldn't signal done. Try again."), !closed);
 		if (closed) {
 			clearTimeout(pollTimer);
 			pollGeneration += 1; // as Retry now does: the poll in flight mustn't start a second loop
@@ -5349,6 +5131,7 @@
 
 	$('done-button').addEventListener('click', signalDone);
 	$('infra-done-button').addEventListener('click', signalDoneInvesting);
+	$('done-investing-button').addEventListener('click', signalDoneInvesting);
 
 	function setOfferMessage(form, text, error) {
 		form.message.textContent = text;
@@ -5519,19 +5302,40 @@
 				index ? ', ' : '',
 				element('span', { class: `good good--${goods.toLowerCase()}` }, goods)]), '.']
 			: ['No factories here.']));
-		$('system-factories').replaceChildren(...holdings.factories.map(factory => element('tr', {},
-			element('td', {}, factory.corporationName), // player-typed: text only, never innerHTML
-			element('td', {}, element('span', { class: `good good--${factory.goods.toLowerCase()}` }, factory.goods)),
-			element('td', { class: 'num' }, String(factory.size)))));
-		$('system-factories-table').hidden = holdings.factories.length === 0;
-		$('system-factories-none').hidden = holdings.factories.length > 0;
-		$('system-warehouses').replaceChildren(...holdings.warehouses.map(warehouse => element('tr', {},
-			element('td', {}, warehouse.corporationName),
-			element('td', { class: 'num' }, String(warehouse.blocks)),
-			element('td', { class: 'num' }, String(warehouse.cargoSpaces)),
-			element('td', {}, warehouse.held))));
-		$('system-warehouses-table').hidden = holdings.warehouses.length === 0;
-		$('system-warehouses-none').hidden = holdings.warehouses.length > 0;
+		// Creator, 2026-11-19: in Investment the viewer's own rows add to what they own, and a muted "You" row builds anew.
+		clearStaleInvestMessage(game);
+		const actions = systemInvestActions(game, system.id);
+		const good = goods => element('span', { class: `good good--${goods.toLowerCase()}` }, goods);
+		const factoryRows = [
+			...holdings.factories.map(factory => element('tr', {},
+				element('td', {}, factory.corporationName), // player-typed: text only, never innerHTML
+				element('td', {}, good(factory.goods)),
+				element('td', { class: 'num' }, String(factory.size)),
+				investCell(factory.own && actions.factories.some(entry => entry.goods === factory.goods) && investButton('units', 'add', system.id, factory.goods)))),
+			...actions.factories.filter(entry => entry.invest === 'build').map(entry => element('tr', { class: 'invest-row' },
+				element('td', {}, 'You'),
+				element('td', {}, good(entry.goods)),
+				element('td', { class: 'num' }, 'No factory yet'),
+				investCell(investButton('units', 'build', system.id, entry.goods))))];
+		$('system-factories').replaceChildren(...factoryRows);
+		$('system-factories-table').hidden = factoryRows.length === 0;
+		$('system-factories-none').hidden = factoryRows.length > 0;
+		const warehouseRows = [
+			...holdings.warehouses.map(warehouse => element('tr', {},
+				element('td', {}, warehouse.corporationName),
+				element('td', { class: 'num' }, String(warehouse.blocks)),
+				element('td', { class: 'num' }, String(warehouse.cargoSpaces)),
+				element('td', {}, warehouse.held),
+				investCell(warehouse.own && actions.warehouse === 'add' && investButton('blocks', 'add', system.id)))),
+			...(actions.warehouse === 'build' ? [element('tr', { class: 'invest-row' },
+				element('td', {}, 'You'),
+				element('td', { class: 'num' }, '\u2014'),
+				element('td', { class: 'num' }, '\u2014'),
+				element('td', {}, 'No warehouse yet'),
+				investCell(investButton('blocks', 'build', system.id)))] : [])];
+		$('system-warehouses').replaceChildren(...warehouseRows);
+		$('system-warehouses-table').hidden = warehouseRows.length === 0;
+		$('system-warehouses-none').hidden = warehouseRows.length > 0;
 	}
 
 	$('your-trades-more').addEventListener('click', () => {

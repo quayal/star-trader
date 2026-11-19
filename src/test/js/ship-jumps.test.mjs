@@ -111,7 +111,7 @@ describe('deckDecisionText: a step on the Deck the game waits on you for', () =>
 	});
 
 	it('says it is your jump slot once the order is set and the players before you are done', () => {
-		assert.equal(deckDecisionText(game({ doneJumping: [VEGA] }), ME), "Your decision is needed: it's your turn to jump your ships, or to finish jumping.");
+		assert.equal(deckDecisionText(game({ doneJumping: [VEGA] }), ME), "Your decision is needed: it's your turn to jump ships.");
 		assert.equal(deckDecisionText(game(), ME), ''); // Vega is jumping
 	});
 

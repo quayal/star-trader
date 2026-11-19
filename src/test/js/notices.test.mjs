@@ -113,6 +113,23 @@ describe('moveCard', () => {
 		assert.equal(card.link, '#game/g1/trading');
 	});
 
+	it('shows the Dictator the market price of the good (creator, 2026-11-20)', () => {
+		const good = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO' };
+		const asking = game([], {
+			board: [{ id: 'TAU_CETI', market: [{ goods: 'ISO', price: 12 }] }],
+			turn: { number: 2, phase: 'TRADING', initiative: ['p1'], tradingQueue: [], resolvedGoods: [], resolution: { good, dictator: 'p1', awaitingDictator: 'p1', offers: [] } },
+			you: { id: 'p1' },
+		});
+
+		assert.equal(moveCard(asking, 'p1').lead, 'You’re Dictator of ISO at Tau Ceti (market price 12 HT). Place an offer or pass.');
+	});
+
+	it('says only that it is the player\'s turn to jump (creator, 2026-11-20)', () => {
+		const jumping = game([], { turn: { number: 2, phase: 'SHIP_JUMPS', initiative: ['p1'], turnOrder: ['p1'], doneJumping: [] }, you: { id: 'p1' } });
+
+		assert.equal(moveCard(jumping, 'p1')?.lead, 'It’s your turn to jump ships.');
+	});
+
 	it('has nothing when the game waits on someone else', () => {
 		assert.equal(moveCard(game([], { you: { id: 'p3' } }), 'p3'), null);
 	});

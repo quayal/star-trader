@@ -41,7 +41,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `--status-live / -warn / -danger` | Live/your turn · waiting/pending · outbid/error | The S/D scale |
 | `--trade-buy / -sell` (+ `--tint-*`) | The Buy/Sell column only (R04.1) | Anywhere else |
 | `--tone-buy / -sell / -rise / -fall / -alert` | One word coloured inside a sentence, through `.tone--…`: "buyers"/"sellers" first in Trading's market lines, a price that "rises"/"falls", a battle's "1 hit to place" and "ship destroyed" | Whole lines, cells or badges |
-| `--good-poly / -chips / -food / -iso` | The goods column and goods icons only (R04.1) | Anywhere else |
+| `--good-poly / -chips / -food / -iso` | Every goods name, wherever it's written (creator, 2026-11-20, widening R04.1) | Anything that isn't a goods name |
 | `--sd-easy / -fair / -hard / -bad` | The S/D value only (R03.5) | Buy/Sell column |
 | `--jump-high / -mid / -low` | The base jump chance numbers on the map (R68): three highest values, between, three lowest — level from `jumpChanceLevel` in `js/board.js` | Anywhere else |
 | `--glow-selected / -live / -danger` | Selected, live, danger (R01.1) | Logos, every border, decoration |
@@ -64,6 +64,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 |---|---|---|
 | `.panel` | Grouping a block of content on the page | Inside another `.panel` (card-in-card, A02) |
 | `.btn` | The one primary action of a panel | Navigation (use a link or `.nav-item`) |
+| `.btn .btn--danger` | A pass that gives something up, beside the action it declines (the wholesale step's Pass, creator 2026-11-20) | Destructive actions that need a confirm step |
 | `.control` | `<input>` and `<select>` | — |
 | `.field-label` | The always-visible label of a control (`<label for>`) | As a placeholder substitute — placeholders are examples, not names |
 | `.choice` | Radio/checkbox as a tile (e.g. BUY / SELL) | More than ~4 options (use a `<select>`) |
@@ -74,7 +75,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.data-table` (+ `.num` on numeric cells) | Tabular data with aligned numbers | One-dimensional lists of 1–3 facts |
 | `.trade .trade--buy/--sell` | The Buy/Sell cell of an offer row (R04.1) | Any other column |
 | `.tone .tone--buy/--sell/--rise/--fall/--alert` | One word in a sentence that carries the meaning (helpers return it as `{ text, tone }`) | Whole lines; the Buy/Sell cell (use `.trade`) |
-| `.good .good--poly/…` | The goods name in a goods column or on the map (R04.1); `color` in HTML, `fill` in SVG | Elsewhere |
+| `.good .good--poly/…` | A goods name anywhere: `js/goods-colour.js` wraps POLY/CHIPS/FOOD/ISO in page text on its own (not inside a `.btn`, a form control or SVG); `color` in HTML, `fill` in the map's SVG | Wrapping goods by hand in new renders: it's done for you |
 | `.sd-value[data-step]` | The S/D indicator. Number always shown (R03.5) | Without the number |
 | `.cargo-meter` | Used / capacity of a ship or depot (R01.3) | Percentages without the absolute numbers |
 | `.market-level[data-level]` | A market level (D08): its triangle and label ("▲ high demand"; just "in balance"), or, on the map, a price with its triangle after it. Works in HTML (`color`) and SVG (`fill`). ▲/▼ sit in a `.market-level__triangle`, small and centred on the text (in SVG a `dy` lift, as SVG text ignores `vertical-align`); the map's size is the reference. `data-level` is the level key from `js/board.js` (`high-demand` … `high-supply`); colours are the `--market-*` tokens | Without the triangle or the word next to it |
@@ -93,6 +94,7 @@ A heading that takes focus when a screen opens (`tabindex="-1"`) shows no focus 
 - **Market level** (D08: five levels; ▲/▼ for direction, none in balance; green up, red down, bright/muted for how likely, plus the word) → `marketLevel(indicator)` in `js/board.js` gives the label, symbol, hint and the `data-level` key for `.market-level`; the moderate/high demand split is `MODERATE_DEMAND_MIN_CHANCE` there (20%). Don't recompute the bands on a page.
 - **A button is disabled** → say why next to it.
 - **Picking how many units, from 1 to a known most** → `.slider` (an `input[type=range]` with its value in an `<output>` beside it, "4 of 6 u"), starting at the most; the server still checks. First used for Move goods (creator, 2026-11-19).
+- **Buying more of something a table row shows** (warehouse blocks, factory units) → a quiet button in the row's last cell, shown only while that purchase is possible, opening one shared modal `<dialog>` with a `.slider` from 1 (not the most: the most spends money), the cost and Confirm/Cancel. A table offering to build something new adds muted rows (`.invest-row`) for it (creator, 2026-11-19).
 - **A multi-step moment that needs the player's whole attention** (the battle) → its own modal `<dialog>`, opened by the page when the player has a step, with a Hide button and a way back from the Deck. Smaller modals (a result, a card) open on top of it.
 - **A page toggles `hidden` on something whose class sets `display`** (`.btn`, a `form`, a flex/grid container) → add `[hidden] { display: none; }` for it, or the element stays visible (lessons 2026-10-30, 2026-11-04).
 - **Listing offers** → only the signed-in player's own offers while Bidding is open (A03, brief R17). They come from `you.offers`; the offer form's helpers are in `js/offers.js`. Buy/Sell in an offer row uses `.trade`, the goods `.good`.
