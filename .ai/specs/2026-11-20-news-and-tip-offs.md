@@ -8,7 +8,7 @@ R90–R95 (loans), R102 (Opportunity), R107–R108 (agents: deaths, Frank).
 their answers of 2026-11-20.
 **Depends on:** `2026-11-20-opportunity-phase.md` (opportunities are taken there), `2026-11-20-smuggling-planet-landing.md` (landing on a
 Planet past its security; police and Port legal systems are still unspecified), `2026-11-20-loans.md` (event E4), `2026-11-20-agents.md` (Frank).
-**Status:** proposed, not started. **Blocked on data:** the Connections and Turn columns of `Intel.md` (see criterion 3).
+**Status:** proposed, not started.
 
 ## 📝 TLDR
 
@@ -54,8 +54,8 @@ up announced to all.
    exactly one place: the **pool**, **in play** (drawn, not yet effective), or **retired** (a one-time event that has taken place).
 3. **Each tip-off has** a **required connection**: one kind and a level, such as `CRIM 5`, `BUSS 10` or `POL 4`. It also has
    a **lead**, the number of turns from its draw to when it becomes effective, at least 1. Both come from the Connections
-   and Turn columns of `Intel.md`, which the creator will fill in. They're code data like the hull table (R51), and
-   implementation can't finish without them.
+   and Turn columns of `Intel.md` (filled in by the creator on 2026-11-20). In the catalogues below they're the **Needs** and
+   **Lead** columns. They're code data like the hull table (R51).
 4. **Effective:** a tip-off drawn in turn D with lead n becomes effective at the **start of turn D+n's News**. An event then
    **takes place**, and an opportunity **expires**. An opportunity can be taken in the Opportunity phases of turns D to
    D+n−1.
@@ -169,34 +169,34 @@ up announced to all.
 Systems: BH Beta Hydri, EE Epsilon Eridani, GL Gamma Leporis, MH Mu Herculis, SD Sigma Draconis, TC Tau Ceti. "Buy on X"
 means on X's Planet, and goods are sold on the target system's Planet.
 
-| # | Kind | Details |
-|---|---|---|
-| O1 | Illegal goods | Slaves at 1 HT on MH → EE |
-| O2 | Illegal goods | Weapons at 3 HT on EE → MH |
-| O3 | Illegal goods | Weapons at 10 HT on TC → GL |
-| O4 | Military modules | Battle comm, on GL |
-| O5 | Furs | 10 HT in MH Port → 30 HT in BH Port, up to 10 u, no space |
-| O6 | Illegal goods | Slaves at 2 HT on MH → BH |
-| O7 | Illegal goods | Drugs at 15 HT on BH → GL |
-| O8 | Delivery | Envoy, EE Port → MH Port; one Passenger module; reputation 20+; 200 HT |
-| O9 | Delivery | Exotic plants, GL Port → EE Port; one full Cargo module (not hull space); 150 HT and +3 reputation |
-| O10 | Illegal goods | Slaves at 1 HT on MH → GL |
-| O11 | Illegal goods | Slaves at 4 HT on MH → GL |
-| O12 | Illegal goods | Drugs at 12 HT on EE → GL |
-| O13 | Military hull and/or modules | Spear hull and/or up to 5 military modules (any mix), on BH |
-| O14 | Military modules | Up to one of each military module (Arsenal, Battle comm, Heavy weapons, Dogfight), on TC |
-| O15 | Expedition | Scientific expedition (criterion 15) |
-| O16 | Military hull | Dagger + one military module, on TC |
-| O17 | Illegal goods | Weapons at 8 HT on EE → GL |
-| O18 | Illegal goods | Weapons at 3 HT on BH → GL |
-| O19 | Illegal goods | Drugs at 10 HT on TC → SD |
-| O20 | Military hull | Any military hull + up to 5 military modules (within capacity), on EE |
-| O21 | Military hull | Sword + up to 3 military modules, on MH |
-| O22 | Delivery | Exotic animals, MH Port → EE Port; one Passenger module; 150 HT |
-| O23 | Illegal goods | Weapons at 3 HT on EE → MH |
-| O24 | Military hull | Dagger + one military module, on SD |
-| O25 | Illegal goods | Weapons at 5 HT on BH → MH |
-| O26 | Military modules | Up to one of each military module, on EE |
+| # | Kind | Details | Needs | Lead |
+|---|---|---|---|---|
+| O1 | Illegal goods | Slaves at 1 HT on MH → EE | CRIM 4 | 3 |
+| O2 | Illegal goods | Weapons at 3 HT on EE → MH | CRIM 8 | 2 |
+| O3 | Illegal goods | Weapons at 10 HT on TC → GL | CRIM 1 | 1 |
+| O4 | Military modules | Battle comm, on GL | CRIM 1 | 1 |
+| O5 | Furs | 10 HT in MH Port → 30 HT in BH Port, up to 10 u, no space | BUSS 2 | 2 |
+| O6 | Illegal goods | Slaves at 2 HT on MH → BH | CRIM 5 | 2 |
+| O7 | Illegal goods | Drugs at 15 HT on BH → GL | CRIM 6 | 1 |
+| O8 | Delivery | Envoy, EE Port → MH Port; one Passenger module; reputation 20+; 200 HT | POL 5 | 1 |
+| O9 | Delivery | Exotic plants, GL Port → EE Port; one full Cargo module (not hull space); 150 HT and +3 reputation | BUSS 10 | 2 |
+| O10 | Illegal goods | Slaves at 1 HT on MH → GL | POL 10 | 1 |
+| O11 | Illegal goods | Slaves at 4 HT on MH → GL | CRIM 3 | 3 |
+| O12 | Illegal goods | Drugs at 12 HT on EE → GL | CRIM 6 | 1 |
+| O13 | Military hull and/or modules | Spear hull and/or up to 5 military modules (any mix), on BH | CRIM 10 | 1 |
+| O14 | Military modules | Up to one of each military module (Arsenal, Battle comm, Heavy weapons, Dogfight), on TC | POL 8 | 4 |
+| O15 | Expedition | Scientific expedition (criterion 15) | POL 2 | 2 |
+| O16 | Military hull | Dagger + one military module, on TC | BUSS 3 | 4 |
+| O17 | Illegal goods | Weapons at 8 HT on EE → GL | CRIM 8 | 3 |
+| O18 | Illegal goods | Weapons at 3 HT on BH → GL | BUSS 2 | 2 |
+| O19 | Illegal goods | Drugs at 10 HT on TC → SD | CRIM 8 | 2 |
+| O20 | Military hull | Any military hull + up to 5 military modules (within capacity), on EE | BUSS 10 | 2 |
+| O21 | Military hull | Sword + up to 3 military modules, on MH | CRIM 8 | 2 |
+| O22 | Delivery | Exotic animals, MH Port → EE Port; one Passenger module; 150 HT | BUSS 5 | 1 |
+| O23 | Illegal goods | Weapons at 3 HT on EE → MH | CRIM 5 | 2 |
+| O24 | Military hull | Dagger + one military module, on SD | CRIM 4 | 3 |
+| O25 | Illegal goods | Weapons at 5 HT on BH → MH | POL 7 | 1 |
+| O26 | Military modules | Up to one of each military module, on EE | POL 5 | 1 |
 
 ### Events (taking place at the start of News)
 16. "**This turn**" means the turn the event takes place in, from this News through Investment. **Price changes** move the
@@ -206,22 +206,22 @@ means on X's Planet, and goods are sold on the target system's Planet.
     the system panel for the turn.
 17. **Effects** (the creator's table, with how each lands in the game):
 
-    | # | Event | Effect in the game |
-    |---|---|---|
-    | E1 | Psionic field | This turn every jump's target is 4 lower (R68), so jumps are harder. The manual says to subtract 4 from the roll, which would make a roll-under easier and contradicts the description, so the creator corrected it on 2026-11-20. Novak and the other bonuses still add. |
-    | E2 | Alien attack, panic | Every good's price at every system −3. *One time only.* |
-    | E3 | Galactic war | Prices everywhere: CHIPS +3, POLY +6, ISO +2. This turn and next: no ship can be bought (Investment R61, and O13/O16/O20/O21/O24's hulls; module-only opportunities still work): `No ships can be bought during the galactic war.` Police +4 everywhere this turn. |
-    | E4 | Money fraud, inflation | Every player's cash halved, rounded down. Every open loan's outstanding amount halved, rounded down, interest unchanged (R91). If loans aren't built yet, cash only. *One time only.* |
-    | E5 | Civil war in Gamma Leporis | This turn black-market **weapons** at Gamma Leporis sell for 3× the table price (+200%). Confiscated at Gamma Leporis: every ship in its Port with its cargo (agents step off into the Port, R107), every factory and every warehouse with its goods. Owners are paid 50 %: R66 for ships, 10 HT per warehouse block, and half the price paid for factory units. Each owner is told privately; the log lists what was confiscated, not the amounts. |
-    | E6 | New colony at Mu Herculis | Every good's price at Mu Herculis +5. |
-    | E7 | Chips breakthrough | CHIPS S/D +3 at every system, for the rest of the game. *One time only.* |
-    | E8 | Synthetic food | FOOD S/D +2 at every system, for the rest of the game. *One time only.* |
-    | E9 | Iso breakthrough | ISO S/D −3 at every system, never below −10, for the rest of the game. *One time only.* |
-    | E10 | Epidemics | Every good's price everywhere +4. This turn no ship may jump **from** a Port or end a jump **in** a Port (it chooses Planet or Space), and moving within a system (R69) can't reach a Port. Police and security +1 everywhere this turn. *One time only.* |
-    | E11 | Government screening | Every player loses 2d6 reputation, each rolled and logged separately (JB applies, R108). |
-    | E12 | Pirates at Mu Herculis | Every warehouse at Mu Herculis loses all its goods. Each ship in its Port rolls d6: 4–6 escapes into Mu Herculis Space, 1–3 is lost with its cargo (destroyed in Port: agents step off, R107). Police and security +2 everywhere this turn. |
-    | E13 | Special tax | Each player owes 1 HT per warehouse block, 2 HT per factory unit and 5 HT per ship. A player whose cash doesn't cover it pays nothing (creator: "waived"). Private amounts; the log says who paid. |
-    | E14 | New polymer system | POLY price −5 everywhere; ISO and CHIPS +2 everywhere. *One time only.* |
+    | # | Event | Needs | Lead | Effect in the game |
+    |---|---|---|---|---|
+    | E1 | Psionic field | BUSS 5 | 1 | This turn every jump's target is 4 lower (R68), so jumps are harder. The manual says to subtract 4 from the roll, which would make a roll-under easier and contradicts the description, so the creator corrected it on 2026-11-20. Novak and the other bonuses still add. |
+    | E2 | Alien attack, panic | POL 10 | 1 | Every good's price at every system −3. *One time only.* |
+    | E3 | Galactic war | POL 3 | 4 | Prices everywhere: CHIPS +3, POLY +6, ISO +2. This turn and next: no ship can be bought (Investment R61, and O13/O16/O20/O21/O24's hulls; module-only opportunities still work): `No ships can be bought during the galactic war.` Police +4 everywhere this turn. |
+    | E4 | Money fraud, inflation | CRIM 3 | 3 | Every player's cash halved, rounded down. Every open loan's outstanding amount halved, rounded down, interest unchanged (R91). If loans aren't built yet, cash only. *One time only.* |
+    | E5 | Civil war in Gamma Leporis | POL 2 | 2 | This turn black-market **weapons** at Gamma Leporis sell for 3× the table price (+200%). Confiscated at Gamma Leporis: every ship in its Port with its cargo (agents step off into the Port, R107), every factory and every warehouse with its goods. Owners are paid 50 %: R66 for ships, 10 HT per warehouse block, and half the price paid for factory units. Each owner is told privately; the log lists what was confiscated, not the amounts. |
+    | E6 | New colony at Mu Herculis | POL 3 | 4 | Every good's price at Mu Herculis +5. |
+    | E7 | Chips breakthrough | BUSS 6 | 2 | CHIPS S/D +3 at every system, for the rest of the game. *One time only.* |
+    | E8 | Synthetic food | BUSS 8 | 3 | FOOD S/D +2 at every system, for the rest of the game. *One time only.* |
+    | E9 | Iso breakthrough | BUSS 6 | 2 | ISO S/D −3 at every system, never below −10, for the rest of the game. *One time only.* |
+    | E10 | Epidemics | POL 7 | 1 | Every good's price everywhere +4. This turn no ship may jump **from** a Port or end a jump **in** a Port (it chooses Planet or Space), and moving within a system (R69) can't reach a Port. Police and security +1 everywhere this turn. *One time only.* |
+    | E11 | Government screening | POL 8 | 4 | Every player loses 2d6 reputation, each rolled and logged separately (JB applies, R108). |
+    | E12 | Pirates at Mu Herculis | CRIM 10 | 1 | Every warehouse at Mu Herculis loses all its goods. Each ship in its Port rolls d6: 4–6 escapes into Mu Herculis Space, 1–3 is lost with its cargo (destroyed in Port: agents step off, R107). Police and security +2 everywhere this turn. |
+    | E13 | Special tax | POL 3 | 4 | Each player owes 1 HT per warehouse block, 2 HT per factory unit and 5 HT per ship. A player whose cash doesn't cover it pays nothing (creator: "waived"). Private amounts; the log says who paid. |
+    | E14 | New polymer system | BUSS 3 | 4 | POLY price −5 everywhere; ISO and CHIPS +2 everywhere. *One time only.* |
 
 ### Endgame and edge timing
 18. Tip-offs that would become effective after the last turn never do, and nothing is announced. Goods, jobs and expeditions
