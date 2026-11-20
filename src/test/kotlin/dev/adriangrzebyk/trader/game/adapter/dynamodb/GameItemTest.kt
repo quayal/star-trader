@@ -205,7 +205,7 @@ class GameItemTest {
 		assertThat(
 			item.keys
 		).containsExactlyInAnyOrder(
-			"id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "news", "version"
+			"id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "news", "supplyDemandShifts", "version"
 		)
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)

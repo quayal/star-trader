@@ -51,6 +51,7 @@ describe('the Guide (playtest, 2026-11-20)', () => {
 		assert.equal(crewLabel(rules.crewClasses[0]), 'A · 20 HT per crew · jump +5 · intercept +1');
 		assert.equal(crewLabel({ id: 'B', pricePerCrew: 10, jumpModifier: 3, interceptModifier: 0 }), 'B · 10 HT per crew · jump +3');
 		assert.deepEqual(jumpModifierLines(rules), ['Crew A +5 · D +0', 'Safe jump +2', 'Novak +4']);
+		assert.deepEqual(jumpModifierLines(rules, { jumpModifier: -4 }).at(-1), 'This turn −4 (news)');
 		assert.equal(crewBonusText(rules.crewClasses[1]), 'jump +0 · intercept −1');
 	});
 });

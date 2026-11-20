@@ -638,14 +638,20 @@ data class Turn(
 	 * the good's Wholesalers there, asked after the price changes if they have no offer for it (R37). Refused while the
 	 * last good is still resolving.
 	 */
-	fun resolveNext(dictator: String?, wholesalers: List<String>, startPrice: Int, dice: Dice): Turn {
+	fun resolveNext(
+		dictator: String?,
+		wholesalers: List<String>,
+		startPrice: Int,
+		dice: Dice,
+		shifts: SupplyDemandShifts = SupplyDemandShifts.NONE
+	): Turn {
 		requireTrading()
 		if (resolution?.isFinished() == false) {
 			throw InvalidGameOperationException("${resolution.good.label()} hasn't finished resolving.")
 		}
 		val good = nextGood()
 		return copy(tradingQueue = tradingQueue.drop(1)).withResolution(
-			Resolution.start(good, startPrice, offers, dictator, wholesalers, initiative),
+			Resolution.start(good, startPrice, offers, dictator, wholesalers, initiative, shifts.indicatorOf(good)),
 			dice
 		)
 	}

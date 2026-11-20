@@ -5924,7 +5924,7 @@
 		}
 		map.append(arrows);
 		// Playtest 2026-11-20: what changes a jump's chance, in the middle of the ring, over the routes crossing it.
-		const modifiers = jumpModifierLines(rules);
+		const modifiers = jumpModifierLines(rules, game.conditions);
 		if (modifiers.length) {
 			const box = svgElement('g', { class: 'map-modifiers' });
 			const lineHeight = 20;

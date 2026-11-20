@@ -82,9 +82,10 @@ export function bonusFrom(rules) {
 
 /**
  * The jump modifiers listed in the middle of the Deck's map (playtest, 2026-11-20): `Crew A +5 · B +3 · C +1 · D +0`, the
- * Safe jump module and Novak. Empty until the rules have loaded.
+ * Safe jump module and Novak, and this turn's event modifier from [conditions] (`game.conditions`, R115: E1). Empty until
+ * the rules have loaded.
  */
-export function jumpModifierLines(rules) {
+export function jumpModifierLines(rules, conditions = null) {
 	if (!rules) {
 		return [];
 	}
@@ -92,6 +93,7 @@ export function jumpModifierLines(rules) {
 		`Crew ${rules.crewClasses.map(c => `${c.id} ${signed(c.jumpModifier)}`).join(' · ')}`,
 		`Safe jump ${signed(rules.safeJumpBonus)}`,
 		`Novak ${signed(rules.novakJumpBonus)}`,
+		...(conditions?.jumpModifier ? [`This turn ${signed(conditions.jumpModifier)} (news)`] : []),
 	];
 }
 

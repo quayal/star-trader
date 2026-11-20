@@ -6,6 +6,9 @@ package dev.adriangrzebyk.trader.game.loan
  */
 data class Loan(val amount: Int, val interest: Int, val takenInTurn: Int, val term: LoanTerm) {
 
+	/** This loan halved by the money fraud (E4), rounded down; its interest stays as it was. */
+	fun halved(): Loan = copy(amount = amount / 2)
+
 	/** Whether interest falls due in turn [turn]'s Investment (R92): every turn of the term, from the one after it was taken. */
 	fun isInterestDue(turn: Int): Boolean = turn in takenInTurn + 1..lastTurn()
 

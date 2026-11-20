@@ -32,6 +32,7 @@ import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.SupplyDemandShifts
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.game.Turn
@@ -90,7 +91,7 @@ data class GameResponseDto(
 		game.turn?.let { TurnResponseDto(it, ids, game.players.flatMap { player -> player.ships }) },
 		game.logAfter(logAfter).map { LogEntryResponseDto(it, ids) },
 		game.log.size - game.logAfter(logAfter).size,
-		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
+		StarSystem.entries.map { SystemResponseDto(it, game.prices, game.supplyDemandShifts) },
 		game.result()?.let { GameResultResponseDto(it, ids) },
 		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) },
 		game.turn?.let { ConditionsResponseDto(game.news, it.number) }
@@ -247,24 +248,28 @@ data class SystemResponseDto(
 	val shipyard: Boolean
 ) {
 
-	constructor(system: StarSystem, prices: MarketPrices) : this(
+	constructor(system: StarSystem, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) : this(
 		system.name,
 		system.displayName,
 		system.locations.portClass,
 		system.locations.legalSystem,
 		system.locations.police,
 		system.locations.security,
-		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices) },
+		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices, shifts) },
 		system.producibleGoods.map { it.name }.sorted(),
 		StarSystem.entries.mapNotNull { to -> system.baseJumpChanceTo(to)?.let { to.name to it } }.toMap(),
 		system.hasShipyard()
 	)
 }
 
-/** [price] is this game's (R35); [indicator] is the S/D number, which never changes; the client steps it into a market label (D08). */
+/**
+ * [price] is this game's (R35); [indicator] is the S/D number, the board's with any event's permanent shift (R115); the client
+ * steps it into a market label (D08).
+ */
 data class MarketEntryResponseDto(val goods: String, val price: Int, val indicator: Int) {
 
-	constructor(good: MarketGood, prices: MarketPrices) : this(good.goods.name, prices.priceOf(good), good.supplyDemand())
+	constructor(good: MarketGood, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) :
+		this(good.goods.name, prices.priceOf(good), shifts.indicatorOf(good))
 }
 
 /**

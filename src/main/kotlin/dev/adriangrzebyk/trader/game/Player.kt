@@ -69,6 +69,39 @@ data class Player(
 		return pay(TIP_OFF_FEE, "Learned a tip-off")
 	}
 
+	/** This player after the money fraud (E4): cash and any open loan halved, rounded down. */
+	fun inflated(): Player = copy(loan = loan?.halved()).pay(money - money / 2, "Money fraud: cash halved")
+
+	/** The special tax (E13): 1 HT per warehouse block, 2 HT per factory unit, 5 HT per ship. */
+	fun specialTax(): Int = warehouses.sumOf { it.blocks } * 1 + factoryUnits() * 2 + ships.size * 5
+
+	/** This player after the special tax (E13): paid when their cash covers it, waived otherwise. */
+	fun afterSpecialTax(): Player = if (money >= specialTax()) pay(specialTax(), "Special tax") else this
+
+	/**
+	 * This player after the civil war at [system] (E5): their ships in its Port, their factories and warehouse there are
+	 * confiscated with everything in them, and they're paid half their value: a ship's R66 price, 10 HT per block, and half
+	 * of what building the factories would cost now at [prices]. Agents aboard step off into the Port (R107).
+	 */
+	fun afterCivilWar(system: StarSystem, prices: MarketPrices): Player {
+		val ships = ships.filter { it.isInPortAt(system) }
+		val warehouse = warehouseAt(system)
+		val factories = factories.filter { it.system == system }
+		val compensation = ships.sumOf { it.saleValue() } + (warehouse?.blocks ?: 0) * Warehouse.BLOCK_COST / 2 +
+			factories.sumOf { (ProductionCost(prices.priceOf(MarketGood(system, it.goods))).of(it.size) / 2).toInt() }
+		val stripped =
+			copy(warehouses = warehouses.filterNot { it.system == system }, factories = this.factories.filterNot { it.system == system })
+		return ships.fold(stripped) { player, ship -> player.confiscateShip(ship.name) }
+			.receive(compensation, "Civil war at ${system.displayName}: half of what was confiscated")
+	}
+
+	/** Whether this player lost anything to the civil war at [system] (E5): a ship in its Port, a warehouse or a factory there. */
+	fun hasAssetsAt(system: StarSystem): Boolean =
+		ships.any { it.isInPortAt(system) } || warehouseAt(system) != null || factories.any { it.system == system }
+
+	/** This player once pirates emptied their warehouse at [system] (E12). */
+	fun afterWarehouseLooted(system: StarSystem): Player = warehouseAt(system)?.let { withWarehouse(it.emptied()) } ?: this
+
 	/** This player recording money movements in turn [number] from now on (R29's ledger). */
 	fun inTurn(number: Int): Player = copy(ledger = ledger.inTurn(number))
 

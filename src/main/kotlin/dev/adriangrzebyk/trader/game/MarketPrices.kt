@@ -23,6 +23,14 @@ data class MarketPrices(val prices: Map<MarketGood, Int>) {
 	fun averagePrice(goods: Goods): Int =
 		prices.filterKeys { it.goods == goods }.values.takeIf { it.isNotEmpty() }?.average()?.roundToInt() ?: 0
 
+	/**
+	 * These prices with every good that [applies] moved by [delta] at once (R115: an event's price change), each kept from
+	 * [Offer.MIN_PRICE] to [Offer.MAX_PRICE] (R35).
+	 */
+	fun shifted(delta: Int, applies: (MarketGood) -> Boolean): MarketPrices = copy(
+		prices = prices.mapValues { (good, price) -> if (applies(good)) (price + delta).coerceIn(Offer.MIN_PRICE, Offer.MAX_PRICE) else price }
+	)
+
 	/** These prices with [good] now at [price] (R35). */
 	fun withPrice(good: MarketGood, price: Int): MarketPrices = copy(prices = prices + (good to price))
 

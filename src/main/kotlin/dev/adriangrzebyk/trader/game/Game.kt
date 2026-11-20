@@ -20,6 +20,7 @@ import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import dev.adriangrzebyk.trader.game.news.News
 import dev.adriangrzebyk.trader.game.news.NewsEvent
 import dev.adriangrzebyk.trader.game.news.TipOffView
+import dev.adriangrzebyk.trader.game.news.TurnConditions
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
@@ -43,7 +44,8 @@ data class Game(
 	val prices: MarketPrices,
 	val log: List<LogEntry>,
 	val deadAgents: List<Agent>,
-	val news: News = News.NONE
+	val news: News = News.NONE,
+	val supplyDemandShifts: SupplyDemandShifts = SupplyDemandShifts.NONE
 ) {
 
 	fun addPlayer(player: Player): Game {
@@ -561,6 +563,9 @@ data class Game(
 	 * like any purchase (R48).
 	 */
 	fun buyShip(email: String, name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass): Game {
+		if (!news.shipsForSaleIn(runningTurn().number)) {
+			throw InvalidInvestmentException("No ships can be bought during the galactic war.")
+		}
 		val ship = Ship.commission(name, shipyard, hull, modules, crewClass, runningTurn().number)
 		if (isShipNameTaken(ship.name)) {
 			throw InvalidInvestmentException("There's already a ship called ${ship.name} in this game.")
@@ -829,8 +834,92 @@ data class Game(
 	/** This game with [lines] logged as public events of turn [number]. */
 	private fun withLogged(number: Int, lines: List<String>): Game = copy(log = log + lines.map { LogEntry.event(number, it) })
 
-	/** [event] takes place in this turn's News (R115), with [dice] for its rolls. */
-	private fun withEventTakenPlace(event: NewsEvent, dice: Dice): Game = this
+	/**
+	 * [event] takes place in this turn's News (R115), with [dice] for its rolls: price moves are one-off (R35's 1–20),
+	 * S/D shifts permanent, and "this turn" changes last until the next News ([news]'s conditions).
+	 */
+	private fun withEventTakenPlace(event: NewsEvent, dice: Dice): Game {
+		val number = runningTurn().number
+		val conditions = news.conditions
+		return when (event) {
+			NewsEvent.PSIONIC_FIELD -> withConditions(conditions.withJumpModifier(PSIONIC_JUMP_MODIFIER))
+			NewsEvent.ALIEN_ATTACK -> withPricesShifted(-3) { true }
+			NewsEvent.GALACTIC_WAR ->
+				withPricesShifted(3) { it.goods == Goods.CHIPS }.withPricesShifted(6) { it.goods == Goods.POLY }.withPricesShifted(2) {
+					it.goods ==
+						Goods.ISO
+				}
+					.withConditions(conditions.withPoliceChange(4)).withNoShipsThrough(number + 1)
+			NewsEvent.MONEY_FRAUD -> copy(players = players.map { it.inflated() })
+			NewsEvent.CIVIL_WAR -> withCivilWarAt(StarSystem.GAMMA_LEPORIS, number)
+			NewsEvent.NEW_COLONY -> withPricesShifted(5) { it.system == StarSystem.MU_HERCULIS }
+			NewsEvent.CHIPS_BREAKTHROUGH -> copy(supplyDemandShifts = supplyDemandShifts.shifted(Goods.CHIPS, 3))
+			NewsEvent.SYNTHETIC_FOOD -> copy(supplyDemandShifts = supplyDemandShifts.shifted(Goods.FOOD, 2))
+			NewsEvent.ISO_BREAKTHROUGH -> copy(supplyDemandShifts = supplyDemandShifts.shifted(Goods.ISO, -3))
+			NewsEvent.EPIDEMICS ->
+				withPricesShifted(4) { true }.withConditions(conditions.withPortsClosed().withSecurityChange(1).withPoliceChange(1))
+			NewsEvent.GOVERNMENT_SCREENING -> players.fold(this) { game, player ->
+				val loss = player.loseReputation(dice.twoD6(), "government screening (rolled 2d6)")
+				game.withPlayerChanged(loss.player, loss.lines, number)
+			}
+			NewsEvent.PIRATES -> withPiratesAt(
+				StarSystem.MU_HERCULIS,
+				number,
+				dice
+			).withConditions(conditions.withSecurityChange(2).withPoliceChange(2))
+			NewsEvent.SPECIAL_TAX -> {
+				val paying = players.filter { it.money >= it.specialTax() }.map { it.corporationName }
+				copy(players = players.map { it.afterSpecialTax() })
+					.withLogged(number, listOf("Special tax paid by: ${paying.joinToString(", ").ifEmpty { "nobody" }}"))
+			}
+			NewsEvent.NEW_POLYMER_SYSTEM ->
+				withPricesShifted(-5) { it.goods == Goods.POLY }.withPricesShifted(2) { it.goods == Goods.ISO || it.goods == Goods.CHIPS }
+		}
+	}
+
+	private fun withPricesShifted(delta: Int, applies: (MarketGood) -> Boolean): Game = copy(prices = prices.shifted(delta, applies))
+
+	private fun withConditions(changed: TurnConditions): Game = copy(news = news.withConditions(changed))
+
+	/** This game with no ship to be bought through turn [last] (E3). */
+	private fun withNoShipsThrough(last: Int): Game = copy(news = news.withNoShipsThrough(last))
+
+	/**
+	 * The civil war at [system] (E5): black-market weapons sell for triple there this turn, and every player's ships in its
+	 * Port, factories and warehouse there are confiscated for half their value, each owner logged without amounts.
+	 */
+	private fun withCivilWarAt(system: StarSystem, number: Int): Game {
+		val hit = players.filter { it.hasAssetsAt(system) }.map { it.corporationName }
+		return copy(players = players.map { if (it.hasAssetsAt(system)) it.afterCivilWar(system, prices) else it })
+			.withConditions(news.conditions.withTripledWeaponsAt(system))
+			.withLogged(
+				number,
+				listOfNotNull(
+					hit.takeIf {
+						it.isNotEmpty()
+					}?.let { "Confiscated at ${system.displayName}: ${it.joinToString(", ")}" }
+				)
+			)
+	}
+
+	/**
+	 * Pirates at [system] (E12): every warehouse there is emptied, and each ship in its Port rolls a d6 with [dice]: 4–6 it
+	 * escapes into Space, 1–3 it's lost with its cargo (agents step off into the Port, R107). Each ship's fate is logged.
+	 */
+	private fun withPiratesAt(system: StarSystem, number: Int, dice: Dice): Game = players.fold(this) { game, owner ->
+		val looted = game.playerOf(owner.email).afterWarehouseLooted(system)
+		looted.shipsInPortAt(system).fold(game.withPlayerChanged(looted, emptyList(), number)) { current, ship ->
+			val roll = dice.d6()
+			val player = current.playerOf(owner.email)
+			val (changed, line) = if (roll > PIRATE_ESCAPE_ABOVE) {
+				player.landShip(ship.name, ShipLocation.SPACE) to
+					"${ship.name} (${player.corporationName}) escaped the pirates into Space (rolled $roll)"
+			} else {
+				player.confiscateShip(ship.name) to "${ship.name} (${player.corporationName}) was lost to the pirates (rolled $roll)"
+			}
+			current.withPlayerChanged(changed, listOf(line), number)
+		}
+	}
 
 	/**
 	 * [email] learns the tip-off in board [slot] (R110): only in News, for 5 HT, with their connection of its kind at its
@@ -873,6 +962,9 @@ data class Game(
 		if (destination == null) {
 			throw InvalidJumpException("Choose a destination system.")
 		}
+		if (ship.isInPort() && news.conditions.portsClosedIn(current.number)) {
+			throw InvalidJumpException("Ports are closed this turn (epidemics): ${ship.name} can't leave the Port.")
+		}
 		if (destination == ship.system) {
 			return withShipMovedWithin(player, ship, current)
 		}
@@ -881,7 +973,7 @@ data class Game(
 		val novakLog = listOfNotNull(
 			Agent.NOVAK.actedLog(player.corporationName, ": +$novak to ${ship.name}'s jump").takeIf { novak > 0 }
 		).map { LogEntry.event(current.number, it) }
-		if (!JumpChance(ship.checkedJumpChanceTo(destination).target + novak).succeeds(roll)) {
+		if (!JumpChance(ship.checkedJumpChanceTo(destination).target + novak + news.conditions.jumpModifierIn(current.number)).succeeds(roll)) {
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,
@@ -1253,7 +1345,7 @@ data class Game(
 	private fun withNextGoodResolving(current: Turn, resolver: String, dictator: String?, dice: Dice): Game {
 		val good = current.nextGood()
 		val wholesalers = players.filter { it.isWholesalerOf(good) }.map { it.email }
-		val started = current.resolveNext(dictator, wholesalers, prices.priceOf(good), dice)
+		val started = current.resolveNext(dictator, wholesalers, prices.priceOf(good), dice, supplyDemandShifts)
 		val resolution = checkNotNull(started.resolution)
 		return withResolutionMoved(
 			started,
@@ -1503,6 +1595,12 @@ data class Game(
 	}
 
 	companion object {
+		/** E1: what the psionic field adds to every jump's target this turn. */
+		const val PSIONIC_JUMP_MODIFIER = -4
+
+		/** E12: a d6 above this lets a ship in Port escape the pirates. */
+		const val PIRATE_ESCAPE_ABOVE = 3
+
 		const val MAX_PLAYERS = 6
 		const val MIN_PLAYERS_TO_START = 2
 
