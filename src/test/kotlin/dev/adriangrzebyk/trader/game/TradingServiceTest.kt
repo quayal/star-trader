@@ -23,7 +23,7 @@ class TradingServiceTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.advancePhase(FakeDice(2, 1))
-		.pickTurnOrderPlace("creator@example.com", 1)
+		.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS)
 		.finishJumping("creator@example.com")
 		.finishJumping("joiner@example.com")
 
@@ -108,7 +108,7 @@ class TradingServiceTest {
 			}
 			.placeOffer("joiner@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 			.advancePhase(FakeDice(2, 1))
-			.pickTurnOrderPlace("creator@example.com", 1)
+			.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS)
 			.finishJumping("creator@example.com")
 			.finishJumping("joiner@example.com")
 		gameStore.create(withOffer)
@@ -133,7 +133,7 @@ class TradingServiceTest {
 				ConnectionsPlaced(it).byEveryone()
 			}
 			.advancePhase(FakeDice(2, 1))
-			.pickTurnOrderPlace("creator@example.com", 1)
+			.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS)
 			.finishJumping("creator@example.com")
 			.finishJumping("joiner@example.com")
 		gameStore.create(withWholesaler)

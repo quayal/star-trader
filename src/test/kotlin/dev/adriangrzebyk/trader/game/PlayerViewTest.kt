@@ -90,7 +90,7 @@ class PlayerViewTest {
 	}
 
 	/** [started] at the start of Opportunity (Kim, then Ada, then Grace), where Ada owns an ISO factory at Tau Ceti. */
-	private val opportunity = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }.let { game ->
+	private val opportunity = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }.let { game ->
 		game.copy(players = game.players.map { if (it.email == ada) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6, 0))) else it })
 	}
 

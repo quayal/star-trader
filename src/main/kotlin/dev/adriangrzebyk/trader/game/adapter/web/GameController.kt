@@ -13,6 +13,7 @@ import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvestmentService
+import dev.adriangrzebyk.trader.game.NewsService
 import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
@@ -48,6 +49,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
 	private val opportunityService = OpportunityService(gameStore, dice)
+	private val newsService = NewsService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
 	private val tradingService = TradingService(gameStore, dice)
 
@@ -169,6 +171,11 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 
 		return GameResponseDto(game, session.email)
 	}
+
+	/** The player is done with the news (R109); once everyone is, Jumps starts. `409` outside News. */
+	@PostMapping("/games/{id}/news/done")
+	fun finishNews(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(newsService.finish(id, session.email), session.email)
 
 	/** The player on their Opportunity turn is done with opportunities (R102); `409` out of turn, before Collect, or with a choice open. */
 	@PostMapping("/games/{id}/opportunity/done")

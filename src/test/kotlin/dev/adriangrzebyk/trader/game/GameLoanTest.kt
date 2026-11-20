@@ -18,7 +18,7 @@ class GameLoanTest {
 	private val investing = fixture.opportunity.advancePhase(FakeDice())
 
 	/** [game] taken from Investment to the next turn's Investment: everyone's interest goes unpaid unless paid first. */
-	private fun nextInvestment(game: Game): Game = (1..5).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1, 3)) }
+	private fun nextInvestment(game: Game): Game = (1..6).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1, 3)) }
 
 	@Test
 	fun shouldBorrowPrivatelyInInvestmentOnly() {

@@ -96,7 +96,8 @@ data class Game(
 	}
 
 	/**
-	 * Moves to the next phase (R44): Bidding → Ship-jumps → Trading → Investment → the next turn's Bidding. Closing
+	 * Moves to the next phase (R44): Bidding → Initiative → News → Jumps → Trading → Opportunity → Investment → the next
+	 * turn's Bidding. Leaving Initiative fills the free places in initiative order and opens News with [dice]. Closing
 	 * Bidding charges the bids and rolls the initiative order with [dice] (R27); leaving Trading starts Investment
 	 * ([endTrading]) and leaving Investment ends the turn ([endTurn]). No
 	 * clock calls this (D09): a phase ends only when its players are through, and the caller runs it inside
@@ -106,7 +107,9 @@ data class Game(
 		val current = runningTurn()
 		return when (current.phase) {
 			TurnPhase.BIDDING -> closeBidding(current, dice)
-			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
+			TurnPhase.INITIATIVE -> copy(turn = current.withPlacesFilled()).openNews(dice)
+			TurnPhase.NEWS -> openJumps(current)
+			TurnPhase.JUMPS -> copy(turn = current.toTrading())
 			TurnPhase.TRADING -> endTrading(current)
 			TurnPhase.OPPORTUNITY -> openInvestment(current)
 			TurnPhase.INVESTMENT -> endTurn(current)
@@ -777,11 +780,35 @@ data class Game(
 	 * (R27); out of turn is refused, and [Turn.pickPlace] checks the place and fills the last one. Each pick is logged,
 	 * then the full order (S01-5).
 	 */
-	fun pickTurnOrderPlace(email: String, place: Int?): Game {
+	fun pickTurnOrderPlace(email: String, place: Int?, dice: Dice): Game {
 		val current = turnAwaiting(email, Turn::pickerToDecide, Turn::pickerWaitingText)
 		val settled = current.pickPlace(email, place)
 		val events = settled.turnOrderLog(current.turnOrderPicks.size, corporationNames())
-		return copy(turn = settled, log = log + events.map { LogEntry.event(current.number, it) }).withEmptyJumpSlotsSkipped()
+		val picked = copy(turn = settled, log = log + events.map { LogEntry.event(current.number, it) })
+		return if (settled.picker() == null) picked.openNews(dice) else picked
+	}
+
+	/**
+	 * Initiative → News (R109), once the turn order is set: due tip-offs become effective and new ones are drawn with
+	 * [dice]. A News with no tip-off in play has nothing to read, so it closes at once into Jumps.
+	 */
+	private fun openNews(dice: Dice): Game {
+		val opened = copy(turn = runningTurn().toNews())
+		return if (opened.hasNewsToRead()) opened else opened.openJumps(opened.runningTurn())
+	}
+
+	/** Whether this News has anything to read (R109): a tip-off in play. */
+	private fun hasNewsToRead(): Boolean = false
+
+	/** News → Jumps (R44): the first jump slot starts, skipping players with nothing able to jump (R64). */
+	private fun openJumps(current: Turn): Game = copy(turn = current.toJumps()).withEmptyJumpSlotsSkipped()
+
+	/** [email] is done with the news (R109); once everyone is, Jumps starts. */
+	fun signalDoneNews(email: String): Game {
+		playerOf(email)
+		val signalled = runningTurn().signalDoneNews(email)
+		val game = copy(turn = signalled)
+		return if (signalled.everyoneDoneWithNews(players.map { it.email })) game.openJumps(signalled) else game
 	}
 
 	/**

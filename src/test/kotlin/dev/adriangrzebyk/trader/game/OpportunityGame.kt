@@ -21,7 +21,7 @@ class OpportunityGame {
 		.let { ConnectionsPlaced(it).byEveryone() }
 
 	/** [started] in turn 1's Trading. */
-	val trading: Game = (1..2).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }
+	val trading: Game = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }
 
 	/** [started] at the start of turn 1's Opportunity, Kim on turn. */
 	val opportunity: Game = trading.advancePhase(FakeDice())

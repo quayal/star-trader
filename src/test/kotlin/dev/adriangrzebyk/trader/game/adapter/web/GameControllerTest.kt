@@ -561,7 +561,7 @@ class GameControllerTest {
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
 		val polled = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(polled.turn!!.phase).isEqualTo("SHIP_JUMPS")
+		assertThat(polled.turn!!.phase).isEqualTo("INITIATIVE")
 		assertThat(polled.turn!!.doneBidding).isEmpty()
 		assertThat(polled.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 	}
@@ -882,7 +882,7 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(picked.turn!!.turnOrder).containsExactly(idOf(gameId, second), idOf(gameId, first))
-		assertThat(picked.turn!!.phase).isEqualTo("SHIP_JUMPS")
+		assertThat(picked.turn!!.phase).isEqualTo("JUMPS")
 		assertThat(picked.log.map { it.text }.last()).startsWith("Turn order (for this turn): ")
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.turnOrder)
 			.containsExactly(idOf(gameId, second), idOf(gameId, first))
@@ -893,7 +893,7 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame("bad-pick")
 		pickPlace(joinerToken, gameId, """{"place": 1}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+			.expectBody(String::class.java).isEqualTo("Initiative hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
@@ -910,7 +910,7 @@ class GameControllerTest {
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		pickPlace("token-$second", gameId, """{"place": 2}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("The turn order is already set.")
+			.expectBody(String::class.java).isEqualTo("Initiative has closed")
 	}
 
 	@Test
@@ -1000,13 +1000,13 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame("bad-jump")
 		jumpShip(joinerToken, gameId, """{"ship": "Lantern", "destination": "TAU_CETI"}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+			.expectBody(String::class.java).isEqualTo("Jumps hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		finishJumping("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("The turn order isn't set yet.")
+			.expectBody(String::class.java).isEqualTo("Jumps hasn't started.")
 		val ordered = pickPlace("token-$first", gameId, """{"place": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val firstName = if (first == "bad-jump-guest@example.com") "Grace Freight" else "Adrian Star Traders"
 		val ship = ordered.players.first { it.id == idOf(gameId, first) }.ships.first()

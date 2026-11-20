@@ -40,7 +40,7 @@ describe('waitingFor', () => {
 	});
 
 	it('waits for nobody outside Bidding', () => {
-		assert.deepEqual(waitingFor(game({ phase: 'SHIP_JUMPS' }), ME), []);
+		assert.deepEqual(waitingFor(game({ phase: 'JUMPS' }), ME), []);
 		assert.deepEqual(waitingFor(game({ status: 'FINISHED', phase: 'TRADING' }), ME), []);
 	});
 });
@@ -53,7 +53,7 @@ describe('isDone', () => {
 	});
 
 	it('is false outside Bidding', () => {
-		assert.equal(isDone(game({ phase: 'SHIP_JUMPS' }), ME), false);
+		assert.equal(isDone(game({ phase: 'JUMPS' }), ME), false);
 	});
 });
 
@@ -64,18 +64,18 @@ describe('phaseText', () => {
 	});
 
 	it('is the plain turn text outside Bidding', () => {
-		assert.equal(phaseText(game({ phase: 'SHIP_JUMPS' }), ME), 'Turn 4 of 20 · Ship-jumps');
+		assert.equal(phaseText(game({ phase: 'JUMPS' }), ME), 'Turn 4 of 20 · Jumps');
 	});
 
-	it('names who is choosing their place in the turn order during Ship-jumps (E04-S01)', () => {
-		const picking = { ...game({ phase: 'SHIP_JUMPS' }) };
+	it('names who is choosing their place in the turn order during Initiative (E04-S01)', () => {
+		const picking = { ...game({ phase: 'INITIATIVE' }) };
 		picking.turn = { ...picking.turn, initiative: ['vega', ME], turnOrder: [null, null] };
 
-		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is choosing their place in the turn order');
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Initiative — Vega Lines is choosing their place in the turn order');
 		picking.turn = { ...picking.turn, turnOrder: ['vega', null] };
-		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — choose your place in the turn order');
-		picking.turn = { ...picking.turn, turnOrder: ['vega', ME], doneJumping: [] };
-		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is jumping'); // E04-S02 takes over
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Initiative — choose your place in the turn order');
+		picking.turn = { ...picking.turn, phase: 'JUMPS', turnOrder: ['vega', ME], doneJumping: [] };
+		assert.equal(phaseText(picking, ME), 'Turn 4 of 20 · Jumps — Vega Lines is jumping'); // E04-S02 takes over
 	});
 
 	it('counts the resolved goods during Trading (E05-S01, S01-6)', () => {
@@ -92,7 +92,7 @@ describe('doneAcceptedText', () => {
 	});
 
 	it('says Bidding closed when your signal was the last', () => {
-		assert.equal(doneAcceptedText(game({ phase: 'SHIP_JUMPS' })), CLOSED_BY_YOU);
+		assert.equal(doneAcceptedText(game({ phase: 'JUMPS' })), CLOSED_BY_YOU);
 	});
 });
 

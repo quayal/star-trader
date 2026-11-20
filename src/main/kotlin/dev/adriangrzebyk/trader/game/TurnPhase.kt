@@ -2,11 +2,15 @@ package dev.adriangrzebyk.trader.game
 
 /**
  * The phases of a turn, in the order every turn runs them: this order is the one place the phase list lives (R44,
- * E06-S01-5), so a phase added between two of these is a new entry here and its own rules, nothing else.
+ * E06-S01-5), so a phase added between two of these is a new entry here and its own rules, nothing else. Since
+ * 2026-11-20 the creator's full order: Bidding, Initiative (picking the turn order, split out of Ship-jumps), News (R109),
+ * Jumps (renamed from Ship-jumps), Trading, Opportunity, Investment; a Control phase will close the turn later.
  */
 enum class TurnPhase(val displayName: String) {
 	BIDDING("Bidding"),
-	SHIP_JUMPS("Ship-jumps"),
+	INITIATIVE("Initiative"),
+	NEWS("News"),
+	JUMPS("Jumps"),
 	TRADING("Trading"),
 	OPPORTUNITY("Opportunity"),
 	INVESTMENT("Investment");

@@ -41,7 +41,8 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * in the turn order who isn't in it. [sabotages] are this Opportunity's sabotages (R97–R101), [recruitedBy] who recruited
  * (R103) and [agentOffers] the agents offered for sale and not yet answered (R106); all emptied when Trading closes into
  * Opportunity. [interestPaid] lists who paid loan interest this Investment (R92). [limpyAsk] is the player asked whether
- * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn.
+ * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn. [doneNews] lists
+ * who has signalled done with the news (R109), public like [doneBidding].
  */
 data class Turn(
 	val number: Int,
@@ -72,7 +73,8 @@ data class Turn(
 	val agentOffers: List<AgentOffer>,
 	val interestPaid: List<String>,
 	val limpyAsk: String?,
-	val limpyUsedBy: List<String>
+	val limpyUsedBy: List<String>,
+	val doneNews: List<String> = emptyList()
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -99,18 +101,18 @@ data class Turn(
 
 	/** Whose pick it is (R26): the first player in initiative order without a place, or null when nobody is picking. */
 	fun picker(): String? {
-		if (phase != TurnPhase.SHIP_JUMPS) {
+		if (phase != TurnPhase.INITIATIVE) {
 			return null
 		}
 		return initiative.firstOrNull { email -> turnOrderPicks.none { it.playerEmail == email } }
 	}
 
 	/**
-	 * Whose jump slot it is (R26, S02): once the turn order is set, the first player in it whose slot hasn't ended, or
-	 * null while players still pick, after the last slot, and outside Ship-jumps.
+	 * Whose jump slot it is (R26, S02): the first player in the turn order whose slot hasn't ended, or null after the last
+	 * slot and outside Jumps.
 	 */
 	fun jumper(): String? {
-		if (phase != TurnPhase.SHIP_JUMPS || initiative.isEmpty() || picker() != null) {
+		if (phase != TurnPhase.JUMPS || initiative.isEmpty()) {
 			return null
 		}
 		return turnOrder().filterNotNull().firstOrNull { it !in doneJumping }
@@ -123,14 +125,47 @@ data class Turn(
 		}
 	}
 
-	/** Refuses anything but Ship-jumps: before it, it hasn't started; after it, it has closed (A04). */
-	fun requireShipJumps() {
-		when (phase) {
-			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
-			TurnPhase.TRADING, TurnPhase.OPPORTUNITY, TurnPhase.INVESTMENT -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
-			TurnPhase.SHIP_JUMPS -> Unit
+	/** Refuses anything but Jumps: before it, it hasn't started; after it, it has closed (A04). */
+	fun requireJumps() {
+		requirePhase(TurnPhase.JUMPS)
+	}
+
+	/** Refuses anything but Initiative, where the turn order is picked (R26): before it, it hasn't started; after, it has closed. */
+	fun requireInitiative() {
+		requirePhase(TurnPhase.INITIATIVE)
+	}
+
+	/** Refuses anything but News (R109). */
+	fun requireNews() {
+		requirePhase(TurnPhase.NEWS)
+	}
+
+	private fun requirePhase(wanted: TurnPhase) {
+		when {
+			phase < wanted -> throw InvalidGameOperationException("${wanted.displayName} hasn't started.")
+			phase > wanted -> throw PhaseClosedException(wanted)
 		}
 	}
+
+	/** This turn after [email] signalled done with the news (R109); a repeat changes nothing. */
+	fun signalDoneNews(email: String): Turn {
+		requireNews()
+		return if (email in doneNews) this else copy(doneNews = doneNews + email)
+	}
+
+	/** Whether everyone in [emails] has signalled done with the news, so Jumps can start (R109). */
+	fun everyoneDoneWithNews(emails: List<String>): Boolean = emails.all { it in doneNews }
+
+	/** Initiative → News (R109): nobody has read it yet. */
+	fun toNews(): Turn = copy(phase = TurnPhase.NEWS, doneNews = emptyList())
+
+	/** News → Jumps (R44): the first player in the turn order jumps first (R26). */
+	fun toJumps(): Turn = copy(phase = TurnPhase.JUMPS)
+
+	/** This turn with every place still free taken by the players without one, in initiative order (R26, for [Game.advancePhase]). */
+	fun withPlacesFilled(): Turn = generateSequence(this) { turn ->
+		turn.picker()?.let { picker -> turn.pickPlace(picker, turn.turnOrder().indexOfFirst { it == null } + 1) }
+	}.last()
 
 	/** This turn after [email] signalled done bidding (R17: a readiness flag, so a repeat changes nothing). */
 	fun signalDoneBidding(email: String): Turn {
@@ -186,7 +221,7 @@ data class Turn(
 	 * [email]'s pick is the caller's, which knows the players' names.
 	 */
 	fun pickPlace(email: String, place: Int?): Turn {
-		requireShipJumps()
+		requireInitiative()
 		val order = turnOrder()
 		if (place == null || place !in 1..order.size || order[place - 1] != null) {
 			throw InvalidPlaceException()
@@ -196,7 +231,7 @@ data class Turn(
 
 	/** Whose pick it is, once checked that this is Ship-jumps and the turn order isn't set yet (R26). */
 	fun pickerToDecide(): String {
-		requireShipJumps()
+		requireInitiative()
 		return picker() ?: throw InvalidGameOperationException("The turn order is already set.")
 	}
 
@@ -239,11 +274,8 @@ data class Turn(
 	 * caller's slot is the caller's, which knows the players' names.
 	 */
 	fun currentJumper(): String {
-		requireShipJumps()
-		if (picker() != null) {
-			throw InvalidGameOperationException("The turn order isn't set yet.")
-		}
-		// Only a game saved before initiative existed (E03-S05) can be in Ship-jumps with nobody to jump.
+		requireJumps()
+		// Only a game saved before initiative existed (E03-S05) can be in Jumps with nobody to jump.
 		return jumper() ?: throw InvalidGameOperationException("Nobody is jumping now.")
 	}
 
@@ -263,7 +295,7 @@ data class Turn(
 
 	/** The interception being decided (R70), refused when there is none. */
 	fun interceptionNow(): Interception {
-		requireShipJumps()
+		requireJumps()
 		return interception ?: throw InvalidGameOperationException("No interception is being decided.")
 	}
 
@@ -272,7 +304,7 @@ data class Turn(
 
 	/** The battle under way (R73), refused when there is none. */
 	fun battleNow(): Battle {
-		requireShipJumps()
+		requireJumps()
 		return battle ?: throw InvalidGameOperationException("No battle is under way.")
 	}
 
@@ -323,7 +355,8 @@ data class Turn(
 	}
 
 	/**
-	 * Bidding → Ship-jumps (R27) with each player's initiative [bonuses] (Wolf, R108) added to their bid + 2d6.
+	 * Bidding → Initiative (R27) with each player's initiative [bonuses] (Wolf, R108) added to their bid + 2d6; then the
+	 * players pick their places in the turn order (R26).
 	 */
 	fun closeBidding(emails: List<String>, bonuses: Map<String, Int>, dice: Dice): Turn {
 		val rolls = initiativeOrder(
@@ -331,10 +364,10 @@ data class Turn(
 			InitiativeRoll::total,
 			dice
 		)
-		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = rolls.map { it.playerEmail }, initiativeRolls = rolls)
+		return copy(phase = TurnPhase.INITIATIVE, doneBidding = emptyList(), initiative = rolls.map { it.playerEmail }, initiativeRolls = rolls)
 	}
 
-	/** Ship-jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
+	/** Jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
 	fun toTrading(): Turn =
 		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
 

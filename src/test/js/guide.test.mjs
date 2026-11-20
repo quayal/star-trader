@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from '../../main/resources/static/js/guide.js';
 
 const rules = {
-	phases: ['Bidding', 'Ship-jumps', 'Trading', 'Opportunity', 'Investment'],
+	phases: ['Bidding', 'Jumps', 'Trading', 'Opportunity', 'Investment'],
 	agents: [{ name: 'Novak', effect: '+4 to the jump result of the ship he travels on', inGame: true }, { name: 'Badger', effect: '−3 to security', inGame: false }],
 	crewClasses: [
 		{ id: 'A', pricePerCrew: 20, jumpModifier: 5, interceptModifier: 1 },

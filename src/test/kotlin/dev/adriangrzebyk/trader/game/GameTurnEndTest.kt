@@ -33,7 +33,7 @@ class GameTurnEndTest {
 	): Game {
 		val game = bidding
 			.advancePhase(FakeDice(1, 2))
-			.pickTurnOrderPlace("grace@example.com", 1)
+			.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 			.finishJumping("grace@example.com")
 			.finishJumping("ada@example.com")
 		val queue = game.turn!!.tradingQueue

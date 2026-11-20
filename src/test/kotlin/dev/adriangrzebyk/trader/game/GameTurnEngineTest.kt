@@ -27,14 +27,21 @@ class GameTurnEngineTest {
 	}
 
 	@Test
-	fun shouldRunBiddingThenShipJumpsThenTradingThenOpportunityThenInvestmentThenTheNextTurnsBidding() {
-		val phases = generateSequence(started) { it.advancePhase(FakeDice(2, 1)) }.take(6).map { it.turn }.toList()
+	fun shouldRunBiddingThenInitiativeThenJumpsThenTradingThenOpportunityThenInvestmentThenTheNextTurnsBidding() {
+		// R44, R109: a News with no tip-off in play closes at once, so Initiative goes straight on to Jumps
+		val phases = generateSequence(started) { it.advancePhase(FakeDice(2, 1)) }.take(7).map { it.turn }.toList()
 
 		assertThat(phases).containsExactly(
 			Turn.bidding(1),
 			Turn.bidding(1).copy(
-				phase = TurnPhase.SHIP_JUMPS,
+				phase = TurnPhase.INITIATIVE,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
+			),
+			Turn.bidding(1).copy(
+				phase = TurnPhase.JUMPS,
+				initiative = listOf("creator@example.com", "joiner@example.com"),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			),
 			Turn.bidding(
@@ -42,12 +49,14 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			),
 			Turn.bidding(1).copy(
 				phase = TurnPhase.OPPORTUNITY,
 				tradingQueue = MarketGood.everyOnBoard(),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			),
@@ -56,6 +65,7 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.INVESTMENT,
 				tradingQueue = MarketGood.everyOnBoard(),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			),
@@ -65,7 +75,7 @@ class GameTurnEngineTest {
 
 	@Test
 	fun shouldFinishTheGameAfterTheLastTurnsInvestment() {
-		val lastTrading = (1..7).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+		val lastTrading = (1..9).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 		assertThat(
 			lastTrading.turn
 		).isEqualTo(
@@ -74,6 +84,7 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
@@ -94,6 +105,7 @@ class GameTurnEngineTest {
 			).copy(
 				phase = TurnPhase.INVESTMENT,
 				tradingQueue = MarketGood.everyOnBoard(),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
@@ -109,7 +121,7 @@ class GameTurnEngineTest {
 
 	@Test
 	fun shouldNotAdvanceAFinishedGame() {
-		val finished = (1..10).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+		val finished = (1..12).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 		assertThatThrownBy { finished.advancePhase(FakeDice(2, 1)) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
@@ -135,7 +147,7 @@ class GameTurnEngineTest {
 			game.turn
 		).isEqualTo(
 			Turn.bidding(1).copy(
-				phase = TurnPhase.SHIP_JUMPS,
+				phase = TurnPhase.INITIATIVE,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)

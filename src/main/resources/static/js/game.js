@@ -11,7 +11,7 @@ export const MAX_TURNS = 50;
 export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
-const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
+const PHASE_NAMES = { BIDDING: 'Bidding', INITIATIVE: 'Initiative', NEWS: 'News', JUMPS: 'Jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 
 /**
@@ -153,13 +153,13 @@ export function screenForPhaseChange(previous, game) {
 
 /**
  * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the bid's in Bidding, the
- * turn order's in Ship-jumps; null in any other phase.
+ * turn order's in Initiative and Jumps; null in any other phase.
  */
 export function deckHeadingFor(game) {
 	if (game.status !== 'RUNNING') {
 		return null;
 	}
-	return { BIDDING: 'bid-title', SHIP_JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
+	return { BIDDING: 'bid-title', INITIATIVE: 'turn-order-title', JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */
@@ -194,7 +194,7 @@ export function lobbyState(game, myId) {
 	};
 }
 
-/** "Turn 4 of 20 · Ship-jumps"; a finished game keeps its last turn and says so instead of a phase. */
+/** "Turn 4 of 20 · Jumps"; a finished game keeps its last turn and says so instead of a phase. */
 export function turnText(game) {
 	const phase = game.status === 'FINISHED' ? 'Game over' : PHASE_NAMES[game.turn.phase] ?? game.turn.phase;
 	return `Turn ${game.turn.number} of ${game.turns} · ${phase}`;

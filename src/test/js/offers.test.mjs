@@ -120,7 +120,7 @@ describe('texts', () => {
 
 	it('says the empty list differently once Bidding has closed', () => {
 		assert.equal(noOffersText(game()), 'No offers yet this turn.');
-		assert.equal(noOffersText(game({ phase: 'SHIP_JUMPS' })), 'You placed no offers this turn.');
+		assert.equal(noOffersText(game({ phase: 'JUMPS' })), 'You placed no offers this turn.');
 	});
 
 	it('hides your offers once the game is over (E05-S08-6)', () => {

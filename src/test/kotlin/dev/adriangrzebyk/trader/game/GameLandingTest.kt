@@ -25,8 +25,8 @@ class GameLandingTest {
 			START_DICE
 		).let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
-		.pickTurnOrderPlace("kim@example.com", 3)
-		.pickTurnOrderPlace("grace@example.com", 1)
+		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 	private val arrived = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 

@@ -333,6 +333,7 @@ class TurnItemTest {
 				),
 				"interestPaid" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"limpyUsedBy" to AttributeValue.fromL(emptyList()),
+				"doneNews" to AttributeValue.fromL(emptyList()),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),

@@ -40,8 +40,8 @@ class GameBattleTest {
 			START_DICE
 		).let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
-		.pickTurnOrderPlace("kim@example.com", 3)
-		.pickTurnOrderPlace("grace@example.com", 1)
+		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 	// Ada's Wayfarer waits in Space at Tau Ceti, where Grace's Meridian arrives.
 	private val waiting = withShip(jumping, "Wayfarer") { it.copy(location = ShipLocation.SPACE) }

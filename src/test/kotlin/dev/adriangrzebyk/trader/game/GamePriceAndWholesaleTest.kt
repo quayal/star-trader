@@ -38,8 +38,8 @@ class GamePriceAndWholesaleTest {
 		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 		.advancePhase(FakeDice(1, 2, 1, 1, 2))
-		.pickTurnOrderPlace("grace@example.com", 1)
-		.pickTurnOrderPlace("kim@example.com", 2)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
+		.pickTurnOrderPlace("kim@example.com", 2, NO_NEWS)
 		.finishJumping("grace@example.com")
 		.finishJumping("kim@example.com")
 		.finishJumping("ada@example.com")

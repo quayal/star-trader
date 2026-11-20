@@ -22,7 +22,7 @@ class GameCollectTest {
 		}
 
 	/** [started] taken to the start of Opportunity, Ada first in the order: advancing a phase needs no players' acts. */
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6, 0)
 
@@ -194,7 +194,7 @@ class GameCollectTest {
 	@Test
 	fun shouldCollectInTheNextOpportunityToo() {
 		// E06-S03-7 / R48: the factory keeps making its output every turn; collects reset each Opportunity
-		val next = (1..4).fold(
+		val next = (1..5).fold(
 			withFactory.collectOutput("ada@example.com", emptyList()).finishOpportunities("ada@example.com").finishOpportunities("grace@example.com")
 		) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 

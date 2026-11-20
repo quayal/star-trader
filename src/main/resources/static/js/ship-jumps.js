@@ -17,9 +17,9 @@ function places(game) {
 	return game.turn?.turnOrder ?? [];
 }
 
-/** Whether the turn order is set and players are jumping (or have all jumped) in this Ship-jumps phase. */
+/** Whether players are jumping (or have all jumped) in this turn's Jumps phase; the order was set in Initiative. */
 function orderIsSet(game) {
-	return game.status === 'RUNNING' && game.turn?.phase === 'SHIP_JUMPS' && places(game).length > 0 && picker(game) === null;
+	return game.status === 'RUNNING' && game.turn?.phase === 'JUMPS' && places(game).length > 0;
 }
 
 /** Whose jump slot it is (R26): the first player in turn order whose slot hasn't ended, or null. */
@@ -35,7 +35,7 @@ function corporation(game, playerId) {
 	return game.players.find(p => p.id === playerId)?.corporationName ?? playerId;
 }
 
-/** S02-1, S02-9: the top bar's addition once the order is set, "" before and outside Ship-jumps. */
+/** S02-1, S02-9: the top bar's addition once the order is set, "" before and outside Jumps. */
 export function jumpingText(game, playerId) {
 	if (!orderIsSet(game)) {
 		return '';

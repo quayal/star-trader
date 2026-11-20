@@ -6,7 +6,7 @@
  * and the wholesale form (E05-S05) their `you.wholesaleMax`.
  */
 
-export const BEFORE_TRADING_TEXT = 'Trading starts after Ship-jumps. Results will appear here.';
+export const BEFORE_TRADING_TEXT = 'Trading starts after Jumps. Results will appear here.';
 /** E05-S07-1: s03 once the last good has resolved and the next turn has started. */
 export const TURN_ENDED_TEXT = 'All goods resolved. The next turn starts with Bidding.';
 /** E06-S01: s03 once the last good has resolved and players are investing. */

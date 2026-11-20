@@ -51,7 +51,7 @@ export function bidPlacedText(amount) {
 	return `Initiative bid placed: ${amount} HT.`;
 }
 
-/** S05-5: "Initiative: Vega Lines → Orion Freight" from Ship-jumps on; null while Bidding is open or before it. */
+/** S05-5: "Initiative: Vega Lines → Orion Freight" from Initiative on; null while Bidding is open or before it. */
 export function initiativeText(game) {
 	const order = game.turn?.initiative ?? [];
 	if (isBidding(game) || order.length === 0) {

@@ -10,7 +10,7 @@ class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice)
 	 * can't both take a place or pick out of turn: the second is checked against the first's saved pick (A04, R26).
 	 */
 	fun pickPlace(gameId: String, callerEmail: String, place: Int?): Game =
-		gameStore.update(gameId) { it.pickTurnOrderPlace(callerEmail, place) }
+		gameStore.update(gameId) { it.pickTurnOrderPlace(callerEmail, place, dice) }
 
 	/**
 	 * [callerEmail] jumps [shipName] to [destination] inside [GameStore.update], so a ship can't jump twice and a jump

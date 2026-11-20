@@ -45,7 +45,7 @@ class GameTurnOrderTest {
 
 	@Test
 	fun shouldLetTheFirstPlayerTakeAnyPlaceIncludingLast() {
-		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3)
+		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
 
 		assertThat(game.turn!!.turnOrder()).containsExactly(null, null, "kim@example.com")
 		assertThat(game.turn!!.picker()).isEqualTo("grace@example.com")
@@ -53,17 +53,17 @@ class GameTurnOrderTest {
 
 	@Test
 	fun shouldGiveTheLastPlayerTheRemainingPlaceWithoutAsking() {
-		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
+		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS).pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 		// S01-6: Ada is the only one left, so she gets 2nd.
 		assertThat(game.turn!!.turnOrder()).containsExactly("grace@example.com", "ada@example.com", "kim@example.com")
 		assertThat(game.turn!!.picker()).isNull()
-		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.SHIP_JUMPS)
+		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.JUMPS)
 	}
 
 	@Test
 	fun shouldLogEachPickAndThenTheFullOrder() {
-		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
+		val game = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS).pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 		assertThat(game.log.takeLast(4)).containsExactly(
 			LogEntry.event(1, "Kessler Cargo chose 3rd"),
@@ -81,24 +81,24 @@ class GameTurnOrderTest {
 			}
 			.advancePhase(FakeDice(2, 1))
 
-		val game = two.pickTurnOrderPlace("ada@example.com", 2)
+		val game = two.pickTurnOrderPlace("ada@example.com", 2, NO_NEWS)
 
 		assertThat(game.turn!!.turnOrder()).containsExactly("grace@example.com", "ada@example.com")
 	}
 
 	@Test
 	fun shouldRefuseAPickOutOfTurn() {
-		assertThatThrownBy { shipJumps.pickTurnOrderPlace("ada@example.com", 1) }
+		assertThatThrownBy { shipJumps.pickTurnOrderPlace("ada@example.com", 1, NO_NEWS) }
 			.isInstanceOf(NotYourTurnException::class.java)
 			.hasMessage("It's Kessler Cargo's turn to choose a place.")
 	}
 
 	@Test
 	fun shouldRefuseATakenMissingOrOutOfRangePlace() {
-		val afterKim = shipJumps.pickTurnOrderPlace("kim@example.com", 3)
+		val afterKim = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
 
 		listOf(3, 0, 4, null).forEach { place ->
-			assertThatThrownBy { afterKim.pickTurnOrderPlace("grace@example.com", place) }
+			assertThatThrownBy { afterKim.pickTurnOrderPlace("grace@example.com", place, NO_NEWS) }
 				.isInstanceOf(InvalidPlaceException::class.java)
 				.hasMessage("Choose a free place in the turn order.")
 		}
@@ -106,11 +106,11 @@ class GameTurnOrderTest {
 
 	@Test
 	fun shouldRefuseAPickOnceTheOrderIsSet() {
-		val set = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
+		val set = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS).pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
-		assertThatThrownBy { set.pickTurnOrderPlace("ada@example.com", 2) }
-			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("The turn order is already set.")
+		assertThatThrownBy { set.pickTurnOrderPlace("ada@example.com", 2, NO_NEWS) }
+			.isInstanceOf(PhaseClosedException::class.java)
+			.hasMessage("Initiative has closed")
 	}
 
 	@Test
@@ -120,23 +120,23 @@ class GameTurnOrderTest {
 				ConnectionsPlaced(it).byEveryone()
 			}
 
-		assertThatThrownBy { bidding.pickTurnOrderPlace("ada@example.com", 1) }
+		assertThatThrownBy { bidding.pickTurnOrderPlace("ada@example.com", 1, NO_NEWS) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Ship-jumps hasn't started.")
-		assertThatThrownBy { shipJumps.advancePhase(FakeDice()).pickTurnOrderPlace("kim@example.com", 1) }
+			.hasMessage("Initiative hasn't started.")
+		assertThatThrownBy { shipJumps.advancePhase(FakeDice()).pickTurnOrderPlace("kim@example.com", 1, NO_NEWS) }
 			.isInstanceOf(PhaseClosedException::class.java)
-			.hasMessage("Ship-jumps has closed")
+			.hasMessage("Initiative has closed")
 	}
 
 	@Test
 	fun shouldRefuseSomeoneWhoIsNotInTheGame() {
-		assertThatThrownBy { shipJumps.pickTurnOrderPlace("stranger@example.com", 1) }
+		assertThatThrownBy { shipJumps.pickTurnOrderPlace("stranger@example.com", 1, NO_NEWS) }
 			.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
 	@Test
 	fun shouldStartTheNextTurnWithNoPicks() {
-		val set = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
+		val set = shipJumps.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS).pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 		val nextBidding = set.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 

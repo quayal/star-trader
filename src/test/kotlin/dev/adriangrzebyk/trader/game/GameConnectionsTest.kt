@@ -20,7 +20,7 @@ class GameConnectionsTest {
 
 	private val placed = started.placeConnections("ada@example.com", 2, 3, 0).placeConnections("grace@example.com", 0, 0, 4)
 
-	private val investing = (1..4).fold(placed) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..5).fold(placed) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
@@ -98,7 +98,7 @@ class GameConnectionsTest {
 		val raised = investing.raiseConnection("ada@example.com", ConnectionKind.POLITICAL)
 		val nextInvestment = raised.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
 			.signalDoneBidding("ada@example.com", FakeDice()).signalDoneBidding("grace@example.com", FakeDice(2, 1))
-			.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
+			.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(nextInvestment.turn!!.number).isEqualTo(2)
 		assertThat(nextInvestment.turn!!.connectionsRaised).isEmpty()

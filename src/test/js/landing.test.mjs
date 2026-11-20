@@ -7,7 +7,7 @@ const ME = 'me';
 const VEGA = 'vega';
 const TAU_CETI = { id: 'TAU_CETI', name: 'Tau Ceti', portClass: 3, legalSystem: 2, police: 4, security: 1 };
 
-function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'SHIP_JUMPS' } = {}) {
+function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'JUMPS' } = {}) {
 	return {
 		status: 'RUNNING',
 		turn: { number: 2, phase, initiative: [ME, VEGA], turnOrder: [ME, VEGA], jumpedShips: ['Wayfarer'], doneJumping, landingShip },

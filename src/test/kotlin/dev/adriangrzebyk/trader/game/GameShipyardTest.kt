@@ -28,7 +28,7 @@ class GameShipyardTest {
 	/** A Clarinet with 4 Cargo, Light weapons and Safe jump, like a starting ship: 160 + 16 + 17 + 10 HT and 1 crew. */
 	private val clarinetModules = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
 
-	private fun toInvestment(game: Game): Game = (1..4).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
+	private fun toInvestment(game: Game): Game = (1..5).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
@@ -178,7 +178,7 @@ class GameShipyardTest {
 		// R63, R102: output (Opportunity) comes before the ship leaves the yard (when Investment opens).
 		val bought = buySpiral(withFactoryFor(investing, "ada@example.com"))
 		val turn2 = bought.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
-		val opportunity = (1..3).fold(turn2) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
+		val opportunity = (1..4).fold(turn2) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
 
 		assertThat(opportunity.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
 		assertThat(shipOf(opportunity, "Spiral").location).isEqualTo(ShipLocation.SHIPYARD)
@@ -213,7 +213,7 @@ class GameShipyardTest {
 		val sold = investing.sellShip("ada@example.com", "Wayfarer").sellShip("ada@example.com", "Lantern")
 		val jumps = sold.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com").advancePhase(FakeDice(2, 1))
 		val first = jumps.turn!!.initiative.first()
-		val ordered = jumps.pickTurnOrderPlace(first, 1)
+		val ordered = jumps.pickTurnOrderPlace(first, 1, NO_NEWS)
 
 		val done = if (ordered.turn!!.jumper() == "grace@example.com") ordered.finishJumping("grace@example.com") else ordered
 		assertThat(done.turn!!.phase).isEqualTo(TurnPhase.TRADING)

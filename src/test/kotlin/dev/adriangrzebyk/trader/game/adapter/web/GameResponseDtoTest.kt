@@ -117,7 +117,7 @@ class GameResponseDtoTest {
 	}
 
 	/** [started] at the start of Investment, where the host owns an ISO factory and a warehouse already holding 3 ISO at Tau Ceti, where their ship is. */
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }.let { game ->
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }.let { game ->
 		game.copy(
 			players = game.players.map {
 				if (it.email == "host@example.com") {

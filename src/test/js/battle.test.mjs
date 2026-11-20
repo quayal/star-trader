@@ -50,7 +50,7 @@ function game({ interception = null, battle = null, you = {} } = {}) {
 		status: 'RUNNING',
 		turn: {
 			number: 2,
-			phase: 'SHIP_JUMPS',
+			phase: 'JUMPS',
 			turnOrder: [VEGA, ME],
 			doneJumping: [],
 			jumpedShips: ['Meridian'],
