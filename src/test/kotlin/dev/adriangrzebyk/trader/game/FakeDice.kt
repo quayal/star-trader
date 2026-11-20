@@ -78,3 +78,6 @@ val START_DICE: Dice = FakeDice.everyD3(3)
  * News draws nothing and closes at once into Jumps, and no die is rolled.
  */
 val NO_NEWS: Dice = FakeDice(emptyList())
+
+/** Dice whose every 2d6 is a 12, so every landing on a Planet clears its security (R116): for tests about anything else. */
+val LANDS_SAFELY: Dice = FakeDice.everyTwoD6(12)

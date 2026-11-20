@@ -26,14 +26,14 @@ class GameAgentsTest {
 
 	@Test
 	fun shouldRecruitARandomAgentFromThePoolWhenTheRollIsAtOrBelowThePayment() {
-		// R103: 7 × 5 = 35 ≤ 35; the pool is eight without Badger and Frank (R108), Novak first
-		assertThat(game.agentPool()).hasSize(8).doesNotContain(Agent.BADGER, Agent.FRANK)
+		// R103: 7 × 5 = 35 ≤ 35; all ten agents, Novak first
+		assertThat(game.agentPool()).hasSize(10).contains(Agent.BADGER, Agent.FRANK) // both joined with smuggling and the black market
 
 		val recruited = game.recruitAgent(KIM, 35, aboard, recruitDice(7))
 
 		assertThat(fixture.playerOf(recruited, KIM).agents).containsExactly(RecruitedAgent(Agent.NOVAK, aboard))
 		assertThat(fixture.playerOf(recruited, KIM).money).isEqualTo(265)
-		assertThat(recruited.agentPool()).hasSize(7).doesNotContain(Agent.NOVAK)
+		assertThat(recruited.agentPool()).hasSize(9).doesNotContain(Agent.NOVAK)
 		assertThat(recruited.log.last().text).isEqualTo("Kessler Cargo recruited an agent at Tau Ceti")
 		assertThatThrownBy { recruited.recruitAgent(KIM, 60, aboard, recruitDice(2)) }.hasMessage("You've already recruited this Opportunity.")
 	}

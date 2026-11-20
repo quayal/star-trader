@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.news.TipOffView
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
 
 /**
  * What one member of a game, [player], may see beyond its public state, already decided by [Game.viewFor] (R17, R29, A05,
@@ -21,7 +22,7 @@ import dev.adriangrzebyk.trader.game.sabotage.Sabotage
  * with the rolls, and [sabotagesSuffered] those on their assets, never saying who ordered them (R101), and [sabotagedWarehouse] the warehouse their sabotage hit while they choose its missing units
  * (R99); [agentOffers] the agent offers they made or were made (R106); [limpyAsk] the good Limpy may let them dictate
  * (R108); [agentPool] how many agents are left to recruit (R103). [tipOffs] are the tip-offs in play, as they may see them
- * (R109–R111).
+ * (R109–R111), and [landingOdds] each of their ships' chances on its system's Planet this turn (R118).
  */
 data class PlayerView(
 	val player: Player,
@@ -44,7 +45,8 @@ data class PlayerView(
 	val limpyAsk: MarketGood?,
 	val agentPool: Int,
 	val opportunity: OpportunityView?,
-	val tipOffs: List<TipOffView> = emptyList()
+	val tipOffs: List<TipOffView> = emptyList(),
+	val landingOdds: Map<String, LandingOdds> = emptyMap()
 )
 
 /** What the viewer has done this Opportunity (R97, R103): each once per Opportunity. Null outside Opportunity. */

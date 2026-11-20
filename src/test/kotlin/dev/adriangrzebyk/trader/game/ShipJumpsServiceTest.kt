@@ -89,7 +89,7 @@ class ShipJumpsServiceTest {
 			shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 		)
 
-		val game = service.land("game-1", "creator@example.com", ShipLocation.PLANET)
+		val game = ShipJumpsService(gameStore, LANDS_SAFELY).land("game-1", "creator@example.com", ShipLocation.PLANET)
 
 		assertThat(game.players.first().ships.first().location).isEqualTo(ShipLocation.PLANET)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)

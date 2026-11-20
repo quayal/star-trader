@@ -24,6 +24,9 @@ import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
+import dev.adriangrzebyk.trader.game.smuggling.LandingOutcome
+import dev.adriangrzebyk.trader.game.smuggling.LandingRoll
 
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
@@ -640,7 +643,8 @@ data class Game(
 			opportunity = turn?.takeIf { it.phase == TurnPhase.OPPORTUNITY }?.let {
 				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasCollected(email))
 			},
-			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) }
+			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) },
+			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) }
 		)
 	}
 
@@ -818,6 +822,9 @@ data class Game(
 		}
 		return copy(news = draw.news).withLogged(number, listOfNotNull(line))
 	}
+
+	/** This game with [changed] as its turn. */
+	private fun withTurn(changed: Turn): Game = copy(turn = changed)
 
 	/** This game with [lines] logged as public events of turn [number]. */
 	private fun withLogged(number: Int, lines: List<String>): Game = copy(log = log + lines.map { LogEntry.event(number, it) })
@@ -1087,19 +1094,15 @@ data class Game(
 	 * [email] places each of their surviving ships from the battle at Port, Planet or Space (R77), [locations] by ship
 	 * name; each is logged as a landing. Once everyone has, the battle is over and the jumps go on.
 	 */
-	fun landAfterBattle(email: String, locations: Map<String, ShipLocation>): Game {
-		val player = playerOf(email)
+	fun landAfterBattle(email: String, locations: Map<String, ShipLocation>, dice: Dice): Game {
+		playerOf(email)
 		val current = runningTurn()
 		val battle = current.battleNow()
 		val landed = battle.landedBy(email, locations.keys)
+		locations.values.forEach { if (!it.isLandable()) throw InvalidLandingException() }
 		val survivors = battle.survivorsOf(email)
-		val placed = locations.entries.fold(player) { owner, (ship, location) -> owner.landShip(ship, location) }
-		val events = survivors.map { placed.landedLog(it) }
-		return copy(
-			players = replace(placed),
-			turn = current.withBattle(landed),
-			log = log + events.map { LogEntry.event(current.number, it) }
-		).withBattleMovedOn()
+		val placed = survivors.fold(this) { game, ship -> game.withShipPlaced(email, ship, locations.getValue(ship), dice) }
+		return placed.withTurn(current.withBattle(landed)).withBattleMovedOn()
 	}
 
 	/**
@@ -1135,25 +1138,80 @@ data class Game(
 	 * (S03-3), and landing the player's last ship ends their slot (S02-6, S03-4). Staying in Space next to other players'
 	 * ships starts a battle instead (R80); the slot goes on once it's over.
 	 */
-	fun landShip(email: String, location: ShipLocation?): Game {
+	fun landShip(email: String, location: ShipLocation?, dice: Dice): Game {
 		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		val shipName = current.shipWaitingToLand()
 		if (location == null) {
 			throw InvalidLandingException()
 		}
-		val landed = playerOf(email).landShip(shipName, location)
-		val ship = checkNotNull(landed.ship(shipName))
-		val game = copy(
-			players = replace(landed),
-			turn = current.landed(),
-			log = log + LogEntry.event(current.number, landed.landedLog(shipName))
-		)
+		val game = withShipPlaced(email, shipName, location, dice).withTurn(current.landed())
+		val landed = game.playerOf(email)
+		val ship = landed.ship(shipName)
 		// R80: staying in Space where other players' ships are starts a battle, with nobody intercepted.
-		if (location == ShipLocation.SPACE && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
+		if (location == ShipLocation.SPACE && ship != null && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
 			return game.withBattleStarted(ship.system, emptyList())
 		}
 		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
+	}
+
+	/**
+	 * This game with [email]'s ship [shipName] placed at [location] (R30, R77) and logged: on a Planet only past its
+	 * security (R116, rolled with [dice]); in a Port only while Ports are open (E10).
+	 */
+	private fun withShipPlaced(email: String, shipName: String, location: ShipLocation, dice: Dice): Game {
+		val number = runningTurn().number
+		if (location == ShipLocation.PORT && news.conditions.portsClosedIn(number)) {
+			throw InvalidLandingException("Ports are closed this turn (epidemics): choose the Planet or Space.")
+		}
+		if (location == ShipLocation.PLANET) {
+			return withLandingRolled(email, shipName, dice)
+		}
+		val landed = playerOf(email).landShip(shipName, location)
+		return copy(players = replace(landed)).withLogged(number, listOf(landed.landedLog(shipName)))
+	}
+
+	/** [system]'s Planet security now (R116): the board's, plus any event's change this turn (E10, E12). */
+	private fun planetSecurity(system: StarSystem): Int = system.locations.security + news.conditions.securityChangeIn(turn?.number ?: 0)
+
+	/**
+	 * [email]'s ship [shipName] tries to land on its system's Planet (R116–R118): 2d6 + its bonuses against the Planet's
+	 * security this turn. Above, it lands; equal, it's forced into the Port (Space while Ports are closed), its illegal goods
+	 * confiscated, the ship too if military, and its owner loses 2d6 reputation; below, the ship and everything aboard are
+	 * seized and its owner loses 3d6. The roll and outcome are public; what was taken isn't.
+	 */
+	private fun withLandingRolled(email: String, shipName: String, dice: Dice): Game {
+		val number = runningTurn().number
+		val player = playerOf(email)
+		val ship = checkNotNull(player.ship(shipName))
+		val roll = LandingRoll(dice.twoD6(), player.landingBonusFor(shipName), planetSecurity(ship.system))
+		val badger = player.badgerBonusFor(shipName).takeIf {
+			it > 0
+		}?.let { Agent.BADGER.actedLog(player.corporationName, ": +$it to $shipName's landing") }
+		val who = "$shipName (${player.corporationName})"
+		val planet = "${ship.system.displayName}'s Planet"
+		return when (roll.outcome()) {
+			LandingOutcome.LANDED ->
+				copy(players = replace(player.landShip(shipName, ShipLocation.PLANET)))
+					.withLogged(number, listOfNotNull(badger, "$who landed on $planet: ${roll.text()}."))
+			LandingOutcome.FORCED_INTO_PORT -> {
+				val closed = news.conditions.portsClosedIn(number)
+				val forced = player.landShip(shipName, if (closed) ShipLocation.SPACE else ShipLocation.PORT).confiscateIllegalCargo(shipName)
+				val kept = if (ship.isMilitary()) forced.confiscateShip(shipName) else forced
+				val loss = kept.loseReputation(dice.twoD6(), "forced from the Planet by security")
+				val system = ship.system.displayName
+				val where = if (closed) "held in $system's Space (Ports are closed)" else "forced into $system's Port"
+				val taken = if (ship.isMilitary()) "The ship was confiscated." else "Illegal cargo confiscated."
+				copy(players = replace(loss.player)).withLogged(number, listOfNotNull(badger, "$who was $where: ${roll.text()}. $taken") + loss.lines)
+			}
+			LandingOutcome.SEIZED -> {
+				val loss = player.confiscateShip(shipName).loseReputation(dice.twoD6() + dice.d6(), "seized by security")
+				copy(players = replace(loss.player)).withLogged(
+					number,
+					listOfNotNull(badger, "$who was seized at ${ship.system.displayName}: ${roll.text()}.") + loss.lines
+				)
+			}
+		}
 	}
 
 	/** [email] ends their jump slot (S02-6): ships they didn't jump stay where they are, and the next player's slot starts. */

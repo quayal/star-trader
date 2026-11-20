@@ -40,7 +40,9 @@ import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import dev.adriangrzebyk.trader.game.ledger.MoneyMovement
 import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOffView
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -626,7 +628,7 @@ data class YouResponseDto(
 	private constructor(view: PlayerView, id: String, player: Player, ids: PlayerIds) : this(
 		id,
 		player.money,
-		player.ships.map { YourShipResponseDto(it) },
+		player.ships.map { YourShipResponseDto(it, view.landingOdds.getValue(it.name)) },
 		view.offers.map { YourOfferResponseDto(it) },
 		view.untradedOffers.map { YourOfferResponseDto(it) },
 		view.bid?.amount,
@@ -1086,10 +1088,15 @@ data class YourShipResponseDto(
 	val leavesYardOnTurn: Int?,
 	val jumpChances: Map<String, JumpChanceResponseDto>,
 	val hullDamage: Int,
-	val repairCost: Int
+	val repairCost: Int,
+	val landing: LandingOddsResponseDto,
+	val specialLots: List<SpecialLotResponseDto>,
+	val deliveryJob: String?,
+	val contraband: Boolean
 ) {
 
-	constructor(ship: Ship) : this(
+	/** [odds] are its chances on its system's Planet this turn (R118). */
+	constructor(ship: Ship, odds: LandingOdds) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1104,7 +1111,37 @@ data class YourShipResponseDto(
 		ship.leavesYardOnTurn(),
 		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
 		ship.hullDamage,
-		ship.repairCost()
+		ship.repairCost(),
+		LandingOddsResponseDto(odds),
+		ship.specialLots.map { SpecialLotResponseDto(it) },
+		ship.deliveryJob?.opportunity?.description(),
+		ship.isContraband()
+	)
+}
+
+/** A ship's chances on its system's Planet this turn (R118), as whole percentages, with the [security] and its [bonus]. */
+data class LandingOddsResponseDto(val lands: Int, val forced: Int, val seized: Int, val security: Int, val bonus: Int) {
+
+	constructor(odds: LandingOdds) : this(odds.landsPercent(), odds.forcedPercent(), odds.seizedPercent(), odds.security, odds.bonus)
+}
+
+/** Goods bought through an opportunity aboard one of the viewer's ships (R112): what, how many, and where they sell. */
+data class SpecialLotResponseDto(
+	val goods: String,
+	val name: String,
+	val units: Int,
+	val sellAt: String,
+	val sellAtName: String,
+	val illegal: Boolean
+) {
+
+	constructor(lot: SpecialLot) : this(
+		lot.goods.name,
+		lot.goods.displayName,
+		lot.units,
+		lot.sellAt.name,
+		lot.sellAt.displayName,
+		lot.isIllegal()
 	)
 }
 

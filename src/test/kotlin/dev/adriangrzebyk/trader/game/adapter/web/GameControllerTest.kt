@@ -120,7 +120,7 @@ class GameControllerTest {
 			YouResponseDto(
 				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
-				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList()
+				null, emptyList(), 10, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList()
 			)
 		)
 	}
@@ -946,12 +946,12 @@ class GameControllerTest {
 		finishJumping("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Choose where ${ship.name} ends up first.")
-		val landed = landShip("token-$first", gameId, """{"location": "PLANET"}""")
+		val landed = landShip("token-$first", gameId, """{"location": "SPACE"}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(landed.players.first { it.id == idOf(gameId, first) }.ships.first().location).isEqualTo("PLANET")
+		assertThat(landed.players.first { it.id == idOf(gameId, first) }.ships.first().location).isEqualTo("SPACE")
 		assertThat(landed.turn!!.landingShip).isNull()
-		assertThat(landed.log.last().text).endsWith("— ${ship.name} lands on the planet (${destination.displayName})")
+		assertThat(landed.log.last().text).endsWith("— ${ship.name} stays in space (${destination.displayName})")
 
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		val trading = finishJumping("token-$second", gameId)
@@ -2253,11 +2253,11 @@ class GameControllerTest {
 
 		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "SHIPYARD"}]}""").expectStatus().isBadRequest
 		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "PORT"}]}""").expectStatus().isOk
-		val landed = battleLanding("token-$second", gameId, """{"ships": [{"ship": "$theirs", "location": "PLANET"}]}""")
+		val landed = battleLanding("token-$second", gameId, """{"ships": [{"ship": "$theirs", "location": "SPACE"}]}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(landed.turn!!.battle).isNull()
-		assertThat(landed.players.flatMap { it.ships }.first { it.name == theirs }.location).isEqualTo("PLANET")
+		assertThat(landed.players.flatMap { it.ships }.first { it.name == theirs }.location).isEqualTo("SPACE")
 	}
 
 	@Test

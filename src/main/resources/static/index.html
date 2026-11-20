@@ -4556,10 +4556,15 @@
 			$('landing-legend').textContent = LANDING_QUESTION;
 			$('landing-button').textContent = LANDING_BUTTON;
 			$('landing-error').textContent = '';
-			$('landing-choices').replaceChildren(...landingOptions(landing.system).map(option => {
-				const radio = element('input', { type: 'radio', name: 'landing-location', value: option.value });
-				radio.checked = option.value === DEFAULT_LOCATION;
-				return element('label', { class: 'choice' }, radio, option.label);
+			// R118: the Planet's odds for this ship and a contraband warning; E10: the Port closed.
+			const own = (game.you?.ships ?? []).find(ship => ship.name === landing.ship.name) ?? null;
+			const options = landingOptions(landing.system, own, game.conditions);
+			const firstOpen = options.find(option => !option.disabled)?.value;
+			$('landing-choices').replaceChildren(...options.map(option => {
+				const radio = element('input', { type: 'radio', name: 'landing-location', value: option.value, ...(option.disabled ? { disabled: '' } : {}) });
+				radio.checked = option.value === (options.find(o => o.value === DEFAULT_LOCATION && !o.disabled) ? DEFAULT_LOCATION : firstOpen);
+				return element('label', { class: 'choice' }, radio, option.label,
+					...(option.warning ? [element('br'), element('span', { class: 'tone tone--alert' }, option.warning)] : []));
 			}));
 		}
 		if (!$('landing-dialog').open) {

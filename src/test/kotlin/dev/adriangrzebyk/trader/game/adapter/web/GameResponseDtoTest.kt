@@ -46,10 +46,10 @@ class GameResponseDtoTest {
 			SystemResponseDto(
 				id = "TAU_CETI",
 				name = "Tau Ceti",
-				portClass = 4,
+				portClass = 3,
 				legalSystem = 2,
-				police = 3,
-				security = 4,
+				police = 5,
+				security = 7,
 				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
 				producibleGoods = listOf("ISO"),
 				// R68: the base chance of a jump from Tau Ceti to each other system.

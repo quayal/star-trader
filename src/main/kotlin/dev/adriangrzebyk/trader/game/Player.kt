@@ -780,6 +780,27 @@ data class Player(
 	/** Novak (R108): +4 to the jump result of the ship he travels on, [shipName]; 0 otherwise. */
 	fun jumpBonusFor(shipName: String): Int = if (isAgentAboard(Agent.NOVAK, shipName)) Agent.NOVAK_JUMP_BONUS else 0
 
+	/**
+	 * What this player's ship [shipName] adds to its landing roll (R116): the ship's own bonus (Aerodynamic, Battle comm)
+	 * and Badger's +3 when he's aboard (R108: −3 to the security he faces).
+	 */
+	fun landingBonusFor(shipName: String): Int = checkNotNull(ship(shipName)).landingBonus() + badgerBonusFor(shipName)
+
+	/** Badger (R108): +3 on the landing roll of the ship carrying him, [shipName]; 0 otherwise. */
+	fun badgerBonusFor(shipName: String): Int = if (isAgentAboard(Agent.BADGER, shipName)) Agent.BADGER_SECURITY_REDUCTION else 0
+
+	/**
+	 * This player once security confiscated their ship [shipName] with everything aboard (R117): nothing is paid back, and
+	 * agents aboard step off into its system's Port and survive (R107).
+	 */
+	fun confiscateShip(shipName: String): Player {
+		val ship = checkNotNull(ship(shipName))
+		return withAgentsSteppedOff(ship.landAt(ShipLocation.PORT)).withoutShip(shipName)
+	}
+
+	/** This player once security confiscated the illegal goods aboard [shipName] (R117); legal cargo stays. */
+	fun confiscateIllegalCargo(shipName: String): Player = withShip(checkNotNull(ship(shipName)).withoutIllegalLots())
+
 	/** Trigger (R108): +1 to intercept for the ship carrying him, [shipName]; 0 otherwise. */
 	fun interceptBonusFor(shipName: String): Int = if (isAgentAboard(Agent.TRIGGER, shipName)) Agent.TRIGGER_INTERCEPT_BONUS else 0
 

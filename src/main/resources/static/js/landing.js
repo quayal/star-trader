@@ -32,12 +32,21 @@ export function landingHeading(landing) {
 	return `${landing.ship.name} arrived at ${landing.system.name}`;
 }
 
-/** S03-1: the three places with their R31 statistics, Port first. */
-export function landingOptions(system) {
+/**
+ * S03-1: the three places with their R31 statistics, Port first. With the viewer's own ship ([own], from `you.ships`) the
+ * Planet shows its landing odds (R118) and a warning for contraband; [conditions] (`game.conditions`) close the Port during
+ * epidemics (E10) and add this turn's security change.
+ */
+export function landingOptions(system, own = null, conditions = null) {
+	const closed = Boolean(conditions?.portsClosed);
+	const odds = own?.landing;
+	const planet = odds
+		? `Land on the planet: ${odds.lands}% lands · ${odds.forced}% forced into Port · ${odds.seized}% seized (security ${odds.security}, your +${odds.bonus})`
+		: `Land on the planet (security ${system.security})`;
 	return [
-		{ value: 'PORT', label: `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})` },
-		{ value: 'PLANET', label: `Land on the planet (security ${system.security})` },
-		{ value: 'SPACE', label: `Stay in space (police ${system.police})` },
+		{ value: 'PORT', label: closed ? 'Land at the port: closed this turn (epidemics)' : `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})`, disabled: closed },
+		{ value: 'PLANET', label: planet, warning: own?.contraband ? 'Illegal goods or military parts aboard: if security stops you, they’re confiscated.' : '' },
+		{ value: 'SPACE', label: `Stay in space (police ${system.police + (conditions?.policeChange ?? 0)})` },
 	];
 }
 

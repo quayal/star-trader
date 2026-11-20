@@ -31,7 +31,7 @@ class RulesControllerTest {
 			.responseBody!!
 
 		assertThat(rules.crewClasses).contains(CrewRuleResponseDto("A", 20, 5, 1), CrewRuleResponseDto("D", 2, 0, -1))
-		assertThat(rules.agents).hasSize(10).contains(AgentRuleResponseDto("Badger", rules.agents.first { it.name == "Badger" }.effect, false))
+		assertThat(rules.agents).hasSize(10).contains(AgentRuleResponseDto("Badger", rules.agents.first { it.name == "Badger" }.effect, true))
 		assertThat(rules.safeJumpBonus).isEqualTo(2)
 		assertThat(rules.reputation.bonus[27]).isEqualTo(10)
 		assertThat(rules.sabotage.first().from).isNull()

@@ -39,13 +39,15 @@ class GameLandingTest {
 	@Test
 	fun shouldNotLandAShipInTheShipyard() {
 		// R60: only a ship bought there is in the yard.
-		assertThatThrownBy { arrived.landShip("grace@example.com", ShipLocation.SHIPYARD) }.isInstanceOf(InvalidLandingException::class.java)
+		assertThatThrownBy {
+			arrived.landShip("grace@example.com", ShipLocation.SHIPYARD, LANDS_SAFELY)
+		}.isInstanceOf(InvalidLandingException::class.java)
 	}
 
 	@Test
 	fun shouldPutTheShipWhereThePlayerChooses() {
 		ShipLocation.entries.filter { it.isLandable() }.forEach { location ->
-			val game = arrived.landShip("grace@example.com", location)
+			val game = arrived.landShip("grace@example.com", location, LANDS_SAFELY)
 
 			assertThat(
 				shipOf(game, "Meridian")
@@ -61,11 +63,11 @@ class GameLandingTest {
 
 	@Test
 	fun shouldLogTheLanding() {
-		assertThat(arrived.landShip("grace@example.com", ShipLocation.PORT).log.last())
+		assertThat(arrived.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY).log.last())
 			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian lands at the port (Tau Ceti)"))
-		assertThat(arrived.landShip("grace@example.com", ShipLocation.PLANET).log.last())
-			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian lands on the planet (Tau Ceti)"))
-		assertThat(arrived.landShip("grace@example.com", ShipLocation.SPACE).log.last())
+		assertThat(arrived.landShip("grace@example.com", ShipLocation.PLANET, LANDS_SAFELY).log.last())
+			.isEqualTo(LogEntry.event(1, "Meridian (Vega Lines) landed on Tau Ceti's Planet: 12 vs security 7.")) // R116
+		assertThat(arrived.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY).log.last())
 			.isEqualTo(LogEntry.event(1, "Landing: Vega Lines — Meridian stays in space (Tau Ceti)"))
 	}
 
@@ -73,12 +75,13 @@ class GameLandingTest {
 	fun shouldKeepTheSlotUntilTheLastShipHasLanded() {
 		val lastJumped = arrived.landShip(
 			"grace@example.com",
-			ShipLocation.PORT
+			ShipLocation.PORT,
+			LANDS_SAFELY
 		).jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
 
 		// S03-6: the jump isn't finished until the landing is confirmed.
 		assertThat(lastJumped.turn!!.jumper()).isEqualTo("grace@example.com")
-		assertThat(lastJumped.landShip("grace@example.com", ShipLocation.SPACE).turn!!.jumper()).isEqualTo("ada@example.com")
+		assertThat(lastJumped.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY).turn!!.jumper()).isEqualTo("ada@example.com")
 	}
 
 	@Test
@@ -94,24 +97,24 @@ class GameLandingTest {
 
 	@Test
 	fun shouldRefuseALandingWithNoShipWaiting() {
-		assertThatThrownBy { jumping.landShip("grace@example.com", ShipLocation.PORT) }
+		assertThatThrownBy { jumping.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("No ship is waiting to land.")
 	}
 
 	@Test
 	fun shouldRefuseALandingWithoutALocation() {
-		assertThatThrownBy { arrived.landShip("grace@example.com", null) }
+		assertThatThrownBy { arrived.landShip("grace@example.com", null, LANDS_SAFELY) }
 			.isInstanceOf(InvalidLandingException::class.java)
 			.hasMessage("Choose where the ship ends up.")
 	}
 
 	@Test
 	fun shouldRefuseALandingOutOfTurnOrFromSomeoneWhoIsNotAPlayer() {
-		assertThatThrownBy { arrived.landShip("ada@example.com", ShipLocation.PORT) }
+		assertThatThrownBy { arrived.landShip("ada@example.com", ShipLocation.PORT, LANDS_SAFELY) }
 			.isInstanceOf(NotYourTurnException::class.java)
 			.hasMessage("It's Vega Lines's turn to jump.")
-		assertThatThrownBy { arrived.landShip("eve@example.com", ShipLocation.PORT) }
+		assertThatThrownBy { arrived.landShip("eve@example.com", ShipLocation.PORT, LANDS_SAFELY) }
 			.isInstanceOf(NotAGameMemberException::class.java)
 	}
 

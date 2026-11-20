@@ -311,15 +311,18 @@ export function fleetLine(entry) {
 	return `${entry.name} — ${entry.systemName} · ${entry.location} — ${entry.cargo} · ${entry.cargoUsed}`;
 }
 
-/** R31: the statistics line of a location. */
-export function locationStats(system, locationId) {
+/** R31: the statistics line of a location, with this turn's event change if any (R115: `game.conditions`). */
+export function locationStats(system, locationId, conditions = null) {
 	if (locationId === SHIPYARD.id) {
 		return 'New ships wait here a turn';
 	}
 	if (locationId === 'PORT') {
 		return `Class ${system.portClass} · Legal system ${system.legalSystem}`;
 	}
-	return locationId === 'SPACE' ? `Police ${system.police}` : `Security ${system.security}`;
+	const change = locationId === 'SPACE' ? conditions?.policeChange ?? 0 : conditions?.securityChange ?? 0;
+	const base = locationId === 'SPACE' ? system.police : system.security;
+	const thisTurn = change ? ` (${change > 0 ? '+' : '−'}${Math.abs(change)} this turn)` : '';
+	return `${locationId === 'SPACE' ? 'Police' : 'Security'} ${base + change}${thisTurn}`;
 }
 
 /**
@@ -334,7 +337,7 @@ export function locations(game, system, myId) {
 	return shown.map(location => ({
 		id: location.id,
 		name: location.name,
-		stats: locationStats(system, location.id),
+		stats: locationStats(system, location.id, game.conditions),
 		ships: ships.filter(ship => ship.location === location.id).map(ship => ({
 			mine: ship.mine,
 			text: ship.mine
