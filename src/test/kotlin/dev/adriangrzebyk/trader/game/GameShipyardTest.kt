@@ -28,7 +28,7 @@ class GameShipyardTest {
 	/** A Clarinet with 4 Cargo, Light weapons and Safe jump, like a starting ship: 160 + 16 + 17 + 10 HT and 1 crew. */
 	private val clarinetModules = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
 
-	private fun toInvestment(game: Game): Game = (1..3).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
+	private fun toInvestment(game: Game): Game = (1..4).fold(game) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
@@ -38,7 +38,7 @@ class GameShipyardTest {
 		game.buyShip("ada@example.com", "Spiral", TAU_CETI, Hull.CLARINET, clarinetModules, crewClass)
 
 	private fun withFactoryFor(game: Game, email: String): Game =
-		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it })
+		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6, 0))) else it })
 
 	private fun withCargo(game: Game, shipName: String, cargo: Map<Goods, Int>): Game = game.copy(
 		players = game.players.map { player -> player.copy(ships = player.ships.map { if (it.name == shipName) it.copy(cargo = cargo) else it }) }
@@ -154,9 +154,9 @@ class GameShipyardTest {
 	}
 
 	@Test
-	fun shouldOnlyBuyInInvestmentAndAfterCollect() {
+	fun shouldOnlyBuyInInvestment() {
 		assertThatThrownBy { buySpiral(started) }.isInstanceOf(InvalidGameOperationException::class.java).hasMessage("Investment isn't open.")
-		assertThatThrownBy { buySpiral(withFactoryFor(investing, "ada@example.com")) }.hasMessage("Collect your output first.")
+		assertThat(shipOf(buySpiral(withFactoryFor(investing, "ada@example.com")), "Spiral").location).isEqualTo(ShipLocation.SHIPYARD)
 	}
 
 	// ── E09-S03: in the yard, and leaving it ───────────────────────────────────────
@@ -174,22 +174,21 @@ class GameShipyardTest {
 	}
 
 	@Test
-	fun shouldLeaveTheYardOnlyAfterItsOwnersCollectSoItNeverTakesThatOutput() {
-		// R63: output (phase 6) comes before the ship (phase 7).
-		val bought = buySpiral(investing)
-		// Ada's factory makes her collect first; until then Spiral waits in the yard.
-		val beforeCollect = toInvestment(
-			withFactoryFor(bought, "ada@example.com").signalDoneInvesting("grace@example.com")
-				.collectOutput("ada@example.com", emptyList()).signalDoneInvesting("ada@example.com")
-		)
+	fun shouldStayInTheYardThroughOpportunitySoItNeverTakesThatOutput() {
+		// R63, R102: output (Opportunity) comes before the ship leaves the yard (when Investment opens).
+		val bought = buySpiral(withFactoryFor(investing, "ada@example.com"))
+		val turn2 = bought.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+		val opportunity = (1..3).fold(turn2) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
 
-		assertThat(shipOf(beforeCollect, "Spiral").location).isEqualTo(ShipLocation.SHIPYARD)
+		assertThat(opportunity.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
+		assertThat(shipOf(opportunity, "Spiral").location).isEqualTo(ShipLocation.SHIPYARD)
 		assertThatThrownBy {
-			beforeCollect.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Spiral", 6)))
+			opportunity.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Spiral", 6)))
 		}.isInstanceOf(InvalidCollectException::class.java)
-		val collected = beforeCollect.collectOutput("ada@example.com", emptyList())
-		assertThat(shipOf(collected, "Spiral").location).isEqualTo(ShipLocation.PORT)
-		assertThat(collected.log.last().text).isEqualTo("Spiral leaves the Tau Ceti shipyard")
+		val investing = opportunity.collectOutput("ada@example.com", emptyList())
+			.finishOpportunities("ada@example.com").finishOpportunities("grace@example.com")
+		assertThat(shipOf(investing, "Spiral").location).isEqualTo(ShipLocation.PORT)
+		assertThat(investing.log.last().text).isEqualTo("Spiral leaves the Tau Ceti shipyard")
 	}
 
 	@Test

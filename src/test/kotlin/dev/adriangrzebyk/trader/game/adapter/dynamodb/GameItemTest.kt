@@ -17,6 +17,7 @@ import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Warehouse
+import dev.adriangrzebyk.trader.game.agent.Agent
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -68,7 +69,9 @@ class GameItemTest {
 				factories = emptyList(),
 				connections = Connections(political = 3, business = 1, criminal = 2),
 				connectionPoints = 0,
-				reputation = Reputation(27)
+				reputation = Reputation(27),
+				loan = null,
+				agents = emptyList()
 			),
 			Player(
 				email = "guest@example.com",
@@ -103,10 +106,12 @@ class GameItemTest {
 				),
 				marketPositions = emptyList(),
 				warehouses = listOf(Warehouse(system = StarSystem.TAU_CETI, blocks = 2, cargo = mapOf(Goods.POLY to 4))),
-				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3)),
+				factories = listOf(Factory(system = StarSystem.TAU_CETI, goods = Goods.ISO, size = 3, disabledTurns = 0)),
 				connections = Connections.NONE,
 				connectionPoints = 5,
-				reputation = Reputation.INITIAL
+				reputation = Reputation.INITIAL,
+				loan = null,
+				agents = emptyList()
 			)
 		),
 		turn = Turn(
@@ -131,14 +136,22 @@ class GameItemTest {
 			connectionsRaised = listOf("host@example.com"),
 			reputationBought = listOf("ada@example.com"),
 			interceptionTries = emptyList(),
-			initiativeRolls = listOf(InitiativeRoll("host@example.com", 5, listOf(8)))
+			initiativeRolls = listOf(InitiativeRoll("host@example.com", 5, 0, listOf(8))),
+			doneOpportunity = emptyList(),
+			sabotages = emptyList(),
+			recruitedBy = emptyList(),
+			agentOffers = emptyList(),
+			interestPaid = emptyList(),
+			limpyAsk = null,
+			limpyUsedBy = emptyList()
 		),
 		prices = MarketPrices.board().withPrice(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO), 10),
 		log = listOf(
 			LogEntry.event(1, "Game started: 2 players, 20 turns"),
 			LogEntry.event(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
 			LogEntry.event(2, "Initiative order (bid + d2): Guest Freight → Host Corp")
-		)
+		),
+		deadAgents = listOf(Agent.X)
 	)
 
 	@Test
@@ -176,7 +189,7 @@ class GameItemTest {
 
 		assertThat(
 			item.keys
-		).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "version")
+		).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "version")
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
 		// The log itself is in LogTurnItems; the game item only lists the turns that have one.

@@ -12,4 +12,6 @@ class RandomDice(private val random: Random = Random.Default) : Dice {
 	override fun d6(): Int = random.nextInt(1, 7)
 
 	override fun d3(): Int = random.nextInt(1, 4)
+
+	override fun oneOf(faces: Int): Int = random.nextInt(1, faces + 1)
 }

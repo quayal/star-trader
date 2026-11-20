@@ -89,26 +89,31 @@ class PlayerViewTest {
 		assertThat(game.viewFor(kim)!!.wholesaleAsk).isNull()
 	}
 
-	/** [started] at the start of Investment, where Ada owns an ISO factory at Tau Ceti. */
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }.let { game ->
-		game.copy(players = game.players.map { if (it.email == ada) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it })
+	/** [started] at the start of Opportunity (Kim, then Ada, then Grace), where Ada owns an ISO factory at Tau Ceti. */
+	private val opportunity = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) }.let { game ->
+		game.copy(players = game.players.map { if (it.email == ada) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6, 0))) else it })
 	}
 
+	private val investing = opportunity.advancePhase(FakeDice())
+
 	@Test
-	fun shouldOfferTheCollectToAFactoryOwnerWhoHasNotCollected() {
-		// E06-S03: only while collecting and only with factories
-		assertThat(investing.viewFor(ada)!!.factoriesToCollect).containsExactly(Factory(TAU_CETI, Goods.ISO, 6))
-		assertThat(investing.viewFor(grace)!!.factoriesToCollect).isNull()
-		assertThat(investing.collectOutput(ada, emptyList()).viewFor(ada)!!.factoriesToCollect).isNull()
+	fun shouldOfferTheCollectToAFactoryOwnerWhoHasNotCollectedEvenBeforeTheirTurn() {
+		// E06-S03, R102: only while collecting and only with factories; the form can be filled in out of turn
+		assertThat(opportunity.turn!!.opportunist()).isEqualTo(kim)
+		assertThat(opportunity.viewFor(ada)!!.factoriesToCollect).containsExactly(Factory(TAU_CETI, Goods.ISO, 6, 0))
+		assertThat(opportunity.viewFor(grace)!!.factoriesToCollect).isNull()
+		val adasTurn = opportunity.finishOpportunities(kim)
+		assertThat(adasTurn.collectOutput(ada, emptyList()).viewFor(ada)!!.factoriesToCollect).isNull()
+		assertThat(investing.viewFor(ada)!!.factoriesToCollect).isNull()
 		assertThat(started.viewFor(ada)!!.factoriesToCollect).isNull()
 	}
 
 	@Test
-	fun shouldOfferTheInvestmentOnlyToAViewerWhoMayBuyNow() {
-		// E06-S04, S03-5: not before collecting, at once without factories, never outside Investment
-		assertThat(investing.viewFor(ada)!!.investment).isNull()
+	fun shouldOfferTheInvestmentOnlyInInvestment() {
+		// E06-S04, R102: Collect is in Opportunity now, so nothing waits for it
+		assertThat(opportunity.viewFor(ada)!!.investment).isNull()
+		assertThat(investing.viewFor(ada)!!.investment).isNotNull()
 		assertThat(investing.viewFor(grace)!!.investment).isEqualTo(InvestmentView(investing.freeShipNames(), false, false))
-		assertThat(investing.collectOutput(ada, emptyList()).viewFor(ada)!!.investment).isNotNull()
 		assertThat(started.viewFor(grace)!!.investment).isNull()
 	}
 

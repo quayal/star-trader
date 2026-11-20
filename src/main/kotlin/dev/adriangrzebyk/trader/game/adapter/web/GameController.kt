@@ -13,6 +13,7 @@ import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvestmentService
+import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
 import dev.adriangrzebyk.trader.game.StartingSystemPicker
@@ -46,6 +47,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
+	private val opportunityService = OpportunityService(gameStore, dice)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
 	private val tradingService = TradingService(gameStore, dice)
 
@@ -152,7 +154,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 	 * lost. `400` for a placement the rules refuse or that isn't a whole number, `409` outside Investment or when they have
 	 * already collected or have no factories, `403`, `404` and `401` as for the other actions.
 	 */
-	@PostMapping("/games/{id}/investment/collect")
+	@PostMapping("/games/{id}/opportunity/collect")
 	fun collectOutput(
 		@PathVariable id: String,
 		@RequestBody(required = false) request: CollectRequestDto?,
@@ -163,9 +165,124 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 				HttpStatus.BAD_REQUEST,
 				"Choose a destination and a whole number of units, 0 or more, for each placement."
 			)
-		val game = investmentService.collect(id, session.email, placements)
+		val game = opportunityService.collect(id, session.email, placements)
 
 		return GameResponseDto(game, session.email)
+	}
+
+	/** The player on their Opportunity turn is done with opportunities (R102); `409` out of turn, before Collect, or with a choice open. */
+	@PostMapping("/games/{id}/opportunity/done")
+	fun finishOpportunities(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.finish(id, session.email), session.email)
+
+	/**
+	 * The player sabotages another player's ship in Port, warehouse or factory on their Opportunity turn (R97): `{
+	 * targetPlayerId, kind, system, ship, goods, blamedId }`. `400` for a target or blamed player the rules refuse or too
+	 * little money; `409` out of turn, before Collect, or a second time this Opportunity.
+	 */
+	@PostMapping("/games/{id}/sabotage")
+	fun sabotage(@PathVariable id: String, @RequestBody(required = false) request: SabotageRequestDto?, session: Session): GameResponseDto {
+		val body = request ?: SabotageRequestDto()
+		val ids = PlayerIds(gamePollingService.poll(id, session.email))
+		val owner = ids.emailOf(body.targetPlayerId) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose another player's asset.")
+		val target =
+			body.target(owner) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a ship, warehouse or factory to sabotage.")
+		val game = opportunityService.sabotage(id, session.email, target, ids.emailOf(body.blamedId))
+
+		return GameResponseDto(game, session.email)
+	}
+
+	/** The saboteur chooses the units missing from the warehouse they hit (R99): `{ lots: { GOODS: units } }`. */
+	@PostMapping("/games/{id}/sabotage/losses")
+	fun chooseSabotageLosses(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SabotageLossesRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val lots = (request ?: SabotageLossesRequestDto()).goodsLots()
+			?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose whole numbers of units of the goods it holds.")
+		return GameResponseDto(opportunityService.chooseLosses(id, session.email, lots), session.email)
+	}
+
+	/** The ship's owner places a sabotage's hits on it, out of turn (R99): one ship as in `/ship-jumps/battle/hits`. */
+	@PostMapping("/games/{id}/sabotage/hits")
+	fun placeSabotageHits(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: ShipHitsRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: ShipHitsRequestDto()
+		val ship = body.ship ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Name the ship you place hits on.")
+		return GameResponseDto(opportunityService.placeHits(id, session.email, ship, body.placement()), session.email)
+	}
+
+	/** The player pays to recruit an agent on their Opportunity turn (R103): `{ amount, ship }` or `{ amount, system, location }`. */
+	@PostMapping("/games/{id}/agents/recruit")
+	fun recruitAgent(@PathVariable id: String, @RequestBody(required = false) request: AgentRequestDto?, session: Session): GameResponseDto {
+		val body = request ?: AgentRequestDto()
+		val start = body.position() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose where the agent starts.")
+		return GameResponseDto(opportunityService.recruit(id, session.email, body.wholeAmount(), start), session.email)
+	}
+
+	/** The player moves one of their agents on their Opportunity turn (R104): `{ agent, ship }` or `{ agent, system, location }`. */
+	@PostMapping("/games/{id}/agents/move")
+	fun moveAgent(@PathVariable id: String, @RequestBody(required = false) request: AgentRequestDto?, session: Session): GameResponseDto {
+		val body = request ?: AgentRequestDto()
+		val to = body.position() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose where the agent goes.")
+		return GameResponseDto(opportunityService.moveAgent(id, session.email, body.agentNamed(), to), session.email)
+	}
+
+	/** The player offers one of their agents to another player on their Opportunity turn (R106): `{ agent, buyerId, price }`. */
+	@PostMapping("/games/{id}/agents/offer")
+	fun offerAgent(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: OfferAgentRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: OfferAgentRequestDto()
+		val buyer = PlayerIds(gamePollingService.poll(id, session.email)).emailOf(body.buyerId)
+		return GameResponseDto(opportunityService.offerAgent(id, session.email, body.agentNamed(), buyer, body.wholePrice()), session.email)
+	}
+
+	/** The buyer accepts an agent offer made to them (R106); `409` once it's gone. */
+	@PostMapping("/games/{id}/agents/offers/{offer}/accept")
+	fun acceptAgentOffer(@PathVariable id: String, @PathVariable offer: Int, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.answerAgentOffer(id, session.email, offer, true), session.email)
+
+	/** The buyer declines an agent offer made to them (R106). */
+	@PostMapping("/games/{id}/agents/offers/{offer}/decline")
+	fun declineAgentOffer(@PathVariable id: String, @PathVariable offer: Int, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.answerAgentOffer(id, session.email, offer, false), session.email)
+
+	/** The player borrows in Investment (R90): `{ amount, term }`, term 4 or 8. `400` above the cap or with a loan open. */
+	@PostMapping("/games/{id}/loan")
+	fun takeLoan(@PathVariable id: String, @RequestBody(required = false) request: TakeLoanRequestDto?, session: Session): GameResponseDto {
+		val body = request ?: TakeLoanRequestDto()
+		return GameResponseDto(investmentService.takeLoan(id, session.email, body.wholeAmount(), body.loanTerm()), session.email)
+	}
+
+	/** The player pays this turn's loan interest (R92). */
+	@PostMapping("/games/{id}/loan/interest")
+	fun payInterest(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(investmentService.payInterest(id, session.email), session.email)
+
+	/** The player repays their whole loan (R93). */
+	@PostMapping("/games/{id}/loan/repay")
+	fun repayLoan(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(investmentService.repayLoan(id, session.email), session.email)
+
+	/** The player sells units of one of their factories in Investment (R96): `{ system, goods, units }`. */
+	@PostMapping("/games/{id}/factories/sell")
+	fun sellFactoryUnits(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SellFactoryRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SellFactoryRequestDto()
+		val system = body.starSystem() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose one of your factories.")
+		val goods = body.goodsType() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose one of your factories.")
+		val units = body.wholeUnits() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units.")
+		return GameResponseDto(investmentService.sellFactoryUnits(id, session.email, system, goods, units), session.email)
 	}
 
 	/**
@@ -538,6 +655,11 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 
 		return GameResponseDto(game, session.email)
 	}
+
+	/** The player asked about Limpy acts as Dictator of the next good, or passes (R108): `{ act }`. */
+	@PostMapping("/games/{id}/trading/limpy")
+	fun answerLimpy(@PathVariable id: String, @RequestBody(required = false) request: LimpyRequestDto?, session: Session): GameResponseDto =
+		GameResponseDto(tradingService.answerLimpy(id, session.email, request?.act == true), session.email)
 
 	/** The player the wholesale step asks passes (S05-4); `409`, `403`, `404` and `401` as for `/trading/wholesale`. */
 	@PostMapping("/games/{id}/trading/wholesale-pass")

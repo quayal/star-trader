@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 // A story that adds a field to Factory extends this round trip in the same PR (engineering standards §12).
 class FactoryItemTest {
 
-	private val factory = Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 4)
+	private val factory = Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 4, disabledTurns = 0)
 
 	@Test
 	fun shouldReadBackEveryFieldOfAFactory() {
@@ -24,7 +24,8 @@ class FactoryItemTest {
 			mapOf(
 				"system" to AttributeValue.fromS("SIGMA_DRACONIS"),
 				"goods" to AttributeValue.fromS("FOOD"),
-				"size" to AttributeValue.fromN("4")
+				"size" to AttributeValue.fromN("4"),
+				"disabledTurns" to AttributeValue.fromN("0")
 			)
 		)
 	}

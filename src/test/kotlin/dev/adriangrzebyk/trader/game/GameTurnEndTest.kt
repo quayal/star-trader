@@ -52,9 +52,12 @@ class GameTurnEndTest {
 	/** [game] once Grace and Ada have both signalled done investing: the last signal ends the turn (R44). */
 	private fun afterInvesting(game: Game): Game = game.signalDoneInvesting("grace@example.com").signalDoneInvesting("ada@example.com")
 
-	/** Turn 1's Trading, finished: Grace's last trade has resolved the last good. */
-	private fun investing(turns: Int): Game =
+	/** Turn 1's Trading, finished: Grace's last trade has resolved the last good, and Opportunity has started (R102). */
+	private fun opportunity(turns: Int): Game =
 		lastGoodWaitingForGrace(turns).trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+
+	/** Turn 1's Investment: everyone was done with opportunities. */
+	private fun investing(turns: Int): Game = OpportunityPassed(opportunity(turns)).byEveryone()
 
 	@Test
 	fun shouldStayInTradingWhileTheLastGoodIsStillResolving() {
@@ -67,15 +70,18 @@ class GameTurnEndTest {
 	}
 
 	@Test
-	fun shouldStartInvestmentOnceTheLastGoodHasResolved() {
-		// E06-S01-1: the last trade finishes the last good, and Investment starts in the same step, with nobody done
-		val game = investing(3)
+	fun shouldStartOpportunityOnceTheLastGoodHasResolvedThenInvestment() {
+		// R102: the last trade finishes the last good, and Opportunity starts in the same step, Grace first in the order
+		val game = opportunity(3)
 
 		assertThat(game.status).isEqualTo(GameStatus.RUNNING)
 		assertThat(game.turn!!.number).isEqualTo(1)
-		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
-		assertThat(game.turn!!.doneInvesting).isEmpty()
+		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
+		assertThat(game.turn!!.opportunist()).isEqualTo("grace@example.com")
 		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "All goods resolved"))
+		val investing = investing(3)
+		assertThat(investing.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(investing.turn!!.doneInvesting).isEmpty()
 	}
 
 	@Test
@@ -111,8 +117,8 @@ class GameTurnEndTest {
 		val game = withOneGoodLeft(trading(3, started(3)))
 			.resolveNextGood("grace@example.com", FakeDice.twoD6(7))
 
-		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
-		assertThat(afterInvesting(game).turn).isEqualTo(Turn.bidding(2))
+		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
+		assertThat(afterInvesting(OpportunityPassed(game).byEveryone()).turn).isEqualTo(Turn.bidding(2))
 	}
 
 	@Test

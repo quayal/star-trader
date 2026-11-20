@@ -21,14 +21,14 @@ class GameBuyFactoryUnitsTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private val isoAtTau = MarketGood(TAU_CETI, Goods.ISO)
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
 	private fun withFactoryFor(game: Game, email: String): Game =
-		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 4))) else it })
+		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 4, 0))) else it })
 
 	@Test
 	fun shouldBuildTheFactoryAtTheGamesCurrentPriceAndLogItWithoutThePrice() {
@@ -36,7 +36,7 @@ class GameBuyFactoryUnitsTest {
 
 		val game = investing.buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 2)
 
-		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2, 0))
 		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(investing, "ada@example.com").money - 2 * (5 * price + 10))
 		assertThat(game.log.last()).isEqualTo(LogEntry.event(game.turn!!.number, "Orion Freight added 2 units of ISO production at Tau Ceti"))
 		assertThat(game.log.last().text).doesNotContain("HT") // R50: money is private
@@ -66,43 +66,21 @@ class GameBuyFactoryUnitsTest {
 	}
 
 	@Test
-	fun shouldNotLetAPlayerWithFactoriesBuyBeforeTheyCollect() {
-		// S03-5
-		assertThatThrownBy { withFactoryFor(investing, "ada@example.com").buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1) }
-			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Collect your output first.")
-	}
+	fun shouldGrowAFactoryWithoutACollectInInvestment() {
+		// R102: Collect happened in Opportunity, so the new units first produce at the next one (R48)
+		val game = withFactoryFor(investing, "ada@example.com").buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 2)
 
-	@Test
-	fun shouldGrowAFactoryAfterCollectWithoutProducingMoreThisTurn() {
-		// R48: this turn's Collect has finished, so the new units first produce next turn
-		val collected = withFactoryFor(investing, "ada@example.com").collectOutput("ada@example.com", emptyList())
-
-		val game = collected.buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 2)
-
-		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 6))
-		assertThat(game.turn!!.collected).containsExactly("ada@example.com")
+		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 6, 0))
 		assertThat(playerOf(game, "ada@example.com").ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
-	}
-
-	@Test
-	fun shouldNotMakeAFirstFactoryBuiltThisTurnWaitToCollectFromItself() {
-		// R48: a player with no factory at the start has nothing to collect; building one mustn't make them collect from it
-		val game = investing.buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1)
-
-		assertThat(game.canInvest("ada@example.com")).isTrue()
 		assertThat(game.turn!!.isCollecting("ada@example.com")).isFalse()
 		assertThat(game.signalDoneInvesting("ada@example.com").turn!!.doneInvesting).containsExactly("ada@example.com")
-		assertThatThrownBy { game.collectOutput("ada@example.com", emptyList()) }
-			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("You have already collected your output.")
 	}
 
 	@Test
 	fun shouldLetThemBuyMoreAfterTheFirstFactory() {
 		val game = investing.buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1).buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1)
 
-		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2, 0))
 	}
 
 	@Test

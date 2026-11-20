@@ -16,7 +16,9 @@ class GameCreationServiceTest {
 
 		assertThat(
 			game
-		).isEqualTo(Game("game-1", 20, GameStatus.LOBBY, "creator@example.com", listOf(creator), null, MarketPrices.board(), emptyList()))
+		).isEqualTo(
+			Game("game-1", 20, GameStatus.LOBBY, "creator@example.com", listOf(creator), null, MarketPrices.board(), emptyList(), emptyList())
+		)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}
 

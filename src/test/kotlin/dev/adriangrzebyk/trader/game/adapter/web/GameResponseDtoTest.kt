@@ -99,7 +99,7 @@ class GameResponseDtoTest {
 				if (it.email == "guest@example.com") {
 					it.copy(
 						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2, emptyMap())),
-						factories = listOf(Factory(StarSystem.SIGMA_DRACONIS, Goods.FOOD, 3))
+						factories = listOf(Factory(StarSystem.SIGMA_DRACONIS, Goods.FOOD, 3, 0))
 					)
 				} else {
 					it
@@ -111,7 +111,7 @@ class GameResponseDtoTest {
 		val guest = response.players.single { it.id == "p2" }
 
 		assertThat(guest.warehouses).containsExactly(WarehouseResponseDto("TAU_CETI", 2, 20))
-		assertThat(guest.factories).containsExactly(FactoryResponseDto("SIGMA_DRACONIS", "FOOD", 3))
+		assertThat(guest.factories).containsExactly(FactoryResponseDto("SIGMA_DRACONIS", "FOOD", 3, 0))
 		assertThat(response.you?.money).isEqualTo(300)
 		assertThat(guest.toString()).doesNotContain("money")
 	}
@@ -122,7 +122,7 @@ class GameResponseDtoTest {
 			players = game.players.map {
 				if (it.email == "host@example.com") {
 					it.copy(
-						factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6)),
+						factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)),
 						warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 1, mapOf(Goods.ISO to 3)))
 					)
 				} else {
@@ -150,10 +150,10 @@ class GameResponseDtoTest {
 
 	@Test
 	fun shouldOfferWhatCanBeBoughtOnlyOnceTheViewerHasCollectedAndInEverySystem() {
-		// E06-S04-1, S04-2, S03-5, creator 2026-11-16: before collecting there is nothing to buy; then all six systems, ships or not
+		// E06-S04-1, S04-2, R102, creator 2026-11-16: nothing to buy in Opportunity; then all six systems, ships or not
 		assertThat(GameResponseDto(investing, "host@example.com").you!!.invest).isNull()
 
-		val collected = investing.collectOutput("host@example.com", emptyList())
+		val collected = investing.collectOutput("host@example.com", emptyList()).advancePhase(FakeDice())
 		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
 
 		assertThat(invest.blockCost).isEqualTo(20)
@@ -165,7 +165,7 @@ class GameResponseDtoTest {
 	@Test
 	fun shouldOfferEveryGoodAnySystemCanProduceWhateverTheViewerHasThere() {
 		// E06-S05-1, S05-5: Gamma POLY; Tau ISO; Mu CHIPS; Sigma FOOD and ISO (map order); nothing at Beta or Epsilon; no ship or factory needed
-		val collected = investing.collectOutput("host@example.com", emptyList())
+		val collected = investing.collectOutput("host@example.com", emptyList()).advancePhase(FakeDice())
 		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
 		val price = collected.prices.priceOf(MarketGood(StarSystem.TAU_CETI, Goods.ISO))
 
@@ -184,7 +184,7 @@ class GameResponseDtoTest {
 	fun shouldCostWhatTheTradingPriceNowIs() {
 		// S05-2: the price is the game's current one, which Trading moved
 		val moved = investing.copy(prices = investing.prices.withPrice(MarketGood(StarSystem.TAU_CETI, Goods.ISO), 20))
-		val collected = moved.collectOutput("host@example.com", emptyList())
+		val collected = moved.collectOutput("host@example.com", emptyList()).advancePhase(FakeDice())
 
 		val iso = GameResponseDto(collected, "host@example.com").you!!.invest!!.factories.single { it.system == "TAU_CETI" && it.goods == "ISO" }
 
@@ -193,8 +193,9 @@ class GameResponseDtoTest {
 	}
 
 	@Test
-	fun shouldOfferABuyToAPlayerWithNoFactoriesAtOnceAndNobodyOutsideInvestment() {
-		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNotNull()
+	fun shouldOfferABuyOnlyInInvestment() {
+		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNull()
+		assertThat(GameResponseDto(investing.advancePhase(FakeDice()), "guest@example.com").you!!.invest).isNotNull()
 		assertThat(GameResponseDto(started, "host@example.com").you!!.invest).isNull()
 	}
 
@@ -354,8 +355,8 @@ class GameResponseDtoTest {
 		val guestShips = GameResponseDto(started, "host@example.com").players.first { it.id == "p2" }.ships
 
 		assertThat(guestShips).containsExactly(
-			ShipResponseDto("Meridian", "GAMMA_LEPORIS", "Gamma Leporis", "PORT"),
-			ShipResponseDto("Halcyon", "TAU_CETI", "Tau Ceti", "PORT")
+			ShipResponseDto("Meridian", "GAMMA_LEPORIS", "Gamma Leporis", "PORT", 0),
+			ShipResponseDto("Halcyon", "TAU_CETI", "Tau Ceti", "PORT", 0)
 		)
 	}
 

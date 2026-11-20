@@ -63,9 +63,9 @@ export const COLLECT_BUTTON = 'Confirm output';
 export const COLLECT_FIRST_TEXT = 'Place your factories\' output first.';
 export const COLLECT_WHOLE_NUMBER = 'Enter a whole number of units, 0 or more.';
 
-/** Whether [game] is in Investment and the viewer still has to place their factories' output (S03-1). */
+/** Whether [game] is in Opportunity and the viewer still has to place their factories' output (S03-1, R102). */
 export function isCollecting(game) {
-	return isInvesting(game) && Boolean(game.you?.collect);
+	return game.status === 'RUNNING' && game.turn?.phase === 'OPPORTUNITY' && Boolean(game.you?.collect);
 }
 
 /** What the viewer's collect is keyed by: their typed amounts belong to one game and turn only (lesson 2026-11-04). */
@@ -157,18 +157,24 @@ export function validateCollect(factories, values) {
 
 // ── The Infrastructure screen (s10, E06-S08, D12) ──
 
-export const NOT_INVESTING_TEXT = 'Investment opens after Trading.';
+export const NOT_INVESTING_TEXT = 'Investment opens after Opportunity.';
 /** S08-4: on the Deck and System details, while the viewer still has to place their output. */
 export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
 export const INFRASTRUCTURE_LINK_TEXT = 'Go to Infrastructure';
 
-/** What the Infrastructure screen is for the viewer: 'closed' outside Investment, 'collect', 'invest', or 'done' (S08-3, S08-4, S08-6). */
+/**
+ * What the Infrastructure screen is for the viewer: 'collect' or 'opportunity' in Opportunity (R102), 'invest' or 'done'
+ * in Investment, and 'closed' otherwise (S08-3, S08-4, S08-6).
+ */
 export function infrastructureState(game, playerId) {
-	if (!isInvesting(game)) {
-		return 'closed';
-	}
 	if (isCollecting(game)) {
 		return 'collect';
+	}
+	if (game.status === 'RUNNING' && game.turn?.phase === 'OPPORTUNITY') {
+		return 'opportunity';
+	}
+	if (!isInvesting(game)) {
+		return 'closed';
 	}
 	return isDoneInvesting(game, playerId) ? 'done' : 'invest';
 }
@@ -222,6 +228,7 @@ export function ownFactoryRows(game, playerId) {
 		systemName: game.board.find(system => system.id === factory.system)?.name ?? factory.system,
 		goods: factory.goods,
 		size: factory.size,
+		disabledTurns: factory.disabledTurns ?? 0,
 		invest: buying ? 'add' : null,
 	}));
 	if (!buying) {

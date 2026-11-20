@@ -116,6 +116,7 @@ class GamePositionRollTest {
 			.passWholesale("ada@example.com")
 			.advancePhase(dice())
 			.advancePhase(dice())
+			.advancePhase(dice())
 
 		assertThat(next.turn!!.number).isEqualTo(2)
 		assertThat(playerIn(next, "kim@example.com").tierAt(gammaLeporisPoly)).isEqualTo(MarketTier.DICTATOR)

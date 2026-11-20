@@ -4,7 +4,12 @@ package dev.adriangrzebyk.trader.game
  * Hands out the given 2d6, d6 and d3 rolls in order, each from its own queue; running out fails the test, so every roll a
  * rule takes is spelled out.
  */
-class FakeDice(twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls: List<Int> = emptyList()) : Dice {
+class FakeDice(
+	twoD6Rolls: List<Int>,
+	d6Rolls: List<Int> = emptyList(),
+	d3Rolls: List<Int> = emptyList(),
+	oneOfRolls: List<Int> = emptyList()
+) : Dice {
 
 	/** Only 2d6 rolls: for closing Bidding, where each player rolls for initiative (R27), and Trading's counter (R34). */
 	constructor(vararg twoD6Rolls: Int) : this(twoD6Rolls.toList())
@@ -12,12 +17,15 @@ class FakeDice(twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls:
 	private val remainingTwoD6 = ArrayDeque(twoD6Rolls)
 	private val remainingD6 = ArrayDeque(d6Rolls)
 	private val remainingD3 = ArrayDeque(d3Rolls)
+	private val remainingOneOf = ArrayDeque(oneOfRolls)
 
 	override fun twoD6(): Int = remainingTwoD6.removeFirstOrNull() ?: error("FakeDice ran out of 2d6 rolls")
 
 	override fun d6(): Int = remainingD6.removeFirstOrNull() ?: error("FakeDice ran out of d6 rolls")
 
 	override fun d3(): Int = remainingD3.removeFirstOrNull() ?: error("FakeDice ran out of d3 rolls")
+
+	override fun oneOf(faces: Int): Int = remainingOneOf.removeFirstOrNull() ?: error("FakeDice ran out of oneOf rolls")
 
 	companion object {
 		/** Only 2d6 rolls: for Trading, where the counter rolls (R34). */
@@ -30,6 +38,8 @@ class FakeDice(twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls:
 			override fun d6(): Int = error("FakeDice.everyTwoD6 has no d6 rolls")
 
 			override fun d3(): Int = error("FakeDice.everyTwoD6 has no d3 rolls")
+
+			override fun oneOf(faces: Int): Int = error("FakeDice.everyTwoD6 has no oneOf rolls")
 		}
 
 		/** Every d3 is [roll], however many are taken: for starting a game (R82). */
@@ -39,6 +49,8 @@ class FakeDice(twoD6Rolls: List<Int>, d6Rolls: List<Int> = emptyList(), d3Rolls:
 			override fun d6(): Int = error("FakeDice.everyD3 has no d6 rolls")
 
 			override fun d3(): Int = roll
+
+			override fun oneOf(faces: Int): Int = error("FakeDice.everyD3 has no oneOf rolls")
 		}
 
 		/** Only d3 rolls: for the starting connection points (R82), one per player in join order. */

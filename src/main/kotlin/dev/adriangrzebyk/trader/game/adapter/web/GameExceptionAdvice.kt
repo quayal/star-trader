@@ -17,7 +17,9 @@ import dev.adriangrzebyk.trader.game.NotAGameMemberException
 import dev.adriangrzebyk.trader.game.NotTheCreatorException
 import dev.adriangrzebyk.trader.game.NotYourTurnException
 import dev.adriangrzebyk.trader.game.PhaseClosedException
+import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
+import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -43,6 +45,8 @@ class GameExceptionAdvice {
 	fun forbidden(ex: RuntimeException): ResponseEntity<String> = answer(HttpStatus.FORBIDDEN, ex)
 
 	@ExceptionHandler(
+		InvalidAgentException::class,
+		InvalidSabotageException::class,
 		InvalidBattleException::class,
 		InvalidBidException::class,
 		InvalidCargoMoveException::class,

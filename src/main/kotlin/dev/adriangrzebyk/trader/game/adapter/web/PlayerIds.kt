@@ -19,6 +19,9 @@ class PlayerIds(private val emails: List<String>) {
 		return "p${place + 1}"
 	}
 
+	/** The email of the player [id] names, or null when it names nobody in the game. */
+	fun emailOf(id: String?): String? = id?.removePrefix("p")?.toIntOrNull()?.let { emails.getOrNull(it - 1) }?.takeIf { id.startsWith("p") }
+
 	/** The ids of the players with [emails], in the same order. */
 	fun ofAll(emails: List<String>): List<String> = emails.map { of(it) }
 }

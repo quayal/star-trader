@@ -14,4 +14,7 @@ interface Dice {
 
 	/** A d3: 1 to 3. Each player starts with 3 + d3 connection points to place (R82). */
 	fun d3(): Int
+
+	/** A die with [faces] faces: 1 to [faces]. A recruited agent is drawn at random from those left in the pool (R103). */
+	fun oneOf(faces: Int): Int
 }
