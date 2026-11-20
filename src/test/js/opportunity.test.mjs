@@ -111,14 +111,12 @@ describe('agents (R103–R106)', () => {
 	});
 
 	it('starts aboard a ship out of the yard or where the player has one', () => {
-		const you = {
-			ships: [
-				{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' },
-				{ name: 'Spiral', system: 'MU_HERCULIS', systemName: 'Mu Herculis', location: 'SHIPYARD' },
-			],
-			warehouses: [],
-		};
-		assert.deepEqual(agentStarts(game({ you })).map(s => s.label), [
+		const mine = game({ you: { id: ME, warehouses: [] } });
+		mine.players[0].ships = [
+			{ name: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', location: 'PORT' },
+			{ name: 'Spiral', system: 'MU_HERCULIS', systemName: 'Mu Herculis', location: 'SHIPYARD' },
+		];
+		assert.deepEqual(agentStarts(mine).map(s => s.label), [
 			'Aboard Wayfarer (Tau Ceti)',
 			'On its own: Port at Tau Ceti',
 			'On its own: Planet at Tau Ceti',
@@ -126,14 +124,13 @@ describe('agents (R103–R106)', () => {
 	});
 
 	it('moves only at the same place', () => {
-		const you = {
-			ships: [
-				{ name: 'Wayfarer', system: 'TAU_CETI', location: 'PORT' },
-				{ name: 'Lantern', system: 'TAU_CETI', location: 'PORT' },
-				{ name: 'Corvid', system: 'TAU_CETI', location: 'SPACE' },
-			],
-		};
-		const moves = agentMoves(game({ you }), { agent: 'NOVAK', ship: 'Wayfarer' });
+		const mine = game({ you: { id: ME } });
+		mine.players[0].ships = [
+			{ name: 'Wayfarer', system: 'TAU_CETI', location: 'PORT' },
+			{ name: 'Lantern', system: 'TAU_CETI', location: 'PORT' },
+			{ name: 'Corvid', system: 'TAU_CETI', location: 'SPACE' },
+		];
+		const moves = agentMoves(mine, { agent: 'NOVAK', ship: 'Wayfarer' });
 		assert.deepEqual(moves.map(m => m.label), ['Board Lantern', 'Step off (Port)']);
 	});
 

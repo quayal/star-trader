@@ -170,9 +170,14 @@ export function validateRecruit(text) {
 	return { amount: Number(value) };
 }
 
+/** The viewer's ships with where they are: the public list (`you.ships` holds the private side, without positions). */
+function ownShips(game) {
+	return game.players.find(p => p.id === game.you?.id)?.ships ?? [];
+}
+
 /** Where the viewer may start a new agent (R103): aboard a ship out of the yard, or on its own where they have a ship or warehouse. */
 export function agentStarts(game) {
-	const ships = (game.you?.ships ?? []).filter(s => s.location !== 'SHIPYARD');
+	const ships = ownShips(game).filter(s => s.location !== 'SHIPYARD');
 	const systems = [...new Set([...ships.map(s => s.system), ...(game.you?.warehouses ?? []).map(w => w.system)])];
 	return [
 		...ships.map(s => ({ value: `ship|${s.name}`, label: `Aboard ${s.name} (${s.systemName})`, body: { ship: s.name } })),
@@ -187,7 +192,7 @@ export function agentStarts(game) {
 /** Where [agent], one of the viewer's (`you.agents`), stands: its ship's place when aboard one. */
 export function agentPlace(game, agent) {
 	if (agent.ship) {
-		const ship = (game.you?.ships ?? []).find(s => s.name === agent.ship);
+		const ship = ownShips(game).find(s => s.name === agent.ship);
 		return ship ? { system: ship.system, location: ship.location } : null;
 	}
 	return { system: agent.system, location: agent.location };
@@ -199,7 +204,7 @@ export function agentMoves(game, agent) {
 	if (!place) {
 		return [];
 	}
-	const boards = (game.you?.ships ?? [])
+	const boards = ownShips(game)
 		.filter(s => s.name !== agent.ship && s.system === place.system && s.location === place.location && s.location !== 'SHIPYARD')
 		.map(s => ({ value: `ship|${s.name}`, label: `Board ${s.name}`, body: { ship: s.name } }));
 	const off = agent.ship && (place.location === 'PORT' || place.location === 'PLANET')

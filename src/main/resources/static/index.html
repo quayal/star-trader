@@ -952,7 +952,7 @@
 		<!-- s10 Infrastructure (E06-S08, D12): the whole Investment phase. -->
 		<div class="infrastructure" id="infrastructure-panel" hidden>
 			<h2 class="system__title" id="infrastructure-title" tabindex="-1">Infrastructure</h2>
-			<section class="panel" aria-label="Investment">
+			<section class="panel" id="investment-status-panel" aria-label="Investment">
 				<p id="infrastructure-status" role="status" tabindex="-1"></p>
 				<!-- Static markup, shown when the player can signal done; the top bar keeps Bidding's button only. -->
 				<div id="infra-done-row" hidden>
@@ -4585,6 +4585,8 @@
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
 		$('infra-done-row').hidden = state !== 'invest';
+		// R102: in Opportunity the Opportunity panel says what's going on; this one is Investment's.
+		$('investment-status-panel').hidden = state === 'opportunity' || state === 'collect';
 		const note = isInvesting(game) ? INVEST_NOTE : '';
 		if ($('invest-note').textContent !== note) {
 			$('invest-note').textContent = note;
@@ -4779,10 +4781,7 @@
 			ship: target.ship,
 			goods: target.goods,
 			blamedId: $('sabotage-blamed-row').hidden ? null : $('sabotage-blamed').value,
-		}, 'sabotage-message', game => {
-			const mine = game.you?.sabotagesOrdered ?? [];
-			return mine.length ? sabotageResultText(game, mine[mine.length - 1]) : '';
-		});
+		}, 'sabotage-message'); // the result is the list's newest line
 	});
 	$('losses-form').addEventListener('submit', (event) => {
 		event.preventDefault();
@@ -4796,7 +4795,7 @@
 	function renderAgents(game, opportunity) {
 		const you = game.you ?? {};
 		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
-		drawOnce('agents-own', JSON.stringify([you.agents, you.ships?.map(ship => [ship.name, ship.system, ship.location]), myTurn]), () => {
+		drawOnce('agents-own', JSON.stringify([you.agents, game.players.find(player => player.id === viewerId)?.ships, myTurn]), () => {
 			if ((you.agents ?? []).length === 0) {
 				return [element('li', { class: 'muted' }, 'You have no agents.')];
 			}
