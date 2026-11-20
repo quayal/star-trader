@@ -41,6 +41,14 @@ up announced to all.
    - **Ship-jumps** is renamed **Jumps** everywhere (top bar, phase list, Game log). Only the name changes.
    - D15 routing: Initiative → the Deck (where picking happens today), News → the **News** screen (criterion 22).
 
+### Wording (creator, 2026-11-20)
+1a. A **tip-off** is only **information** about an opportunity or an event that's coming. It is never what a player takes.
+    Players **learn** tip-offs, and they **take opportunities**. Events **take place**, and opportunities **expire**. Every
+    screen and log line keeps to this. For example:
+    - `Vega Lines took the opportunity to transport an envoy from Epsilon Eridani to Mu Herculis.`
+    - `News: the opportunity to buy drugs at Beta Hydri (15 HT) has expired.`
+    - never `took a tip-off`.
+
 ### Tip-offs and the pool
 2. **The pool** is the creator's 40 tip-offs: opportunities O1–O26 and events E1–E14 (catalogue below). Each tip-off is in
    exactly one place: the **pool**, **in play** (drawn, not yet effective), or **retired** (a one-time event that has taken place).
@@ -51,7 +59,7 @@ up announced to all.
 4. **Effective:** a tip-off drawn in turn D with lead n becomes effective at the **start of turn D+n's News**. An event then
    **takes place**, and an opportunity **expires**. An opportunity can be taken in the Opportunity phases of turns D to
    D+n−1.
-5. **Back to the pool:** a tip-off returns to the pool the moment it becomes effective, whether it was taken or not. The
+5. **Back to the pool:** a tip-off returns to the pool the moment it becomes effective, whether its opportunity was taken or not. The
    exception is an event marked **one time only** (E2, E4, E7, E8, E9, E10, E14), which is retired for the rest of the game.
    A tip-off that just returned can be drawn again in the same News (creator, 2026-11-20). Taking an opportunity doesn't
    return it early.
@@ -61,7 +69,8 @@ up announced to all.
    1. **Effective tip-offs** in the order they were drawn. For each one, its details are announced to every player and
       the effect applies, as listed in the catalogue:
       - an **event** takes place: `News: Epidemics. Prices up by 4 everywhere; Ports are closed this turn.`
-      - an **opportunity** expires: `News: missed opportunity: drugs at Beta Hydri (15 HT), for sale at Gamma Leporis.`
+      - an **opportunity** expires: `News: the opportunity to buy drugs at Beta Hydri (15 HT) for sale at Gamma Leporis has
+        expired.`
         A taken **illegal** opportunity reads `… was taken`, without naming the taker. A taken legal one was already
         announced when it was taken (criterion 11).
    2. The **d3 roll** (public), then that many tip-offs are drawn from the pool at random. If the pool holds fewer, all of it
@@ -88,13 +97,13 @@ up announced to all.
     or not learned: `Vega Lines already took this opportunity.`
     - **Legal opportunities** (Furs O5, deliveries O8, O9 and O22, the expedition O15) are **announced to everyone when
       taken**, with the taker and the details (creator, 2026-11-20):
-      `Vega Lines took a tip-off: transporting an envoy from Epsilon Eridani to Mu Herculis.` The tip-off shows as taken to
-      every player.
-    - **Illegal opportunities** (illegal goods, military hulls and modules) stay **secret**. The tip-off shows as taken only
+      `Vega Lines took the opportunity to transport an envoy from Epsilon Eridani to Mu Herculis.` The opportunity shows as
+      taken to every player.
+    - **Illegal opportunities** (illegal goods, military hulls and modules) stay **secret**. The opportunity shows as taken only
       to those who learned it, and the taker is never named. A military ship appearing on a Planet is still public, as any
       ship is (R57).
 12. **Taking means at least buying or accepting it** before it expires (creator, 2026-11-20). What follows (selling the
-    goods, delivering, the expedition's return) can happen in later turns, after the tip-off has expired.
+    goods, delivering, the expedition's return) can happen in later turns, after the opportunity has expired.
 13. **The kinds of opportunity:**
     - **Illegal goods** (weapons, slaves, drugs: O1–O3, O6, O7, O10–O12, O17–O19, O23, O25). The buyer needs a ship **on the
       Planet** of the buy system. Getting there is the smuggling and security spec's job. They buy **1 to 10 units** at the
@@ -131,7 +140,7 @@ up announced to all.
     planet**, the player sells: one **d6** roll per sale, +2 if Frank is on that planet (R108), capped at 6. The price per unit
     comes from the creator's table. **Every** unit of that good aboard the player's ships on that planet, from lots with that
     target, is sold at that price, however bad the roll (creator, 2026-11-20). Allowed in any later Opportunity, even after
-    the tip-off has expired. Logged publicly without units or price: `Vega Lines sold on the black market at Gamma Leporis`.
+    the opportunity has expired. Logged publicly without units or price: `Vega Lines sold on the black market at Gamma Leporis`.
     The roll and the takings are private (R29).
 
     | d6 | Slaves | Weapons | Drugs |
@@ -235,7 +244,7 @@ means on X's Planet, and goods are sold on the target system's Planet.
     - **this turn's announcements**.
 
     In News the top bar shows who is still reading and the viewer's "Done with the news" button.
-23. **Opportunity phase, on Infrastructure** (R102), gets a **Tip-offs** card. It lists the viewer's learned, untaken
+23. **Opportunity phase, on Infrastructure** (R102), gets an **Opportunities** card. It lists the viewer's learned, untaken
     opportunities with a form for each: units and ship, hull configuration, target ship for modules, delivery ship, or
     expedition ship. It also lists **black-market sales** and **Furs sales** the viewer can make there now. As with the
     other forms, it can be filled in out of turn, and only the submit waits for the player's turn.
@@ -275,7 +284,7 @@ The Initiative split moves R26's picking out of `ShipJumpsService` into an Initi
 - `Game.news` (the pool, active, retired); `Ship.illegalLots`, `Ship.deliveryJob`; `Player.expeditions`; system modifiers
   with expiry turns; `Turn` event flags.
 - `NewsService` (learn, done); `OpportunityService` gains take, sell on the black market, sell furs, and expedition return.
-- Web: `POST /api/games/{id}/news/{slot}/learn`, `…/news/done`, `…/opportunity/tip-offs/{slot}/take` (a body per offer kind),
+- Web: `POST /api/games/{id}/news/{slot}/learn`, `…/news/done`, `…/opportunity/opportunities/{slot}/take` (a body per offer kind),
   `…/opportunity/black-market/sell`, `…/opportunity/furs/sell`, `…/opportunity/expeditions/{ship}/return`. The public view
   carries the tip-offs in play without details. The viewer's view adds the details they've learned.
 - DynamoDB: new attributes, no migration beyond reading `SHIP_JUMPS` as `JUMPS`. A game started before this ships gets a
