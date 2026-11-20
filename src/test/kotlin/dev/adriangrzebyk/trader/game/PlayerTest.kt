@@ -82,7 +82,7 @@ class PlayerTest {
 
 		assertThat(player.tradeMax(buy, 16)).isEqualTo(15)
 		assertThat(player.tradeMax(buy, 4)).isEqualTo(4)
-		assertThat(player.pay(290).tradeMax(buy, 4)).isZero()
+		assertThat(player.pay(290, "Test").tradeMax(buy, 4)).isZero()
 	}
 
 	@Test
@@ -174,7 +174,7 @@ class PlayerTest {
 		val buy = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.BUY, 20)
 		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
 
-		assertThatThrownBy { player.pay(290).trade(buy, 5, 1, listOf(ShipLoad("Wayfarer", 1))) }
+		assertThatThrownBy { player.pay(290, "Test").trade(buy, 5, 1, listOf(ShipLoad("Wayfarer", 1))) }
 			.isInstanceOf(InvalidTradeException::class.java)
 			.hasMessage("You can't afford any units at 20 HT.")
 		assertThatThrownBy { player.trade(sell, 5, 1, listOf(ShipLoad("Wayfarer", 1))) }

@@ -106,8 +106,8 @@ class GameOverTest {
 		val moneyed = rich.copy(
 			players = rich.players.map {
 				when (it.email) {
-					"ada@example.com" -> it.pay(100)
-					else -> it.receive(2010)
+					"ada@example.com" -> it.pay(100, "Test")
+					else -> it.receive(2010, "Test")
 				}
 			}
 		)

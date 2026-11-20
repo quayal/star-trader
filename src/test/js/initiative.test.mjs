@@ -95,6 +95,7 @@ describe('initiativeRolls (creator, 2026-11-18)', () => {
 		{ playerId: 'p2', bid: 40, roll: 11, total: 51, tieRolls: [] },
 		{ playerId: 'p1', bid: 0, roll: 7, total: 7, tieRolls: [9, 4] },
 	];
+	const withWolf = [{ playerId: 'p2', bid: 5, roll: 3, bonus: 4, bonusFrom: 'Wolf', total: 12, tieRolls: [] }];
 
 	it('shows what each player bid and rolled, in initiative order, with any tie rolls', () => {
 		const game = { status: 'RUNNING', players, turn: { phase: 'SHIP_JUMPS', initiative: ['p2', 'p1'], initiativeRolls: rolls } };
@@ -103,6 +104,12 @@ describe('initiativeRolls (creator, 2026-11-18)', () => {
 			{ corporation: 'Vega Lines', sum: '40 + 11 = 51', tie: '' },
 			{ corporation: 'Orion Freight', sum: '0 + 7 = 7', tie: 'tie rolled again: 9, 4' },
 		]);
+	});
+
+	it("names Wolf's bonus in the sum, which reveals him (R105, playtest 2026-11-20)", () => {
+		const game = { status: 'RUNNING', players, turn: { phase: 'SHIP_JUMPS', initiative: ['p2'], initiativeRolls: withWolf } };
+
+		assert.deepEqual(initiativeRolls(game), [{ corporation: 'Vega Lines', sum: '5 + 3 + Wolf 4 = 12', tie: '' }]);
 	});
 
 	it('shows nothing while Bidding is open, or for a turn saved before rolls were kept', () => {

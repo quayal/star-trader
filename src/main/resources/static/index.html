@@ -174,7 +174,10 @@
 			border: var(--border-width) solid var(--accent-selected);
 			border-radius: var(--radius-panel);
 			box-shadow: var(--glow-selected);
+			max-height: calc(100vh - 2 * var(--space-panel));
+			overflow-y: auto;
 		}
+		.notice ul.notice__section { padding-left: var(--space-group); margin-top: var(--space-hairline); }
 		.notice[data-tone=alert] { border-color: var(--status-danger); box-shadow: var(--glow-danger); }
 		.notice[data-tone=rise] { border-color: var(--status-live); box-shadow: var(--glow-live); }
 		.notice form { display: grid; gap: var(--space-related); max-width: none; }
@@ -251,6 +254,11 @@
 		}
 		.map svg { display: block; width: 100%; height: auto; }
 		.map-edge { stroke: var(--border-subtle); stroke-width: 1; }
+		.map-modifiers rect { fill: var(--surface-panel); stroke: var(--border-subtle); }
+		.map-modifiers text { fill: var(--text-muted); font-family: var(--font-body); font-size: 13px; }
+		.map-modifiers .map-modifiers__title { fill: var(--text-primary); font-weight: 700; }
+		.agent-move { display: flex; gap: var(--space-hairline); align-items: center; margin-top: var(--space-hairline); }
+		.account-list li { display: flex; justify-content: space-between; gap: var(--space-group); }
 		.map-jumps polygon { fill: var(--surface-raised); stroke: var(--border-control); stroke-width: 1; stroke-linejoin: round; }
 		.map-jumps text { fill: var(--text-primary); font-family: var(--font-body); font-size: 13px; font-weight: 700; }
 		.map-jumps text[data-level="high"] { fill: var(--jump-high); }
@@ -516,6 +524,8 @@
 	<a class="nav-item" id="nav-assets" href="/" hidden>Assets</a>
 	<!-- E11-S01 (D20): only while a started game is open; its href is that game's Corporations tab. -->
 	<a class="nav-item" id="nav-corporations" href="/" hidden>Corporations</a>
+	<!-- Playtest 2026-11-20: each phase, every agent and the key modifiers, from /api/rules. -->
+	<a class="nav-item" id="nav-guide" href="/" hidden>Guide</a>
 	<!-- s04 (E03-S06): only while a started game is open; its href is that game's log. -->
 	<a class="nav-item" id="nav-log" href="/" hidden>Game log</a>
 	<!-- s09 (E05-S08): only once the open game is over; its href is that game's Game over screen. -->
@@ -639,6 +649,23 @@
 				<section class="panel" aria-labelledby="fleet-title">
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
+				</section>
+				<!-- Playtest 2026-11-20: where the viewer's agents are, and moving them at any time (R104). -->
+				<section class="panel" id="deck-agents-panel" aria-labelledby="deck-agents-title" hidden>
+					<h2 id="deck-agents-title">Your agents</h2>
+					<ul class="corporation__list" id="deck-agents"></ul>
+					<p class="message" id="deck-agents-message" role="status" tabindex="-1"></p>
+				</section>
+				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
+				<section class="panel" aria-labelledby="deck-positions-title">
+					<h2 id="deck-positions-title">Your market positions</h2>
+					<ul class="corporation__list" id="deck-positions"></ul>
+				</section>
+				<!-- Playtest 2026-11-20: the viewer's own money movements, newest first (R29: theirs alone). -->
+				<section class="panel" aria-labelledby="deck-account-title">
+					<h2 id="deck-account-title">Your account</h2>
+					<ul class="corporation__list account-list" id="deck-account"></ul>
+					<div><button class="quiet-button" id="deck-account-more" type="button" hidden></button></div>
 				</section>
 				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
 				<section class="panel" aria-labelledby="your-trades-title">
@@ -861,6 +888,13 @@
 			<div class="corporations__cards" id="corporations-cards"></div>
 		</div>
 
+		<!-- The Guide (playtest, 2026-11-20): reference only, the same for everyone, read from the server's own rules. -->
+		<div class="corporations" id="guide-panel" hidden>
+			<h2 class="system__title" id="guide-title" tabindex="-1">Guide</h2>
+			<p class="muted" id="guide-loading">Loading the rules…</p>
+			<div class="corporations__cards" id="guide-cards"></div>
+		</div>
+
 		<!-- s04: Game log, public events by turn (E03-S06) -->
 		<div class="game-log" id="log-panel" hidden>
 			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
@@ -1057,18 +1091,6 @@
 					<p class="muted" id="loan-preview"></p>
 					<div><button class="btn" id="loan-button" type="submit">Borrow</button></div>
 				</form>
-				<form class="offer-form" id="factory-sale-form" novalidate hidden>
-					<div>
-						<label class="field-label" for="factory-sale-factory">Sell factory units (5 × the local price each)</label>
-						<select class="control" id="factory-sale-factory"></select>
-					</div>
-					<div>
-						<label class="field-label" for="factory-sale-units">Units</label>
-						<input class="control price-input" id="factory-sale-units" inputmode="numeric" value="1">
-						<span class="muted" id="factory-sale-price"></span>
-					</div>
-					<div><button class="quiet-button" type="submit">Sell</button></div>
-				</form>
 				<p class="message" id="loan-message" role="status" tabindex="-1"></p>
 			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
@@ -1104,6 +1126,20 @@
 						<tbody id="own-factories"></tbody>
 					</table>
 				</div>
+				<!-- Playtest 2026-11-20: selling sits with buying; a row's Sell button picks its factory here (R96, Investment only). -->
+				<form class="offer-form" id="factory-sale-form" novalidate hidden>
+					<div>
+						<label class="field-label" for="factory-sale-factory">Sell factory units (5 × the local price each)</label>
+						<select class="control" id="factory-sale-factory"></select>
+					</div>
+					<div>
+						<label class="field-label" for="factory-sale-units">Units</label>
+						<input class="control price-input" id="factory-sale-units" inputmode="numeric" value="1">
+						<span class="muted" id="factory-sale-price"></span>
+					</div>
+					<div><button class="btn" type="submit">Sell</button></div>
+				</form>
+				<p class="message" id="factory-sale-message" role="status" tabindex="-1"></p>
 			</section>
 			<p class="muted" id="own-assets-none" hidden>You own no warehouses or factories yet.</p>
 		</div>
@@ -1158,7 +1194,7 @@
 						</div>
 						<div class="dictator-actions">
 							<button class="btn" id="dictator-offer-button" type="submit">Place offer</button>
-							<button class="text-action" id="dictator-pass-button" type="button">Pass</button>
+							<button class="btn btn--danger" id="dictator-pass-button" type="button">Pass</button>
 						</div>
 					</form>
 					<!-- E05-S04: for the trader the counter reached; E05-S05: also for the wholesale step, with Buy or Sell and
@@ -1323,6 +1359,7 @@
 		fleetShipLink,
 		assetsLink,
 		corporationsLink,
+		guideLink,
 		infrastructureLink,
 		validateTurns,
 		screenForPhaseChange,
@@ -1380,7 +1417,7 @@
 	import { EMPTY_LOG_TEXT, foldKey, logAfterQuery, logTurns, mergeLog } from './js/log.js';
 	import { MODULE_COLUMNS, NO_SHIPS_TEXT, fleetShips } from './js/fleet.js';
 	import { NO_TEXT as NO_CORPORATION_TEXT, corporationCards } from './js/corporations.js';
-	import { buyLabel as buyReputationLabel, reputationPurchase } from './js/reputation.js';
+	import { buyLabel as buyReputationLabel, reputationNote, reputationPurchase } from './js/reputation.js';
 	import {
 		CAP_NOTE,
 		KINDS as CONNECTION_KINDS,
@@ -1572,7 +1609,9 @@
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
-	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts } from './js/notices.js';
+	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
+	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
+	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
@@ -1580,7 +1619,7 @@
 	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1613,6 +1652,9 @@
 	let focusFleetShip = null; // the ship whose card a `#game/{id}/fleet/{ship}` link brings into view (creator, 2026-11-18)
 	// Set when the player opens Corporations (E11-S01), so its heading takes focus once.
 	let focusCorporationsTitle = false;
+	let focusGuideTitle = false;
+	/** The game's fixed rules from /api/rules (playtest, 2026-11-20), for the Guide, the map's jump modifiers and reputation notes. */
+	let rules = null;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
 	let shownCorporationsKey = null;
 	let focusAssetsTitle = false;
@@ -1675,7 +1717,7 @@
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
 		}
 		const { view, id, ship } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
@@ -1684,6 +1726,7 @@
 		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
 		$('nav-assets').toggleAttribute('aria-current', view === 'assets');
 		$('nav-corporations').toggleAttribute('aria-current', view === 'corporations');
+		$('nav-guide').toggleAttribute('aria-current', view === 'guide');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
@@ -1691,6 +1734,7 @@
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
+		$('nav-guide').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
@@ -1707,7 +1751,7 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
@@ -1716,6 +1760,7 @@
 			focusFleetShip = view === 'fleet' ? ship ?? null : null;
 			focusAssetsTitle = view === 'assets';
 			focusCorporationsTitle = view === 'corporations';
+			focusGuideTitle = view === 'guide';
 			focusOverTitle = view === 'over';
 			openGame(id);
 		}
@@ -1732,6 +1777,7 @@
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
+		$('nav-guide').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -2036,6 +2082,7 @@
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
+		$('nav-guide').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, viewerId);
@@ -2071,9 +2118,11 @@
 		$('nav-assets').hidden = false;
 		$('nav-corporations').href = corporationsLink(game.id);
 		$('nav-corporations').hidden = false;
+		$('nav-guide').href = guideLink(game.id);
+		$('nav-guide').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations') {
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide') {
 			updateDoneBar(game); // "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02; s10 has its own
 		}
 		updateDecisionAlert(game, view);
@@ -2168,6 +2217,16 @@
 			return;
 		}
 		focusCorporationsTitle = false;
+		if (view === 'guide') {
+			renderGuide();
+			showPanels('guide-panel');
+			if (focusGuideTitle) {
+				focusGuideTitle = false;
+				$('guide-title').focus();
+			}
+			return;
+		}
+		focusGuideTitle = false;
 		if (view === 'over') {
 			renderGameOver(game);
 			showPanels('game-over-panel');
@@ -2249,6 +2308,40 @@
 			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
 		renderYourOffers(game);
 		renderYourTrades(game);
+		renderDeckAgents(game);
+		renderDeckPositions(game);
+		renderAccount(game);
+	}
+
+	// R104 (playtest, 2026-11-20): the viewer's agents and where they are, movable from the Deck at any time.
+	function renderDeckAgents(game) {
+		$('deck-agents-panel').hidden = (game.you?.agents ?? []).length === 0;
+		drawOwnAgents(game, 'deck-agents', 'deck-agents-message');
+	}
+
+	// Playtest 2026-11-20: every market position the viewer holds, Dictator first, as on their Corporations card.
+	function renderDeckPositions(game) {
+		const positions = corporationCards(game, viewerId).find(card => card.you)?.marketPositions ?? [];
+		drawOnce('deck-positions', JSON.stringify(positions), () => positions.length === 0
+			? [element('li', { class: 'muted' }, 'No market positions yet.')]
+			: positions.map(position => element('li', {}, `${position.tier} \u2014 `,
+				element('span', { class: `good good--${position.goods.toLowerCase()}` }, position.goods), ` at ${position.systemName}`)));
+	}
+
+	let accountExpandedFor = null;
+
+	// Playtest 2026-11-20: the viewer's money movements, credits green and debits red with their sign (R29: theirs alone).
+	function renderAccount(game) {
+		const expanded = accountExpandedFor === game.id;
+		const { shown, more } = accountLines(game, expanded);
+		drawOnce('deck-account', JSON.stringify([shown, expanded]), () => shown.length === 0
+			? [element('li', { class: 'muted' }, NO_MOVEMENTS_TEXT)]
+			: shown.map(line => element('li', {},
+				element('span', {}, element('span', { class: 'muted' }, line.turn), ` ${line.reason}`),
+				element('span', { class: `tone tone--${line.tone}` }, line.amount))));
+		const button = $('deck-account-more');
+		button.hidden = more === 0 && !expanded;
+		button.textContent = expanded ? 'Show fewer' : `Show all (${more} more)`;
 	}
 
 	/** Your trades (creator, 2026-11-18): newest first, the last few unless expanded; each links to its system. */
@@ -2376,7 +2469,7 @@
 				// R89: the whole crew replaced by one of another class; the current class is in the ship's stats above.
 				const id = `fleet-crew-${index}`;
 				const select = element('select', { class: 'control', id },
-					...crew.map(option => element('option', { value: option.id }, `Class ${option.id} \u2014 ${option.cost} HT`)));
+					...crew.map(option => element('option', { value: option.id }, `Class ${option.id} (${crewBonusText(option)}) \u2014 ${option.cost} HT`)));
 				refit.push(element('div', { class: 'fleet-ship__row' },
 					element('label', { class: 'field-label', for: id }, 'Replace the crew'), select,
 					shipButton('quiet-button', 'Replace', () => replaceCrew(game, own, crew.find(option => option.id === select.value)))));
@@ -2460,6 +2553,28 @@
 	}
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
+	/** The Guide (playtest, 2026-11-20): drawn once the rules have loaded; they never change, so once is enough. */
+	function renderGuide() {
+		const guide = guideSections(rules);
+		$('guide-loading').hidden = guide !== null;
+		if (guide === null || $('guide-cards').childElementCount > 0) {
+			return;
+		}
+		const card = (title, ...children) => element('section', { class: 'panel corporation' }, element('h3', {}, title), ...children);
+		const list = items => element('ul', { class: 'corporation__list' }, ...items.map(item => element('li', {}, ...[item].flat())));
+		$('guide-cards').replaceChildren(
+			card('Each turn', list(guide.phases.map(phase => [element('strong', {}, phase.name), ` \u2014 ${phase.text}`]))),
+			card('Agents', list(guide.agents.map(agent => [element('strong', {}, agent.name), ` \u2014 ${agent.effect}`,
+				...(agent.note ? [element('span', { class: 'muted' }, ` (${agent.note})`)] : [])]))),
+			...guide.modifiers.map(section => card(section.title, list(section.lines))));
+	}
+
+	/** The Fleet card's crew class with what it adds (playtest, 2026-11-20): "B · jump +3", once the rules have loaded. */
+	function crewStatValue(stat) {
+		const crewClass = stat.label === 'Crew class' ? rules?.crewClasses.find(entry => entry.id === stat.value) : null;
+		return crewClass ? `${stat.value} \u00b7 ${crewBonusText(crewClass)}` : stat.value;
+	}
+
 	/** E11-S01: one panel per corporation, the viewer's first; redrawn only when something on a card changed. */
 	function renderCorporations(game) {
 		const cards = corporationCards(game, viewerId);
@@ -2491,7 +2606,8 @@
 		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
 			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
 			element('p', { class: 'muted' }, card.playerName),
-			section(card, 'reputation', 'Reputation', [card.reputation], card.you ? reputationActions : []),
+			section(card, 'reputation', 'Reputation', [card.reputation, element('span', { class: 'muted' },
+				reputationNote(game.players.find(player => player.id === card.id) ?? {}, bonusFrom(rules)))], card.you ? reputationActions : []),
 			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean), card.you ? raiseActions : []),
 			section(card, 'ships', 'Ships', card.ships),
 			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
@@ -2533,7 +2649,7 @@
 				element('h3', { id: titleId, tabindex: '-1' }, ship.name),
 				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
 				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
-				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, stat.value)))),
+				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, crewStatValue(stat))))),
 				element('div', { class: 'cargo-meter' },
 					element('div', { class: 'cargo-meter__head' },
 						element('span', { class: 'cargo-meter__label' }, 'Cargo'),
@@ -3096,11 +3212,20 @@
 			$('log-turns').replaceChildren(element('p', { class: 'empty' }, EMPTY_LOG_TEXT)); // S06-4
 			return;
 		}
-		$('log-turns').replaceChildren(...turns.map(({ turn, title, events }) => {
+		$('log-turns').replaceChildren(...turns.map(({ turn, title, events, summaries }) => {
 			const key = foldKey(game.id, turn);
+			const line = (text, index) => {
+				if (!summaries[index]) {
+					return element('li', {}, text);
+				}
+				// Playtest 2026-11-20: a finished battle's summary opens again from its line.
+				const open = element('button', { class: 'quiet-button', type: 'button' }, 'Show summary');
+				open.addEventListener('click', () => showSummary(text, summaries[index]));
+				return element('li', {}, text, ' ', open);
+			};
 			const details = element('details', { class: 'panel section' },
 				element('summary', {}, title),
-				element('ul', { class: 'log-list' }, ...events.map(text => element('li', {}, text))));
+				element('ul', { class: 'log-list' }, ...events.map(line)));
 			details.open = !foldedTurns.has(key);
 			details.addEventListener('toggle', () => {
 				if (details.open) {
@@ -4164,6 +4289,7 @@
 
 	const NOTICES_SEEN = 'trader.noticesSeen';
 	const MOVES_SEEN = 'trader.movesSeen';
+	const ACKS_SEEN = 'trader.acksSeen';
 	// The cards the open dialog was drawn from, and the one it shows.
 	let noticeQueue = [];
 	// Per game, how far into the log toasts have been shown on this page: only lines that arrive while it's open toast.
@@ -4200,6 +4326,10 @@
 		writeStore('localStorage', NOTICES_SEEN, { ...seen, [gameId]: Math.max(seen[gameId] ?? 0, upTo) });
 	}
 
+	function markAckSeen(key) {
+		writeStore('localStorage', ACKS_SEEN, [...readStore('localStorage', ACKS_SEEN, []), key].slice(-200));
+	}
+
 	function markMoveSeen(key) {
 		writeStore('sessionStorage', MOVES_SEEN, [...readStore('sessionStorage', MOVES_SEEN, []), key].slice(-100));
 	}
@@ -4213,12 +4343,18 @@
 		const found = moveCard(game, viewerId);
 		const move = found?.focus === 'fight-title' ? null : found; // the battle dialog opens itself for these (creator, 2026-11-19)
 		const moves = readStore('sessionStorage', MOVES_SEEN, []);
-		return move && !moves.includes(move.key) ? [...cards, { ...move, move: true }] : cards;
+		// Playtest 2026-11-20: an offer that didn't trade is a card to acknowledge, remembered like a your-move card.
+		const untraded = untradedCards(game).filter(card => !readStore('localStorage', ACKS_SEEN, []).includes(card.key)).map(card => ({ ...card, ack: true }));
+		const withAcks = [...cards, ...untraded];
+		return move && !moves.includes(move.key) ? [...withAcks, { ...move, move: true }] : withAcks;
 	}
 
 	function updateNotices(game) {
 		showNewToasts(game);
 		const dialog = $('notice-dialog');
+		if (dialog.open && dialog.dataset.summary) {
+			return; // a summary reopened from the Game log stays until the player closes it
+		}
 		const queue = pendingNotices(game);
 		if (queue.length === 0) {
 			noticeQueue = [];
@@ -4230,7 +4366,7 @@
 		if (!dialog.open && ($('landing-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
 			return; // one modal at a time; the landing and the battle report come first
 		}
-		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines]));
+		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines, card.sections]));
 		if (dialog.dataset.key !== key) {
 			dialog.dataset.key = key;
 			noticeQueue = queue;
@@ -4241,6 +4377,19 @@
 		}
 	}
 
+	/** A battle's summary from the Game log (playtest, 2026-11-20), in the notice dialog, outside the card queue. */
+	function showSummary(title, sections) {
+		const dialog = $('notice-dialog');
+		if (dialog.open) {
+			return;
+		}
+		dialog.dataset.key = '';
+		dialog.dataset.summary = 'open';
+		noticeQueue = [];
+		drawNotice({ title, lead: '', tone: null, lines: [], sections }, 1);
+		dialog.showModal();
+	}
+
 	function drawNotice(card, count) {
 		const dialog = $('notice-dialog');
 		dialog.dataset.tone = card.tone ?? '';
@@ -4248,8 +4397,11 @@
 		$('notice-title').textContent = card.title;
 		$('notice-lead').textContent = card.lead ?? '';
 		$('notice-lead').hidden = !card.lead;
-		$('notice-lines').replaceChildren(...(card.lines ?? []).map(line => element('li', {}, line)));
-		$('notice-lines').hidden = !(card.lines ?? []).length;
+		const sections = card.sections ?? [];
+		$('notice-lines').replaceChildren(...(card.lines ?? []).map(line => element('li', {}, line)),
+			...sections.map(section => element('li', {}, element('strong', {}, section.title),
+				element('ul', { class: 'notice__section' }, ...section.lines.map(line => element('li', {}, line))))));
+		$('notice-lines').hidden = !(card.lines ?? []).length && !sections.length;
 		$('notice-next').textContent = card.move ? 'Go there' : count > 1 ? 'Next' : 'OK';
 		$('notice-all').hidden = count < 2;
 	}
@@ -4259,13 +4411,14 @@
 		const answer = dialog.returnValue;
 		dialog.returnValue = '';
 		dialog.dataset.key = '';
+		delete dialog.dataset.summary;
 		const gameId = currentGameId;
 		if (answer === 'stale' || !gameId || !lastGame) {
 			return;
 		}
 		// Escape counts as Next: the card is seen either way.
 		const dismissed = answer === 'all' ? noticeQueue : noticeQueue.slice(0, 1);
-		dismissed.forEach(card => (card.move ? markMoveSeen(card.key) : markCardsSeen(gameId, card.end)));
+		dismissed.forEach(card => (card.move ? markMoveSeen(card.key) : card.ack ? markAckSeen(card.key) : markCardsSeen(gameId, card.end)));
 		updateLanding(lastGame); // a landing held back for the evaded card opens now, before any further card
 		updateFight(lastGame); // likewise the battle dialog, which waits for the cards
 		const go = answer !== 'all' && dismissed[0]?.move ? dismissed[0].link : null;
@@ -4623,7 +4776,8 @@
 				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
 				element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
 				element('td', { class: 'num' }, row.invest === 'build' ? 'No factory yet' : String(row.size) + (row.disabledTurns ? ` (${disabledText(row)})` : '')),
-				investCell(row.invest && investButton('units', row.invest, row.system, row.goods)))));
+				investCell(row.invest && investButton('units', row.invest, row.system, row.goods),
+					sellFactoryButton(game, row)))));
 			$('own-warehouses-panel').hidden = warehouses.length === 0;
 			$('own-factories-panel').hidden = factories.length === 0;
 			$('own-assets-none').hidden = warehouses.length > 0 || factories.length > 0;
@@ -4792,33 +4946,42 @@
 	$('opportunity-done-button').addEventListener('click', () => gameAction('opportunity/done', null, 'opportunity-message'));
 	$('done-opportunity-button').addEventListener('click', () => gameAction('opportunity/done', null, 'done-message'));
 
-	function renderAgents(game, opportunity) {
+	// R104 (playtest, 2026-11-20): the viewer's agents with where each is and, at any time like cargo, where it can move; on
+	// the Agents card and the Deck's "Your agents" panel. [messageId] is the status line under that list.
+	function drawOwnAgents(game, listId, messageId) {
 		const you = game.you ?? {};
-		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
-		drawOnce('agents-own', JSON.stringify([you.agents, game.players.find(player => player.id === viewerId)?.ships, myTurn]), () => {
+		drawOnce(listId, JSON.stringify([you.agents, game.players.find(player => player.id === viewerId)?.ships]), () => {
 			if ((you.agents ?? []).length === 0) {
 				return [element('li', { class: 'muted' }, 'You have no agents.')];
 			}
 			return you.agents.map(agent => {
-				const moves = myTurn ? agentMoves(game, agent) : [];
+				const moves = agentMoves(game, agent);
 				const select = element('select', { class: 'control', 'aria-label': `Move ${agent.name}` },
 					...moves.map(move => element('option', { value: move.value }, move.label)));
-				const button = element('button', { class: 'quiet-button', type: 'button' }, 'Move');
+				const button = element('button', { class: 'btn', type: 'button' }, 'Move');
 				button.addEventListener('click', () => {
 					const move = moves.find(entry => entry.value === select.value);
 					if (move) {
-						gameAction('agents/move', { agent: agent.agent, ...move.body }, 'agents-message', `${agent.name} moved.`);
+						gameAction('agents/move', { agent: agent.agent, ...move.body }, messageId, `${agent.name} moved.`);
 					}
 				});
-				return element('li', {}, element('strong', {}, agent.name), ` — ${agent.effect}; ${agentWhereText(game, agent)}`,
-					...(moves.length ? [' ', select, ' ', button] : []));
+				const controls = moves.length ? [element('div', { class: 'agent-move' }, select, button)] : [];
+				return element('li', {}, element('strong', {}, agent.name), ` — ${agent.effect}`,
+					element('br'), element('span', { class: 'muted' }, agentWhereText(game, agent)), ...controls);
 			});
 		});
+	}
+
+	function renderAgents(game, opportunity) {
+		const you = game.you ?? {};
+		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		drawOwnAgents(game, 'agents-own', 'agents-message');
 		drawOnce('agent-offers', JSON.stringify(you.agentOffers ?? []), () => (you.agentOffers ?? []).map(offer => {
 			const line = element('li', {}, agentOfferText(game, offer, viewerId));
 			if (offer.buyerId === viewerId) {
-				const accept = element('button', { class: 'quiet-button', type: 'button' }, 'Buy');
-				const decline = element('button', { class: 'quiet-button', type: 'button' }, 'Decline');
+				const accept = element('button', { class: 'btn', type: 'button' }, 'Buy');
+				// Playtest 2026-11-20: declining is a pass, and every pass is the red button.
+				const decline = element('button', { class: 'btn btn--danger', type: 'button' }, 'Decline');
 				accept.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/accept`, null, 'agents-message',
 					bought => `It's ${bought.you.agents[bought.you.agents.length - 1]?.name ?? 'yours'}.`));
 				decline.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/decline`, null, 'agents-message', 'Declined.'));
@@ -4838,6 +5001,10 @@
 		$('agent-offer-form').querySelector('button').disabled = !myTurn;
 	}
 
+	$('deck-account-more').addEventListener('click', () => {
+		accountExpandedFor = accountExpandedFor === currentGameId ? null : currentGameId;
+		renderAccount(lastGame);
+	});
 	$('recruit-amount').addEventListener('input', () => renderAgents(lastGame, isOpportunity(lastGame)));
 	$('recruit-form').addEventListener('submit', (event) => {
 		event.preventDefault();
@@ -4902,7 +5069,7 @@
 	$('factory-sale-form').addEventListener('submit', (event) => {
 		event.preventDefault();
 		const [system, goods] = $('factory-sale-factory').value.split('|');
-		gameAction('factories/sell', { system, goods, units: Number($('factory-sale-units').value) }, 'loan-message', 'Sold.');
+		gameAction('factories/sell', { system, goods, units: Number($('factory-sale-units').value) }, 'factory-sale-message', 'Sold.');
 	});
 	$('limpy-act-button').addEventListener('click', () => gameAction('trading/limpy', { act: true }, 'trading-message'));
 	$('limpy-pass-button').addEventListener('click', () => gameAction('trading/limpy', { act: false }, 'trading-message'));
@@ -4923,9 +5090,27 @@
 			investButtonLabel(kind, invest));
 	}
 
-	/** The cell that holds a row's button, empty when there's nothing to buy. */
-	function investCell(button) {
-		return element('td', { class: 'invest-cell' }, ...(button ? [button] : []));
+	/** The cell that holds a row's buttons, empty when there's nothing to buy or sell. */
+	function investCell(...buttons) {
+		return element('td', { class: 'invest-cell' }, ...buttons.filter(Boolean).flatMap((button, index) => (index ? [' ', button] : [button])));
+	}
+
+	/**
+	 * Playtest 2026-11-20: a factory row's Sell, beside its "Add units", while the factory can be sold (Investment, R96). It
+	 * picks the factory in the sale form under the table and takes focus to the units.
+	 */
+	function sellFactoryButton(game, row) {
+		const value = `${row.system}|${row.goods}`;
+		if (!(game.you?.factorySales ?? []).some(factory => `${factory.system}|${factory.goods}` === value) || !isInvesting(game)) {
+			return null;
+		}
+		const button = element('button', { class: 'quiet-button', type: 'button' }, 'Sell');
+		button.addEventListener('click', () => {
+			$('factory-sale-factory').value = value;
+			renderLoan(lastGame, isInvesting(lastGame));
+			$('factory-sale-units').focus();
+		});
+		return button;
 	}
 
 	/** Text set only on a change, so a live region isn't re-announced every poll. */
@@ -5180,7 +5365,7 @@
 				const radio = element('input', { type: 'radio', name: 'ship-crew', value: crew.id });
 				radio.checked = crew.id === DEFAULT_SHIP.crewClass;
 				radio.addEventListener('change', () => updateShipSummary(lastGame));
-				return element('label', { class: 'choice' }, radio, `${crew.id} \u00b7 ${crew.pricePerCrew} HT`);
+				return element('label', { class: 'choice' }, radio, crewLabel(crew));
 			}));
 			$('ship-name').value = suggestName(shipyard, '') ?? '';
 			setShipFieldError('ship-name-error', [$('ship-name')], '');
@@ -5663,6 +5848,17 @@
 			arrows.append(svgElement('text', { x: arrow.x, y: arrow.y, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'data-level': arrow.level }, String(arrow.chance)));
 		}
 		map.append(arrows);
+		// Playtest 2026-11-20: what changes a jump's chance, in the middle of the ring, over the routes crossing it.
+		const modifiers = jumpModifierLines(rules);
+		if (modifiers.length) {
+			const box = svgElement('g', { class: 'map-modifiers' });
+			const lineHeight = 20;
+			const top = 335 - ((modifiers.length + 1) * lineHeight) / 2;
+			box.append(svgElement('rect', { x: 270, y: top - 14, width: 220, height: (modifiers.length + 1) * lineHeight + 10, rx: 6 }));
+			box.append(svgElement('text', { x: 380, y: top + 4, 'text-anchor': 'middle', class: 'map-modifiers__title' }, 'Jump modifiers'));
+			modifiers.forEach((line, index) => box.append(svgElement('text', { x: 380, y: top + 4 + (index + 1) * lineHeight, 'text-anchor': 'middle' }, line)));
+			map.append(box);
+		}
 		for (const system of systems) {
 			const [x, y] = NODE_POSITIONS[system.id];
 			const node = svgElement('a', {
@@ -5835,6 +6031,15 @@
 	// Signed out, or the server no longer knows the session: sign in (s10), then come back here (E01-S03).
 	renderLegend();
 	session = await requireSession();
+	// Playtest 2026-11-20: the fixed rules, once; the Guide, the map's jump modifiers and the reputation notes wait for them.
+	fetch('/api/rules').then(response => (response.ok ? response.json() : null)).then(loaded => {
+		rules = loaded;
+		if (lastGame) {
+			renderedKey = null;
+			shownCorporationsKey = null;
+			render(lastGame, false);
+		}
+	}).catch(() => {});
 	if (session) {
 		window.addEventListener('hashchange', route);
 		route();

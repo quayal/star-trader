@@ -61,7 +61,7 @@ data class Ship(
 	fun interceptTotal(d6: Int): Int = intercept() + d6 + interceptModifier()
 
 	/** What this ship's crew and a working Battle comm add to its interception rolls (R71). */
-	fun interceptModifier(): Int = crewClass.interceptModifier + if (hasWorkingBattleComm()) 1 else 0
+	fun interceptModifier(): Int = crewClass.interceptModifier + if (hasWorkingBattleComm()) BATTLE_COMM_INTERCEPT_BONUS else 0
 
 	/** Whether this ship has a working Battle comm module: +1 to intercept (R71), and an interception try costs no reputation (R86). */
 	fun hasWorkingBattleComm(): Boolean = Module.BATTLE_COMM in workingModules()
@@ -370,6 +370,9 @@ data class Ship(
 
 		/** R62: a ship's name is 1 to 20 characters once trimmed. */
 		const val MAX_NAME_LENGTH = 20
+
+		/** R71: what a working Battle comm module adds to its ship's interception rolls. */
+		const val BATTLE_COMM_INTERCEPT_BONUS = 1
 
 		/** R62: letters, digits, spaces, hyphens, apostrophes and full stops, with at least one letter or digit. */
 		private val NAME_PATTERN = Regex("[\\p{L}\\p{N} '.-]+")

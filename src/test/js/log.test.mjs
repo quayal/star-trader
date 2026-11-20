@@ -13,13 +13,21 @@ describe('logTurns', () => {
 		];
 
 		assert.deepEqual(logTurns(log), [
-			{ turn: 2, title: 'Turn 2', events: ['Initiative order (bid + d2): Orion Freight → Vega Lines'] },
+			{ turn: 2, title: 'Turn 2', events: ['Initiative order (bid + d2): Orion Freight → Vega Lines'], summaries: {} },
 			{
 				turn: 1,
 				title: 'Turn 1',
 				events: ['Initiative order (bid + d2): Vega Lines → Orion Freight', 'Starting positions: …', 'Game started: 2 players, 20 turns'],
+				summaries: {},
 			},
 		]);
+	});
+
+	it("keeps a battle's summary by its line's place, so the log can open it again (playtest, 2026-11-20)", () => {
+		const sections = [{ title: 'Round 1', lines: ['Meridian fires at Starfarer: 3 hits'] }];
+		const log = [{ turn: 3, text: 'Summary of the battle at Tau Ceti', battleSummary: sections }, { turn: 3, text: 'Later' }];
+
+		assert.deepEqual(logTurns(log)[0].summaries, { 1: sections });
 	});
 
 	it('orders turns as numbers, not text', () => {

@@ -102,7 +102,7 @@ class GameReputationTest {
 		assertThatThrownBy { withReputations(investing, ada = 40, grace = 20).buyReputation("ada@example.com", FakeDice.d6(4)) }
 			.isInstanceOf(InvalidInvestmentException::class.java)
 			.hasMessage("Your reputation is already at 40.")
-		val broke = investing.copy(players = investing.players.map { if (it.email == "ada@example.com") it.pay(it.money - 15) else it })
+		val broke = investing.copy(players = investing.players.map { if (it.email == "ada@example.com") it.pay(it.money - 15, "Test") else it })
 		assertThatThrownBy { broke.buyReputation("ada@example.com", FakeDice.d6(4)) }
 			.hasMessage("Buying reputation costs 20 HT; you have 15 HT.")
 		assertThatThrownBy { investing(20).copy(turn = Turn.bidding(1)).buyReputation("ada@example.com", FakeDice.d6(4)) }

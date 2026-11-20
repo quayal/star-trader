@@ -12,7 +12,7 @@ import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 /**
  * What one member of a game, [player], may see beyond its public state, already decided by [Game.viewFor] (R17, R29, A05,
  * engineering standards §10), so an adapter only maps it. Each field is the viewer's own or null when it isn't theirs to
- * see: their own [offers] and [bid]; [tradeMax] while the counter waits for their offer (E05-S04); [wholesaleAsk], the
+ * see: their own [offers] and [bid], and [untradedOffers], those that resolved without trading (playtest, 2026-11-20); [tradeMax] while the counter waits for their offer (E05-S04); [wholesaleAsk], the
  * resolution, while it asks them to trade wholesale (R37); [factoriesToCollect] while they have output to place (E06-S03);
  * [investment] while they may buy (E06-S04); [interception] when they are asked (R70); [battle] when they have a ship in
  * it or hits to place (R74–R77); [battleReport] the salvos that concern them (R78). [prices] are the game's. [loan] is their
@@ -24,6 +24,7 @@ import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 data class PlayerView(
 	val player: Player,
 	val offers: List<Offer>,
+	val untradedOffers: List<Offer>,
 	val bid: InitiativeBid?,
 	val tradeMax: Int?,
 	val wholesaleAsk: Resolution?,

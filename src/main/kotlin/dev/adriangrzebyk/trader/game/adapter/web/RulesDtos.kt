@@ -1,0 +1,82 @@
+package dev.adriangrzebyk.trader.game.adapter.web
+
+import dev.adriangrzebyk.trader.game.CrewClass
+import dev.adriangrzebyk.trader.game.Module
+import dev.adriangrzebyk.trader.game.Reputation
+import dev.adriangrzebyk.trader.game.Ship
+import dev.adriangrzebyk.trader.game.TurnPhase
+import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
+
+/**
+ * The game's fixed rules for the Guide tab, the crew labels and the map's jump modifiers (playtest, 2026-11-20), read from
+ * the domain's own tables so they can't drift from what the game does. Public: nothing in it belongs to a game or a player.
+ */
+data class RulesResponseDto(
+	val phases: List<String>,
+	val agents: List<AgentRuleResponseDto>,
+	val crewClasses: List<CrewRuleResponseDto>,
+	val safeJumpBonus: Int,
+	val novakJumpBonus: Int,
+	val battleCommInterceptBonus: Int,
+	val triggerInterceptBonus: Int,
+	val wolfInitiativeBonus: Int,
+	val shortySabotageBonus: Int,
+	val sabotage: List<SabotageRowResponseDto>,
+	val sabotageBlame: Int,
+	val reputation: ReputationRulesResponseDto
+) {
+
+	constructor() : this(
+		TurnPhase.entries.map { it.displayName },
+		Agent.entries.map { AgentRuleResponseDto(it) },
+		CrewClass.entries.map { CrewRuleResponseDto(it) },
+		Module.SAFE_JUMP.jumpModifier,
+		Agent.NOVAK_JUMP_BONUS,
+		Ship.BATTLE_COMM_INTERCEPT_BONUS,
+		Agent.TRIGGER_INTERCEPT_BONUS,
+		Agent.WOLF_INITIATIVE_BONUS,
+		Agent.SHORTY_SABOTAGE_BONUS,
+		SabotageTable().rows().map { SabotageRowResponseDto(it) },
+		SabotageTable.BLAME,
+		ReputationRulesResponseDto()
+	)
+}
+
+/** One agent (R108) and whether it can be recruited yet ([inGame]: Badger and Frank wait for their features). */
+data class AgentRuleResponseDto(val name: String, val effect: String, val inGame: Boolean) {
+
+	constructor(agent: Agent) : this(agent.displayName, agent.effect, agent.recruitable)
+}
+
+/** One crew class (R67): its price per crew and what it adds to jumps (R68) and interception (R71). */
+data class CrewRuleResponseDto(val id: String, val pricePerCrew: Int, val jumpModifier: Int, val interceptModifier: Int) {
+
+	constructor(crewClass: CrewClass) : this(crewClass.name, crewClass.pricePerCrew, crewClass.jumpModifier, crewClass.interceptModifier)
+}
+
+/** One row of the sabotage table (R98): a total from [from] gives [effect], and the saboteur loses [reputationLoss] (null: blame). */
+data class SabotageRowResponseDto(val from: Int?, val effect: Int, val reputationLoss: Int?) {
+
+	constructor(row: SabotageTable.Row) : this(row.from.takeIf { it != Int.MIN_VALUE }, row.effect, row.reputationLoss)
+}
+
+/** Reputation's fixed numbers (R85–R88): the range, the end-of-turn recovery, buying, and the bonus table. */
+data class ReputationRulesResponseDto(
+	val start: Int,
+	val max: Int,
+	val recovery: Int,
+	val recoveryUpTo: Int,
+	val buyCost: Int,
+	val bonus: Map<Int, Int>
+) {
+
+	constructor() : this(
+		Reputation.START,
+		Reputation.MAX,
+		Reputation.RECOVERY,
+		Reputation.RECOVERY_UP_TO,
+		Reputation.BUY_COST,
+		Reputation.BONUS
+	)
+}

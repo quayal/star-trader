@@ -8,6 +8,8 @@ import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.NoticeKind
 import dev.adriangrzebyk.trader.game.TradeRecord
+import dev.adriangrzebyk.trader.game.battle.BattleSummary
+import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -57,6 +59,19 @@ class LogEntryItemTest {
 		assertThat(LogEntryItem(LogEntryItem(tried).attribute).toLogEntry()).isEqualTo(tried)
 		assertThat(LogEntryItem(LogEntryItem(round).attribute).toLogEntry()).isEqualTo(round)
 		assertThat(LogEntryItem(round).attribute.m().getValue("notice").m().keys).containsExactlyInAnyOrder("kind", "system", "players", "round")
+	}
+
+	@Test
+	fun shouldReadBackABattlesSummary() {
+		// Playtest 2026-11-20
+		val summary = LogEntry.battleSummary(
+			4,
+			"Summary of the battle at Tau Ceti",
+			Notice(NoticeKind.BATTLE_SUMMARY, StarSystem.TAU_CETI, listOf("ada@example.com"), null, null),
+			BattleSummary(listOf(BattleSummarySection("Round 1", listOf("Meridian fires at Starfarer: 3 hits", "Starfarer is destroyed"))))
+		)
+
+		assertThat(LogEntryItem(LogEntryItem(summary).attribute).toLogEntry()).isEqualTo(summary)
 	}
 
 	@Test

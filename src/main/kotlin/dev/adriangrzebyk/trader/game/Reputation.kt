@@ -43,8 +43,8 @@ data class Reputation(val value: Int) {
 		/** R88: the lowest reputation that pays a bonus. */
 		const val BONUS_FROM = 25
 
-		/** R88: the creator's bonus table, reputation → HT paid at the end of each turn. */
-		private val BONUS = mapOf(
+		/** R88: the creator's bonus table, reputation → HT paid at the end of each turn; public for the Guide. */
+		val BONUS = mapOf(
 			25 to 5,
 			26 to 5,
 			27 to 10,

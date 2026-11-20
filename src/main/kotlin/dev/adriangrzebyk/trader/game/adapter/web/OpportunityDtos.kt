@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.OpportunityView
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.agent.Agent
 import dev.adriangrzebyk.trader.game.agent.AgentCount
+import dev.adriangrzebyk.trader.game.agent.AgentPlace
 import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
 import dev.adriangrzebyk.trader.game.loan.Loan
@@ -106,23 +107,31 @@ data class SellFactoryRequestDto(val system: String? = null, val goods: String? 
 	fun wholeUnits(): Int? = whole(units)
 }
 
-/** One of the viewer's own agents (R105): its name, effect and where it is, aboard [ship] or on its own at [system] [location]. */
+/**
+ * One of the viewer's own agents (R105): its name, effect and where it is, aboard [ship] or on its own at [system] [location].
+ * [placeSystemName] and [placeLocation] say where it stands either way, its ship's place when aboard (playtest, 2026-11-20:
+ * "player should have info where their agents are").
+ */
 data class YourAgentResponseDto(
 	val agent: String,
 	val name: String,
 	val effect: String,
 	val ship: String?,
 	val system: String?,
-	val location: String?
+	val location: String?,
+	val placeSystemName: String,
+	val placeLocation: String
 ) {
 
-	constructor(recruited: RecruitedAgent) : this(
+	constructor(recruited: RecruitedAgent, place: AgentPlace) : this(
 		recruited.agent.name,
 		recruited.agent.displayName,
 		recruited.agent.effect,
 		(recruited.position as? AgentPosition.Aboard)?.shipName,
 		(recruited.position as? AgentPosition.OnOwn)?.system?.name,
-		(recruited.position as? AgentPosition.OnOwn)?.location?.name
+		(recruited.position as? AgentPosition.OnOwn)?.location?.name,
+		place.system.displayName,
+		place.location.name
 	)
 }
 

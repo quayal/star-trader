@@ -11,15 +11,22 @@ export const EMPTY_LOG_TEXT = 'No public events yet.';
  */
 export function logTurns(log) {
 	const byTurn = new Map();
-	for (const { turn, text } of log ?? []) {
-		if (!byTurn.has(turn)) {
-			byTurn.set(turn, []);
+	for (const entry of log ?? []) {
+		if (!byTurn.has(entry.turn)) {
+			byTurn.set(entry.turn, []);
 		}
-		byTurn.get(turn).push(text);
+		byTurn.get(entry.turn).push(entry);
 	}
 	return [...byTurn.entries()]
 		.sort(([a], [b]) => b - a)
-		.map(([turn, events]) => ({ turn, title: `Turn ${turn}`, events: events.reverse() }));
+		.map(([turn, entries]) => {
+			const newestFirst = entries.reverse();
+			// Playtest 2026-11-20: a finished battle's summary line can open the summary again, by its place in [events].
+			const summaries = Object.fromEntries(newestFirst
+				.map((entry, index) => [index, entry.battleSummary])
+				.filter(([, sections]) => sections));
+			return { turn, title: `Turn ${turn}`, events: newestFirst.map(entry => entry.text), summaries };
+		});
 }
 
 /** The key a folded turn is remembered by: per game, so a fold never carries into another game (lesson 2026-11-04). */

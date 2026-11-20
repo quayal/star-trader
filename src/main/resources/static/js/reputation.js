@@ -48,3 +48,19 @@ export function reputationPurchase(game) {
 	}
 	return { intro, cost, canBuy: true, reason: '' };
 }
+
+/**
+ * Next to a player's reputation on the Corporations card (playtest, 2026-11-20): what the end of the turn adds and what bonus
+ * it pays, both from the server (`reputationRecovery`, `reputationBonus`, R86, R88). [bonusFrom] is the lowest reputation
+ * that pays a bonus, from `/api/rules`, or undefined before they've loaded.
+ */
+export function reputationNote(player, bonusFrom) {
+	const reputation = player.reputation ?? 20;
+	const recovery = player.reputationRecovery > 0
+		? `+${player.reputationRecovery} at the end of the turn`
+		: reputation === 0 ? 'No +3 at 0: only buying raises it' : 'No end-of-turn +3 at this level';
+	const bonus = player.reputationBonus > 0
+		? `bonus ${player.reputationBonus} HT a turn`
+		: bonusFrom ? `bonus from ${bonusFrom}` : 'no bonus yet';
+	return `${recovery} · ${bonus}`;
+}

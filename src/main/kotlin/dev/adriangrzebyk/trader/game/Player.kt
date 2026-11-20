@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.agent.AgentPlace
 import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
+import dev.adriangrzebyk.trader.game.ledger.MoneyLedger
 import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.loan.LoanCollection
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
@@ -22,7 +23,9 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * are public too (R50), and nobody starts with any (R40, R50). [connections] are public (R81), and [connectionPoints] are the
  * starting points they still have to place (R82): 3 + d3 from the start of the game until they place them in turn 1's
  * Bidding, then 0. [reputation] is public too (R85). [loan] is their open loan, private like money (R29, R90), or null.
- * [agents] are their special operatives (R103): where they are is public, which they are is theirs alone (R105).
+ * [agents] are their special operatives (R103): where they are is public, which they are is theirs alone (R105). [ledger] is
+ * their own money history, private like money (R29, playtest 2026-11-20): every change to [money] goes through [pay] or
+ * [receive], which record it.
  */
 data class Player(
 	val email: String,
@@ -37,18 +40,22 @@ data class Player(
 	val connectionPoints: Int,
 	val reputation: Reputation,
 	val loan: Loan?,
-	val agents: List<RecruitedAgent>
+	val agents: List<RecruitedAgent>,
+	val ledger: MoneyLedger = MoneyLedger.START
 ) {
 
 	init {
 		require(warehouses.map { it.system }.toSet().size == warehouses.size) { "A player has at most one warehouse per system." }
 	}
 
-	/** This player after paying [amount] HT. */
-	fun pay(amount: Int): Player = copy(money = money - amount)
+	/** This player after paying [amount] HT for [reason], recorded in their [ledger]. */
+	fun pay(amount: Int, reason: String): Player = copy(money = money - amount, ledger = ledger.recorded(-amount, reason))
 
-	/** This player after being paid [amount] HT. */
-	fun receive(amount: Int): Player = copy(money = money + amount)
+	/** This player after being paid [amount] HT for [reason], recorded in their [ledger]. */
+	fun receive(amount: Int, reason: String): Player = copy(money = money + amount, ledger = ledger.recorded(amount, reason))
+
+	/** This player recording money movements in turn [number] from now on (R29's ledger). */
+	fun inTurn(number: Int): Player = copy(ledger = ledger.inTurn(number))
 
 	/** What this player's ships would fetch if all were sold now (R61's half price): the money sunk in them (creator, 2026-11-18). */
 	fun shipsSaleValue(): Int = ships.sumOf { it.saleValue() }
@@ -147,8 +154,8 @@ data class Player(
 			)
 		}
 		return when (offer.type) {
-			OfferType.BUY -> stocked.pay(amount * offer.price)
-			OfferType.SELL -> stocked.receive(amount * offer.price)
+			OfferType.BUY -> stocked.pay(amount * offer.price, "Bought $amount ${offer.goods.name} at ${offer.system.displayName}")
+			OfferType.SELL -> stocked.receive(amount * offer.price, "Sold $amount ${offer.goods.name} at ${offer.system.displayName}")
 		}
 	}
 
@@ -277,7 +284,7 @@ data class Player(
 			throw InvalidInvestmentException("$blocks ${if (blocks == 1) "block costs" else "blocks cost"} $cost HT; you have $money HT.")
 		}
 		val warehouse = warehouseAt(system)?.addBlocks(blocks) ?: Warehouse(system, blocks, emptyMap())
-		return pay(cost.toInt()).withWarehouse(warehouse)
+		return pay(cost.toInt(), "Warehouse at ${system.displayName}: $blocks ${if (blocks == 1) "block" else "blocks"}").withWarehouse(warehouse)
 	}
 
 	/**
@@ -302,7 +309,10 @@ data class Player(
 			throw InvalidInvestmentException("$units ${if (units == 1) "unit costs" else "units cost"} $cost HT; you have $money HT.")
 		}
 		val factory = factoryAt(system, goods)?.addUnits(units) ?: Factory.built(system, goods, units)
-		return pay(cost.toInt()).withFactory(factory)
+		return pay(
+			cost.toInt(),
+			"${goods.name} factory at ${system.displayName}: $units ${if (units == 1) "unit" else "units"}"
+		).withFactory(factory)
 	}
 
 	/** The units of factory this player owns in total, across all systems and goods: what the cap counts (R84). */
@@ -345,10 +355,9 @@ data class Player(
 			)
 		}
 		return copy(
-			money = money - cost,
 			connections = connections.raised(kind),
 			reputation = reputation.changedBy(connectionReputationChange(kind))
-		)
+		).pay(cost, "${kind.displayName.replaceFirstChar { it.uppercase() }} connections raised to ${connections.of(kind) + 1}")
 	}
 
 	/** What raising [kind] does to this player's reputation (R86): its change, a loss made smaller by JB (R108). */
@@ -396,7 +405,7 @@ data class Player(
 		if (money < Reputation.BUY_COST) {
 			throw InvalidInvestmentException("Buying reputation costs ${Reputation.BUY_COST} HT; you have $money HT.")
 		}
-		return copy(money = money - Reputation.BUY_COST, reputation = reputation.changedBy(roll))
+		return copy(reputation = reputation.changedBy(roll)).pay(Reputation.BUY_COST, "Bought reputation")
 	}
 
 	/** What the end of a turn adds to this player's reputation (R86): 3 between 1 and 17, else 0. */
@@ -457,7 +466,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("This ship costs $cost HT; you have $money HT.")
 		}
-		return copy(money = money - cost, ships = ships + ship)
+		return copy(ships = ships + ship).pay(cost, "Bought ${ship.name}")
 	}
 
 	/**
@@ -471,13 +480,13 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("A ${module.displayName} module costs $cost HT; you have $money HT.")
 		}
-		return pay(cost).withShip(refitted)
+		return pay(cost, "${module.displayName} module for ${ship.name}").withShip(refitted)
 	}
 
 	/** This player after removing one [module] from their ship [shipName] in port or in the yard (R65), paid half its price back. */
 	fun removeModule(shipName: String, module: Module): Player {
 		val ship = shipToRefit(shipName)
-		return receive(module.resaleValue()).withShip(ship.withModuleRemoved(module))
+		return receive(module.resaleValue(), "${module.displayName} module removed from ${ship.name}").withShip(ship.withModuleRemoved(module))
 	}
 
 	/**
@@ -491,7 +500,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("A class ${crewClass.name} crew for ${ship.name} costs $cost HT; you have $money HT.")
 		}
-		return pay(cost).withShip(replaced)
+		return pay(cost, "Class ${crewClass.name} crew for ${ship.name}").withShip(replaced)
 	}
 
 	/** Their ship [shipName], once checked that it's theirs and in port or in the yard, where refits happen (R65). */
@@ -511,7 +520,7 @@ data class Player(
 	fun sellShip(shipName: String): Player {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
 		val warehouse = warehouseAt(ship.system)
-		val sold = withAgentsSteppedOff(ship).withoutShip(ship.name).receive(ship.saleValue())
+		val sold = withAgentsSteppedOff(ship).withoutShip(ship.name).receive(ship.saleValue(), "Sold ${ship.name}")
 		return if (warehouse == null) sold else sold.withWarehouse(warehouse.storeCargoOf(ship))
 	}
 
@@ -531,7 +540,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("Repairing ${ship.name} costs $cost HT; you have $money HT.")
 		}
-		return pay(cost).withShip(repaired)
+		return pay(cost, "Repaired ${ship.name}").withShip(repaired)
 	}
 
 	/** This player's ships in Space at [system] (R70, R73): those that can intercept there and fight. */
@@ -577,7 +586,11 @@ data class Player(
 	fun sellFactoryUnits(system: StarSystem, goods: Goods, units: Int, prices: MarketPrices): Player {
 		val factory = factoryAt(system, goods) ?: throw InvalidInvestmentException("You have no ${goods.name} factory at ${system.displayName}.")
 		val left = factory.withoutUnits(units)
-		return receive(units * factory.salePricePerUnit(prices)).withFactoryReplaced(factory, left)
+		return receive(
+			units * factory.salePricePerUnit(prices),
+			"Sold $units ${goods.name} factory ${if (units == 1) "unit" else "units"} at ${system.displayName}"
+		)
+			.withFactoryReplaced(factory, left)
 	}
 
 	/**
@@ -645,7 +658,7 @@ data class Player(
 		if (amount > cap) {
 			throw InvalidInvestmentException("You can borrow at most $cap HT.")
 		}
-		return copy(money = money + amount, loan = Loan.take(amount, term, reputation.value, turn))
+		return copy(loan = Loan.take(amount, term, reputation.value, turn)).receive(amount, "Loan taken")
 	}
 
 	/** This player's open loan, refused when they have none. */
@@ -663,7 +676,7 @@ data class Player(
 		if (open.interest > money) {
 			throw InvalidInvestmentException("Interest is ${open.interest} HT; you have $money HT.")
 		}
-		return pay(open.interest)
+		return pay(open.interest, "Loan interest")
 	}
 
 	/**
@@ -675,7 +688,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("Repaying costs $cost HT; you have $money HT.")
 		}
-		return copy(money = money - cost, loan = null)
+		return copy(loan = null).pay(cost, "Loan repaid")
 	}
 
 	/**
@@ -699,7 +712,7 @@ data class Player(
 		var collected = 0
 		fun settle() {
 			val paid = minOf(player.money, owed)
-			player = player.pay(paid)
+			player = player.pay(paid, "Loan collected")
 			owed -= paid
 			collected += paid
 		}
@@ -788,7 +801,7 @@ data class Player(
 			throw InvalidAgentException("You have $money HT.")
 		}
 		checkAgentStart(start)
-		val paid = pay(payment)
+		val paid = pay(payment, "Agent recruitment")
 		return if (roll * Agent.RECRUIT_ROLL_MULTIPLIER <= payment) paid.withAgentAdded(RecruitedAgent(picked, start)) else paid
 	}
 
@@ -811,12 +824,16 @@ data class Player(
 	}
 
 	/**
-	 * This player after moving their [agent] [to] (R104): boarding one of their ships at the same system and location,
-	 * stepping off a ship in Port or on a Planet there, or moving between two of their ships at the same place.
+	 * This player after moving their [agent] [to] (R104), at any time like cargo: boarding one of their ships at the same
+	 * system and location, stepping off a ship in Port or on a Planet there, or moving between two of their ships at the same
+	 * place. Never in Space, where an agent can't stand on its own and ships in a battle are.
 	 */
 	fun moveAgent(agent: Agent?, to: AgentPosition): Player {
 		val recruited = agent?.let { agent(it) } ?: throw InvalidAgentException("Choose one of your agents.")
 		val from = placeOf(recruited)
+		if (from.isInSpace()) {
+			throw InvalidAgentException("Agents can't move in Space: wait until the ship is in Port or on the Planet.")
+		}
 		when (to) {
 			is AgentPosition.Aboard -> {
 				val ship = ship(to.shipName)
@@ -837,7 +854,7 @@ data class Player(
 	/** Refuses offering [agent] for sale (R106) unless it's theirs and not aboard a ship in Space. */
 	fun checkAgentForSale(agent: Agent?): Agent {
 		val recruited = agent?.let { agent(it) } ?: throw InvalidAgentException("Choose one of your agents.")
-		if (placeOf(recruited).location == ShipLocation.SPACE) {
+		if (placeOf(recruited).isInSpace()) {
 			throw InvalidAgentException("An agent aboard a ship in Space can't be sold.")
 		}
 		return recruited.agent
@@ -850,14 +867,14 @@ data class Player(
 	 * This player after selling [agent] for [price] (R106): paid, and the agent gone. Where it stood, on its own (stepping
 	 * off any ship first), is the buyer's to take.
 	 */
-	fun sellAgent(agent: Agent, price: Int): Player = receive(price).withoutAgent(agent)
+	fun sellAgent(agent: Agent, price: Int): Player = receive(price, "Sold an agent").withoutAgent(agent)
 
 	/** This player after buying [agent] for [price] (R106), standing on its own at [place]; refused when they can't pay. */
 	fun buyAgent(agent: Agent, price: Int, place: AgentPlace): Player {
 		if (price > money) {
 			throw InvalidAgentException("This agent costs $price HT; you have $money HT.")
 		}
-		return pay(price).withAgentAdded(RecruitedAgent(agent, AgentPosition.OnOwn(place.system, place.location)))
+		return pay(price, "Bought an agent").withAgentAdded(RecruitedAgent(agent, AgentPosition.OnOwn(place.system, place.location)))
 	}
 
 	/**

@@ -78,6 +78,13 @@ data class Turn(
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
 	fun offersOf(email: String): List<Offer> = offers.filter { it.playerEmail == email }
 
+	/**
+	 * [email]'s offers whose good has finished resolving with no trade of theirs among [trades] (this turn's): each gets a card
+	 * to acknowledge (playtest, 2026-11-20), whether it lost or won and couldn't trade.
+	 */
+	fun untradedOffersOf(email: String, trades: List<TradeRecord>): List<Offer> =
+		offersOf(email).filter { offer -> resolvedGoods.any { offer.isFor(it) } && trades.none { it.isFor(offer) } }
+
 	/** Every offer of this turn once Trading has started, when they become public to all players (R17); none before. */
 	fun publicOffers(): List<Offer> = if (phase >= TurnPhase.TRADING) offers else emptyList()
 

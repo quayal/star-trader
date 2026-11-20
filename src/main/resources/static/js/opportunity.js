@@ -198,10 +198,13 @@ export function agentPlace(game, agent) {
 	return { system: agent.system, location: agent.location };
 }
 
-/** Where the viewer's [agent] can move now (R104): aboard another of their ships at the same place, or off its ship there. */
+/**
+ * Where the viewer's [agent] can move now (R104), at any time like cargo (playtest, 2026-11-20): aboard another of their ships
+ * at the same place, or off its ship there. Never in Space.
+ */
 export function agentMoves(game, agent) {
 	const place = agentPlace(game, agent);
-	if (!place) {
+	if (!place || place.location === 'SPACE') {
 		return [];
 	}
 	const boards = ownShips(game)
@@ -213,12 +216,14 @@ export function agentMoves(game, agent) {
 	return [...boards, ...off];
 }
 
-/** Where one of the viewer's agents is, for its line: "aboard Starfarer" or "on its own in Port at Tau Ceti". */
+/**
+ * Where one of the viewer's agents is, for its line (playtest, 2026-11-20: "player should have info where their agents are"):
+ * "aboard Starfarer, in Port at Tau Ceti" or "on his own on the Planet at Mu Herculis".
+ */
 export function agentWhereText(game, agent) {
-	if (agent.ship) {
-		return `aboard ${agent.ship}`;
-	}
-	return `on its own ${agent.location === 'PLANET' ? 'on the Planet' : 'in Port'} at ${systemName(game, agent.system)}`;
+	const where = agent.placeSystemName ?? systemName(game, agent.system);
+	const at = { PORT: 'in Port', PLANET: 'on the Planet', SPACE: 'in Space', SHIPYARD: 'in the shipyard' }[agent.placeLocation ?? agent.location];
+	return agent.ship ? `aboard ${agent.ship}, ${at} at ${where}` : `on his own ${at} at ${where}`;
 }
 
 /** A player's public agent lines (R105): "1 agent in Port at Tau Ceti", and per ship "Starfarer: 2 agents aboard". */

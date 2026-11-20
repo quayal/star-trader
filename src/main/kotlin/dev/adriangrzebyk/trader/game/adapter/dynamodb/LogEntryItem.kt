@@ -1,6 +1,8 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.LogEntry
+import dev.adriangrzebyk.trader.game.battle.BattleSummary
+import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /**
@@ -18,7 +20,14 @@ internal class LogEntryItem(val attribute: AttributeValue) {
 				TEXT to AttributeValue.fromS(entry.text)
 			) + listOfNotNull(
 				entry.trade?.let { TRADE to AttributeValue.fromM(TradeRecordItem(it).attributes) },
-				entry.notice?.let { NOTICE to AttributeValue.fromM(NoticeItem(it).attributes) }
+				entry.notice?.let { NOTICE to AttributeValue.fromM(NoticeItem(it).attributes) },
+				entry.battleSummary?.let { summary ->
+					SUMMARY to AttributeValue.fromL(
+						summary.sections.map {
+							AttributeValue.fromM(mapOf(TITLE to AttributeValue.fromS(it.title), LINES to strings(it.lines)))
+						}
+					)
+				}
 			)
 		)
 	)
@@ -29,7 +38,15 @@ internal class LogEntryItem(val attribute: AttributeValue) {
 		// Absent on every entry that isn't a trade, and on entries logged before 2026-11-18.
 		trade = attribute.m()[TRADE]?.m()?.let { TradeRecordItem(it).toTradeRecord() },
 		// Absent on every entry that isn't an interception or battle moment, and on entries logged before 2026-11-18.
-		notice = attribute.m()[NOTICE]?.m()?.let { NoticeItem(it).toNotice() }
+		notice = attribute.m()[NOTICE]?.m()?.let { NoticeItem(it).toNotice() },
+		// Only on a finished battle's summary entry (playtest, 2026-11-20).
+		battleSummary = attribute.m()[SUMMARY]?.l()?.let { sections ->
+			BattleSummary(
+				sections.map { section ->
+					BattleSummarySection(section.m().attribute(TITLE).s(), section.m().attribute(LINES).l().map { it.s() })
+				}
+			)
+		}
 	)
 
 	private companion object {
@@ -37,6 +54,9 @@ internal class LogEntryItem(val attribute: AttributeValue) {
 		const val TEXT = "text"
 		const val TRADE = "trade"
 		const val NOTICE = "notice"
+		const val SUMMARY = "battleSummary"
+		const val TITLE = "title"
+		const val LINES = "lines"
 		const val OLDER_ITEM_TURN = 1
 	}
 }

@@ -37,6 +37,8 @@ import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
+import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
+import dev.adriangrzebyk.trader.game.ledger.MoneyMovement
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -110,7 +112,8 @@ data class StandingResponseDto(val id: String, val corporationName: String, val 
 /**
  * Public: no money and no cargo here, ever (R29, S02-7), and no email: a player is named by their [id] ([PlayerIds]). Market positions are public (R28), and so are warehouses and
  * factories (R50, E06-S02-2), and their [connections] and the starting [connectionPoints] they still have to place (R81,
- * R82, E12-S01-10), and their [reputation], 0 to 40 (R85, E13-S01-1).
+ * R82, E12-S01-10), and their [reputation], 0 to 40 (R85, E13-S01-1), with what the end of the turn adds to it
+ * ([reputationRecovery], R86) and the bonus it pays then ([reputationBonus], R88), both derived from it (playtest, 2026-11-20).
  */
 data class PlayerResponseDto(
 	val id: String,
@@ -123,6 +126,8 @@ data class PlayerResponseDto(
 	val connections: ConnectionsResponseDto,
 	val connectionPoints: Int,
 	val reputation: Int,
+	val reputationRecovery: Int,
+	val reputationBonus: Int,
 	val agentsOnOwn: List<AgentCountResponseDto>
 ) {
 
@@ -137,6 +142,8 @@ data class PlayerResponseDto(
 		ConnectionsResponseDto(player.connections),
 		player.connectionPoints,
 		player.reputation.value,
+		player.reputationRecovery(),
+		player.reputationBonus(),
 		player.agentsOnOwn().map { AgentCountResponseDto(it) }
 	)
 }
@@ -297,14 +304,25 @@ data class TurnResponseDto(
 
 /**
  * What one player bid for initiative and rolled (R27), public once Bidding closes (creator, 2026-11-18): [total] is bid +
- * [roll], and [tieRolls] any rolls made to break a tie, in order.
+ * [roll] + [bonus], [bonusFrom] the agent who gave the bonus (Wolf, shown and so revealed: R105, playtest 2026-11-20), and
+ * [tieRolls] any rolls made to break a tie, in order.
  */
-data class InitiativeRollResponseDto(val playerId: String, val bid: Int, val roll: Int, val total: Int, val tieRolls: List<Int>) {
+data class InitiativeRollResponseDto(
+	val playerId: String,
+	val bid: Int,
+	val roll: Int,
+	val bonus: Int,
+	val bonusFrom: String?,
+	val total: Int,
+	val tieRolls: List<Int>
+) {
 
 	constructor(roll: InitiativeRoll, ids: PlayerIds) : this(
 		ids.of(roll.playerEmail),
 		roll.bid,
 		roll.rolls.first(),
+		roll.bonus,
+		roll.bonusFrom(),
 		roll.total(),
 		roll.tieRolls()
 	)
@@ -447,14 +465,27 @@ data class MarketGoodResponseDto(val system: String, val systemName: String, val
 }
 
 /** One public event of the Game log (s04) and the turn it happened in, which the screen groups by (S06-1). */
-data class LogEntryResponseDto(val turn: Int, val text: String, val trade: TradeRecordResponseDto?, val notice: NoticeResponseDto?) {
+data class LogEntryResponseDto(
+	val turn: Int,
+	val text: String,
+	val trade: TradeRecordResponseDto?,
+	val notice: NoticeResponseDto?,
+	val battleSummary: List<BattleSummarySectionResponseDto>?
+) {
 
 	constructor(entry: LogEntry, ids: PlayerIds) : this(
 		entry.turn,
 		entry.text,
 		entry.trade?.let { TradeRecordResponseDto(it, ids) },
-		entry.notice?.let { NoticeResponseDto(it, ids) }
+		entry.notice?.let { NoticeResponseDto(it, ids) },
+		entry.battleSummary?.sections?.map { BattleSummarySectionResponseDto(it) }
 	)
+}
+
+/** One part of a finished battle's summary (playtest, 2026-11-20): "Round 2" and its log lines. Public, like the log. */
+data class BattleSummarySectionResponseDto(val title: String, val lines: List<String>) {
+
+	constructor(section: BattleSummarySection) : this(section.title, section.lines)
 }
 
 /** The interception or battle moment a log entry tells of, for the pop-up cards (creator, 2026-11-18); public, like the line. */
@@ -536,6 +567,7 @@ data class YouResponseDto(
 	val money: Int,
 	val ships: List<YourShipResponseDto>,
 	val offers: List<YourOfferResponseDto>,
+	val untradedOffers: List<YourOfferResponseDto>,
 	val bid: Int?,
 	val tradeMax: Int?,
 	val wholesaleMax: WholesaleMaxResponseDto?,
@@ -555,7 +587,8 @@ data class YouResponseDto(
 	val agentOffers: List<AgentOfferResponseDto>,
 	val limpyAsk: MarketGoodResponseDto?,
 	val opportunity: YourOpportunityResponseDto?,
-	val factorySales: List<FactorySaleResponseDto>
+	val factorySales: List<FactorySaleResponseDto>,
+	val ledger: List<MoneyMovementResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -566,6 +599,7 @@ data class YouResponseDto(
 		player.money,
 		player.ships.map { YourShipResponseDto(it) },
 		view.offers.map { YourOfferResponseDto(it) },
+		view.untradedOffers.map { YourOfferResponseDto(it) },
 		view.bid?.amount,
 		view.tradeMax,
 		view.wholesaleAsk?.let { WholesaleMaxResponseDto(player, it) },
@@ -577,7 +611,7 @@ data class YouResponseDto(
 		view.battleReport?.let { BattleReportResponseDto(it, ids) },
 		AssetsResponseDto(player, view.prices),
 		view.loan?.let { YourLoanResponseDto(it) },
-		player.agents.map { YourAgentResponseDto(it) },
+		player.agents.map { YourAgentResponseDto(it, checkNotNull(player.placeOfAgent(it.agent))) },
 		view.agentPool,
 		view.sabotagesOrdered.map { YourSabotageResponseDto(it, ids) },
 		view.sabotagesSuffered.map { SufferedSabotageResponseDto(it) },
@@ -585,8 +619,15 @@ data class YouResponseDto(
 		view.agentOffers.map { AgentOfferResponseDto(it, ids) },
 		view.limpyAsk?.let { MarketGoodResponseDto(it) },
 		view.opportunity?.let { YourOpportunityResponseDto(it) },
-		player.factories.map { FactorySaleResponseDto(it, view.prices) }
+		player.factories.map { FactorySaleResponseDto(it, view.prices) },
+		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) }
 	)
+}
+
+/** One movement of the viewer's own money (R29, playtest 2026-11-20), newest first in [YouResponseDto.ledger]: green when [credit]. */
+data class MoneyMovementResponseDto(val turn: Int, val reason: String, val amount: Int, val credit: Boolean) {
+
+	constructor(movement: MoneyMovement) : this(movement.turn, movement.reason, movement.amount, movement.isCredit())
 }
 
 /** What one of the viewer's own warehouses holds (R29): [cargoUsed] counts POLY and ISO only (R42), like a ship's. */
@@ -678,7 +719,7 @@ data class ShipyardResponseDto(
 		StarSystem.shipyards().map { ShipyardSystemResponseDto(it.name, it.displayName) },
 		Hull.forSale().map { ShipyardHullResponseDto(it) },
 		Module.forSale().map { ShipyardModuleResponseDto(it) },
-		CrewClass.entries.map { CrewClassResponseDto(it.name, it.pricePerCrew) },
+		CrewClass.entries.map { CrewClassResponseDto(it) },
 		freeNames
 	)
 }
@@ -742,7 +783,11 @@ data class ShipyardModuleResponseDto(
 	)
 }
 
-data class CrewClassResponseDto(val id: String, val pricePerCrew: Int)
+/** A crew class to choose (R67) with what it adds to jumps (R68) and interception (R71), shown beside it (playtest, 2026-11-20). */
+data class CrewClassResponseDto(val id: String, val pricePerCrew: Int, val jumpModifier: Int, val interceptModifier: Int) {
+
+	constructor(crewClass: CrewClass) : this(crewClass.name, crewClass.pricePerCrew, crewClass.jumpModifier, crewClass.interceptModifier)
+}
 
 /**
  * A ship to buy (R61, E09-S02): [name], the [shipyard] system, the [hull] and [modules] as `Hull` and `Module` constants

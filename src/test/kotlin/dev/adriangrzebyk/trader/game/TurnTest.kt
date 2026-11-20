@@ -353,4 +353,18 @@ class TurnTest {
 	/** [turn] after its next good started resolving at the board's price, with [dictator] and no Wholesalers. */
 	private fun resolving(turn: Turn, dictator: String?, dice: Dice): Turn =
 		turn.resolveNext(dictator, emptyList(), turn.tradingQueue.firstOrNull()?.boardPrice() ?: 0, dice)
+
+	@Test
+	fun shouldListTheOffersOfAPlayerWhoseGoodResolvedWithoutTheirTrade() {
+		// Playtest 2026-11-20: an offer that couldn't trade gets a card to acknowledge; one still to resolve or traded doesn't.
+		val tauPoly = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.POLY, OfferType.BUY, 8)
+		val tauIso = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
+		val muChips = Offer("ada@example.com", StarSystem.MU_HERCULIS, Goods.CHIPS, OfferType.BUY, 5)
+		val turn = Turn.bidding(1).placeOffer(tauPoly).placeOffer(tauIso).placeOffer(muChips)
+			.copy(resolvedGoods = listOf(MarketGood(StarSystem.TAU_CETI, Goods.POLY), MarketGood(StarSystem.TAU_CETI, Goods.ISO)))
+		val traded = listOf(TradeRecord("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 3, 9))
+
+		assertThat(turn.untradedOffersOf("ada@example.com", traded)).containsExactly(tauPoly)
+		assertThat(turn.untradedOffersOf("grace@example.com", traded)).isEmpty()
+	}
 }

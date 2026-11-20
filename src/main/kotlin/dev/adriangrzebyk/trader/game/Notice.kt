@@ -17,7 +17,7 @@ data class Notice(
 )
 
 /** The moments that get a pop-up card. */
-enum class NoticeKind { INTERCEPTION, BATTLE_STARTED, BATTLE_ROUND, SHIP_DESTROYED, BATTLE_OVER, SABOTAGE }
+enum class NoticeKind { INTERCEPTION, BATTLE_STARTED, BATTLE_ROUND, SHIP_DESTROYED, BATTLE_OVER, SABOTAGE, BATTLE_SUMMARY }
 
 /**
  * One interception try (R70, R71): [interceptorEmail]'s [interceptorShip] against [arrivingEmail]'s [arrivingShip], each

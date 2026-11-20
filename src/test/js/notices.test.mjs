@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { MAX_TOASTS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts } from '../../main/resources/static/js/notices.js';
+import { MAX_TOASTS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from '../../main/resources/static/js/notices.js';
 
 const players = [
 	{ id: 'p1', corporationName: 'Orion Freight' },
@@ -142,5 +142,27 @@ describe('toasts', () => {
 		assert.deepEqual(toasts(log, 0), { shown: ['c', 'd', 'e'], more: 2 });
 		assert.deepEqual(toasts(log, 4), { shown: ['e'], more: 0 });
 		assert.equal(MAX_TOASTS, 3);
+	});
+});
+
+describe('battle summary and untraded offers (playtest, 2026-11-20)', () => {
+	it('shows a finished battle in one card, by section', () => {
+		const sections = [{ title: 'Round 1', lines: ['Meridian fires at Starfarer: 3 hits'] }, { title: 'Aftermath', lines: ['Vega Lines: reputation −7'] }];
+		const game = {
+			id: 'g',
+			players: [],
+			log: [{ turn: 2, text: 'Summary of the battle at Tau Ceti', notice: { kind: 'BATTLE_SUMMARY', system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds: [], round: null }, battleSummary: sections }],
+		};
+		const [card] = noticeCards(game, 0, 'me');
+		assert.equal(card.title, 'Battle at Tau Ceti — summary');
+		assert.deepEqual(card.sections, sections);
+	});
+
+	it('gives each offer that resolved without trading its own card, once per turn and offer', () => {
+		const game = { id: 'g', turn: { number: 3 }, you: { untradedOffers: [{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', type: 'BUY', price: 12 }] } };
+		const [card] = untradedCards(game);
+		assert.equal(card.key, 'g/3/untraded/TAU_CETI/ISO/BUY');
+		assert.match(card.lead, /^Your ISO buy at Tau Ceti \(12 HT\) didn’t trade/);
+		assert.deepEqual(untradedCards({ id: 'g', turn: { number: 3 }, you: {} }), []);
 	});
 });
