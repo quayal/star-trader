@@ -686,11 +686,11 @@ data class TipOffResponseDto(
 		view.tipOff.tipOff.need.text(),
 		view.tipOff.effectiveIn(),
 		view.learned,
-		view.tipOff.tipOff.kindName().takeIf { view.learned },
-		view.tipOff.tipOff.details().takeIf { view.learned },
+		view.known?.kindName(),
+		view.known?.details(),
 		view.takenShown,
 		view.needRefusal,
-		view.tipOff.tipOff.opportunity?.takeIf { view.learned }?.let { OpportunityTermsResponseDto(it) }
+		view.known?.opportunity?.let { OpportunityTermsResponseDto(it) }
 	)
 }
 

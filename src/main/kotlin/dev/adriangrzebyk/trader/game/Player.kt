@@ -92,7 +92,7 @@ data class Player(
 
 	/** The units of [goods] bound for [system] aboard this player's ships at [location] there: what a sale there sells (R112). */
 	fun specialUnitsAt(goods: SpecialGoods, system: StarSystem, location: ShipLocation): Int =
-		ships.filter { it.system == system && it.location == location }.sumOf { it.specialUnits(goods, system) }
+		ships.filter { it.isAt(system, location) }.sumOf { it.specialUnits(goods, system) }
 
 	/** This player after selling every unit of [goods] bound for [system] at [location] there for [price] HT each (R112). */
 	fun sellSpecialAt(goods: SpecialGoods, system: StarSystem, location: ShipLocation, price: Int): Player {
@@ -100,7 +100,7 @@ data class Player(
 		if (units == 0) {
 			throw InvalidGameOperationException("You have no ${goods.displayName} for ${system.displayName} here.")
 		}
-		val emptied = copy(ships = ships.map { if (it.system == system && it.location == location) it.withoutSpecial(goods, system) else it })
+		val emptied = copy(ships = ships.map { if (it.isAt(system, location)) it.withoutSpecial(goods, system) else it })
 		return emptied.receive(units * price, "Sold $units ${goods.displayName} at ${system.displayName}")
 	}
 

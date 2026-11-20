@@ -339,6 +339,9 @@ data class Ship(
 		return refitted
 	}
 
+	/** Whether this ship is at [location] of [system]. */
+	fun isAt(system: StarSystem, location: ShipLocation): Boolean = this.system == system && this.location == location
+
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
 	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
 

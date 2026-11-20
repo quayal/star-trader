@@ -356,7 +356,7 @@ data class Game(
 			tipOff.tipOff.opportunity as? OpportunityTerms.IllegalGoods ?: throw InvalidGameOperationException("This opportunity isn't for goods.")
 		val player = playerOf(email)
 		val ship = player.ship(shipName)
-		if (ship == null || ship.system != terms.buyAt || ship.location != ShipLocation.PLANET) {
+		if (ship?.isAt(terms.buyAt, ShipLocation.PLANET) != true) {
 			throw InvalidGameOperationException("You need a ship on ${terms.buyAt.displayName}'s Planet.")
 		}
 		val count = checkUnits(units)
@@ -429,7 +429,7 @@ data class Game(
 			)
 		}
 		val ship = playerOf(email).ship(shipName)
-		if (ship == null || ship.system != at || ship.location != ShipLocation.PLANET) {
+		if (ship?.isAt(at, ShipLocation.PLANET) != true) {
 			throw InvalidGameOperationException("You need a ship on ${at.displayName}'s Planet.")
 		}
 		return withOpportunityTaken(email, tipOff, playerOf(email).fitMilitaryModules(shipName, modules))
