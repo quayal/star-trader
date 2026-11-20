@@ -172,6 +172,9 @@ data class Battle(
 	/** The public log line once no ship fights any more (R77). */
 	fun overText(): String = "The battle at ${system.displayName} is over"
 
+	/** The public log line that carries the battle's summary (playtest, 2026-11-20). */
+	fun summaryText(): String = "Summary of the battle at ${system.displayName}"
+
 	/** The pop-up notice of a moment of this battle (creator, 2026-11-18), for everyone with a ship in it. */
 	fun notice(kind: NoticeKind): Notice = Notice(kind, system, landers(), null, null)
 

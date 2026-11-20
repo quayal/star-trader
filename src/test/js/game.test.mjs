@@ -15,6 +15,7 @@ import {
 	gameOverLink,
 	assetsLink,
 	corporationsLink,
+	guideLink,
 	fleetLink,
 	fleetShipLink,
 	infrastructureLink,
@@ -77,6 +78,8 @@ describe('parseRoute', () => {
 		assert.deepEqual(parseRoute(corporationsLink('a/b')), { view: 'corporations', id: 'a/b' });
 		assert.equal(corporationsLink('a/b'), '#game/a%2Fb/corporations');
 		assert.deepEqual(parseRoute('#game/g-1/corporations/2'), { view: 'unknown', id: 'g-1' });
+		assert.deepEqual(parseRoute(guideLink('a/b')), { view: 'guide', id: 'a/b' });
+		assert.equal(guideLink('a/b'), '#game/a%2Fb/guide');
 		assert.deepEqual(parseRoute(assetsLink('a/b')), { view: 'assets', id: 'a/b' });
 		assert.equal(assetsLink('a/b'), '#game/a%2Fb/assets');
 	});

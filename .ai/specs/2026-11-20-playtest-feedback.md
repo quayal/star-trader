@@ -142,3 +142,22 @@ Mostly frontend.
   or in a battle under way (creator, 2026-11-20).
 - **R105:** Wolf's bonus is shown in the initiative line, which reveals him.
 - **R29:** the player's own money history is shown to them, never to others.
+
+## Implementation notes (2026-11-20)
+
+Built on `feat/playtest-feedback` and browser-walked against a running server (two players, two turns). Where the build
+differs from the criteria above:
+
+- **Criterion 2:** agents are moved from the Deck's "Your agents" panel and the Agents card on Infrastructure, not from
+  Fleet ship cards.
+- **Criterion 3:** the system panel doesn't list the viewer's own agents by name. Their place is on the Deck panel and the
+  Agents card.
+- **Criterion 5:** the summary is a card in the notice dialog, shown to every player once the survivors have landed, and
+  reopened from its Game log line (`Show summary`). The existing "The battle at … is over" card still shows first. Orders
+  appear only as the log words them (salvo lines); hit placement shows as the destructions it caused.
+- **Criterion 7:** the list in the map's centre has no per-ship total, because the Deck has no ship selection. A turn's
+  active modifier will join the list when one exists (E1, News).
+- **Criterion 10:** the ledger keeps the newest 40 movements, and "Show all" expands to those. A game saved before the
+  ledger starts with an empty history.
+- **Criterion 13:** the sale form moved from the Loan card to under "Your factories". Each sellable row's `Sell` sits
+  beside `Add units` and picks that factory in the form. The System page's factory table has no `Sell` yet.

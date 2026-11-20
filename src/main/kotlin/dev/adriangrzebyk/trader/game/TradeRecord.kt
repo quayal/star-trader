@@ -15,4 +15,8 @@ data class TradeRecord(
 	val type: OfferType,
 	val units: Int,
 	val price: Int
-)
+) {
+
+	/** Whether this trade is [offer]'s player trading its good its way: the offer traded. */
+	fun isFor(offer: Offer): Boolean = playerEmail == offer.playerEmail && system == offer.system && goods == offer.goods && type == offer.type
+}

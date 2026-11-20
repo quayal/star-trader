@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Reputation
+import dev.adriangrzebyk.trader.game.ledger.MoneyLedger
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Player] as the attribute map nested in the game item; each ship is a [ShipItem], each market position a [MarketPositionItem], each warehouse a [WarehouseItem], each factory a [FactoryItem]. */
@@ -23,7 +24,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			CRIMINAL to number(player.connections.criminal),
 			CONNECTION_POINTS to number(player.connectionPoints),
 			REPUTATION to number(player.reputation.value),
-			AGENTS to AttributeValue.fromL(player.agents.map { AttributeValue.fromM(RecruitedAgentItem(it).attributes) })
+			AGENTS to AttributeValue.fromL(player.agents.map { AttributeValue.fromM(RecruitedAgentItem(it).attributes) }),
+			LEDGER_TURN to number(player.ledger.turn),
+			LEDGER to AttributeValue.fromL(player.ledger.movements.map { AttributeValue.fromM(MoneyMovementItem(it).attributes) })
 		) + listOfNotNull(player.loan?.let { LOAN to AttributeValue.fromM(LoanItem(it).attributes) })
 	)
 
@@ -47,7 +50,12 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		// Absent when there's no loan, which is also how items saved before loans (R90) read.
 		loan = attributes[LOAN]?.m()?.let { LoanItem(it).toLoan() },
 		// Absent from items saved before agents (R103): nobody had one.
-		agents = attributes[AGENTS]?.l().orEmpty().map { RecruitedAgentItem(it.m()).toRecruitedAgent() }
+		agents = attributes[AGENTS]?.l().orEmpty().map { RecruitedAgentItem(it.m()).toRecruitedAgent() },
+		// Absent from items saved before the ledger (playtest, 2026-11-20): its history starts empty, in turn 1 until the next turn.
+		ledger = MoneyLedger(
+			attributes[LEDGER_TURN]?.n()?.toInt() ?: MoneyLedger.START.turn,
+			attributes[LEDGER]?.l().orEmpty().map { MoneyMovementItem(it.m()).toMoneyMovement() }
+		)
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -68,5 +76,7 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val REPUTATION = "reputation"
 		const val LOAN = "loan"
 		const val AGENTS = "agents"
+		const val LEDGER_TURN = "ledgerTurn"
+		const val LEDGER = "ledger"
 	}
 }

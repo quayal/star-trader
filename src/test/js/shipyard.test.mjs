@@ -38,7 +38,12 @@ const SHIPYARD = {
 		{ id: 'LIGHT_WEAPONS', name: 'Light weapons', price: 17, crew: 0, cargoSpaces: 0, weapons: 3, passengers: 0, takesModuleCapacity: true },
 		{ id: 'PASSENGER', name: 'Passenger', price: 15, crew: 1, cargoSpaces: 0, weapons: 0, passengers: 2, takesModuleCapacity: true },
 	],
-	crewClasses: [{ id: 'A', pricePerCrew: 20 }, { id: 'B', pricePerCrew: 10 }, { id: 'C', pricePerCrew: 6 }, { id: 'D', pricePerCrew: 2 }],
+	crewClasses: [
+		{ id: 'A', pricePerCrew: 20, jumpModifier: 5, interceptModifier: 1 },
+		{ id: 'B', pricePerCrew: 10, jumpModifier: 3, interceptModifier: 0 },
+		{ id: 'C', pricePerCrew: 6, jumpModifier: 1, interceptModifier: 0 },
+		{ id: 'D', pricePerCrew: 2, jumpModifier: 0, interceptModifier: -1 },
+	],
 	freeNames: ['Spiral', 'Coral', 'Knight'],
 };
 
@@ -240,7 +245,11 @@ describe('refitOptions (R65)', () => {
 	};
 
 	it('offers every other crew class, at its price for each crew member the ship needs (R89)', () => {
-		assert.deepEqual(refitOptions(SHIPYARD, ship).crew, [{ id: 'A', cost: 40 }, { id: 'C', cost: 12 }, { id: 'D', cost: 4 }]);
+		assert.deepEqual(refitOptions(SHIPYARD, ship).crew, [
+			{ id: 'A', cost: 40, jumpModifier: 5, interceptModifier: 1 },
+			{ id: 'C', cost: 12, jumpModifier: 1, interceptModifier: 0 },
+			{ id: 'D', cost: 4, jumpModifier: 0, interceptModifier: -1 },
+		]);
 		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }).crew, []);
 	});
 

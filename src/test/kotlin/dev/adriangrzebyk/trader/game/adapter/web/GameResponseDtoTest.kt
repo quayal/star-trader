@@ -492,7 +492,7 @@ class GameResponseDtoTest {
 		// 5 HT it's 0, and she acknowledges trading nothing (S04-5).
 		val withMoney = { money: Int ->
 			started.copy(
-				players = started.players.map { if (it.email == "guest@example.com") it.pay(300 - money) else it },
+				players = started.players.map { if (it.email == "guest@example.com") it.pay(300 - money, "Test") else it },
 				turn = started.turn!!.copy(resolution = awaitingGrace)
 			)
 		}
@@ -561,7 +561,7 @@ class GameResponseDtoTest {
 	@Test
 	fun shouldSendEveryonesFinalMoneyAndTheWinnersOnlyOnceTheGameIsOver() {
 		// E05-S08-2, S08-3: final money for everyone, most first; R29 until then
-		val endMoney = started.copy(players = started.players.map { if (it.email == "guest@example.com") it.receive(2010) else it })
+		val endMoney = started.copy(players = started.players.map { if (it.email == "guest@example.com") it.receive(2010, "Test") else it })
 		val finished = endMoney.copy(status = GameStatus.FINISHED)
 
 		assertThat(GameResponseDto(endMoney, "host@example.com").result).isNull()

@@ -305,7 +305,7 @@ class GameShipyardTest {
 		)
 		assertThatThrownBy { inSpace.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }
 			.hasMessage("Wayfarer must be in port to refit.")
-		val broke = investing.copy(players = investing.players.map { if (it.email == "ada@example.com") it.pay(it.money - 5) else it })
+		val broke = investing.copy(players = investing.players.map { if (it.email == "ada@example.com") it.pay(it.money - 5, "Test") else it })
 		assertThatThrownBy { broke.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }
 			.hasMessage("A class A crew for Wayfarer costs 20 HT; you have 5 HT.")
 		assertThatThrownBy { started.replaceCrew("ada@example.com", "Wayfarer", CrewClass.A) }

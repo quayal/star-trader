@@ -16,9 +16,13 @@ class SabotageTable {
 	 */
 	fun reputationLoss(total: Int): Int? = rowFor(total).reputationLoss
 
+	/** Every row of the table, lowest first, for the Guide (playtest, 2026-11-20). */
+	fun rows(): List<Row> = ROWS
+
 	private fun rowFor(total: Int): Row = ROWS.last { total >= it.from }
 
-	private data class Row(val from: Int, val effect: Int, val reputationLoss: Int?)
+	/** One row: a total from [from] reads [effect] and [reputationLoss] (null: the innocent player is blamed). */
+	data class Row(val from: Int, val effect: Int, val reputationLoss: Int?)
 
 	companion object {
 		/** R100: what the innocent player named loses when the reputation roll is 21 or more. */

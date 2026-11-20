@@ -18,7 +18,7 @@ const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYAR
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
  * `#game/{id}/system/{SYSTEM}` → System details (s02); `#game/{id}/log` → the Game log (s04); `#game/{id}/trading` → Trading
  * (s03); `#game/{id}/infrastructure` → Infrastructure (s10, E06-S08); `#game/{id}/fleet` → Fleet (E07-S03);
- * `#game/{id}/corporations` → Corporations (E11-S01); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
+ * `#game/{id}/corporations` → Corporations (E11-S01); `#game/{id}/guide` → the Guide (playtest, 2026-11-20); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
  * the game id when there is one so its "back to the Deck" link stays in that game.
  */
 export function parseRoute(hash) {
@@ -60,6 +60,10 @@ export function parseRoute(hash) {
 	const corporations = /^#game\/([^/]+)\/corporations$/.exec(text);
 	if (corporations) {
 		return { view: 'corporations', id: decodeURIComponent(corporations[1]) };
+	}
+	const guide = /^#game\/([^/]+)\/guide$/.exec(text);
+	if (guide) {
+		return { view: 'guide', id: decodeURIComponent(guide[1]) };
 	}
 	const over = /^#game\/([^/]+)\/game-over$/.exec(text);
 	if (over) {
@@ -111,6 +115,11 @@ export function fleetShipLink(id, ship) {
 /** The Assets tab (creator, 2026-11-18) of game [id]: where the player's money sits. */
 export function assetsLink(id) {
 	return `#game/${encodeURIComponent(id)}/assets`;
+}
+
+/** The Guide tab of game [id] (playtest, 2026-11-20): each phase, every agent and the key modifiers. */
+export function guideLink(id) {
+	return `#game/${encodeURIComponent(id)}/guide`;
 }
 
 /** The Corporations tab (E11-S01, D20) of game [id]: every public fact about every player. */

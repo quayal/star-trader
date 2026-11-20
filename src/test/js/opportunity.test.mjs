@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
 	agentMoves,
+	agentWhereText,
 	agentOfferText,
 	agentStarts,
 	blameChoices,
@@ -132,6 +133,22 @@ describe('agents (R103–R106)', () => {
 		];
 		const moves = agentMoves(mine, { agent: 'NOVAK', ship: 'Wayfarer' });
 		assert.deepEqual(moves.map(m => m.label), ['Board Lantern', 'Step off (Port)']);
+	});
+
+	it('never moves an agent aboard a ship in Space (R104, playtest 2026-11-20)', () => {
+		const mine = game({ you: { id: ME } });
+		mine.players[0].ships = [
+			{ name: 'Wayfarer', system: 'TAU_CETI', location: 'SPACE' },
+			{ name: 'Corvid', system: 'TAU_CETI', location: 'SPACE' },
+		];
+		assert.deepEqual(agentMoves(mine, { agent: 'NOVAK', ship: 'Wayfarer' }), []);
+	});
+
+	it("says where an agent is, its ship's place when aboard", () => {
+		const aboard = { agent: 'NOVAK', ship: 'Wayfarer', placeSystemName: 'Tau Ceti', placeLocation: 'PORT' };
+		const alone = { agent: 'JB', ship: null, system: 'MU_HERCULIS', location: 'PLANET', placeSystemName: 'Mu Herculis', placeLocation: 'PLANET' };
+		assert.equal(agentWhereText(game(), aboard), 'aboard Wayfarer, in Port at Tau Ceti');
+		assert.equal(agentWhereText(game(), alone), 'on his own on the Planet at Mu Herculis');
 	});
 
 	it('shows counts per place and per ship, never names', () => {

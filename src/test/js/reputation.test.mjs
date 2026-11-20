@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BOUGHT_TEXT, myReputation, reputationPurchase, reputationText } from '../../main/resources/static/js/reputation.js';
+import { BOUGHT_TEXT, myReputation, reputationPurchase, reputationText, reputationNote } from '../../main/resources/static/js/reputation.js';
 import { corporationCards } from '../../main/resources/static/js/corporations.js';
 
 /** The viewer in Investment, may buy, with [money] HT and reputation [reputation]. */
@@ -33,5 +33,13 @@ describe('reputation (E13)', () => {
 		assert.equal(reputationPurchase(investing({ reputation: 40 })).reason, 'Your reputation is already at 40.');
 		assert.equal(reputationPurchase(investing({ money: 15 })).reason, 'Buying reputation costs 20 HT; you have 15 HT.');
 		assert.equal(reputationPurchase({ ...investing(), you: { id: 'p1', money: 300 } }), null);
+	});
+});
+
+describe('reputationNote (playtest, 2026-11-20)', () => {
+	it('says what the end of the turn adds and what bonus the reputation pays', () => {
+		assert.equal(reputationNote({ reputation: 12, reputationRecovery: 3, reputationBonus: 0 }, 25), '+3 at the end of the turn · bonus from 25');
+		assert.equal(reputationNote({ reputation: 27, reputationRecovery: 0, reputationBonus: 10 }, 25), 'No end-of-turn +3 at this level · bonus 10 HT a turn');
+		assert.equal(reputationNote({ reputation: 0, reputationRecovery: 0, reputationBonus: 0 }), 'No +3 at 0: only buying raises it · no bonus yet');
 	});
 });

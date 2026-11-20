@@ -74,6 +74,29 @@ class GameAgentsTest {
 	}
 
 	@Test
+	fun shouldMoveAnAgentAtAnyTimeLikeCargoNotOnlyOnTheOwnersOpportunityTurn() {
+		// R104 (playtest, 2026-11-20): Kim has finished his Opportunity turn and still moves Novak, and so would he in Investment
+		val done = game.recruitAgent(KIM, 60, aboard, recruitDice(2)).finishOpportunities(KIM)
+
+		val off = done.moveAgent(KIM, Agent.NOVAK, AgentPosition.OnOwn(TAU_CETI, ShipLocation.PORT))
+
+		assertThat(fixture.playerOf(off, KIM).agentsAboard("Bright Reach")).isZero()
+	}
+
+	@Test
+	fun shouldRefuseMovingAnAgentAboardAShipInSpace() {
+		// R104: an agent is never on its own in Space, and nobody changes ships there, as with cargo
+		val recruited = game.recruitAgent(KIM, 60, aboard, recruitDice(2))
+		val inSpace = fixture.with(recruited, KIM) { player ->
+			player.copy(ships = player.ships.map { if (it.name == "Bright Reach") it.copy(location = ShipLocation.SPACE) else it })
+		}
+
+		assertThatThrownBy { inSpace.moveAgent(KIM, Agent.NOVAK, AgentPosition.Aboard("Corvid")) }
+			.isInstanceOf(InvalidAgentException::class.java)
+			.hasMessage("Agents can't move in Space: wait until the ship is in Port or on the Planet.")
+	}
+
+	@Test
 	fun shouldSellAnAgentWhoseIdentityOnlyTheSellerSeesUntilItsBought() {
 		// R106: the buyer may answer any time before Opportunity closes
 		val offered = game.recruitAgent(KIM, 60, aboard, recruitDice(2)).offerAgent(KIM, Agent.NOVAK, ADA, 25).finishOpportunities(KIM)
@@ -117,7 +140,7 @@ class GameAgentsTest {
 		assertThat(closed.turn!!.initiativeRolls.first { it.playerEmail == KIM }.total()).isEqualTo(5)
 		assertThat(closed.log.takeLast(2).map { it.text }).containsExactly(
 			"Wolf (Kessler Cargo): +4 initiative",
-			"Initiative (bid + 2d6): Kessler Cargo 0 + 1 + 4 = 5 → Vega Lines 0 + 3 = 3 → Orion Freight 0 + 2 = 2"
+			"Initiative (bid + 2d6): Kessler Cargo 0 + 1 + Wolf 4 = 5 → Vega Lines 0 + 3 = 3 → Orion Freight 0 + 2 = 2"
 		)
 	}
 

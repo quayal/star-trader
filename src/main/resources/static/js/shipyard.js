@@ -249,6 +249,12 @@ export function refitOptions(shipyard, ship) {
 	// R89: a whole new crew of another class, at that class's price for every crew member the ship needs; the old one isn't paid back.
 	const crew = shipyard.crewClasses
 		.filter(entry => entry.id !== ship.crewClass)
-		.map(entry => ({ id: entry.id, cost: (ship.stats.crewNeeded ?? 0) * entry.pricePerCrew }));
+		.map(entry => ({
+			id: entry.id,
+			cost: (ship.stats.crewNeeded ?? 0) * entry.pricePerCrew,
+			// Playtest 2026-11-20: what the class adds, shown beside it.
+			jumpModifier: entry.jumpModifier,
+			interceptModifier: entry.interceptModifier,
+		}));
 	return { add, remove, crew };
 }

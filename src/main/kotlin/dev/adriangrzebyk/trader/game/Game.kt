@@ -11,6 +11,7 @@ import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
 import dev.adriangrzebyk.trader.game.battle.BattleShip
+import dev.adriangrzebyk.trader.game.battle.BattleSummary
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
@@ -184,7 +185,10 @@ data class Game(
 	 * This game in the turn after [current], starting with Bidding (S07-2). No log line says so: the log groups its
 	 * lines by turn, and the top bar shows the turn (creator, 2026-11-19).
 	 */
-	private fun withNextTurn(current: Turn): Game = copy(turn = current.next())
+	private fun withNextTurn(current: Turn): Game {
+		val next = current.next()
+		return copy(turn = next, players = players.map { it.inTurn(next.number) })
+	}
 
 	/** Turn [number]'s end (R86, E13-S01-2): every player whose reputation is from 1 to 17 recovers 3, each logged. */
 	private fun withReputationRecovered(number: Int): Game {
@@ -206,7 +210,7 @@ data class Game(
 			return this
 		}
 		return copy(
-			players = players.map { it.receive(it.reputationBonus()) },
+			players = players.map { it.receive(it.reputationBonus(), "Reputation bonus") },
 			log = log + LogEntry.event(number, "Reputation bonus: ${paid.joinToString(", ") { it.corporationName }}")
 		)
 	}
@@ -305,7 +309,7 @@ data class Game(
 		if (cost > saboteur.money) {
 			throw InvalidSabotageException("Sabotage at ${target.system.displayName} costs $cost HT; you have ${saboteur.money} HT.")
 		}
-		val paid = saboteur.pay(cost)
+		val paid = saboteur.pay(cost, "Sabotage at ${target.system.displayName}")
 		if (owner.isImmuneToSabotageAt(target.system)) {
 			val foiled = Sabotage.foiled(email, target, blamed, cost, Agent.SILENT.displayName)
 			val line = Agent.SILENT.actedLog(owner.corporationName, " foiled a sabotage at ${target.system.displayName}")
@@ -430,9 +434,9 @@ data class Game(
 		return copy(players = replace(recruited), turn = recruitedTurn, log = log + line.map { LogEntry.event(current.number, it) })
 	}
 
-	/** [email] moves their [agent] [to] on their Opportunity turn (R104): see [Player.moveAgent]. The public counts follow. */
+	/** [email] moves their [agent] [to] at any time in a running game, like cargo (R104): see [Player.moveAgent]. The public counts follow. */
 	fun moveAgent(email: String, agent: Agent?, to: AgentPosition): Game {
-		opportunityAfterCollect(email)
+		runningTurn()
 		return copy(players = replace(playerOf(email).moveAgent(agent, to)))
 	}
 
@@ -602,6 +606,7 @@ data class Game(
 		return PlayerView(
 			player = player,
 			offers = turn?.offersOf(email).orEmpty(),
+			untradedOffers = turn?.let { it.untradedOffersOf(email, tradesIn(it.number)) }.orEmpty(),
 			bid = turn?.bidOf(email),
 			tradeMax = resolution?.awaitingTradeOf(email)?.let { player.tradeMax(it.offer, it.marketMax) },
 			wholesaleAsk = resolution?.takeIf { it.isAskingWholesaler(email) },
@@ -630,6 +635,9 @@ data class Game(
 			}
 		)
 	}
+
+	/** The trades of turn [number], from the log, where each is kept (creator, 2026-11-18). */
+	private fun tradesIn(number: Int): List<TradeRecord> = log.filter { it.turn == number }.mapNotNull { it.trade }
 
 	/** The agents still to recruit (R103): every recruitable one nobody owns and nobody killed. */
 	fun agentPool(): List<Agent> = Agent.entries.filter { agent ->
@@ -1041,7 +1049,14 @@ data class Game(
 			return copy(log = log + events)
 		}
 		val after = current.withBattle(null).landed()
-		val game = copy(turn = after, log = log + events)
+		val told = log + events
+		val summary = LogEntry.battleSummary(
+			current.number,
+			battle.summaryText(),
+			battle.notice(NoticeKind.BATTLE_SUMMARY),
+			BattleSummary.of(told, battle.system)
+		)
+		val game = copy(turn = after, log = told + summary)
 		val jumper = after.jumper() ?: return game
 		return if (after.haveAllJumped(playerOf(jumper).jumpableShips())) game.endJumpSlot(jumper) else game
 	}
@@ -1341,7 +1356,7 @@ data class Game(
 		val closed = current.closeBidding(players.map { it.email }, bonuses, dice)
 		val wolf = bonuses.keys.map { Agent.WOLF.actedLog(corporationOf(it), ": +${Agent.WOLF_INITIATIVE_BONUS} initiative") }
 		return copy(
-			players = players.map { it.pay(current.bidAmountOf(it.email)) },
+			players = players.map { it.pay(current.bidAmountOf(it.email), "Initiative bid") },
 			turn = closed,
 			log = log + (wolf + closed.initiativeLog(corporationNames())).map { LogEntry.event(current.number, it) }
 		)

@@ -59,8 +59,8 @@ function interceptionCard(game, notice, myId) {
 	};
 }
 
-/** A card's heading and opening line for [notice]; [texts] are its log lines. */
-function cardFor(game, notice, texts, myId) {
+/** A card's heading and opening line for [notice]; [texts] are its log lines, [entry] the group's first log entry. */
+function cardFor(game, notice, texts, myId, entry) {
 	const where = notice.systemName;
 	switch (notice.kind) {
 	case 'INTERCEPTION': {
@@ -78,6 +78,9 @@ function cardFor(game, notice, texts, myId) {
 		return { title: `Battle at ${where} — round ${notice.round}`, lead: '', tone: null, lines: texts.slice(1) };
 	case 'SHIP_DESTROYED':
 		return { title: 'Ship destroyed', lead: '', tone: 'alert', lines: texts };
+	case 'BATTLE_SUMMARY':
+		// Playtest 2026-11-20: the whole battle in one card, by round, then the aftermath (reputation included).
+		return { title: `Battle at ${where} — summary`, lead: '', tone: null, lines: [], sections: entry?.battleSummary ?? [] };
 	case 'SABOTAGE':
 		return { title: `Sabotage at ${where}`, lead: 'One of your assets was sabotaged. See Infrastructure.', tone: 'alert', lines: texts };
 	default:
@@ -116,7 +119,7 @@ export function noticeCards(game, from, myId) {
 			key: `${game.id}/log/${group.start}`,
 			end: group.end,
 			evaded: group.notice.kind === 'INTERCEPTION' && group.notice.interception.arrivingId === myId && !group.notice.interception.success,
-			...cardFor(game, group.notice, group.texts, myId),
+			...cardFor(game, group.notice, group.texts, myId, log[group.start]),
 		}));
 }
 
@@ -190,4 +193,19 @@ export function cardsFrom(remembered, logLength) {
 export function toasts(log, from) {
 	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice).map(entry => entry.text);
 	return { shown: lines.slice(-MAX_TOASTS), more: Math.max(0, lines.length - MAX_TOASTS) };
+}
+
+/**
+ * One card per offer of the viewer's that resolved without trading (playtest, 2026-11-20), from `you.untradedOffers`, to
+ * acknowledge: `{ key, title, lead, tone, lines }`. The key names the turn and the offer, so each shows once.
+ */
+export function untradedCards(game) {
+	const turn = game.turn?.number;
+	return (game.you?.untradedOffers ?? []).map(offer => ({
+		key: `${game.id}/${turn}/untraded/${offer.system}/${offer.goods}/${offer.type}`,
+		title: 'Your offer didn’t trade',
+		lead: `Your ${offer.goods} ${offer.type === 'SELL' ? 'sell' : 'buy'} at ${offer.systemName} (${offer.price} HT) didn’t trade: another offer won, or the market roll left nothing for it.`,
+		tone: null,
+		lines: [],
+	}));
 }

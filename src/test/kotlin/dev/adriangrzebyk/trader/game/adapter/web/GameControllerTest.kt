@@ -106,6 +106,8 @@ class GameControllerTest {
 				),
 				0,
 				20,
+				0,
+				0,
 				emptyList()
 			)
 		)
@@ -115,9 +117,9 @@ class GameControllerTest {
 			game.you
 		).isEqualTo(
 			YouResponseDto(
-				"p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
+				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
-				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList()
+				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList()
 			)
 		)
 	}
@@ -176,6 +178,8 @@ class GameControllerTest {
 				),
 				0,
 				20,
+				0,
+				0,
 				emptyList()
 			),
 			PlayerResponseDto(
@@ -185,7 +189,7 @@ class GameControllerTest {
 					0,
 					0
 				),
-				0, 20, emptyList()
+				0, 20, 0, 0, emptyList()
 			)
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
@@ -347,7 +351,7 @@ class GameControllerTest {
 			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
 			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
 		}
-		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null, null))
+		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null, null, null))
 		joinGame(signIn("start-late@example.com"), game.id)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("This game has already started")
@@ -808,7 +812,9 @@ class GameControllerTest {
 
 		// S06-1: every entry carries its turn; S06-3: none names an offer or money (R17, R29). Bids are public once Bidding
 		// has closed (creator, 2026-11-18), so the initiative line names the 23.
-		assertThat(raw).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null,\"notice\":null}")
+		assertThat(
+			raw
+		).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null,\"notice\":null,\"battleSummary\":null}")
 		assertThat(log.map { it.turn }).containsOnly(1)
 		// 2 at the start, a roll and a placement for each player (R82), and the initiative line
 		assertThat(log.map { it.text }).hasSize(7).noneMatch { text ->
@@ -1153,7 +1159,7 @@ class GameControllerTest {
 		assertThat(pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn)
 			.isEqualTo(ended.turn)
 		// Creator, 2026-11-19: no line announces turn 2; the log's last line is turn 1's.
-		assertThat(ended.log.last()).isEqualTo(LogEntryResponseDto(1, "All goods resolved", null, null))
+		assertThat(ended.log.last()).isEqualTo(LogEntryResponseDto(1, "All goods resolved", null, null, null))
 		resolveNext("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Trading hasn't started.")

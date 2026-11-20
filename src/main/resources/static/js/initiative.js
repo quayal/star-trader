@@ -63,7 +63,7 @@ export function initiativeText(game) {
 
 /**
  * Once Bidding has closed (creator, 2026-11-18): what each player bid and rolled, in initiative order, as
- * `{ corporation, sum: '40 + 11 = 51', tie: 'tie rolled again: 9' | '' }`. Empty while Bidding is open, and for a turn
+ * `{ corporation, sum: '40 + 11 = 51' (or '5 + 3 + Wolf 4 = 12', R105), tie: 'tie rolled again: 9' | '' }`. Empty while Bidding is open, and for a turn
  * saved before the rolls were kept.
  */
 export function initiativeRolls(game) {
@@ -72,7 +72,7 @@ export function initiativeRolls(game) {
 	}
 	return (game.turn?.initiativeRolls ?? []).map(roll => ({
 		corporation: game.players.find(p => p.id === roll.playerId)?.corporationName ?? roll.playerId,
-		sum: `${roll.bid} + ${roll.roll} = ${roll.total}`,
+		sum: `${roll.bid} + ${roll.roll}${roll.bonus ? ` + ${roll.bonusFrom} ${roll.bonus}` : ''} = ${roll.total}`,
 		tie: roll.tieRolls?.length ? `tie rolled again: ${roll.tieRolls.join(', ')}` : '',
 	}));
 }
