@@ -1191,9 +1191,11 @@ class GameControllerTest {
 					if (player.email != first) {
 						player
 					} else {
-						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does.
+						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does. The other ships go
+						// elsewhere: a random start could put them at Tau Ceti too, offering more than one destination.
 						val atTau = player.ships[0].copy(system = StarSystem.TAU_CETI)
-						player.copy(ships = listOf(atTau) + player.ships.drop(1), factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
+						val elsewhere = player.ships.drop(1).map { it.copy(system = StarSystem.GAMMA_LEPORIS) }
+						player.copy(ships = listOf(atTau) + elsewhere, factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
 					}
 				}
 			)
