@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.news.OpportunityTerms
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOff
 
@@ -206,6 +207,58 @@ data class Ship(
 
 	/** Whether it carries anything illegal (R112) or is military (R56): what the landing choice warns about. */
 	fun isContraband(): Boolean = isMilitary() || specialLots.any { it.isIllegal() }
+
+	/**
+	 * This ship with [lot] aboard (R112): weapons need free cargo spaces and slaves free passenger seats; what doesn't fit
+	 * can't be bought, so it's refused.
+	 */
+	fun withSpecialLot(lot: SpecialLot): Ship {
+		if (lot.cargoSpaces() > (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)) {
+			throw InvalidGameOperationException(
+				"$name has room for ${(cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)} units of ${lot.goods.displayName}."
+			)
+		}
+		if (lot.passengerSeats() > freePassengerSeats()) {
+			throw InvalidGameOperationException("$name has ${freePassengerSeats()} free passenger seats for slaves.")
+		}
+		return copy(specialLots = specialLots + lot)
+	}
+
+	/** The units of [goods] bound for [system] aboard (R112): what one sale there sells. */
+	fun specialUnits(goods: SpecialGoods, system: StarSystem): Int = specialLots.filter { it.isFor(goods, system) }.sumOf { it.units }
+
+	/** This ship once its [goods] bound for [system] were sold (R112). */
+	fun withoutSpecial(goods: SpecialGoods, system: StarSystem): Ship = copy(specialLots = specialLots.filterNot { it.isFor(goods, system) })
+
+	/**
+	 * This ship carrying the delivery of [tipOff] (R114) in one whole module of its [space]: refused when it already
+	 * carries one, has no such module, or hasn't the module's room free.
+	 */
+	fun withDelivery(tipOff: TipOff, space: Module): Ship {
+		if (deliveryJob != null) {
+			throw InvalidGameOperationException("$name already carries a delivery.")
+		}
+		val free = if (space == Module.PASSENGER) freePassengerSeats() else (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
+		if (space !in workingModules() || free < space.cargoSpaces + space.passengers) {
+			throw InvalidGameOperationException("$name needs a whole free ${space.displayName} module for this.")
+		}
+		return copy(deliveryJob = tipOff)
+	}
+
+	/** This ship once its delivery arrived (R114). */
+	fun delivered(): Ship = copy(deliveryJob = null)
+
+	/** This ship with military [added] modules fitted on a Planet through an opportunity (R113), refused when they don't fit. */
+	fun withMilitaryModules(added: List<Module>): Ship {
+		hull.checkFits(modules + added)
+		return copy(modules = modules + added)
+	}
+
+	/** This ship back from the expedition (R114), at [location] in [system]. */
+	fun returnedTo(system: StarSystem, location: ShipLocation): Ship = copy(system = system, location = location)
+
+	/** Whether this ship has no military parts (R56): the expedition takes only a legal ship (R114). */
+	fun isLegal(): Boolean = !isMilitary()
 
 	/** This ship without its illegal goods (R117: confiscated when forced into a Port); its legal cargo stays. */
 	fun withoutIllegalLots(): Ship = copy(specialLots = specialLots.filterNot { it.isIllegal() })
@@ -420,6 +473,21 @@ data class Ship(
 		 * civilian [modules] it can take (R52, R56), crewed at [crewClass]. It waits in the yard (R60, R63). That the name
 		 * is free in the game, and paying [price], are the player's and the game's to check.
 		 */
+		/**
+		 * A military ship bought through an opportunity (R113): named [name], appearing at once on [system]'s Planet with
+		 * [hull] and [modules] and a crew of [crewClass]; refused for a bad name or modules that don't fit.
+		 */
+		fun militaryOnPlanet(name: String?, system: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass): Ship {
+			val trimmed = name?.trim().orEmpty()
+			if (trimmed.length !in 1..MAX_NAME_LENGTH) {
+				throw InvalidGameOperationException("Choose a name of 1 to $MAX_NAME_LENGTH characters.")
+			}
+			if (!NAME_PATTERN.matches(trimmed) || trimmed.none { it.isLetterOrDigit() }) {
+				throw InvalidGameOperationException(NAME_CHARACTERS_MESSAGE)
+			}
+			return Ship(trimmed, system, ShipLocation.PLANET, emptyMap(), hull, modules, crewClass, null, 0, emptyList())
+		}
+
 		fun commission(name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass, turn: Int): Ship {
 			val trimmed = name?.trim().orEmpty()
 			if (trimmed.length !in 1..MAX_NAME_LENGTH) {

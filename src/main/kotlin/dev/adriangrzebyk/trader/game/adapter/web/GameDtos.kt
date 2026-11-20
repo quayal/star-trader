@@ -41,6 +41,7 @@ import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import dev.adriangrzebyk.trader.game.ledger.MoneyMovement
 import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.OpportunityTerms
 import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOffView
 import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
@@ -624,7 +625,8 @@ data class YouResponseDto(
 	val opportunity: YourOpportunityResponseDto?,
 	val factorySales: List<FactorySaleResponseDto>,
 	val ledger: List<MoneyMovementResponseDto>,
-	val tipOffs: List<TipOffResponseDto>
+	val tipOffs: List<TipOffResponseDto>,
+	val expeditions: List<YourExpeditionResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -657,7 +659,8 @@ data class YouResponseDto(
 		view.opportunity?.let { YourOpportunityResponseDto(it) },
 		player.factories.map { FactorySaleResponseDto(it, view.prices) },
 		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) },
-		view.tipOffs.map { TipOffResponseDto(it) }
+		view.tipOffs.map { TipOffResponseDto(it) },
+		player.expeditions.map { YourExpeditionResponseDto(it.ship.name, it.returnTurn, it.isDueIn(view.turnNumber)) }
 	)
 }
 
@@ -674,7 +677,8 @@ data class TipOffResponseDto(
 	val kind: String?,
 	val details: String?,
 	val taken: Boolean,
-	val needRefusal: String?
+	val needRefusal: String?,
+	val terms: OpportunityTermsResponseDto?
 ) {
 
 	constructor(view: TipOffView) : this(
@@ -685,9 +689,72 @@ data class TipOffResponseDto(
 		view.tipOff.tipOff.kindName().takeIf { view.learned },
 		view.tipOff.tipOff.details().takeIf { view.learned },
 		view.takenShown,
-		view.needRefusal
+		view.needRefusal,
+		view.tipOff.tipOff.opportunity?.takeIf { view.learned }?.let { OpportunityTermsResponseDto(it) }
 	)
 }
+
+/**
+ * A learned opportunity's terms for the form that takes it (R111–R114): [kind] (ILLEGAL_GOODS, FURS, MILITARY_SHIP,
+ * MILITARY_MODULES, DELIVERY, EXPEDITION), where to [buyAt] or pick up, where it [sellAt] or delivers, the [price] per unit,
+ * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space].
+ */
+data class OpportunityTermsResponseDto(
+	val kind: String,
+	val legal: Boolean,
+	val goods: String?,
+	val price: Int?,
+	val buyAt: String?,
+	val sellAt: String?,
+	val hulls: List<String>,
+	val modules: List<String>,
+	val maxModules: Int?,
+	val hullOptional: Boolean,
+	val space: String?,
+	val minReputation: Int?
+) {
+
+	constructor(terms: OpportunityTerms) : this(
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> "ILLEGAL_GOODS"
+			is OpportunityTerms.Furs -> "FURS"
+			is OpportunityTerms.MilitaryShip -> "MILITARY_SHIP"
+			is OpportunityTerms.MilitaryModules -> "MILITARY_MODULES"
+			is OpportunityTerms.Delivery -> "DELIVERY"
+			OpportunityTerms.Expedition -> "EXPEDITION"
+		},
+		terms.legal,
+		(terms as? OpportunityTerms.IllegalGoods)?.goods?.name ?: "FURS".takeIf { terms is OpportunityTerms.Furs },
+		(terms as? OpportunityTerms.IllegalGoods)?.price ?: (terms as? OpportunityTerms.Furs)?.price,
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> terms.buyAt.name
+			is OpportunityTerms.Furs -> terms.buyAt.name
+			is OpportunityTerms.MilitaryShip -> terms.at.name
+			is OpportunityTerms.MilitaryModules -> terms.at.name
+			is OpportunityTerms.Delivery -> terms.from.name
+			OpportunityTerms.Expedition -> null
+		},
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> terms.sellAt.name
+			is OpportunityTerms.Furs -> terms.sellAt.name
+			is OpportunityTerms.Delivery -> terms.to.name
+			else -> null
+		},
+		(terms as? OpportunityTerms.MilitaryShip)?.hulls.orEmpty().map { it.name },
+		(
+			(terms as? OpportunityTerms.MilitaryModules)?.modules ?: Module.military().takeIf {
+				terms is OpportunityTerms.MilitaryShip
+			}
+			).orEmpty().map { it.name },
+		(terms as? OpportunityTerms.MilitaryShip)?.maxModules ?: (terms as? OpportunityTerms.MilitaryModules)?.modules?.size,
+		(terms as? OpportunityTerms.MilitaryShip)?.hullOptional == true,
+		(terms as? OpportunityTerms.Delivery)?.space?.name,
+		(terms as? OpportunityTerms.Delivery)?.minReputation
+	)
+}
+
+/** One of the viewer's ships away on the expedition (R114): back on [returnTurn]'s Opportunity, [due] once it is. */
+data class YourExpeditionResponseDto(val ship: String, val returnTurn: Int, val due: Boolean)
 
 /** One movement of the viewer's own money (R29, playtest 2026-11-20), newest first in [YouResponseDto.ledger]: green when [credit]. */
 data class MoneyMovementResponseDto(val turn: Int, val reason: String, val amount: Int, val credit: Boolean) {

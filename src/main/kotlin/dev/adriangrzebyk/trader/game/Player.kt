@@ -14,6 +14,11 @@ import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.loan.LoanCollection
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import dev.adriangrzebyk.trader.game.loan.SeizedUnits
+import dev.adriangrzebyk.trader.game.news.Expedition
+import dev.adriangrzebyk.trader.game.news.OpportunityTerms
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOff
 import dev.adriangrzebyk.trader.game.news.TipOffNeed
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
@@ -26,7 +31,7 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * Bidding, then 0. [reputation] is public too (R85). [loan] is their open loan, private like money (R29, R90), or null.
  * [agents] are their special operatives (R103): where they are is public, which they are is theirs alone (R105). [ledger] is
  * their own money history, private like money (R29, playtest 2026-11-20): every change to [money] goes through [pay] or
- * [receive], which record it.
+ * [receive], which record it. [expeditions] are their ships away on the scientific expedition (R114), public.
  */
 data class Player(
 	val email: String,
@@ -42,7 +47,8 @@ data class Player(
 	val reputation: Reputation,
 	val loan: Loan?,
 	val agents: List<RecruitedAgent>,
-	val ledger: MoneyLedger = MoneyLedger.START
+	val ledger: MoneyLedger = MoneyLedger.START,
+	val expeditions: List<Expedition> = emptyList()
 ) {
 
 	init {
@@ -68,6 +74,95 @@ data class Player(
 		}
 		return pay(TIP_OFF_FEE, "Learned a tip-off")
 	}
+
+	/** This player after paying [cost] HT for [reason], refused when they can't: an opportunity's price (R111). */
+	private fun payFor(cost: Int, reason: String): Player {
+		if (cost > money) {
+			throw InvalidGameOperationException("This costs $cost HT; you have $money HT.")
+		}
+		return pay(cost, reason)
+	}
+
+	/** This player after buying [lot] at [price] HT a unit into their ship [shipName] (R112). */
+	fun buySpecial(shipName: String?, lot: SpecialLot, price: Int): Player {
+		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		val loaded = ship.withSpecialLot(lot)
+		return payFor(lot.units * price, "Bought ${lot.units} ${lot.goods.displayName}").withShip(loaded)
+	}
+
+	/** The units of [goods] bound for [system] aboard this player's ships at [location] there: what a sale there sells (R112). */
+	fun specialUnitsAt(goods: SpecialGoods, system: StarSystem, location: ShipLocation): Int =
+		ships.filter { it.system == system && it.location == location }.sumOf { it.specialUnits(goods, system) }
+
+	/** This player after selling every unit of [goods] bound for [system] at [location] there for [price] HT each (R112). */
+	fun sellSpecialAt(goods: SpecialGoods, system: StarSystem, location: ShipLocation, price: Int): Player {
+		val units = specialUnitsAt(goods, system, location)
+		if (units == 0) {
+			throw InvalidGameOperationException("You have no ${goods.displayName} for ${system.displayName} here.")
+		}
+		val emptied = copy(ships = ships.map { if (it.system == system && it.location == location) it.withoutSpecial(goods, system) else it })
+		return emptied.receive(units * price, "Sold $units ${goods.displayName} at ${system.displayName}")
+	}
+
+	/** Whether Frank is on [system]'s Planet with this player (R108): +2 on their black-market roll there. */
+	fun blackMarketBonusAt(system: StarSystem): Int =
+		if (agent(Agent.FRANK)?.let { placeOf(it) == AgentPlace(system, ShipLocation.PLANET) } == true) Agent.FRANK_BLACK_MARKET_BONUS else 0
+
+	/** This player after buying the military [ship] through an opportunity (R113): its hull, modules and crew. */
+	fun buyMilitaryShip(ship: Ship): Player = copy(ships = ships + ship).payFor(ship.price(), "Bought ${ship.name}")
+
+	/** This player after fitting military [modules] to their ship [shipName] on a Planet (R113), crew at its class. */
+	fun fitMilitaryModules(shipName: String?, modules: List<Module>): Player {
+		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		val fitted = ship.withMilitaryModules(modules)
+		return payFor(modules.sumOf { it.fittingCost(ship.crewClass) }, "Military modules for ${ship.name}").withShip(fitted)
+	}
+
+	/** This player with their ship [shipName] carrying the delivery of [tipOff] in a whole [space] module (R114); [minReputation] to accept. */
+	fun takeDelivery(shipName: String?, tipOff: TipOff, space: Module, minReputation: Int): Player {
+		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		if (reputation.value < minReputation) {
+			throw InvalidGameOperationException("This delivery needs reputation $minReputation; yours is ${reputation.value}.")
+		}
+		return withShip(ship.withDelivery(tipOff, space))
+	}
+
+	/**
+	 * This player once their ship [shipName] delivered its job (R114), when it's in the destination Port: paid and its
+	 * reputation raised; null when it carries nothing for here.
+	 */
+	fun delivered(shipName: String): Player? {
+		val ship = ship(shipName) ?: return null
+		val terms = ship.deliveryJob?.opportunity as? OpportunityTerms.Delivery ?: return null
+		if (!ship.isInPortAt(terms.to)) {
+			return null
+		}
+		return withShip(
+			ship.delivered()
+		).receive(terms.payment, "Delivered ${terms.cargo} to ${terms.to.displayName}").withReputationChanged(terms.reputation)
+	}
+
+	/** This player once their legal ship [shipName] left on the expedition, back in turn [returnTurn] (R114); its agents step off. */
+	fun sendOnExpedition(shipName: String?, returnTurn: Int): Player {
+		val ship =
+			ship(shipName)?.takeUnless { it.isInShipyard() } ?: throw InvalidGameOperationException("Choose one of your ships out of the shipyard.")
+		if (!ship.isLegal()) {
+			throw InvalidGameOperationException("Only a ship with no military parts can go on the expedition.")
+		}
+		return copy(expeditions = expeditions + Expedition(ship, returnTurn)).withAgentsSteppedOff(ship).withoutShip(ship.name)
+	}
+
+	/** This player once their expedition ship [shipName] was lost on a 1 (R114). */
+	fun abandonExpedition(shipName: String): Player = copy(expeditions = expeditions.filterNot { it.ship.name == shipName })
+
+	/** This player's expedition ship [shipName] that's back in turn [turn], refused otherwise (R114). */
+	fun expeditionDue(shipName: String?, turn: Int): Expedition = expeditions.firstOrNull { it.ship.name == shipName && it.isDueIn(turn) }
+		?: throw InvalidGameOperationException("No expedition of yours is back now.")
+
+	/** This player once [expedition] returned to [system] at [location] and paid [payment] HT (R114). */
+	fun returnedFrom(expedition: Expedition, system: StarSystem, location: ShipLocation, payment: Int): Player =
+		copy(expeditions = expeditions - expedition, ships = ships + expedition.ship.returnedTo(system, location))
+			.receive(payment, "Scientific expedition")
 
 	/** This player after the money fraud (E4): cash and any open loan halved, rounded down. */
 	fun inflated(): Player = copy(loan = loan?.halved()).pay(money - money / 2, "Money fraud: cash halved")

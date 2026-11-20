@@ -17,8 +17,15 @@ import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
+import dev.adriangrzebyk.trader.game.news.ActiveTipOff
+import dev.adriangrzebyk.trader.game.news.Expedition
 import dev.adriangrzebyk.trader.game.news.News
 import dev.adriangrzebyk.trader.game.news.NewsEvent
+import dev.adriangrzebyk.trader.game.news.OpportunityTerms
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TakeOrder
+import dev.adriangrzebyk.trader.game.news.TipOff
 import dev.adriangrzebyk.trader.game.news.TipOffView
 import dev.adriangrzebyk.trader.game.news.TurnConditions
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
@@ -295,7 +302,222 @@ data class Game(
 	fun finishOpportunities(email: String): Game {
 		val current = opportunityAfterCollect(email)
 		current.refuseDoneWhileChoosing(email)
-		return copy(turn = current.endOpportunityTurn(email)).withOpportunityClosedIfOver()
+		if (playerOf(email).expeditions.any { it.isDueIn(current.number) }) {
+			throw InvalidGameOperationException("Bring your expedition back first: choose the system it returns to.")
+		}
+		return withTurn(current.endOpportunityTurn(email)).withOpportunityClosedIfOver()
+	}
+
+	// ── Opportunities (R111–R114): taken on the player's Opportunity turn, once they've learned the tip-off ──
+
+	/**
+	 * [email] takes the opportunity in [slot] with [order] (R111–R114), as its kind asks; [dice] for the expedition's roll.
+	 * A military-ship card with no hull in the order fits modules alone (O13's "or modules").
+	 */
+	fun takeOpportunity(email: String, slot: Int?, order: TakeOrder, dice: Dice): Game =
+		when (val terms = news.inSlot(slot).tipOff.opportunity) {
+			is OpportunityTerms.IllegalGoods -> buyIllegalGoods(email, slot, order.ship, order.units)
+			is OpportunityTerms.Furs -> buyFurs(email, slot, order.ship, order.units)
+			is OpportunityTerms.MilitaryShip ->
+				if (order.hull == null && terms.hullOptional) {
+					buyMilitaryModules(email, slot, order.ship, order.modules)
+				} else {
+					buyMilitaryShip(email, slot, order.name, order.hull, order.modules, order.crewClass)
+				}
+			is OpportunityTerms.MilitaryModules -> buyMilitaryModules(email, slot, order.ship, order.modules)
+			is OpportunityTerms.Delivery -> acceptDelivery(email, slot, order.ship)
+			OpportunityTerms.Expedition -> sendExpedition(email, slot, order.ship, dice)
+			null -> throw InvalidGameOperationException("An event can't be taken.")
+		}
+
+	/** The opportunity in [slot] [email] may take now, on their Opportunity turn after Collect (R111). */
+	private fun opportunityToTake(email: String, slot: Int?): ActiveTipOff {
+		opportunityAfterCollect(email)
+		return news.opportunityFor(slot, email) { corporationOf(it) }
+	}
+
+	/**
+	 * This game with [tipOff]'s opportunity taken by [email] (R111): a legal one announced with the taker, an illegal one
+	 * secret. [changed] is the player after taking it.
+	 */
+	private fun withOpportunityTaken(email: String, tipOff: ActiveTipOff, changed: Player): Game {
+		val terms = checkNotNull(tipOff.tipOff.opportunity)
+		val line = "${changed.corporationName} took the opportunity to ${terms.description()}.".takeIf { terms.legal }
+		return copy(
+			players = replace(changed),
+			news = news.withTipOff(tipOff.takenBy(email))
+		).withLogged(runningTurn().number, listOfNotNull(line))
+	}
+
+	/** [email] buys [units] (1 to 10) of the illegal goods in [slot] into their ship [shipName] on the buy system's Planet (R112). */
+	fun buyIllegalGoods(email: String, slot: Int?, shipName: String?, units: Int?): Game {
+		val tipOff = opportunityToTake(email, slot)
+		val terms =
+			tipOff.tipOff.opportunity as? OpportunityTerms.IllegalGoods ?: throw InvalidGameOperationException("This opportunity isn't for goods.")
+		val player = playerOf(email)
+		val ship = player.ship(shipName)
+		if (ship == null || ship.system != terms.buyAt || ship.location != ShipLocation.PLANET) {
+			throw InvalidGameOperationException("You need a ship on ${terms.buyAt.displayName}'s Planet.")
+		}
+		val count = checkUnits(units)
+		return withOpportunityTaken(email, tipOff, player.buySpecial(shipName, SpecialLot(terms.goods, count, terms.sellAt), terms.price))
+	}
+
+	/** [email] buys [units] (1 to 10) furs into their ship [shipName] in the buy system's Port (R112, O5). */
+	fun buyFurs(email: String, slot: Int?, shipName: String?, units: Int?): Game {
+		val tipOff = opportunityToTake(email, slot)
+		val terms = tipOff.tipOff.opportunity as? OpportunityTerms.Furs ?: throw InvalidGameOperationException("This opportunity isn't for furs.")
+		val player = playerOf(email)
+		if (player.ship(shipName)?.isInPortAt(terms.buyAt) != true) {
+			throw InvalidGameOperationException("You need a ship in ${terms.buyAt.displayName}'s Port.")
+		}
+		return withOpportunityTaken(
+			email,
+			tipOff,
+			player.buySpecial(shipName, SpecialLot(SpecialGoods.FURS, checkUnits(units), terms.sellAt), terms.price)
+		)
+	}
+
+	private fun checkUnits(units: Int?): Int {
+		if (units == null || units !in 1..OpportunityTerms.MAX_UNITS) {
+			throw InvalidGameOperationException("Buy a whole number of units from 1 to ${OpportunityTerms.MAX_UNITS}.")
+		}
+		return units
+	}
+
+	/**
+	 * [email] buys a military [hull] named [name] with [modules] (military ones up to the card's number) and a [crewClass]
+	 * crew, appearing at once on the card's Planet (R113); refused during the galactic war (E3).
+	 */
+	fun buyMilitaryShip(email: String, slot: Int?, name: String?, hull: Hull?, modules: List<Module>, crewClass: CrewClass?): Game {
+		val tipOff = opportunityToTake(email, slot)
+		val terms =
+			tipOff.tipOff.opportunity as? OpportunityTerms.MilitaryShip ?: throw InvalidGameOperationException("This opportunity isn't for a ship.")
+		if (!news.shipsForSaleIn(runningTurn().number)) {
+			throw InvalidGameOperationException("No ships can be bought during the galactic war.")
+		}
+		if (hull == null || hull !in terms.hulls) {
+			throw InvalidGameOperationException("Choose ${terms.hulls.joinToString(" or ") { it.displayName }}.")
+		}
+		if (crewClass == null) {
+			throw InvalidGameOperationException("Choose a crew class.")
+		}
+		if (modules.count { it.military } > terms.maxModules) {
+			throw InvalidGameOperationException("At most ${terms.maxModules} military modules come with this hull.")
+		}
+		val ship = Ship.militaryOnPlanet(name, terms.at, hull, modules, crewClass)
+		if (isShipNameTaken(ship.name)) {
+			throw InvalidGameOperationException("There's already a ship called ${ship.name} in this game.")
+		}
+		return withOpportunityTaken(email, tipOff, playerOf(email).buyMilitaryShip(ship))
+	}
+
+	/** [email] fits [modules] from the card in [slot] to their ship [shipName] on its Planet (R113). */
+	fun buyMilitaryModules(email: String, slot: Int?, shipName: String?, modules: List<Module>): Game {
+		val tipOff = opportunityToTake(email, slot)
+		val (allowed, at, max) = when (val terms = tipOff.tipOff.opportunity) {
+			is OpportunityTerms.MilitaryModules -> Triple(terms.modules, terms.at, terms.modules.size)
+			is OpportunityTerms.MilitaryShip -> Triple(Module.military(), terms.at, terms.maxModules).takeIf { terms.hullOptional }
+			else -> null
+		} ?: throw InvalidGameOperationException("This opportunity isn't for modules alone.")
+		val oneEach = (tipOff.tipOff.opportunity as? OpportunityTerms.MilitaryModules) != null
+		if (modules.isEmpty() || modules.any { it !in allowed } || modules.size > max || (oneEach && modules.distinct().size != modules.size)) {
+			throw InvalidGameOperationException(
+				"Choose up to $max of: ${allowed.joinToString(", ") {
+					it.displayName
+				}}${if (oneEach) ", each once" else ""}."
+			)
+		}
+		val ship = playerOf(email).ship(shipName)
+		if (ship == null || ship.system != at || ship.location != ShipLocation.PLANET) {
+			throw InvalidGameOperationException("You need a ship on ${at.displayName}'s Planet.")
+		}
+		return withOpportunityTaken(email, tipOff, playerOf(email).fitMilitaryModules(shipName, modules))
+	}
+
+	/** [email] accepts the delivery in [slot] with their ship [shipName] in the pickup Port (R114). */
+	fun acceptDelivery(email: String, slot: Int?, shipName: String?): Game {
+		val tipOff = opportunityToTake(email, slot)
+		val terms =
+			tipOff.tipOff.opportunity as? OpportunityTerms.Delivery ?: throw InvalidGameOperationException("This opportunity isn't a delivery.")
+		val player = playerOf(email)
+		if (player.ship(shipName)?.isInPortAt(terms.from) != true) {
+			throw InvalidGameOperationException("You need a ship in ${terms.from.displayName}'s Port.")
+		}
+		return withOpportunityTaken(email, tipOff, player.takeDelivery(shipName, tipOff.tipOff, terms.space, terms.minReputation))
+	}
+
+	/**
+	 * [email] sends their legal ship [shipName] on the expedition in [slot] (R114): a public d6 from [dice]; 1 loses it at
+	 * once with any agents aboard, r brings it back in r turns.
+	 */
+	fun sendExpedition(email: String, slot: Int?, shipName: String?, dice: Dice): Game {
+		val tipOff = opportunityToTake(email, slot)
+		if (tipOff.tipOff.opportunity != OpportunityTerms.Expedition) {
+			throw InvalidGameOperationException("This opportunity isn't the expedition.")
+		}
+		val number = runningTurn().number
+		val roll = dice.d6()
+		val player = playerOf(email)
+		val name = player.ship(shipName)?.name ?: throw InvalidGameOperationException("Choose one of your ships.")
+		val sent = player.sendOnExpedition(name, number + roll)
+		val taken = withOpportunityTaken(email, tipOff, sent)
+		if (roll == 1) {
+			val lost = taken.playerOf(email).abandonExpedition(name)
+			return taken.withPlayerChanged(lost, listOf("The $name expedition rolled 1 and was lost"), number)
+		}
+		return taken.withLogged(number, listOf("The $name expedition rolled $roll: back in turn ${number + roll}"))
+	}
+
+	/**
+	 * [email]'s expedition ship [shipName], back this turn, returns on their Opportunity turn to the Port of [system] (its
+	 * Space while Ports are closed), paid 2d6 × 50 HT from [dice], private (R114).
+	 */
+	fun returnExpedition(email: String, shipName: String?, system: StarSystem?, dice: Dice): Game {
+		val current = opportunityAfterCollect(email)
+		val expedition = playerOf(email).expeditionDue(shipName, current.number)
+		return withExpeditionReturned(email, expedition, system ?: throw InvalidGameOperationException("Choose a system."), dice)
+	}
+
+	private fun withExpeditionReturned(email: String, expedition: Expedition, system: StarSystem, dice: Dice): Game {
+		val number = runningTurn().number
+		val location = if (news.conditions.portsClosedIn(number)) ShipLocation.SPACE else ShipLocation.PORT
+		val back = playerOf(email).returnedFrom(expedition, system, location, dice.twoD6() * Expedition.PAY_PER_PIP)
+		return withPlayerChanged(back, listOf("The ${expedition.ship.name} expedition returned to ${system.displayName}"), number)
+	}
+
+	/**
+	 * [email] sells on the black market of [system]'s Planet every unit of illegal [goods] bound there aboard their ships
+	 * on that Planet (R112): one d6 from [dice], +2 with Frank there, capped at 6, read on the creator's table; weapons at
+	 * triple during the civil war (E5). Public without units or price.
+	 */
+	fun sellOnBlackMarket(email: String, system: StarSystem?, goods: SpecialGoods?, dice: Dice): Game {
+		val current = opportunityAfterCollect(email)
+		if (system == null || goods == null || !goods.illegal) {
+			throw InvalidGameOperationException("Choose illegal goods and the system they're for.")
+		}
+		val player = playerOf(email)
+		val roll = minOf(dice.d6() + player.blackMarketBonusAt(system), SpecialGoods.MAX_ROLL)
+		val price =
+			goods.blackMarketPrice(roll) * (if (goods == SpecialGoods.WEAPONS) news.conditions.weaponsMultiplierAt(system, current.number) else 1)
+		val sold = player.sellSpecialAt(goods, system, ShipLocation.PLANET, price)
+		val frank = player.blackMarketBonusAt(system).takeIf {
+			it > 0
+		}?.let { Agent.FRANK.actedLog(player.corporationName, ": +$it on the black market roll") }
+		return withPlayerChanged(
+			sold,
+			listOfNotNull(frank, "${player.corporationName} sold on the black market at ${system.displayName}"),
+			current.number
+		)
+	}
+
+	/** [email] sells every fur aboard their ships in [system]'s Port that's bound there (R112, O5), at its fixed price. */
+	fun sellFurs(email: String, system: StarSystem?): Game {
+		val current = opportunityAfterCollect(email)
+		val price = TipOff.entries.mapNotNull { it.opportunity as? OpportunityTerms.Furs }.firstOrNull { it.sellAt == system }?.salePrice
+			?: throw InvalidGameOperationException("Furs don't sell there.")
+		val sold = playerOf(email).sellSpecialAt(SpecialGoods.FURS, checkNotNull(system), ShipLocation.PORT, price)
+		return withPlayerChanged(sold, listOf("${sold.corporationName} sold furs at ${system.displayName}"), current.number)
 	}
 
 	/**
@@ -649,7 +871,8 @@ data class Game(
 				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasCollected(email))
 			},
 			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) },
-			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) }
+			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },
+			turnNumber = turn?.number ?: 0
 		)
 	}
 
@@ -1260,7 +1483,19 @@ data class Game(
 			return withLandingRolled(email, shipName, dice)
 		}
 		val landed = playerOf(email).landShip(shipName, location)
-		return copy(players = replace(landed)).withLogged(number, listOf(landed.landedLog(shipName)))
+		return copy(players = replace(landed)).withLogged(number, listOf(landed.landedLog(shipName))).withDeliveryChecked(email, shipName)
+	}
+
+	/** This game once [email]'s ship [shipName], if it just reached its delivery's Port, delivered it: paid, logged (R114). */
+	private fun withDeliveryChecked(email: String, shipName: String): Game {
+		val player = playerOf(email)
+		val terms = player.ship(shipName)?.deliveryJob?.opportunity as? OpportunityTerms.Delivery ?: return this
+		val delivered = player.delivered(shipName) ?: return this
+		return withPlayerChanged(
+			delivered,
+			listOf("${player.corporationName} delivered ${terms.cargo} to ${terms.to.displayName}"),
+			runningTurn().number
+		)
 	}
 
 	/** [system]'s Planet security now (R116): the board's, plus any event's change this turn (E10, E12). */

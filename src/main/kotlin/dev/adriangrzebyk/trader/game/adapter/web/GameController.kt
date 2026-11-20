@@ -177,6 +177,45 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 	fun learnTipOff(@PathVariable id: String, @PathVariable slot: Int, session: Session): GameResponseDto =
 		GameResponseDto(newsService.learn(id, session.email, slot), session.email)
 
+	/** The player takes the opportunity in [slot] (R111–R114) on their Opportunity turn; `400` when the rules refuse it. */
+	@PostMapping("/games/{id}/opportunity/tip-offs/{slot}/take")
+	fun takeOpportunity(
+		@PathVariable id: String,
+		@PathVariable slot: Int,
+		@RequestBody(required = false) request: TakeOpportunityRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(
+		opportunityService.takeOpportunity(id, session.email, slot, (request ?: TakeOpportunityRequestDto()).order()),
+		session.email
+	)
+
+	/** The player brings their expedition ship back to `{ system }`'s Port (R114). */
+	@PostMapping("/games/{id}/opportunity/expeditions/return")
+	fun returnExpedition(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SpecialSaleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SpecialSaleRequestDto()
+		return GameResponseDto(opportunityService.returnExpedition(id, session.email, body.ship, body.system()), session.email)
+	}
+
+	/** The player sells their illegal `{ goods }` on `{ system }`'s black market (R112). */
+	@PostMapping("/games/{id}/opportunity/black-market")
+	fun sellOnBlackMarket(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SpecialSaleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SpecialSaleRequestDto()
+		return GameResponseDto(opportunityService.sellOnBlackMarket(id, session.email, body.system(), body.goods()), session.email)
+	}
+
+	/** The player sells their furs in `{ system }`'s Port (R112). */
+	@PostMapping("/games/{id}/opportunity/furs")
+	fun sellFurs(@PathVariable id: String, @RequestBody(required = false) request: SpecialSaleRequestDto?, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.sellFurs(id, session.email, (request ?: SpecialSaleRequestDto()).system()), session.email)
+
 	/** The player is done with the news (R109); once everyone is, Jumps starts. `409` outside News. */
 	@PostMapping("/games/{id}/news/done")
 	fun finishNews(@PathVariable id: String, session: Session): GameResponseDto =

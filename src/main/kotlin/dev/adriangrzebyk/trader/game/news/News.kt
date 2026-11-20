@@ -60,6 +60,23 @@ data class News(
 	fun inSlot(slot: Int?): ActiveTipOff =
 		inPlay.firstOrNull { it.slot == slot } ?: throw InvalidGameOperationException("No tip-off is in play there.")
 
+	/**
+	 * The opportunity in board [slot] that [email] may take now (R111): learned by them and not yet taken; refused otherwise,
+	 * naming the taker of a legal one ([takerName]).
+	 */
+	fun opportunityFor(slot: Int?, email: String, takerName: (String) -> String): ActiveTipOff {
+		val tipOff = inSlot(slot)
+		if (tipOff.tipOff.opportunity == null || !tipOff.isLearnedBy(email)) {
+			throw InvalidGameOperationException("Learn this tip-off first; only an opportunity can be taken.")
+		}
+		tipOff.takenBy?.let {
+			throw InvalidGameOperationException(
+				if (tipOff.showsTakenTo(email)) "${takerName(it)} already took this opportunity." else "This opportunity was already taken."
+			)
+		}
+		return tipOff
+	}
+
 	/** This news with [changed] in place of the tip-off in its slot. */
 	fun withTipOff(changed: ActiveTipOff): News = copy(inPlay = inPlay.map { if (it.slot == changed.slot) changed else it })
 

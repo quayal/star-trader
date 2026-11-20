@@ -46,7 +46,8 @@ data class PlayerView(
 	val agentPool: Int,
 	val opportunity: OpportunityView?,
 	val tipOffs: List<TipOffView> = emptyList(),
-	val landingOdds: Map<String, LandingOdds> = emptyMap()
+	val landingOdds: Map<String, LandingOdds> = emptyMap(),
+	val turnNumber: Int = 0
 )
 
 /** What the viewer has done this Opportunity (R97, R103): each once per Opportunity. Null outside Opportunity. */

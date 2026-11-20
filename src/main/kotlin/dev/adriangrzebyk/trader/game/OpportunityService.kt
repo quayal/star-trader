@@ -1,8 +1,11 @@
 package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.board.Goods
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.agent.Agent
 import dev.adriangrzebyk.trader.game.agent.AgentPosition
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.TakeOrder
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
 /**
@@ -14,6 +17,22 @@ class OpportunityService(private val gameStore: GameStore, private val dice: Dic
 	/** [callerEmail] confirms where their factories' output goes, on their Opportunity turn (R47, R102). */
 	fun collect(gameId: String, callerEmail: String, placements: List<OutputPlacement>): Game =
 		gameStore.update(gameId) { it.collectOutput(callerEmail, placements) }
+
+	/** [callerEmail] takes the opportunity in [slot] with [order] (R111–R114). */
+	fun takeOpportunity(gameId: String, callerEmail: String, slot: Int, order: TakeOrder): Game =
+		gameStore.update(gameId) { it.takeOpportunity(callerEmail, slot, order, dice) }
+
+	/** [callerEmail] brings their expedition ship [shipName] back to [system] (R114). */
+	fun returnExpedition(gameId: String, callerEmail: String, shipName: String?, system: StarSystem?): Game =
+		gameStore.update(gameId) { it.returnExpedition(callerEmail, shipName, system, dice) }
+
+	/** [callerEmail] sells their illegal [goods] on [system]'s black market (R112). */
+	fun sellOnBlackMarket(gameId: String, callerEmail: String, system: StarSystem?, goods: SpecialGoods?): Game =
+		gameStore.update(gameId) { it.sellOnBlackMarket(callerEmail, system, goods, dice) }
+
+	/** [callerEmail] sells their furs in [system]'s Port (R112). */
+	fun sellFurs(gameId: String, callerEmail: String, system: StarSystem?): Game =
+		gameStore.update(gameId) { it.sellFurs(callerEmail, system) }
 
 	/** [callerEmail] is done with opportunities (R102); after the last, Investment opens once no choice is owed. */
 	fun finish(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.finishOpportunities(callerEmail) }

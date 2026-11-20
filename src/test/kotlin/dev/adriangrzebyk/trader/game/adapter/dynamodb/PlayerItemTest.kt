@@ -121,7 +121,8 @@ class PlayerItemTest {
 			"loan",
 			"agents",
 			"ledgerTurn",
-			"ledger"
+			"ledger",
+			"expeditions"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("business").n()).isEqualTo("7")

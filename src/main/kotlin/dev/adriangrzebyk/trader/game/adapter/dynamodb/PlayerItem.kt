@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.game.Connections
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.ledger.MoneyLedger
+import dev.adriangrzebyk.trader.game.news.Expedition
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Player] as the attribute map nested in the game item; each ship is a [ShipItem], each market position a [MarketPositionItem], each warehouse a [WarehouseItem], each factory a [FactoryItem]. */
@@ -26,7 +27,12 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			REPUTATION to number(player.reputation.value),
 			AGENTS to AttributeValue.fromL(player.agents.map { AttributeValue.fromM(RecruitedAgentItem(it).attributes) }),
 			LEDGER_TURN to number(player.ledger.turn),
-			LEDGER to AttributeValue.fromL(player.ledger.movements.map { AttributeValue.fromM(MoneyMovementItem(it).attributes) })
+			LEDGER to AttributeValue.fromL(player.ledger.movements.map { AttributeValue.fromM(MoneyMovementItem(it).attributes) }),
+			EXPEDITIONS to AttributeValue.fromL(
+				player.expeditions.map {
+					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromM(ShipItem(it.ship).attributes), RETURN_TURN to number(it.returnTurn)))
+				}
+			)
 		) + listOfNotNull(player.loan?.let { LOAN to AttributeValue.fromM(LoanItem(it).attributes) })
 	)
 
@@ -55,7 +61,11 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		ledger = MoneyLedger(
 			attributes[LEDGER_TURN]?.n()?.toInt() ?: MoneyLedger.START.turn,
 			attributes[LEDGER]?.l().orEmpty().map { MoneyMovementItem(it.m()).toMoneyMovement() }
-		)
+		),
+		// Absent before the expedition (R114): none away.
+		expeditions = attributes[EXPEDITIONS]?.l().orEmpty().map {
+			Expedition(ShipItem(it.m().attribute(SHIP).m()).toShip(), it.m().attribute(RETURN_TURN).n().toInt())
+		}
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -78,5 +88,8 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val AGENTS = "agents"
 		const val LEDGER_TURN = "ledgerTurn"
 		const val LEDGER = "ledger"
+		const val EXPEDITIONS = "expeditions"
+		const val SHIP = "ship"
+		const val RETURN_TURN = "returnTurn"
 	}
 }

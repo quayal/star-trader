@@ -120,7 +120,7 @@ class GameControllerTest {
 			YouResponseDto(
 				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
-				null, emptyList(), 10, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList()
+				null, emptyList(), 10, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList(), emptyList()
 			)
 		)
 	}
