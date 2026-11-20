@@ -343,43 +343,17 @@ data class Game(
 		val target = sabotage.target
 		val owner = playerOf(target.ownerEmail)
 		val effect = sabotage.effect()
+		val outcome = owner.sufferSabotage(target, effect)
 		val notice = Notice(NoticeKind.SABOTAGE, target.system, listOf(owner.email), null, null)
-		fun recorded(after: Sabotage, changed: Player, lines: List<String>): Game = copy(
-			players = replace(changed),
-			turn = current.recordSabotage(after),
+		val lines = listOfNotNull(
+			outcome.logged?.let { target.effectLog(corporationNames(), it) },
+			(target as? SabotageTarget.Ship)?.name?.let { "$it is destroyed" }?.takeIf { outcome.destroyed }
+		)
+		return copy(
+			players = replace(outcome.owner),
+			turn = current.recordSabotage(outcome.lost?.let { sabotage.settledWith(it) } ?: sabotage),
 			log = log + lines.map { LogEntry.notice(current.number, it, notice) }
 		)
-		if (effect == 0) {
-			return recorded(sabotage.settledWith(emptyMap()), owner, emptyList())
-		}
-		return when (target) {
-			is SabotageTarget.Factory -> recorded(
-				sabotage.settledWith(emptyMap()),
-				owner.withFactoryDisabled(target.system, target.goods, effect),
-				listOf(target.effectLog(corporationNames(), effect))
-			)
-			is SabotageTarget.Warehouse -> {
-				val held = checkNotNull(owner.warehouseAt(target.system)).cargo
-				when {
-					held.values.sum() == 0 -> recorded(sabotage.settledWith(emptyMap()), owner, emptyList())
-					held.values.sum() <= effect -> recorded(
-						sabotage.settledWith(held),
-						owner.withWarehouseLoss(target.system, held),
-						listOf(target.effectLog(corporationNames(), held.values.sum()))
-					)
-					else -> recorded(sabotage, owner, listOf(target.effectLog(corporationNames(), effect)))
-				}
-			}
-			is SabotageTarget.Ship -> {
-				val ship = checkNotNull(owner.ship(target.name))
-				val line = target.effectLog(corporationNames(), effect)
-				if (effect > ship.hitsSurvivable()) {
-					recorded(sabotage.settledWith(ship.cargo), owner.destroyedBySabotage(ship.name), listOf(line, "${ship.name} is destroyed"))
-				} else {
-					recorded(sabotage, owner, listOf(line))
-				}
-			}
-		}
 	}
 
 	/** This game once [sabotage]'s reputation roll took its toll (R100): from the saboteur, or on 21+ from the innocent player named. */

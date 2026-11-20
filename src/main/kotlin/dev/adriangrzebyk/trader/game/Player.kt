@@ -580,8 +580,41 @@ data class Player(
 		return receive(units * factory.salePricePerUnit(prices)).withFactoryReplaced(factory, left)
 	}
 
+	/**
+	 * This player once a sabotage's [effect] hit their asset [target] (R99), and what it came to. Nothing happens at 0. A
+	 * factory is disabled for [effect] more Collects. A warehouse holding no more than [effect] units loses them all; one
+	 * holding more waits for the saboteur to choose which, and an empty one loses nothing and isn't logged. A ship that can't
+	 * survive [effect] hits is destroyed at once with its cargo, its agents stepping off (R107); otherwise its hits wait for
+	 * this player to place them.
+	 */
+	fun sufferSabotage(target: SabotageTarget, effect: Int): SabotageOutcome {
+		if (effect == 0) {
+			return SabotageOutcome(this, emptyMap(), null, false)
+		}
+		return when (target) {
+			is SabotageTarget.Factory -> SabotageOutcome(withFactoryDisabled(target.system, target.goods, effect), emptyMap(), effect, false)
+			is SabotageTarget.Warehouse -> {
+				val held = checkNotNull(warehouseAt(target.system)).cargo.filterValues { it > 0 }
+				val total = held.values.sum()
+				when {
+					total == 0 -> SabotageOutcome(this, emptyMap(), null, false)
+					total <= effect -> SabotageOutcome(withWarehouseLoss(target.system, held), held, total, false)
+					else -> SabotageOutcome(this, null, effect, false)
+				}
+			}
+			is SabotageTarget.Ship -> {
+				val ship = checkNotNull(ship(target.name))
+				if (effect > ship.hitsSurvivable()) {
+					SabotageOutcome(destroyedBySabotage(ship.name), ship.cargo, effect, true)
+				} else {
+					SabotageOutcome(this, null, effect, false)
+				}
+			}
+		}
+	}
+
 	/** This player once a sabotage disabled their [goods] factory at [system] for [turns] more Collects (R99). */
-	fun withFactoryDisabled(system: StarSystem, goods: Goods, turns: Int): Player {
+	private fun withFactoryDisabled(system: StarSystem, goods: Goods, turns: Int): Player {
 		val factory = checkNotNull(factoryAt(system, goods))
 		return withFactoryReplaced(factory, factory.disabledFor(turns))
 	}
@@ -874,7 +907,7 @@ data class Player(
 	}
 
 	/** This player once a sabotage's hits destroyed their ship [shipName] in Port (R99): it goes with its cargo; its agents step off (R107). */
-	fun destroyedBySabotage(shipName: String): Player {
+	private fun destroyedBySabotage(shipName: String): Player {
 		val ship = checkNotNull(ship(shipName))
 		return withAgentsSteppedOff(ship).withoutShip(shipName)
 	}
