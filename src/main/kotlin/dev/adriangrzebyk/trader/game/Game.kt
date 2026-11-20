@@ -17,6 +17,9 @@ import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
+import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.NewsEvent
+import dev.adriangrzebyk.trader.game.news.TipOffView
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
@@ -25,7 +28,7 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
  * (R35); [log] holds the public events, oldest first, each with its turn. [deadAgents] are the agents killed in this game,
- * which never return to the pool (R107).
+ * which never return to the pool (R107). [news] holds the tip-offs (R109–R111) and what this turn's events changed (R115).
  */
 data class Game(
 	val id: String,
@@ -36,7 +39,8 @@ data class Game(
 	val turn: Turn?,
 	val prices: MarketPrices,
 	val log: List<LogEntry>,
-	val deadAgents: List<Agent>
+	val deadAgents: List<Agent>,
+	val news: News = News.NONE
 ) {
 
 	fun addPlayer(player: Player): Game {
@@ -635,7 +639,8 @@ data class Game(
 			agentPool = agentPool().size,
 			opportunity = turn?.takeIf { it.phase == TurnPhase.OPPORTUNITY }?.let {
 				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasCollected(email))
-			}
+			},
+			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) }
 		)
 	}
 
@@ -793,12 +798,46 @@ data class Game(
 	 * [dice]. A News with no tip-off in play has nothing to read, so it closes at once into Jumps.
 	 */
 	private fun openNews(dice: Dice): Game {
-		val opened = copy(turn = runningTurn().toNews())
-		return if (opened.hasNewsToRead()) opened else opened.openJumps(opened.runningTurn())
+		val current = runningTurn().toNews()
+		val due = news.dueIn(current.number)
+		val effective = due.fold(copy(turn = current, news = news.afterEffectiveIn(current.number))) { game, tipOff ->
+			val taker = tipOff.takenBy?.let { corporationOf(it) }
+			val announced = game.withLogged(current.number, listOf(tipOff.announcement(taker)))
+			tipOff.tipOff.event?.let { announced.withEventTakenPlace(it, dice) } ?: announced
+		}
+		val opened = effective.withTipOffsDrawn(current.number, dice)
+		return if (opened.news.hasTipOffsInPlay()) opened else opened.openJumps(opened.runningTurn())
 	}
 
-	/** Whether this News has anything to read (R109): a tip-off in play. */
-	private fun hasNewsToRead(): Boolean = false
+	/** This game with turn [number]'s tip-offs drawn (R109) and the draw logged: the roll and each new one's need and turn. */
+	private fun withTipOffsDrawn(number: Int, dice: Dice): Game {
+		val draw = news.drawIn(number, dice)
+		val line = draw.roll?.let { roll ->
+			val drawn = draw.drawn.joinToString(", ") { "#${it.slot} ${it.tipOff.need.text()}, effective turn ${it.effectiveIn()}" }
+			"News: rolled $roll for new tip-offs" + if (drawn.isEmpty()) "" else ": $drawn"
+		}
+		return copy(news = draw.news).withLogged(number, listOfNotNull(line))
+	}
+
+	/** This game with [lines] logged as public events of turn [number]. */
+	private fun withLogged(number: Int, lines: List<String>): Game = copy(log = log + lines.map { LogEntry.event(number, it) })
+
+	/** [event] takes place in this turn's News (R115), with [dice] for its rolls. */
+	private fun withEventTakenPlace(event: NewsEvent, dice: Dice): Game = this
+
+	/**
+	 * [email] learns the tip-off in board [slot] (R110): only in News, for 5 HT, with their connection of its kind at its
+	 * level now. Private: not logged.
+	 */
+	fun learnTipOff(email: String, slot: Int?): Game {
+		val player = playerOf(email)
+		runningTurn().requireNews()
+		val tipOff = news.inSlot(slot)
+		if (tipOff.isLearnedBy(email)) {
+			throw InvalidGameOperationException("You already know this tip-off.")
+		}
+		return copy(players = replace(player.learnTipOff(tipOff.tipOff.need)), news = news.withTipOff(tipOff.learnedBy(email)))
+	}
 
 	/** News → Jumps (R44): the first jump slot starts, skipping players with nothing able to jump (R64). */
 	private fun openJumps(current: Turn): Game = copy(turn = current.toJumps()).withEmptyJumpSlotsSkipped()
@@ -1420,11 +1459,12 @@ data class Game(
 		const val MAX_TURNS = 50
 
 		/** A new game of [turns] turns waiting in the lobby, with its creator as the only player. */
-		fun lobby(id: String, turns: Int?, creator: Player): Game {
+		/** A new game of [turns] turns created by [creator], with [news] as its tip-offs: the full pool in play, none in tests (R109). */
+		fun lobby(id: String, turns: Int?, creator: Player, news: News = News.NONE): Game {
 			if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {
 				throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
 			}
-			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList(), emptyList())
+			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList(), emptyList(), news)
 		}
 	}
 }

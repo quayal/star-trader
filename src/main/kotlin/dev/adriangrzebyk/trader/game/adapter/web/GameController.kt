@@ -172,6 +172,11 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 		return GameResponseDto(game, session.email)
 	}
 
+	/** The player pays 5 HT to learn the tip-off in board [slot] (R110). `400` without the connection or the money; `409` outside News. */
+	@PostMapping("/games/{id}/news/{slot}/learn")
+	fun learnTipOff(@PathVariable id: String, @PathVariable slot: Int, session: Session): GameResponseDto =
+		GameResponseDto(newsService.learn(id, session.email, slot), session.email)
+
 	/** The player is done with the news (R109); once everyone is, Jumps starts. `409` outside News. */
 	@PostMapping("/games/{id}/news/done")
 	fun finishNews(@PathVariable id: String, session: Session): GameResponseDto =

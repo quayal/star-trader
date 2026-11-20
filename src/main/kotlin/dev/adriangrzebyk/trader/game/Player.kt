@@ -14,6 +14,7 @@ import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.loan.LoanCollection
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import dev.adriangrzebyk.trader.game.loan.SeizedUnits
+import dev.adriangrzebyk.trader.game.news.TipOffNeed
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
@@ -53,6 +54,20 @@ data class Player(
 
 	/** This player after being paid [amount] HT for [reason], recorded in their [ledger]. */
 	fun receive(amount: Int, reason: String): Player = copy(money = money + amount, ledger = ledger.recorded(amount, reason))
+
+	/**
+	 * This player after paying to learn a tip-off that needs [need] (R110): refused when their connection falls short or
+	 * they can't pay [TIP_OFF_FEE].
+	 */
+	fun learnTipOff(need: TipOffNeed): Player {
+		if (!need.isMetBy(connections)) {
+			throw InvalidGameOperationException(need.refusal(connections))
+		}
+		if (money < TIP_OFF_FEE) {
+			throw InvalidGameOperationException("Learning a tip-off costs $TIP_OFF_FEE HT; you have $money HT.")
+		}
+		return pay(TIP_OFF_FEE, "Learned a tip-off")
+	}
 
 	/** This player recording money movements in turn [number] from now on (R29's ledger). */
 	fun inTurn(number: Int): Player = copy(ledger = ledger.inTurn(number))
@@ -1060,6 +1075,9 @@ data class Player(
 	}
 
 	companion object {
+		/** R110: what learning one tip-off costs. */
+		const val TIP_OFF_FEE = 5
+
 		/** R90: what each ship and each warehouse block adds to the borrowing cap. */
 		const val LOAN_PER_SHIP = 100
 		const val LOAN_PER_BLOCK = 20

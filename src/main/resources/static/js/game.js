@@ -61,6 +61,10 @@ export function parseRoute(hash) {
 	if (corporations) {
 		return { view: 'corporations', id: decodeURIComponent(corporations[1]) };
 	}
+	const news = /^#game\/([^/]+)\/news$/.exec(text);
+	if (news) {
+		return { view: 'news', id: decodeURIComponent(news[1]) };
+	}
 	const guide = /^#game\/([^/]+)\/guide$/.exec(text);
 	if (guide) {
 		return { view: 'guide', id: decodeURIComponent(guide[1]) };
@@ -117,6 +121,11 @@ export function assetsLink(id) {
 	return `#game/${encodeURIComponent(id)}/assets`;
 }
 
+/** The News tab of game [id] (R109): the tip-offs in play and this turn's announcements. */
+export function newsLink(id) {
+	return `#game/${encodeURIComponent(id)}/news`;
+}
+
 /** The Guide tab of game [id] (playtest, 2026-11-20): each phase, every agent and the key modifiers. */
 export function guideLink(id) {
 	return `#game/${encodeURIComponent(id)}/guide`;
@@ -148,7 +157,7 @@ export function screenForPhaseChange(previous, game) {
 	if (game.status === 'FINISHED') {
 		return 'over';
 	}
-	return { TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+	return { NEWS: 'news', TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
 }
 
 /**

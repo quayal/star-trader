@@ -6,6 +6,9 @@ package dev.adriangrzebyk.trader.game
  */
 class NewsService(private val gameStore: GameStore) {
 
+	/** [callerEmail] pays to learn the tip-off in board [slot] (R110). */
+	fun learn(gameId: String, callerEmail: String, slot: Int?): Game = gameStore.update(gameId) { it.learnTipOff(callerEmail, slot) }
+
 	/** [callerEmail] is done with the news (R109); once everyone is, Jumps starts. */
 	fun finish(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.signalDoneNews(callerEmail) }
 }

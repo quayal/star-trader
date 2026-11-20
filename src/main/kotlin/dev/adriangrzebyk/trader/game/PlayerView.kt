@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.loan.Loan
+import dev.adriangrzebyk.trader.game.news.TipOffView
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 
 /**
@@ -19,7 +20,8 @@ import dev.adriangrzebyk.trader.game.sabotage.Sabotage
  * loan, or in Investment what they could borrow (R90); [sabotagesOrdered] are this Opportunity's sabotages they ordered,
  * with the rolls, and [sabotagesSuffered] those on their assets, never saying who ordered them (R101), and [sabotagedWarehouse] the warehouse their sabotage hit while they choose its missing units
  * (R99); [agentOffers] the agent offers they made or were made (R106); [limpyAsk] the good Limpy may let them dictate
- * (R108); [agentPool] how many agents are left to recruit (R103).
+ * (R108); [agentPool] how many agents are left to recruit (R103). [tipOffs] are the tip-offs in play, as they may see them
+ * (R109–R111).
  */
 data class PlayerView(
 	val player: Player,
@@ -41,7 +43,8 @@ data class PlayerView(
 	val agentOffers: List<AgentOfferView>,
 	val limpyAsk: MarketGood?,
 	val agentPool: Int,
-	val opportunity: OpportunityView?
+	val opportunity: OpportunityView?,
+	val tipOffs: List<TipOffView> = emptyList()
 )
 
 /** What the viewer has done this Opportunity (R97, R103): each once per Opportunity. Null outside Opportunity. */

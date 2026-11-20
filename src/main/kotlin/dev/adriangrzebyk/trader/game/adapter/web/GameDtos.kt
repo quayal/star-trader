@@ -39,6 +39,8 @@ import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import dev.adriangrzebyk.trader.game.ledger.MoneyMovement
+import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.TipOffView
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -66,7 +68,8 @@ data class GameResponseDto(
 	val logOffset: Int,
 	val board: List<SystemResponseDto>,
 	val result: GameResultResponseDto?,
-	val you: YouResponseDto?
+	val you: YouResponseDto?,
+	val conditions: ConditionsResponseDto?
 ) {
 
 	/**
@@ -87,7 +90,30 @@ data class GameResponseDto(
 		game.log.size - game.logAfter(logAfter).size,
 		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
 		game.result()?.let { GameResultResponseDto(it, ids) },
-		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) }
+		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) },
+		game.turn?.let { ConditionsResponseDto(game.news, it.number) }
+	)
+}
+
+/**
+ * What this turn's events changed (R115), public: [jumpModifier] on every jump's target (E1), whether [portsClosed] (E10),
+ * the [securityChange] on every Planet and [policeChange] on every system (E3, E10, E12), and whether ships are for sale
+ * ([shipsForSale], E3).
+ */
+data class ConditionsResponseDto(
+	val jumpModifier: Int,
+	val portsClosed: Boolean,
+	val securityChange: Int,
+	val policeChange: Int,
+	val shipsForSale: Boolean
+) {
+
+	constructor(news: News, turn: Int) : this(
+		news.conditions.jumpModifierIn(turn),
+		news.conditions.portsClosedIn(turn),
+		news.conditions.securityChangeIn(turn),
+		news.conditions.policeChangeIn(turn),
+		news.shipsForSaleIn(turn)
 	)
 }
 
@@ -273,7 +299,8 @@ data class TurnResponseDto(
 	val doneOpportunity: List<String>,
 	val opportunist: String?,
 	val owedChoices: List<String>,
-	val limpyAsk: String?
+	val limpyAsk: String?,
+	val doneNews: List<String>
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -298,7 +325,8 @@ data class TurnResponseDto(
 		ids.ofAll(turn.doneOpportunity),
 		turn.opportunist()?.let { ids.of(it) },
 		ids.ofAll(turn.owedChoices()),
-		turn.limpyAsk?.let { ids.of(it) }
+		turn.limpyAsk?.let { ids.of(it) },
+		ids.ofAll(turn.doneNews)
 	)
 }
 
@@ -588,7 +616,8 @@ data class YouResponseDto(
 	val limpyAsk: MarketGoodResponseDto?,
 	val opportunity: YourOpportunityResponseDto?,
 	val factorySales: List<FactorySaleResponseDto>,
-	val ledger: List<MoneyMovementResponseDto>
+	val ledger: List<MoneyMovementResponseDto>,
+	val tipOffs: List<TipOffResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -620,7 +649,36 @@ data class YouResponseDto(
 		view.limpyAsk?.let { MarketGoodResponseDto(it) },
 		view.opportunity?.let { YourOpportunityResponseDto(it) },
 		player.factories.map { FactorySaleResponseDto(it, view.prices) },
-		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) }
+		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) },
+		view.tipOffs.map { TipOffResponseDto(it) }
+	)
+}
+
+/**
+ * A tip-off in play as the viewer may see it (R109–R111): its [slot], [need] ("CRIM 5") and [effectiveTurn] for everyone;
+ * [kind] (OPPORTUNITY or EVENT) and [details] only once learned; [taken] once its opportunity is taken and they may know;
+ * [needRefusal] why their connections can't learn it, or null.
+ */
+data class TipOffResponseDto(
+	val slot: Int,
+	val need: String,
+	val effectiveTurn: Int,
+	val learned: Boolean,
+	val kind: String?,
+	val details: String?,
+	val taken: Boolean,
+	val needRefusal: String?
+) {
+
+	constructor(view: TipOffView) : this(
+		view.tipOff.slot,
+		view.tipOff.tipOff.need.text(),
+		view.tipOff.effectiveIn(),
+		view.learned,
+		view.tipOff.tipOff.kindName().takeIf { view.learned },
+		view.tipOff.tipOff.details().takeIf { view.learned },
+		view.takenShown,
+		view.needRefusal
 	)
 }
 

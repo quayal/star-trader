@@ -16,6 +16,7 @@ import dev.adriangrzebyk.trader.game.OpportunityPassed
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.game.battle.Battle
@@ -119,7 +120,7 @@ class GameControllerTest {
 			YouResponseDto(
 				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
-				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList()
+				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList()
 			)
 		)
 	}
@@ -334,7 +335,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null
+				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -554,7 +555,7 @@ class GameControllerTest {
 					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
-				emptyList(), emptyList(), emptyList(), null, emptyList(), null
+				emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)
 
@@ -882,8 +883,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(picked.turn!!.turnOrder).containsExactly(idOf(gameId, second), idOf(gameId, first))
-		assertThat(picked.turn!!.phase).isEqualTo("JUMPS")
-		assertThat(picked.log.map { it.text }.last()).startsWith("Turn order (for this turn): ")
+		assertThat(picked.turn!!.phase).isEqualTo("NEWS")
+		assertThat(picked.log.map { it.text }).anyMatch { it.startsWith("Turn order (for this turn): ") }
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.turnOrder)
 			.containsExactly(idOf(gameId, second), idOf(gameId, first))
 	}
@@ -1198,8 +1199,10 @@ class GameControllerTest {
 						player
 					} else {
 						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does.
+						// The other ship goes elsewhere: starting systems are random, and it could have started at Tau Ceti too.
 						val atTau = player.ships[0].copy(system = StarSystem.TAU_CETI)
-						player.copy(ships = listOf(atTau) + player.ships.drop(1), factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
+						val elsewhere = player.ships.drop(1).map { it.copy(system = StarSystem.MU_HERCULIS) }
+						player.copy(ships = listOf(atTau) + elsewhere, factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
 					}
 				}
 			)
@@ -2709,10 +2712,18 @@ class GameControllerTest {
 		return request.exchange()
 	}
 
+	/**
+	 * Picks a place; once the last pick opens News (R109), every player is marked done with it, so tests about the jumps
+	 * that follow needn't read the news. The response is the pick's own.
+	 */
 	private fun pickPlace(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/turn-order", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
-		return request.body(body).exchange()
+		val response = request.body(body).exchange()
+		if (gameStore.find(gameId)?.turn?.phase == TurnPhase.NEWS) {
+			gameStore.update(gameId) { game -> game.players.fold(game) { done, player -> done.signalDoneNews(player.email) } }
+		}
+		return response
 	}
 
 	private fun placeBid(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

@@ -523,6 +523,8 @@
 	<a class="nav-item" id="nav-fleet" href="/" hidden>Fleet</a>
 	<a class="nav-item" id="nav-assets" href="/" hidden>Assets</a>
 	<!-- E11-S01 (D20): only while a started game is open; its href is that game's Corporations tab. -->
+	<!-- R109: the tip-offs in play, learned in News. -->
+	<a class="nav-item" id="nav-news" href="/" hidden>News</a>
 	<a class="nav-item" id="nav-corporations" href="/" hidden>Corporations</a>
 	<!-- Playtest 2026-11-20: each phase, every agent and the key modifiers, from /api/rules. -->
 	<a class="nav-item" id="nav-guide" href="/" hidden>Guide</a>
@@ -886,6 +888,25 @@
 			<!-- Creator, 2026-11-19: in Investment the player raises a connection and buys reputation on their own card. -->
 			<p class="message" id="corporations-message" role="status" tabindex="-1"></p>
 			<div class="corporations__cards" id="corporations-cards"></div>
+		</div>
+
+		<!-- News (R109–R110): every tip-off in play, its need and turn, the viewer's learned details, and this turn's
+		     announcements. Learning is only in News; the screen is reachable in every phase. -->
+		<div class="corporations" id="news-panel" hidden>
+			<h2 class="system__title" id="news-title" tabindex="-1">News</h2>
+			<p class="muted">A tip-off is information about an opportunity or an event to come. Learn one for 5 HT in News when your connections reach its need; you take opportunities in Opportunity.</p>
+			<div class="corporations__cards">
+				<section class="panel corporation" aria-labelledby="news-tipoffs-title">
+					<h3 id="news-tipoffs-title">Tip-offs in play</h3>
+					<ul class="corporation__list" id="news-tipoffs"></ul>
+				</section>
+				<section class="panel corporation" aria-labelledby="news-announcements-title">
+					<h3 id="news-announcements-title">This turn's news</h3>
+					<ul class="corporation__list" id="news-announcements"></ul>
+				</section>
+			</div>
+			<div><button class="btn" id="news-done-button" type="button" hidden>Done with the news</button></div>
+			<p class="message" id="news-message" role="status" tabindex="-1"></p>
 		</div>
 
 		<!-- The Guide (playtest, 2026-11-20): reference only, the same for everyone, read from the server's own rules. -->
@@ -1360,6 +1381,7 @@
 		assetsLink,
 		corporationsLink,
 		guideLink,
+		newsLink,
 		infrastructureLink,
 		validateTurns,
 		screenForPhaseChange,
@@ -1610,6 +1632,7 @@
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
+	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffRows } from './js/news.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -1619,7 +1642,7 @@
 	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1653,6 +1676,7 @@
 	// Set when the player opens Corporations (E11-S01), so its heading takes focus once.
 	let focusCorporationsTitle = false;
 	let focusGuideTitle = false;
+	let focusNewsTitle = false;
 	/** The game's fixed rules from /api/rules (playtest, 2026-11-20), for the Guide, the map's jump modifiers and reputation notes. */
 	let rules = null;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
@@ -1717,7 +1741,7 @@
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
 		}
 		const { view, id, ship } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
@@ -1727,6 +1751,7 @@
 		$('nav-assets').toggleAttribute('aria-current', view === 'assets');
 		$('nav-corporations').toggleAttribute('aria-current', view === 'corporations');
 		$('nav-guide').toggleAttribute('aria-current', view === 'guide');
+		$('nav-news').toggleAttribute('aria-current', view === 'news');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
@@ -1735,6 +1760,7 @@
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-guide').hidden = true;
+		$('nav-news').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true; // the next running game's render shows it again if needed
 		if (view === 'home' && latestGame()) {
@@ -1751,7 +1777,7 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', news: 'nav-news', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
@@ -1761,6 +1787,7 @@
 			focusAssetsTitle = view === 'assets';
 			focusCorporationsTitle = view === 'corporations';
 			focusGuideTitle = view === 'guide';
+			focusNewsTitle = view === 'news';
 			focusOverTitle = view === 'over';
 			openGame(id);
 		}
@@ -1778,6 +1805,7 @@
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-guide').hidden = true;
+		$('nav-news').hidden = true;
 		$('nav-over').hidden = true;
 		setTitle('Unknown screen', 'This link doesn\u2019t lead anywhere in the game.');
 		$('unknown-link').href = gameId ? deckLink(gameId) : '/';
@@ -2083,6 +2111,7 @@
 		$('nav-assets').hidden = true;
 		$('nav-corporations').hidden = true;
 		$('nav-guide').hidden = true;
+		$('nav-news').hidden = true;
 		$('nav-over').hidden = true;
 		$('decision-alert').hidden = true;
 		const state = lobbyState(game, viewerId);
@@ -2120,9 +2149,11 @@
 		$('nav-corporations').hidden = false;
 		$('nav-guide').href = guideLink(game.id);
 		$('nav-guide').hidden = false;
+		$('nav-news').href = newsLink(game.id);
+		$('nav-news').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide') {
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide' && view !== 'news') {
 			updateDoneBar(game); // "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02; s10 has its own
 		}
 		updateDecisionAlert(game, view);
@@ -2227,6 +2258,16 @@
 			return;
 		}
 		focusGuideTitle = false;
+		if (view === 'news') {
+			renderNews(game);
+			showPanels('news-panel');
+			if (focusNewsTitle) {
+				focusNewsTitle = false;
+				$('news-title').focus();
+			}
+			return;
+		}
+		focusNewsTitle = false;
 		if (view === 'over') {
 			renderGameOver(game);
 			showPanels('game-over-panel');
@@ -2553,6 +2594,35 @@
 	}
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
+	/** News (R109–R110): the tip-offs in play with Learn while News is open, this turn's announcements, and done. */
+	function renderNews(game) {
+		const rows = tipOffRows(game);
+		drawOnce('news-tipoffs', JSON.stringify(rows), () => rows.length === 0
+			? [element('li', { class: 'muted' }, NO_TIP_OFFS_TEXT)]
+			: rows.map(row => {
+				const parts = [element('strong', {}, row.title), ` \u2014 ${row.need} \u00b7 ${row.turn}`];
+				if (row.details) {
+					parts.push(element('br'), element('span', {}, row.details));
+				}
+				if (row.taken) {
+					parts.push(' ', element('span', { class: 'muted' }, row.taken));
+				}
+				if (row.learn) {
+					const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
+					button.addEventListener('click', () => gameAction(`news/${row.slot}/learn`, null, 'news-message', `You've learned tip-off #${row.slot}.`));
+					parts.push(element('div', { class: 'agent-move' }, button, ...(row.learn.reason ? [element('span', { class: 'muted' }, row.learn.reason)] : [])));
+				}
+				return element('li', {}, ...parts);
+			}));
+		const lines = newsAnnouncements(game);
+		drawOnce('news-announcements', JSON.stringify(lines), () => lines.length === 0
+			? [element('li', { class: 'muted' }, 'Nothing announced this turn.')]
+			: lines.map(line => element('li', {}, line)));
+		$('news-done-button').hidden = !isNews(game) || (game.turn.doneNews ?? []).includes(viewerId);
+	}
+
+	$('news-done-button').addEventListener('click', () => gameAction('news/done', null, 'news-message', 'Done: Jumps start once everyone is.'));
+
 	/** The Guide (playtest, 2026-11-20): drawn once the rules have loaded; they never change, so once is enough. */
 	function renderGuide() {
 		const guide = guideSections(rules);

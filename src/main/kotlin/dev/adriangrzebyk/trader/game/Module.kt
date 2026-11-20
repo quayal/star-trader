@@ -42,5 +42,8 @@ enum class Module(
 	companion object {
 		/** Every module a shipyard sells, in declaration order (R61, R56: no military one). */
 		fun forSale(): List<Module> = entries.filter { it.isForSale() }
+
+		/** The military ones (R56), sold only through opportunities (R113). */
+		fun military(): List<Module> = entries.filter { it.military }
 	}
 }

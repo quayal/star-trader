@@ -52,5 +52,8 @@ enum class Hull(
 	companion object {
 		/** Every hull a shipyard sells, in declaration order (R61, R56: no military one). */
 		fun forSale(): List<Hull> = entries.filter { it.isForSale() }
+
+		/** The military ones (R56), sold only through opportunities (R113). */
+		fun military(): List<Hull> = entries.filter { it.military }
 	}
 }

@@ -18,6 +18,10 @@ import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.news.ActiveTipOff
+import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.TipOff
+import dev.adriangrzebyk.trader.game.news.TurnConditions
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -151,7 +155,18 @@ class GameItemTest {
 			LogEntry.event(1, "Starting positions: Host Corp — Wayfarer at Tau Ceti"),
 			LogEntry.event(2, "Initiative order (bid + d2): Guest Freight → Host Corp")
 		),
-		deadAgents = listOf(Agent.X)
+		deadAgents = listOf(Agent.X),
+		news = News(
+			listOf(TipOff.O2, TipOff.E1),
+			listOf(
+				ActiveTipOff(3, TipOff.O1, 2, listOf("host@example.com"), "host@example.com"),
+				ActiveTipOff(4, TipOff.E10, 2, emptyList(), null)
+			),
+			listOf(TipOff.E2),
+			5,
+			TurnConditions(2, -4, true, 1, 1, StarSystem.GAMMA_LEPORIS),
+			3
+		)
 	)
 
 	@Test
@@ -189,7 +204,9 @@ class GameItemTest {
 
 		assertThat(
 			item.keys
-		).containsExactlyInAnyOrder("id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "version")
+		).containsExactlyInAnyOrder(
+			"id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "news", "version"
+		)
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)
 		// The log itself is in LogTurnItems; the game item only lists the turns that have one.
