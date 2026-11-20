@@ -13,6 +13,7 @@ export const NO_TEXT = {
 	marketPositions: 'No market positions',
 	warehouses: 'No warehouses',
 	factories: 'No factories',
+	agents: 'No agents',
 };
 
 const LOCATION_NAMES = Object.fromEntries([...LOCATIONS, SHIPYARD].map(location => [location.id, location.name]));
@@ -51,7 +52,11 @@ export function corporationCards(game, viewerId) {
 			.map(({ name, warehouse }) =>
 				`${name} — ${warehouse.blocks} ${warehouse.blocks === 1 ? 'block' : 'blocks'}, ${warehouse.cargoSpaces} cargo spaces`),
 		factories: (player.factories ?? [])
-			.map(factory => ({ goods: factory.goods, systemName: systemName(factory.system), text: ` at ${systemName(factory.system)} — ${factory.size} u per turn` }))
+			.map(factory => ({
+				goods: factory.goods,
+				systemName: systemName(factory.system),
+				text: ` at ${systemName(factory.system)} — ${factory.size} u per turn` + (factory.disabledTurns ? `, disabled, ${factory.disabledTurns} more ${factory.disabledTurns === 1 ? 'turn' : 'turns'}` : ''),
+			}))
 			.sort((a, b) => a.systemName.localeCompare(b.systemName) || a.goods.localeCompare(b.goods)),
 		reputation: reputationText(player.reputation),
 		connections: connectionsText(player.connections),

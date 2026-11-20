@@ -142,8 +142,9 @@ function collecting(factories = [iso, chips], overrides = {}) {
 }
 
 describe('isCollecting (S03-1, S03-5)', () => {
-	it('is true in Investment while the viewer has output to place', () => {
-		assert.equal(isCollecting(collecting()), true);
+	it('is true in Opportunity while the viewer has output to place (R102)', () => {
+		assert.equal(isCollecting(collecting()), false);
+		assert.equal(isCollecting({ ...collecting(), turn: { ...game().turn, phase: 'OPPORTUNITY' } }), true);
 	});
 
 	it('is false once they confirmed, with no factories, or outside Investment', () => {
@@ -260,8 +261,9 @@ describe('the Infrastructure screen (E06-S08)', () => {
 			assert.equal(infrastructureState(withYou({}, { status: 'FINISHED' }), ME), 'closed');
 		});
 
-		it('is collect while the viewer still has output to place', () => {
-			assert.equal(infrastructureState(withYou({ you: { collect: { factories: [] } } }), ME), 'collect');
+		it('is collect while the viewer still has output to place, then opportunity (R102)', () => {
+			assert.equal(infrastructureState(withYou({ you: { collect: { factories: [] } } }, { phase: 'OPPORTUNITY' }), ME), 'collect');
+			assert.equal(infrastructureState(withYou({ you: { collect: null } }, { phase: 'OPPORTUNITY' }), ME), 'opportunity');
 		});
 
 		it('is invest once collected (or with no factories), then done after signalling', () => {
@@ -322,7 +324,7 @@ describe('the Infrastructure screen (E06-S08)', () => {
 					{ id: ME, factories: [{ system: 'TAU_CETI', goods: 'ISO', size: 6 }] },
 				],
 			}, ME);
-			assert.deepEqual(rows, [{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', size: 6, invest: null }]);
+			assert.deepEqual(rows, [{ system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO', size: 6, disabledTurns: 0, invest: null }]);
 		});
 
 		it('is empty for a viewer with none', () => {

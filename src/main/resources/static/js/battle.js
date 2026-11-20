@@ -152,7 +152,8 @@ export function ordersBody(choices) {
  * damaged: `{ key, label, max, module, damaged, cargoSpaces }`. Keys are stable, so typed numbers survive a poll.
  */
 export function hitParts(game, shipName) {
-	const ship = game.turn?.battle?.ships.find(s => s.name === shipName);
+	// Outside a battle, a sabotaged ship's hits (R99) are placed on the owner's own ship, which has the same parts.
+	const ship = game.turn?.battle?.ships.find(s => s.name === shipName) ?? game.you?.ships?.find(s => s.name === shipName);
 	if (!ship) {
 		return [];
 	}

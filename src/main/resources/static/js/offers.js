@@ -99,7 +99,7 @@ export function withdrawnText(offer) {
  * them" are stale.
  */
 export function showsYourOffers(game) {
-	return game.status !== 'FINISHED' && game.turn?.phase !== 'INVESTMENT';
+	return game.status !== 'FINISHED' && game.turn?.phase !== 'OPPORTUNITY' && game.turn?.phase !== 'INVESTMENT';
 }
 
 /** "Your offers this turn" when it's empty: still open during Bidding, closed after. */

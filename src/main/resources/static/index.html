@@ -533,6 +533,8 @@
 		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
 		<!-- Creator, 2026-11-20: Investment's done button on the Deck and System details too, not only on Infrastructure. -->
 		<button class="btn" id="done-investing-button" type="button" hidden>I'm done investing</button>
+		<!-- R102: the player on their Opportunity turn passes it on. -->
+		<button class="btn" id="done-opportunity-button" type="button" hidden>I'm done with opportunities</button>
 		<!-- A live region that stays in the tree: its text appears when the player is done, so it's announced. -->
 		<p id="done-text" role="status" tabindex="-1"></p>
 		<!-- E06-S08-4: while the player still has to collect, on the screens that aren't Infrastructure. -->
@@ -832,6 +834,7 @@
 			<p class="muted">Where your money is. Goods are valued at each good’s mean price across the systems that trade it today, wherever they are; ships at what they would fetch sold.</p>
 			<section class="panel" aria-label="Summary">
 				<dl class="assets__summary" id="assets-summary"></dl>
+				<p id="assets-loan" hidden></p>
 			</section>
 			<section class="assets__group" aria-labelledby="assets-goods-title">
 				<h3 id="assets-goods-title">Goods</h3>
@@ -965,6 +968,109 @@
 				<!-- Creator, 2026-11-19: warehouses and factories are bought from the tables below; what the last purchase did. -->
 				<p class="message message--success" id="infra-invest-message" role="status" tabindex="-1"></p>
 			</section>
+			<!-- R102 (D24): the Opportunity phase, played in turn order. Static markup; lists are redrawn only when what they show changes. -->
+			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-title" hidden>
+				<h2 id="opportunity-title" tabindex="-1">Opportunity</h2>
+				<p id="opportunity-status" role="status" tabindex="-1"></p>
+				<div id="opportunity-done-row" hidden><button class="btn" id="opportunity-done-button" type="button">I'm done with opportunities</button></div>
+				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
+				<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
+				<div id="owed-hits"></div>
+			</section>
+			<section class="panel" id="sabotage-panel" aria-labelledby="sabotage-title" hidden>
+				<h3 id="sabotage-title">Sabotage</h3>
+				<ul class="corporation__list" id="sabotage-suffered"></ul>
+				<ul class="corporation__list" id="sabotage-results"></ul>
+				<form class="offer-form" id="sabotage-form" novalidate>
+					<div>
+						<label class="field-label" for="sabotage-target">Target</label>
+						<select class="control" id="sabotage-target"></select>
+					</div>
+					<div id="sabotage-blamed-row">
+						<label class="field-label" for="sabotage-blamed">Blamed on a 21+ reputation roll</label>
+						<select class="control" id="sabotage-blamed"></select>
+					</div>
+					<p id="sabotage-cost"></p>
+					<p class="muted" id="sabotage-modifiers"></p>
+					<div><button class="btn" id="sabotage-button" type="submit">Sabotage</button></div>
+					<p class="muted" id="sabotage-wait"></p>
+				</form>
+				<form class="offer-form" id="losses-form" novalidate hidden>
+					<p id="losses-intro"></p>
+					<div class="trade-ships" id="losses-goods"></div>
+					<div><button class="btn" type="submit">Take these units</button></div>
+				</form>
+				<p class="message" id="sabotage-message" role="status" tabindex="-1"></p>
+			</section>
+			<section class="panel" id="agents-panel" aria-labelledby="agents-title" hidden>
+				<h3 id="agents-title">Agents</h3>
+				<ul class="corporation__list" id="agents-own"></ul>
+				<ul class="corporation__list" id="agent-offers"></ul>
+				<form class="offer-form" id="recruit-form" novalidate>
+					<p class="muted" id="agents-pool"></p>
+					<div>
+						<label class="field-label" for="recruit-amount">Pay (10–60 HT)</label>
+						<input class="control price-input" id="recruit-amount" inputmode="numeric" value="35">
+						<span class="muted" id="recruit-odds"></span>
+					</div>
+					<div>
+						<label class="field-label" for="recruit-start">Where the agent starts</label>
+						<select class="control" id="recruit-start"></select>
+					</div>
+					<div><button class="btn" id="recruit-button" type="submit">Recruit</button></div>
+				</form>
+				<form class="offer-form" id="agent-offer-form" novalidate hidden>
+					<div>
+						<label class="field-label" for="agent-offer-agent">Sell an agent</label>
+						<select class="control" id="agent-offer-agent"></select>
+					</div>
+					<div>
+						<label class="field-label" for="agent-offer-buyer">To</label>
+						<select class="control" id="agent-offer-buyer"></select>
+					</div>
+					<div>
+						<label class="field-label" for="agent-offer-price">Price (HT)</label>
+						<input class="control price-input" id="agent-offer-price" inputmode="numeric" value="30">
+					</div>
+					<div><button class="btn" type="submit">Offer</button></div>
+				</form>
+				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
+			</section>
+			<section class="panel" id="loan-panel" aria-labelledby="loan-title" hidden>
+				<h3 id="loan-title">Loan</h3>
+				<p class="muted" id="loan-closed"></p>
+				<p id="loan-summary"></p>
+				<div id="loan-open-actions" hidden>
+					<button class="btn" id="loan-interest-button" type="button">Pay interest</button>
+					<button class="quiet-button" id="loan-repay-button" type="button">Repay</button>
+				</div>
+				<form class="offer-form" id="loan-form" novalidate hidden>
+					<div>
+						<label class="field-label" for="loan-amount">Borrow (HT)</label>
+						<input class="control price-input" id="loan-amount" inputmode="numeric" value="100">
+					</div>
+					<fieldset class="trade-ships">
+						<legend class="field-label">Term</legend>
+						<label class="choice"><input type="radio" name="loan-term" value="4" checked> 4 turns</label>
+						<label class="choice"><input type="radio" name="loan-term" value="8"> 8 turns</label>
+					</fieldset>
+					<p class="muted" id="loan-preview"></p>
+					<div><button class="btn" id="loan-button" type="submit">Borrow</button></div>
+				</form>
+				<form class="offer-form" id="factory-sale-form" novalidate hidden>
+					<div>
+						<label class="field-label" for="factory-sale-factory">Sell factory units (5 × the local price each)</label>
+						<select class="control" id="factory-sale-factory"></select>
+					</div>
+					<div>
+						<label class="field-label" for="factory-sale-units">Units</label>
+						<input class="control price-input" id="factory-sale-units" inputmode="numeric" value="1">
+						<span class="muted" id="factory-sale-price"></span>
+					</div>
+					<div><button class="quiet-button" type="submit">Sell</button></div>
+				</form>
+				<p class="message" id="loan-message" role="status" tabindex="-1"></p>
+			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
 				<h2 id="collect-title" tabindex="-1">Collect your output</h2>
@@ -1009,6 +1115,12 @@
 				<div class="trading__main">
 				<section class="panel trading-status" aria-labelledby="trading-title">
 					<p id="trading-status" tabindex="-1"></p>
+					<!-- R108: Limpy's owner is asked whether to act as Dictator of the next good. -->
+					<div id="limpy-row" hidden>
+						<p id="limpy-text"></p>
+						<button class="btn" id="limpy-act-button" type="button">Act as Dictator (Limpy)</button>
+						<button class="btn btn--danger" id="limpy-pass-button" type="button">Pass</button>
+					</div>
 					<div class="resolve-row" id="resolve-row" hidden>
 						<button class="btn" id="resolve-button" type="button">Resolve next</button>
 					</div>
@@ -1433,6 +1545,30 @@
 		validateUnits
 	} from './js/investment.js';
 	import { keepGoodsColoured } from './js/goods-colour.js';
+	import {
+		agentMoves,
+		agentOfferText,
+		agentStarts,
+		agentWhereText,
+		blameChoices,
+		disabledText,
+		isMyOpportunityTurn,
+		isOpportunity,
+		loanPreview,
+		openLoanText,
+		OPENS_IN_INVESTMENT,
+		opportunityStatusText,
+		publicAgentLines,
+		recruitOdds,
+		sabotageCost,
+		sabotageModifiers,
+		sabotageResultText,
+		sabotageTargets,
+		sufferedSabotageText,
+		unpaidInterestWarning,
+		validateRecruit,
+		waitTurnText,
+	} from './js/opportunity.js';
 	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
@@ -2139,6 +2275,10 @@
 
 	function renderAssets(game) {
 		const view = assetsView(game);
+		// R95: an open loan is a liability under money, the borrower's alone.
+		const loan = game.you?.loan?.loan;
+		showText('assets-loan', loan ? `Loan: you owe ${loan.amount} HT (${loan.interest} HT interest a turn, ${loan.turnsLeft} left). It's subtracted from your final money.` : '');
+		$('assets-loan').hidden = !loan;
 		const key = JSON.stringify([game.id, view]);
 		if (view === null || key === shownAssetsKey) {
 			return;
@@ -2357,7 +2497,9 @@
 			section(card, 'marketPositions', 'Market positions', card.marketPositions.map(position =>
 				[`${position.tier} \u2014 `, good(position.goods), ` at ${position.systemName}`])),
 			section(card, 'warehouses', 'Warehouses', card.warehouses),
-			section(card, 'factories', 'Factories', card.factories.map(factory => [good(factory.goods), factory.text])))));
+			section(card, 'factories', 'Factories', card.factories.map(factory => [good(factory.goods), factory.text])),
+			// R105: where each player's agents are, never which.
+			section(card, 'agents', 'Agents', publicAgentLines(game.players.find(player => player.id === card.id) ?? {})))));
 	}
 
 	function renderFleet(game) {
@@ -2467,6 +2609,9 @@
 		if (tradingMessageKey !== null && tradingMessageKey !== tradingKey(game)) {
 			setTradingMessage('', false, game);
 		}
+		const limpy = game.you?.limpyAsk;
+		$('limpy-row').hidden = !limpy;
+		showText('limpy-text', limpy ? `Limpy is in Port at ${limpy.systemName}: act as Dictator of ${limpy.goods} there for this resolution, or pass and keep him for another good this turn.` : '');
 		if (queueDraft !== null && queueDraft.key !== tradingKey(game)) {
 			queueDraft = null;
 		}
@@ -3413,7 +3558,7 @@
 		$('collect-button').disabled = true;
 		let response;
 		try {
-			response = await api(`/api/games/${encodeURIComponent(gameId)}/investment/collect`,
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/opportunity/collect`,
 				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(checked.body) });
 		} catch {
 			response = null;
@@ -4365,9 +4510,12 @@
 		const investState = infrastructureState(game, viewerId);
 		$('done-button').hidden = !bidding || isDone(game, viewerId);
 		$('done-investing-button').hidden = investState !== 'invest';
+		const opportunityTurn = isMyOpportunityTurn(game, viewerId) && !collecting;
+		$('done-opportunity-button').hidden = !opportunityTurn;
 		const text = bidding && isDone(game, viewerId) ? DONE_TEXT
 			: collecting ? COLLECT_ELSEWHERE_TEXT
-			: investState === 'done' ? infrastructureStatusText(game, viewerId) : '';
+			: investState === 'done' ? infrastructureStatusText(game, viewerId)
+			: isOpportunity(game) && !opportunityTurn ? opportunityStatusText(game, viewerId) : '';
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -4376,7 +4524,7 @@
 		if ($('collect-link').textContent !== INFRASTRUCTURE_LINK_TEXT) {
 			$('collect-link').textContent = INFRASTRUCTURE_LINK_TEXT;
 		}
-		$('done-bar').hidden = !bidding && !collecting && investState !== 'invest' && investState !== 'done' && !$('done-message').textContent;
+		$('done-bar').hidden = !bidding && !collecting && investState !== 'invest' && investState !== 'done' && !isOpportunity(game) && !$('done-message').textContent;
 	}
 
 	async function signalDone() {
@@ -4431,7 +4579,8 @@
 		if (infraMessageKey !== null && infraMessageKey !== turnKey) {
 			setInfraMessage('', false, null);
 		}
-		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT : infrastructureStatusText(game, viewerId);
+		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT
+			: state === 'opportunity' ? '' : infrastructureStatusText(game, viewerId);
 		if ($('infrastructure-status').textContent !== status) {
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
@@ -4441,6 +4590,7 @@
 			$('invest-note').textContent = note;
 		}
 		updateCollectForm(game);
+		renderOpportunity(game);
 		clearStaleInvestMessage(game);
 		const pointer = canBuy(game);
 		$('ship-pointer').hidden = !pointer;
@@ -4470,13 +4620,293 @@
 			$('own-factories').replaceChildren(...factories.map(row => element('tr', row.invest === 'build' ? { class: 'invest-row' } : {},
 				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
 				element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
-				element('td', { class: 'num' }, row.invest === 'build' ? 'No factory yet' : String(row.size)),
+				element('td', { class: 'num' }, row.invest === 'build' ? 'No factory yet' : String(row.size) + (row.disabledTurns ? ` (${disabledText(row)})` : '')),
 				investCell(row.invest && investButton('units', row.invest, row.system, row.goods)))));
 			$('own-warehouses-panel').hidden = warehouses.length === 0;
 			$('own-factories-panel').hidden = factories.length === 0;
 			$('own-assets-none').hidden = warehouses.length > 0 || factories.length > 0;
 		}
 	}
+
+
+	// ── R102 Opportunity, R97–R101 sabotage, R103–R108 agents, R90–R96 loans (D22–D25) ──
+	//
+	// Static forms; selects are refilled only when their options change, so a choice survives the poll. The server decides
+	// everything and refuses what isn't allowed; the forms only arrange what it sent.
+
+	/** Fills select [id] with [options] (`{ value, label }`) when they changed, keeping the chosen value if it's still there. */
+	function fillSelect(id, options) {
+		const select = $(id);
+		const key = JSON.stringify(options.map(option => [option.value, option.label]));
+		if (select.dataset.key === key) {
+			return;
+		}
+		const chosen = select.value;
+		select.dataset.key = key;
+		select.replaceChildren(...options.map(option => element('option', { value: option.value }, option.label)));
+		if (options.some(option => option.value === chosen)) {
+			select.value = chosen;
+		}
+	}
+
+	/** Redraws [id]'s children only when [key] changed. */
+	function drawOnce(id, key, build) {
+		if ($(id).dataset.key !== key) {
+			$(id).dataset.key = key;
+			$(id).replaceChildren(...build());
+		}
+	}
+
+	function setActionMessage(id, text, error) {
+		$(id).textContent = text;
+		$(id).className = error ? 'message message--error' : 'message message--success';
+	}
+
+	/** POSTs [body] to the game's [path] and redraws; a refusal is said in [messageId]. */
+	async function gameAction(path, body, messageId, success = '') {
+		const gameId = currentGameId;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/${path}`, body === null
+				? { method: 'POST' }
+				: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+		} catch {
+			setActionMessage(messageId, UNREACHABLE, true);
+			return null;
+		}
+		if (gameId !== currentGameId) {
+			return null;
+		}
+		if (!response.ok) {
+			setActionMessage(messageId, await errorText(response, "That didn't work. Try again."), true);
+			$(messageId).focus();
+			return null;
+		}
+		const game = await response.json();
+		setActionMessage(messageId, typeof success === 'function' ? success(game) : success, false);
+		render(game);
+		return game;
+	}
+
+	function renderOpportunity(game) {
+		const opportunity = isOpportunity(game);
+		const investing = isInvesting(game);
+		$('opportunity-panel').hidden = !opportunity;
+		$('sabotage-panel').hidden = !opportunity;
+		$('agents-panel').hidden = !opportunity && (game.you?.agents ?? []).length === 0;
+		$('loan-panel').hidden = !opportunity && !investing;
+		if (opportunity) {
+			showText('opportunity-status', opportunityStatusText(game, viewerId));
+			$('opportunity-done-row').hidden = !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
+			renderOwedHits(game);
+			renderSabotage(game);
+		}
+		renderAgents(game, opportunity);
+		renderLoan(game, investing);
+	}
+
+	// R99: the sabotage hits on the viewer's own ships, placed as in battle, with what no longer fits thrown off (the
+	// server stores it in the warehouse there as far as it fits).
+	function renderOwedHits(game) {
+		const owed = (game.you?.sabotagesSuffered ?? []).filter(sabotage => sabotage.awaitingHits);
+		drawOnce('owed-hits', JSON.stringify([game.id, game.turn.number, owed]), () => owed.map(sabotage => {
+			const parts = hitParts(game, sabotage.ship);
+			const inputs = parts.map(part => element('div', { class: 'trade-ship' },
+				element('label', { for: `owed-${sabotage.ship}-${part.key}` }, part.label),
+				element('input', { class: 'control price-input', id: `owed-${sabotage.ship}-${part.key}`, inputmode: 'numeric', value: '0', 'data-part': part.key })));
+			const jettison = jettisonable(game, sabotage.ship).map(entry => element('div', { class: 'trade-ship' },
+				element('label', { for: `owed-${sabotage.ship}-jettison-${entry.goods}` }, `Throw off ${entry.goods} (holding ${entry.units})`),
+				element('input', { class: 'control price-input', id: `owed-${sabotage.ship}-jettison-${entry.goods}`, inputmode: 'numeric', value: '0', 'data-jettison': entry.goods })));
+			const form = element('form', { class: 'offer-form', novalidate: '', 'data-ship': sabotage.ship },
+				element('p', {}, `${sabotage.ship} took ${hitsText(sabotage.effect)}.`),
+				element('p', { class: 'muted' }, HIT_RULES),
+				element('div', { class: 'trade-ships' }, ...inputs, ...jettison),
+				element('div', {}, element('button', { class: 'btn', type: 'submit' }, 'Place the hits')));
+			form.addEventListener('submit', (event) => {
+				event.preventDefault();
+				const hits = {};
+				form.querySelectorAll('[data-part]').forEach(input => { hits[input.dataset.part] = Number(input.value) || 0; });
+				const thrown = {};
+				form.querySelectorAll('[data-jettison]').forEach(input => { thrown[input.dataset.jettison] = Number(input.value) || 0; });
+				gameAction('sabotage/hits', shipHitsBody(sabotage.ship, parts, hits, thrown), 'opportunity-message', 'Hits placed.');
+			});
+			return form;
+		}));
+	}
+
+	function renderSabotage(game) {
+		const you = game.you ?? {};
+		drawOnce('sabotage-suffered', JSON.stringify(you.sabotagesSuffered ?? []), () =>
+			(you.sabotagesSuffered ?? []).map(sabotage => element('li', {}, sufferedSabotageText(sabotage))));
+		drawOnce('sabotage-results', JSON.stringify(you.sabotagesOrdered ?? []), () =>
+			(you.sabotagesOrdered ?? []).map(sabotage => element('li', {}, sabotageResultText(game, sabotage))));
+		const done = Boolean(you.opportunity?.sabotaged);
+		$('sabotage-form').hidden = done;
+		const targets = sabotageTargets(game, viewerId);
+		fillSelect('sabotage-target', targets);
+		const target = targets.find(entry => entry.value === $('sabotage-target').value) ?? targets[0];
+		const blamed = target ? blameChoices(game, viewerId, target.playerId) : [];
+		fillSelect('sabotage-blamed', blamed.map(choice => ({ value: choice.id, label: choice.name })));
+		$('sabotage-blamed-row').hidden = blamed.length === 0;
+		const me = game.players.find(player => player.id === viewerId);
+		showText('sabotage-cost', target ? `Costs ${sabotageCost(game, target)} HT, paid whatever happens.` : 'Nobody else has a ship in Port, a warehouse or a factory.');
+		const modifiers = target ? sabotageModifiers(me?.connections?.criminal ?? 0, target) : null;
+		showText('sabotage-modifiers', modifiers ? `${modifiers.effect} · ${modifiers.reputation}` : '');
+		$('sabotage-button').disabled = !target || !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
+		showText('sabotage-wait', waitTurnText(game, viewerId));
+		const choice = (you.sabotagesOrdered ?? []).find(sabotage => sabotage.choosing);
+		const warehouse = you.sabotagedWarehouse;
+		$('losses-form').hidden = !choice || !warehouse;
+		if (choice && warehouse) {
+			showText('losses-intro', `Choose the ${choice.effect} units missing from the warehouse at ${choice.systemName}.`);
+			drawOnce('losses-goods', JSON.stringify(warehouse.cargo), () => Object.entries(warehouse.cargo).map(([goods, units]) => element('div', { class: 'trade-ship' },
+				element('label', { for: `loss-${goods}` }, `${goods} (holds ${units})`),
+				element('input', { class: 'control price-input', id: `loss-${goods}`, inputmode: 'numeric', value: '0', 'data-goods': goods }))));
+		}
+	}
+
+	$('sabotage-target').addEventListener('change', () => renderSabotage(lastGame));
+	$('sabotage-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const target = sabotageTargets(lastGame, viewerId).find(entry => entry.value === $('sabotage-target').value);
+		if (!target) {
+			return;
+		}
+		gameAction('sabotage', {
+			targetPlayerId: target.playerId,
+			kind: target.kind,
+			system: target.system,
+			ship: target.ship,
+			goods: target.goods,
+			blamedId: $('sabotage-blamed-row').hidden ? null : $('sabotage-blamed').value,
+		}, 'sabotage-message', game => {
+			const mine = game.you?.sabotagesOrdered ?? [];
+			return mine.length ? sabotageResultText(game, mine[mine.length - 1]) : '';
+		});
+	});
+	$('losses-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const lots = {};
+		$('losses-goods').querySelectorAll('[data-goods]').forEach(input => { lots[input.dataset.goods] = Number(input.value) || 0; });
+		gameAction('sabotage/losses', { lots }, 'sabotage-message', 'Done: those units are gone.');
+	});
+	$('opportunity-done-button').addEventListener('click', () => gameAction('opportunity/done', null, 'opportunity-message'));
+	$('done-opportunity-button').addEventListener('click', () => gameAction('opportunity/done', null, 'done-message'));
+
+	function renderAgents(game, opportunity) {
+		const you = game.you ?? {};
+		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		drawOnce('agents-own', JSON.stringify([you.agents, you.ships?.map(ship => [ship.name, ship.system, ship.location]), myTurn]), () => {
+			if ((you.agents ?? []).length === 0) {
+				return [element('li', { class: 'muted' }, 'You have no agents.')];
+			}
+			return you.agents.map(agent => {
+				const moves = myTurn ? agentMoves(game, agent) : [];
+				const select = element('select', { class: 'control', 'aria-label': `Move ${agent.name}` },
+					...moves.map(move => element('option', { value: move.value }, move.label)));
+				const button = element('button', { class: 'quiet-button', type: 'button' }, 'Move');
+				button.addEventListener('click', () => {
+					const move = moves.find(entry => entry.value === select.value);
+					if (move) {
+						gameAction('agents/move', { agent: agent.agent, ...move.body }, 'agents-message', `${agent.name} moved.`);
+					}
+				});
+				return element('li', {}, element('strong', {}, agent.name), ` — ${agent.effect}; ${agentWhereText(game, agent)}`,
+					...(moves.length ? [' ', select, ' ', button] : []));
+			});
+		});
+		drawOnce('agent-offers', JSON.stringify(you.agentOffers ?? []), () => (you.agentOffers ?? []).map(offer => {
+			const line = element('li', {}, agentOfferText(game, offer, viewerId));
+			if (offer.buyerId === viewerId) {
+				const accept = element('button', { class: 'quiet-button', type: 'button' }, 'Buy');
+				const decline = element('button', { class: 'quiet-button', type: 'button' }, 'Decline');
+				accept.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/accept`, null, 'agents-message',
+					bought => `It's ${bought.you.agents[bought.you.agents.length - 1]?.name ?? 'yours'}.`));
+				decline.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/decline`, null, 'agents-message', 'Declined.'));
+				line.append(' ', accept, ' ', decline);
+			}
+			return line;
+		}));
+		$('recruit-form').hidden = !opportunity || Boolean(you.opportunity?.recruited);
+		showText('agents-pool', `${you.agentPool ?? 0} agents are left to recruit. Pay 10–60 HT; 2d6 × 5 at or below it brings a random one.`);
+		fillSelect('recruit-start', agentStarts(game));
+		const amount = validateRecruit($('recruit-amount').value);
+		showText('recruit-odds', amount.error ? '' : `Chance ${recruitOdds(amount.amount)}`);
+		$('recruit-button').disabled = !myTurn || (you.agentPool ?? 0) === 0;
+		$('agent-offer-form').hidden = !opportunity || (you.agents ?? []).length === 0;
+		fillSelect('agent-offer-agent', (you.agents ?? []).map(agent => ({ value: agent.agent, label: agent.name })));
+		fillSelect('agent-offer-buyer', game.players.filter(player => player.id !== viewerId).map(player => ({ value: player.id, label: player.corporationName })));
+		$('agent-offer-form').querySelector('button').disabled = !myTurn;
+	}
+
+	$('recruit-amount').addEventListener('input', () => renderAgents(lastGame, isOpportunity(lastGame)));
+	$('recruit-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const amount = validateRecruit($('recruit-amount').value);
+		if (amount.error) {
+			setActionMessage('agents-message', amount.error, true);
+			return;
+		}
+		const start = agentStarts(lastGame).find(entry => entry.value === $('recruit-start').value);
+		const before = (lastGame.you?.agents ?? []).length;
+		gameAction('agents/recruit', { amount: amount.amount, ...(start?.body ?? {}) }, 'agents-message', game => {
+			const agents = game.you?.agents ?? [];
+			return agents.length > before ? `${agents[agents.length - 1].name} joins you: ${agents[agents.length - 1].effect}.` : 'Nobody joined: the money is spent.';
+		});
+	});
+	$('agent-offer-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		gameAction('agents/offer', {
+			agent: $('agent-offer-agent').value,
+			buyerId: $('agent-offer-buyer').value,
+			price: Number($('agent-offer-price').value),
+		}, 'agents-message', 'Offered: they can accept until Opportunity closes.');
+	});
+
+	function renderLoan(game, investing) {
+		const loan = game.you?.loan;
+		const me = game.players.find(player => player.id === viewerId);
+		showText('loan-closed', investing ? '' : OPENS_IN_INVESTMENT);
+		const open = loan?.loan;
+		showText('loan-summary', open ? openLoanText(loan) : investing && loan ? `You can borrow up to ${loan.cap} HT: 100 a ship, 20 a warehouse block, plus your cash.` : '');
+		$('loan-open-actions').hidden = !open || !investing;
+		$('loan-interest-button').hidden = !loan?.interestDue || loan.interestPaid;
+		if (open) {
+			$('loan-repay-button').textContent = `Repay ${open.repayment} HT`;
+		}
+		$('loan-form').hidden = !investing || Boolean(open) || !loan;
+		if (loan && !open) {
+			const preview = loanPreview($('loan-amount').value, loan, me?.reputation ?? 0);
+			showText('loan-preview', preview.error ?? `Interest: ${preview.text}.`);
+		}
+		const factories = (game.you?.factorySales ?? []);
+		$('factory-sale-form').hidden = !investing || factories.length === 0;
+		fillSelect('factory-sale-factory', factories.map(factory => ({
+			value: `${factory.system}|${factory.goods}`,
+			label: `${factory.goods} at ${game.board.find(system => system.id === factory.system)?.name ?? factory.system} (${factory.units} u, ${factory.pricePerUnit} HT each)`,
+		})));
+		const chosen = factories.find(factory => `${factory.system}|${factory.goods}` === $('factory-sale-factory').value);
+		const units = Number($('factory-sale-units').value);
+		showText('factory-sale-price', chosen && Number.isInteger(units) && units > 0 ? `= ${units * chosen.pricePerUnit} HT` : '');
+	}
+
+	$('loan-amount').addEventListener('input', () => renderLoan(lastGame, isInvesting(lastGame)));
+	$('factory-sale-units').addEventListener('input', () => renderLoan(lastGame, isInvesting(lastGame)));
+	$('factory-sale-factory').addEventListener('change', () => renderLoan(lastGame, isInvesting(lastGame)));
+	$('loan-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const term = Number(document.querySelector('input[name="loan-term"]:checked')?.value);
+		gameAction('loan', { amount: Number($('loan-amount').value), term }, 'loan-message', 'Borrowed: the money is in your cash.');
+	});
+	$('loan-interest-button').addEventListener('click', () => gameAction('loan/interest', null, 'loan-message', 'Interest paid.'));
+	$('loan-repay-button').addEventListener('click', () => gameAction('loan/repay', null, 'loan-message', 'Loan repaid.'));
+	$('factory-sale-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const [system, goods] = $('factory-sale-factory').value.split('|');
+		gameAction('factories/sell', { system, goods, units: Number($('factory-sale-units').value) }, 'loan-message', 'Sold.');
+	});
+	$('limpy-act-button').addEventListener('click', () => gameAction('trading/limpy', { act: true }, 'trading-message'));
+	$('limpy-pass-button').addEventListener('click', () => gameAction('trading/limpy', { act: false }, 'trading-message'));
 
 	// ── Investing from the tables (creator, 2026-11-19): warehouse blocks (E06-S04, R45) and factory units (E06-S05, R46) ──
 	//
@@ -5090,6 +5520,9 @@
 		}
 	});
 
+	/** The turn whose unpaid-interest warning has been shown (R92). */
+	let interestWarnedKey = null;
+
 	/** From Infrastructure's button or the top bar's (creator, 2026-11-20); the answer is said beside the button pressed. */
 	async function signalDoneInvesting(event) {
 		const button = event.currentTarget;
@@ -5097,6 +5530,13 @@
 		const gameId = currentGameId;
 		const turnKey = `${gameId}/${lastGame.turn.number}`;
 		const say = (text, error) => (inTopBar ? setDoneMessage(text, error) : setInfraMessage(text, error, turnKey));
+		// R92: warn once before signalling done with loan interest unpaid; a second press goes ahead.
+		const warning = unpaidInterestWarning(lastGame);
+		if (warning && interestWarnedKey !== turnKey) {
+			interestWarnedKey = turnKey;
+			say(`${warning} Press again to be done anyway.`, true);
+			return;
+		}
 		say('', false);
 		button.disabled = true;
 		let response;
