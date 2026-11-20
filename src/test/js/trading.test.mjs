@@ -105,7 +105,7 @@ describe('s03 status line', () => {
 	it('says every good resolved while players invest (E06-S01)', () => {
 		assert.equal(
 			tradingStatus(game({ phase: 'INVESTMENT', queue: [] }), ME),
-			'All goods resolved. The next turn starts with Bidding once everyone is done investing.',
+			'All goods resolved. The next turn starts with Bidding once Opportunity and Investment are over.',
 		);
 	});
 

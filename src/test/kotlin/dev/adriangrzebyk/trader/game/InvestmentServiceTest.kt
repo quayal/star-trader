@@ -22,7 +22,7 @@ class InvestmentServiceTest {
 		}
 
 	/** [started] taken through Bidding, Ship-jumps and Trading to the start of Investment: advancing a phase needs no players' acts. */
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	@Test
 	fun shouldStoreTheDoneSignal() {
@@ -84,46 +84,6 @@ class InvestmentServiceTest {
 		assertThatThrownBy { service.signalDone("game-1", "stranger@example.com") }.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
-	/** [investing] where the creator owns an ISO factory at Tau Ceti, where their Wayfarer is in port. */
-	private val withFactory = investing.copy(
-		players = investing.players.map {
-			if (it.email == "creator@example.com") it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it
-		}
-	)
-
-	@Test
-	fun shouldStoreACollectInTheStore() {
-		// E06-S03-5
-		gameStore.create(withFactory)
-
-		val game = service.collect("game-1", "creator@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
-
-		assertThat(game.turn?.collected).containsExactly("creator@example.com")
-		assertThat(gameStore.find("game-1")).isEqualTo(game)
-	}
-
-	@Test
-	fun shouldStoreACollectOnceEvenWhenTheStoreReplaysTheChange() {
-		// a real store re-runs the change when another write lands first (GameStore.update); the output must be stored once
-		gameStore.create(withFactory)
-
-		InvestmentService(ReplayingGameStore(gameStore), FakeDice())
-			.collect("game-1", "creator@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, "Wayfarer", 6)))
-
-		val ship = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }.ship("Wayfarer")!!
-		assertThat(ship.holding(Goods.ISO)).isEqualTo(6)
-	}
-
-	@Test
-	fun shouldRefuseACollectAfterInvestmentClosed() {
-		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
-		gameStore.create(closed)
-
-		assertThatThrownBy { service.collect("game-1", "creator@example.com", emptyList()) }
-			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Investment isn't open.")
-	}
-
 	@Test
 	fun shouldStoreBoughtBlocksInTheStore() {
 		// E06-S04
@@ -164,7 +124,7 @@ class InvestmentServiceTest {
 
 		val game = service.buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
 
-		assertThat(game.players.first { it.email == "creator@example.com" }.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(game.players.first { it.email == "creator@example.com" }.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2, 0))
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}
 
@@ -176,7 +136,7 @@ class InvestmentServiceTest {
 		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 2)
 
 		val ada = gameStore.find("game-1")!!.players.first { it.email == "creator@example.com" }
-		assertThat(ada.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(ada.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 2, 0))
 		assertThat(ada.money).isEqualTo(investing.players.first { it.email == "creator@example.com" }.money - 2 * (5 * price + 10))
 	}
 

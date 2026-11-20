@@ -12,6 +12,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Module
+import dev.adriangrzebyk.trader.game.OpportunityPassed
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
@@ -104,7 +105,8 @@ class GameControllerTest {
 					0
 				),
 				0,
-				20
+				20,
+				emptyList()
 			)
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
@@ -114,7 +116,8 @@ class GameControllerTest {
 		).isEqualTo(
 			YouResponseDto(
 				"p1", 0, emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
-				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList())
+				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
+				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList()
 			)
 		)
 	}
@@ -172,7 +175,8 @@ class GameControllerTest {
 					0
 				),
 				0,
-				20
+				20,
+				emptyList()
 			),
 			PlayerResponseDto(
 				"p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList(),
@@ -181,7 +185,7 @@ class GameControllerTest {
 					0,
 					0
 				),
-				0, 20
+				0, 20, emptyList()
 			)
 		)
 		assertThat(joined.status).isEqualTo("LOBBY")
@@ -237,7 +241,9 @@ class GameControllerTest {
 	fun shouldRejectJoiningAGameThatHasStarted() {
 		// Nothing can start a game through the API until E02-S05, so this one is stored already running.
 		val host = Player.newcomer("started-host@example.com", "Host", "Host Corp")
-		gameStore.create(Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, MarketPrices.board(), emptyList()))
+		gameStore.create(
+			Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, MarketPrices.board(), emptyList(), emptyList())
+		)
 
 		joinGame(signIn("late@example.com"), "started-game")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
@@ -324,7 +330,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null, emptyList(), emptyList()
+				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -544,7 +550,7 @@ class GameControllerTest {
 					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
-				emptyList(), emptyList()
+				emptyList(), emptyList(), emptyList(), null, emptyList(), null
 			)
 		)
 
@@ -924,7 +930,7 @@ class GameControllerTest {
 		val seenByOther = pollGame("token-$second", gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(seenByOther.players.first { it.id == idOf(gameId, first) }.ships.first())
-			.isEqualTo(ShipResponseDto(ship.name, destination.name, destination.displayName, "SPACE"))
+			.isEqualTo(ShipResponseDto(ship.name, destination.name, destination.displayName, "SPACE", 0))
 		assertThat(seenByOther.turn!!.jumpedShips).containsExactly(ship.name)
 		assertThat(jumped.log.last().text).matches(".*— \\Q${ship.name} → ${destination.displayName}\\E \\(rolled \\d+\\)")
 
@@ -1107,12 +1113,26 @@ class GameControllerTest {
 		finishJumping("token-$second", gameId).expectStatus().isOk
 		repeat(17) { resolveNext("token-$first", gameId).expectStatus().isOk }
 
-		val investing = resolveNext("token-$first", gameId).expectStatus().isOk
+		val opportunity = resolveNext("token-$first", gameId).expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(investing.turn!!.number).isEqualTo(1)
+		assertThat(opportunity.turn!!.number).isEqualTo(1)
+		assertThat(opportunity.turn!!.phase).isEqualTo("OPPORTUNITY")
+		assertThat(opportunity.turn!!.opportunist).isEqualTo(idOf(gameId, first))
+		assertThat(opportunity.log.last().text).isEqualTo("All goods resolved")
+
+		// R102: one at a time in the turn order; the last one done opens Investment.
+		finishOpportunities("token-$second", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo(
+				"It's ${gameStore.find(gameId)!!.players.first {
+					it.email == first
+				}.corporationName}'s Opportunity turn."
+			)
+		finishOpportunities("token-$first", gameId).expectStatus().isOk
+		val investing = finishOpportunities("token-$second", gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(investing.turn!!.phase).isEqualTo("INVESTMENT")
 		assertThat(investing.turn!!.doneInvesting).isEmpty()
-		assertThat(investing.log.last().text).isEqualTo("All goods resolved")
 
 		// E06-S01-2, S01-3: one player's signal shows to the other, and the last one's starts the next turn.
 		val oneDone = signalDoneInvesting("token-$first", gameId).expectStatus().isOk
@@ -1156,7 +1176,7 @@ class GameControllerTest {
 	}
 
 	/**
-	 * A two-player game at the start of turn 1's Investment where the first in initiative owns a 6-unit ISO factory where
+	 * A two-player game at the start of turn 1's Opportunity where the first in initiative owns a 6-unit ISO factory where
 	 * their first ship is in port (nothing can build one yet, E06-S04, S05), so the test seeds it. Returns their token,
 	 * the other player's token, the game id and that system's constant name.
 	 */
@@ -1171,7 +1191,9 @@ class GameControllerTest {
 					if (player.email != first) {
 						player
 					} else {
-						player.copy(factories = listOf(Factory(player.ships[0].system, Goods.ISO, 6)))
+						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does.
+						val atTau = player.ships[0].copy(system = StarSystem.TAU_CETI)
+						player.copy(ships = listOf(atTau) + player.ships.drop(1), factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
 					}
 				}
 			)
@@ -1180,6 +1202,13 @@ class GameControllerTest {
 	}
 
 	private data class InvestingGame(val owner: String, val other: String, val gameId: String, val ship: Ship)
+
+	/** [investingWithAFactory] taken on to Investment: the owner collected nothing, and both were done with opportunities. */
+	private fun investingWithAFactoryCollected(prefix: String): InvestingGame {
+		val game = investingWithAFactory(prefix)
+		passOpportunity(game.gameId)
+		return game
+	}
 
 	@Test
 	fun shouldCollectOutputIntoAShipAndShowTheCargoOnlyToItsPlayer() {
@@ -1216,7 +1245,9 @@ class GameControllerTest {
 		collectOutput(other, gameId, "{}")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("You have no factories to collect from.")
-		signalDoneInvesting(other, gameId).expectStatus().isOk
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		finishOpportunities(owner, gameId).expectStatus().isOk
+		finishOpportunities(other, gameId).expectStatus().isOk
 	}
 
 	@Test
@@ -1224,11 +1255,11 @@ class GameControllerTest {
 		// E06-S03-5, S03-8
 		val (owner, _, gameId, _) = investingWithAFactory("collect-first")
 
-		signalDoneInvesting(owner, gameId)
+		finishOpportunities(owner, gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Collect your output first.")
 		collectOutput(owner, gameId, "{}").expectStatus().isOk
-		signalDoneInvesting(owner, gameId).expectStatus().isOk
+		finishOpportunities(owner, gameId).expectStatus().isOk
 	}
 
 	@Test
@@ -1270,7 +1301,7 @@ class GameControllerTest {
 	@Test
 	fun shouldBuyWarehouseBlocksAndShowTheLogLineButNotThePrice() {
 		// E06-S04-1, S04-3, S04-5, R50: a player with no factories goes straight to buying
-		val (owner, other, gameId, _) = investingWithAFactory("blocks")
+		val (owner, other, gameId, _) = investingWithAFactoryCollected("blocks")
 		val otherEmail = other.removePrefix("token-")
 		val corporation = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.corporationName
 		val before = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
@@ -1288,18 +1319,48 @@ class GameControllerTest {
 		assertThat(bought.log.last().text).doesNotContain("HT")
 		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(seenByOwner.players.single { it.id == idOf(gameId, otherEmail) }.warehouses.single().blocks).isEqualTo(2)
-		assertThat(seenByOwner.you!!.invest).isNull() // still has to collect
+		assertThat(seenByOwner.you!!.invest).isNotNull()
 	}
 
 	@Test
-	fun shouldOfferNothingToBuyBeforeTheFactoryOwnerCollects() {
-		// E06-S04-1, S03-5
+	fun shouldRecruitAnAgentShowingOthersOnlyWhereItIsThenBorrowPrivately() {
+		// R103, R105, R102, R90: paying 60 HT always recruits; the other player sees a count aboard the ship, never the agent
+		val (owner, other, gameId, ship) = investingWithAFactory("agents")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		val recruited = restTestClient.post().uri("/api/games/{id}/agents/recruit", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 60, "ship": "${ship.name}"}""").exchange()
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val agent = recruited.you!!.agents.single()
+		assertThat(agent.ship).isEqualTo(ship.name)
+
+		val seenByOther = pollGame(other, gameId).expectBody(String::class.java).returnResult().responseBody!!
+		assertThat(
+			seenByOther
+		).contains("\"name\":\"${ship.name}\",\"system\":\"TAU_CETI\",\"systemName\":\"Tau Ceti\",\"location\":\"PORT\",\"agents\":1")
+		assertThat(seenByOther).doesNotContain(agent.effect).doesNotContain("\"agent\":\"${agent.agent}\"")
+
+		finishOpportunities(owner, gameId).expectStatus().isOk
+		finishOpportunities(other, gameId).expectStatus().isOk
+		val borrowed = restTestClient.post().uri("/api/games/{id}/loan", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 100, "term": 8}""").exchange()
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(borrowed.you!!.loan!!.loan!!.amount).isEqualTo(100)
+		assertThat(borrowed.you!!.loan!!.loan!!.interest).isEqualTo(8)
+		assertThat(pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.loan!!.loan).isNull()
+		restTestClient.post().uri("/api/games/{id}/loan", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 10, "term": 5}""").exchange()
+			.expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo("You already have a loan; repay it before taking another.")
+	}
+
+	@Test
+	fun shouldOfferNothingToBuyInOpportunity() {
+		// E06-S04-1, R102: buying happens only in Investment, so no warehouse catches output or cargo in Opportunity
 		val (owner, _, gameId, ship) = investingWithAFactory("blocks-collect-first")
 
 		buyBlocks(owner, gameId, """{"system": "${ship.system.name}", "blocks": 1}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Collect your output first.")
-		collectOutput(owner, gameId, "{}").expectStatus().isOk
+			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+		passOpportunity(gameId)
 		val after = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(after.you!!.invest!!.systems.map { it.system }).contains(ship.system.name)
 		buyBlocks(owner, gameId, """{"system": "${ship.system.name}", "blocks": 1}""").expectStatus().isOk
@@ -1308,7 +1369,7 @@ class GameControllerTest {
 	@Test
 	fun shouldRefuseABuyTheRulesRefuse() {
 		// E06-S04-2: too little money, a missing or fractional amount, an unknown system (no ship is needed)
-		val (_, other, gameId, _) = investingWithAFactory("blocks-refused")
+		val (_, other, gameId, _) = investingWithAFactoryCollected("blocks-refused")
 		val otherEmail = other.removePrefix("token-")
 		val home = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.ships.first().system
 		buyBlocks(other, gameId, """{"system": "${home.name}", "blocks": 16}""")
@@ -1366,10 +1427,11 @@ class GameControllerTest {
 				players = game.players.map { player ->
 					val at = if (player.email == first) StarSystem.TAU_CETI else StarSystem.GAMMA_LEPORIS
 					val moved = player.copy(ships = listOf(player.ships[0].copy(system = at)) + player.ships.drop(1))
-					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6)), connections = Connections(5, 5, 0)) else moved
+					if (player.email == first) moved.copy(factories = listOf(Factory(at, Goods.ISO, 6, 0)), connections = Connections(5, 5, 0)) else moved
 				}
 			)
 		}
+		passOpportunity(gameId)
 		return Triple("token-$first", "token-$second", gameId)
 	}
 
@@ -1402,8 +1464,12 @@ class GameControllerTest {
 		assertThat(mine.saleValue).isEqualTo(44)
 		assertThat(bought.log.last().text).isEqualTo("$corporation ordered Sea Wolf at the Tau Ceti shipyard")
 		val seenByOwner = pollGame(owner, gameId).expectBody(String::class.java).returnResult().responseBody!!
-		assertThat(seenByOwner).contains("\"name\":\"Sea Wolf\",\"system\":\"TAU_CETI\",\"systemName\":\"Tau Ceti\",\"location\":\"SHIPYARD\"")
-		assertThat(seenByOwner).doesNotContain("Phoenix").doesNotContain("PHOENIX")
+		assertThat(
+			seenByOwner
+		).contains("\"name\":\"Sea Wolf\",\"system\":\"TAU_CETI\",\"systemName\":\"Tau Ceti\",\"location\":\"SHIPYARD\",\"agents\":0")
+		// The other player's shipyard catalogue lists every hull, so look only at what's said about Sea Wolf: no hull (R57).
+		val seaWolf = Regex("\\{[^{}]*\"name\":\"Sea Wolf\"[^{}]*\\}").findAll(seenByOwner).map { it.value }.toList()
+		assertThat(seaWolf).isNotEmpty().allSatisfy { assertThat(it).doesNotContain("PHOENIX").doesNotContain("hull") }
 	}
 
 	@Test
@@ -1530,7 +1596,7 @@ class GameControllerTest {
 		assertThat(bought.you!!.money).isEqualTo(before.you!!.money - 2 * gamma.unitCost)
 		assertThat(bought.you!!.invest!!.factories.single { it.goods == "POLY" }.size).isEqualTo(2)
 		val me = bought.players.single { it.id == idOf(gameId, other.removePrefix("token-")) }
-		assertThat(me.factories).containsExactly(FactoryResponseDto("GAMMA_LEPORIS", "POLY", 2))
+		assertThat(me.factories).containsExactly(FactoryResponseDto("GAMMA_LEPORIS", "POLY", 2, 0))
 		assertThat(bought.log.last().text).isEqualTo("${me.corporationName} added 2 units of POLY production at Gamma Leporis")
 		assertThat(bought.log.last().text).doesNotContain("HT")
 	}
@@ -1539,8 +1605,7 @@ class GameControllerTest {
 	fun shouldRefuseFactoryUnitsBeyondPoliticalPlusBusinessAndShowTheRoomLeft() {
 		// R84, E12-S03-7, S03-8: 6 units owned, political 5 + business 5
 		val (owner, _, gameId) = investingAtTau("units-cap")
-		val collected = collectOutput(owner, gameId, "{}").expectStatus().isOk
-			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val collected = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(collected.you!!.invest!!.factoryUnits).isEqualTo(6)
 		assertThat(collected.you!!.invest!!.factoryCap).isEqualTo(10)
 
@@ -1554,11 +1619,7 @@ class GameControllerTest {
 	fun shouldRaiseOneConnectionPerInvestmentAndLogItWithoutTheCost() {
 		// R83, E12-S02-4, S02-5: business 5 → 6 costs 60 HT
 		val (owner, other, gameId) = investingAtTau("raise")
-		raiseConnection(owner, gameId, """{"kind": "BUSINESS"}""")
-			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Collect your output first.")
-		val before = collectOutput(owner, gameId, "{}").expectStatus().isOk
-			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val before = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(
 			before.you!!.invest!!.connections.single {
 				it.kind == "BUSINESS"
@@ -1587,10 +1648,6 @@ class GameControllerTest {
 		// E06-S05-3, S03-5, R48: one factory per good per system, so the size grows; nothing is produced for it this turn
 		val (owner, _, gameId) = investingAtTau("units-extend")
 
-		buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 1}""")
-			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Collect your output first.")
-		collectOutput(owner, gameId, "{}").expectStatus().isOk
 		val extended = buyUnits(owner, gameId, """{"system": "TAU_CETI", "goods": "ISO", "units": 2}""").expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
@@ -1599,7 +1656,7 @@ class GameControllerTest {
 			extended.players.single {
 				it.id == idOf(gameId, owner.removePrefix("token-"))
 			}.factories
-		).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 8))
+		).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 8, 0))
 		assertThat(extended.you!!.ships.flatMap { it.cargo.keys }).isEmpty()
 	}
 
@@ -1619,7 +1676,6 @@ class GameControllerTest {
 	fun shouldOfferEverySystemThatCanProduceAndNeedNoShipThere() {
 		// E06-S05-1, S05-5, creator 2026-11-16: the owner has a ship only at Tau Ceti, the other only at Gamma Leporis
 		val (owner, other, gameId) = investingAtTau("units-offer")
-		collectOutput(owner, gameId, "{}").expectStatus().isOk
 
 		val seenByOwner = pollGame(owner, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val seenByOther = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
@@ -1648,7 +1704,7 @@ class GameControllerTest {
 			bought.players.single {
 				it.id == idOf(gameId, otherEmail)
 			}.factories
-		).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1))
+		).containsExactly(FactoryResponseDto("MU_HERCULIS", "CHIPS", 1, 0))
 	}
 
 	@Test
@@ -1692,12 +1748,12 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldRefuseACollectFromOutsidersOrOutsideInvestment() {
+	fun shouldRefuseACollectFromOutsidersOrOutsideOpportunity() {
 		val (first, _, gameId) = orderedGame("collect-outside")
 
 		collectOutput("token-$first", gameId, "{}")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Investment isn't open.")
+			.expectBody(String::class.java).isEqualTo("Opportunity isn't open.")
 		collectOutput(null, gameId, "{}").expectStatus().isUnauthorized
 		collectOutput(signIn("collect-stranger@example.com"), gameId, "{}").expectStatus().isForbidden
 		collectOutput("token-$first", "no-such-game", "{}").expectStatus().isNotFound
@@ -1723,6 +1779,7 @@ class GameControllerTest {
 		assertThat(
 			pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.status
 		).isEqualTo("RUNNING")
+		passOpportunity(gameId)
 		signalDoneInvesting("token-$first", gameId).expectStatus().isOk
 		signalDoneInvesting("token-$second", gameId).expectStatus().isOk
 
@@ -2563,7 +2620,7 @@ class GameControllerTest {
 	}
 
 	private fun collectOutput(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
-		val request = restTestClient.post().uri("/api/games/{id}/investment/collect", gameId).contentType(MediaType.APPLICATION_JSON)
+		val request = restTestClient.post().uri("/api/games/{id}/opportunity/collect", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}
@@ -2616,6 +2673,16 @@ class GameControllerTest {
 		val request = restTestClient.delete().uri("/api/games/{id}/investment/ships/{ship}", gameId, ship)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
+	}
+
+	private fun finishOpportunities(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/opportunity/done", gameId)
+		return (if (token == null) request else request.header("Authorization", "Bearer $token")).exchange()
+	}
+
+	/** Every player, in turn order, done with opportunities after collecting nothing if they have factories (R102). */
+	private fun passOpportunity(gameId: String) {
+		gameStore.update(gameId) { OpportunityPassed(it).byEveryone() }
 	}
 
 	private fun signalDoneInvesting(token: String?, gameId: String): RestTestClient.ResponseSpec {

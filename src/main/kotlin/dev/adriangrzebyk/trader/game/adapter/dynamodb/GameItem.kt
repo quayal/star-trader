@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.MarketPrices
+import dev.adriangrzebyk.trader.game.agent.Agent
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /**
@@ -31,6 +32,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 				}
 			),
 			LOG_TURNS to AttributeValue.fromL(game.log.map { it.turn }.distinct().map { number(it) }),
+			DEAD_AGENTS to strings(game.deadAgents.map { it.name }),
 			VERSION to number(version)
 		)
 	)
@@ -56,7 +58,9 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		prices = MarketPrices(
 			MarketPrices.board().prices + attributes[PRICES]?.l().orEmpty().map { MarketPriceItem(it.m()) }.associate { it.good() to it.price() }
 		),
-		log = attributes[INLINE_LOG]?.l().orEmpty().map { LogEntryItem(it).toLogEntry() } + storedLog
+		log = attributes[INLINE_LOG]?.l().orEmpty().map { LogEntryItem(it).toLogEntry() } + storedLog,
+		// Absent from items saved before agents (R107): none had died.
+		deadAgents = attributes[DEAD_AGENTS]?.l().orEmpty().map { Agent.valueOf(it.s()) }
 	)
 
 	companion object {
@@ -69,6 +73,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		private const val TURN = "turn"
 		private const val PRICES = "prices"
 		private const val LOG_TURNS = "logTurns"
+		private const val DEAD_AGENTS = "deadAgents"
 
 		/** Where the whole log was kept before it moved to [LogTurnItem]s; only read, never written. */
 		private const val INLINE_LOG = "log"

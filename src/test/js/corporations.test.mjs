@@ -99,6 +99,7 @@ describe('corporationCards (E11-S01)', () => {
 			marketPositions: 'No market positions',
 			warehouses: 'No warehouses',
 			factories: 'No factories',
+			agents: 'No agents',
 		});
 		assert.deepEqual(corporationCards(game, 'me')[2].marketPositions, []);
 	});

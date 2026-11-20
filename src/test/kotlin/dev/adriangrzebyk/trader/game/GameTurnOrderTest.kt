@@ -138,7 +138,7 @@ class GameTurnOrderTest {
 	fun shouldStartTheNextTurnWithNoPicks() {
 		val set = shipJumps.pickTurnOrderPlace("kim@example.com", 3).pickTurnOrderPlace("grace@example.com", 1)
 
-		val nextBidding = set.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
+		val nextBidding = set.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(nextBidding.turn!!.turnOrderPicks).isEmpty()
 	}

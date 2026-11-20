@@ -41,5 +41,9 @@ class TradingService(private val gameStore: GameStore, private val dice: Dice) {
 		gameStore.update(gameId) { it.wholesale(callerEmail, type, amount, loads, warehouseUnits) }
 
 	/** The player asked in the wholesale step passes, inside [GameStore.update] (S05-4, A04). */
+	/** [callerEmail], asked about Limpy, acts as Dictator of the next good or passes (R108). */
+	fun answerLimpy(gameId: String, callerEmail: String, acts: Boolean): Game =
+		gameStore.update(gameId) { it.answerLimpy(callerEmail, acts, dice) }
+
 	fun passWholesale(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.passWholesale(callerEmail) }
 }

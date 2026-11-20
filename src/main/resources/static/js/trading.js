@@ -10,7 +10,7 @@ export const BEFORE_TRADING_TEXT = 'Trading starts after Ship-jumps. Results wil
 /** E05-S07-1: s03 once the last good has resolved and the next turn has started. */
 export const TURN_ENDED_TEXT = 'All goods resolved. The next turn starts with Bidding.';
 /** E06-S01: s03 once the last good has resolved and players are investing. */
-export const INVESTING_TEXT = 'All goods resolved. The next turn starts with Bidding once everyone is done investing.';
+export const INVESTING_TEXT = 'All goods resolved. The next turn starts with Bidding once Opportunity and Investment are over.';
 /** E05-S08: s03 once the last turn's last good has resolved and the game is over. */
 export const GAME_OVER_TEXT = 'All goods resolved. The game is over.';
 export const QUEUE_TITLE = 'Remaining goods';
@@ -157,7 +157,7 @@ export function tradingStatus(game, playerId) {
 	if (game.status === 'FINISHED') {
 		return GAME_OVER_TEXT;
 	}
-	if (game.status === 'RUNNING' && game.turn?.phase === 'INVESTMENT') {
+	if (game.status === 'RUNNING' && (game.turn?.phase === 'OPPORTUNITY' || game.turn?.phase === 'INVESTMENT')) {
 		return INVESTING_TEXT;
 	}
 	if (game.status === 'RUNNING' && game.turn?.phase === 'BIDDING' && game.turn.number > 1) {

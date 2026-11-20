@@ -11,7 +11,7 @@ export const MAX_TURNS = 50;
 export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
-const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading', INVESTMENT: 'Investment' };
+const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 
 /**
@@ -126,7 +126,7 @@ export function gameOverLink(id) {
 /**
  * D15 (E08-S03): the screen to open because [game] has moved on since [previous], the last state this page drew of it,
  * or null when it hasn't. A new phase or turn is played on 'game' (the Deck: Bidding and Ship-jumps), 'trading' or
- * 'infrastructure' (Investment), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
+ * 'infrastructure' (Opportunity and Investment, R102), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
  * load (no previous, or another game's) never counts, so a reload doesn't pull the player away from where they opened.
  */
 export function screenForPhaseChange(previous, game) {
@@ -139,7 +139,7 @@ export function screenForPhaseChange(previous, game) {
 	if (game.status === 'FINISHED') {
 		return 'over';
 	}
-	return { TRADING: 'trading', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+	return { TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
 }
 
 /**

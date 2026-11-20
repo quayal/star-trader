@@ -14,13 +14,17 @@ class TurnTest {
 
 	private val shipJumps = Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("a", "b", "c"))
 
-	private val investment = Turn.bidding(1).copy(phase = TurnPhase.TRADING).endTrading()
+	private val opportunity = Turn.bidding(1).copy(phase = TurnPhase.TRADING).endTrading()
+
+	private val investment = opportunity.toInvestment()
 
 	@Test
 	fun shouldListThePhasesInTurnOrder() {
 		// E06-S01-5: the enum's order is the one place the phase list lives
-		assertThat(TurnPhase.entries).containsExactly(TurnPhase.BIDDING, TurnPhase.SHIP_JUMPS, TurnPhase.TRADING, TurnPhase.INVESTMENT)
-		assertThat(TurnPhase.TRADING.next()).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(TurnPhase.entries)
+			.containsExactly(TurnPhase.BIDDING, TurnPhase.SHIP_JUMPS, TurnPhase.TRADING, TurnPhase.OPPORTUNITY, TurnPhase.INVESTMENT)
+		assertThat(TurnPhase.TRADING.next()).isEqualTo(TurnPhase.OPPORTUNITY)
+		assertThat(TurnPhase.OPPORTUNITY.next()).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(TurnPhase.INVESTMENT.next()).isNull()
 	}
 
@@ -37,7 +41,8 @@ class TurnTest {
 	}
 
 	@Test
-	fun shouldMoveFromTradingToInvestmentWithNobodyDone() {
+	fun shouldMoveFromTradingToOpportunityThenToInvestmentWithNobodyDone() {
+		assertThat(opportunity.phase).isEqualTo(TurnPhase.OPPORTUNITY)
 		assertThat(investment.phase).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(investment.doneInvesting).isEmpty()
 	}
@@ -52,15 +57,15 @@ class TurnTest {
 	}
 
 	@Test
-	fun shouldStartInvestmentWithNobodyCollected() {
-		assertThat(investment.collected).isEmpty()
-		assertThat(investment.isCollecting("a")).isTrue()
+	fun shouldStartOpportunityWithNobodyCollected() {
+		assertThat(opportunity.collected).isEmpty()
+		assertThat(opportunity.isCollecting("a")).isTrue()
 	}
 
 	@Test
 	fun shouldRecordACollectOnlyOnce() {
 		// E06-S03-5, A04
-		val once = investment.collectedBy("a")
+		val once = opportunity.collectedBy("a")
 
 		assertThat(once.collected).containsExactly("a")
 		assertThat(once.hasCollected("a")).isTrue()
@@ -72,11 +77,13 @@ class TurnTest {
 	}
 
 	@Test
-	fun shouldBeCollectingOnlyInInvestment() {
+	fun shouldBeCollectingOnlyInOpportunity() {
+		// R102: Collect moved from Investment into Opportunity
 		assertThat(Turn.bidding(1).isCollecting("a")).isFalse()
+		assertThat(investment.isCollecting("a")).isFalse()
 		assertThatThrownBy { Turn.bidding(1).collectedBy("a") }
 			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Investment isn't open.")
+			.hasMessage("Opportunity isn't open.")
 	}
 
 	@Test

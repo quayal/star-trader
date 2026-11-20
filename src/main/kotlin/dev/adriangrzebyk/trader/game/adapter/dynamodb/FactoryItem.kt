@@ -12,19 +12,23 @@ internal class FactoryItem(val attributes: Map<String, AttributeValue>) {
 		mapOf(
 			SYSTEM to AttributeValue.fromS(factory.system.name),
 			GOODS to AttributeValue.fromS(factory.goods.name),
-			SIZE to number(factory.size)
+			SIZE to number(factory.size),
+			DISABLED_TURNS to number(factory.disabledTurns)
 		)
 	)
 
 	fun toFactory(): Factory = Factory(
 		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
 		goods = Goods.valueOf(attributes.attribute(GOODS).s()),
-		size = attributes.attribute(SIZE).n().toInt()
+		size = attributes.attribute(SIZE).n().toInt(),
+		// Absent from items saved before sabotage (R99): no factory was disabled.
+		disabledTurns = attributes[DISABLED_TURNS]?.n()?.toInt() ?: 0
 	)
 
 	private companion object {
 		const val SYSTEM = "system"
 		const val GOODS = "goods"
 		const val SIZE = "size"
+		const val DISABLED_TURNS = "disabledTurns"
 	}
 }

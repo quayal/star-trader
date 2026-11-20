@@ -29,26 +29,26 @@ class PlayerBuyFactoryUnitsTest {
 	fun shouldCreateTheFactoryAtTheSizeBoughtAndTakeTheCost() {
 		val bought = player.buyFactoryUnits(TAU_CETI, Goods.ISO, 3, prices)
 
-		assertThat(bought.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 3))
+		assertThat(bought.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 3, 0))
 		assertThat(bought.money).isEqualTo(300 - 3 * 70)
 	}
 
 	@Test
 	fun shouldGrowAnExistingFactoryByTheUnitsBought() {
-		val owner = player.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6)))
+		val owner = player.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6, 0)))
 
 		val bought = owner.buyFactoryUnits(TAU_CETI, Goods.ISO, 2, prices)
 
-		assertThat(bought.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 8))
+		assertThat(bought.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 8, 0))
 	}
 
 	@Test
 	fun shouldKeepOneFactoryPerGoodPerSystemAndLeaveTheOthersAlone() {
-		val owner = player.copy(factories = listOf(Factory(MU_HERCULIS, Goods.CHIPS, 4)))
+		val owner = player.copy(factories = listOf(Factory(MU_HERCULIS, Goods.CHIPS, 4, 0)))
 
 		val bought = owner.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices).buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices)
 
-		assertThat(bought.factories).containsExactlyInAnyOrder(Factory(MU_HERCULIS, Goods.CHIPS, 4), Factory(TAU_CETI, Goods.ISO, 2))
+		assertThat(bought.factories).containsExactlyInAnyOrder(Factory(MU_HERCULIS, Goods.CHIPS, 4, 0), Factory(TAU_CETI, Goods.ISO, 2, 0))
 	}
 
 	@Test
@@ -56,7 +56,7 @@ class PlayerBuyFactoryUnitsTest {
 		// creator, 2026-11-16: Gamma Leporis makes POLY and the player has no ship there and no factory
 		val bought = player.buyFactoryUnits(GAMMA_LEPORIS, Goods.POLY, 2, prices)
 
-		assertThat(bought.factories).containsExactly(Factory(GAMMA_LEPORIS, Goods.POLY, 2))
+		assertThat(bought.factories).containsExactly(Factory(GAMMA_LEPORIS, Goods.POLY, 2, 0))
 		assertThat(bought.money).isEqualTo(300 - 2 * ProductionCost(prices.priceOf(MarketGood(GAMMA_LEPORIS, Goods.POLY))).perUnit())
 	}
 
@@ -64,7 +64,7 @@ class PlayerBuyFactoryUnitsTest {
 	fun shouldBuildForAPlayerWithNoShipsAtAll() {
 		val shipless = player.copy(ships = emptyList())
 
-		assertThat(shipless.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices).factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 1))
+		assertThat(shipless.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices).factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 1, 0))
 	}
 
 	@Test
@@ -127,9 +127,9 @@ class PlayerBuyFactoryUnitsTest {
 	@Test
 	fun shouldKeepFactoriesAboveTheCapButSellNoMoreUntilBackUnderIt() {
 		// E12-S03-9: nothing removes factories; a player over the cap just can't add to them
-		val over = player.copy(connections = Connections(1, 1, 0), factories = listOf(Factory(TAU_CETI, Goods.ISO, 5)))
+		val over = player.copy(connections = Connections(1, 1, 0), factories = listOf(Factory(TAU_CETI, Goods.ISO, 5, 0)))
 
-		assertThat(over.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 5))
+		assertThat(over.factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 5, 0))
 		assertThatThrownBy { over.buyFactoryUnits(TAU_CETI, Goods.ISO, 1, prices) }
 			.hasMessage("You can only own 2 units of factory (POL: 1, BUSS: 1).")
 	}

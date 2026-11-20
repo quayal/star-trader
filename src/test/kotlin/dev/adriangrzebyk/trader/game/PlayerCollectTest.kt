@@ -13,8 +13,8 @@ class PlayerCollectTest {
 
 	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
 	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.PORT)
-	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6)
-	private val chipsAtMu = Factory(MU_HERCULIS, Goods.CHIPS, 8)
+	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6, 0)
+	private val chipsAtMu = Factory(MU_HERCULIS, Goods.CHIPS, 8, 0)
 	private val tauWarehouse = Warehouse(TAU_CETI, 1, emptyMap())
 
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight")

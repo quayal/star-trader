@@ -78,6 +78,8 @@ function cardFor(game, notice, texts, myId) {
 		return { title: `Battle at ${where} — round ${notice.round}`, lead: '', tone: null, lines: texts.slice(1) };
 	case 'SHIP_DESTROYED':
 		return { title: 'Ship destroyed', lead: '', tone: 'alert', lines: texts };
+	case 'SABOTAGE':
+		return { title: `Sabotage at ${where}`, lead: 'One of your assets was sabotaged. See Infrastructure.', tone: 'alert', lines: texts };
 	default:
 		return { title: `The battle at ${where} is over`, lead: '', tone: null, lines: [] };
 	}
@@ -108,6 +110,8 @@ export function noticeCards(game, from, myId) {
 	}
 	return groups
 		.filter(group => !(group.notice.kind === 'BATTLE_ROUND' && group.notice.playerIds.includes(myId)))
+		// R101: a sabotage's card is for its target alone; everyone else reads the line in the log.
+		.filter(group => group.notice.kind !== 'SABOTAGE' || group.notice.playerIds.includes(myId))
 		.map(group => ({
 			key: `${game.id}/log/${group.start}`,
 			end: group.end,
