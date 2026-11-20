@@ -1091,6 +1091,15 @@
 				</form>
 				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
 			</section>
+			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
+			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
+				<h3 id="opportunities-title">Opportunities</h3>
+				<p class="muted" id="opportunities-note"></p>
+				<div id="opportunity-forms"></div>
+				<ul class="corporation__list" id="special-sales"></ul>
+				<ul class="corporation__list" id="expeditions-due"></ul>
+				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
+			</section>
 			<section class="panel" id="loan-panel" aria-labelledby="loan-title" hidden>
 				<h3 id="loan-title">Loan</h3>
 				<p class="muted" id="loan-closed"></p>
@@ -1633,6 +1642,7 @@
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffRows } from './js/news.js';
+	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -2639,7 +2649,17 @@
 			...guide.modifiers.map(section => card(section.title, list(section.lines))));
 	}
 
-	/** The Fleet card's crew class with what it adds (playtest, 2026-11-20): "B · jump +3", once the rules have loaded. */
+	/** R112, R114: the special goods and the delivery aboard one of the viewer's ships, for its Fleet card. */
+	function specialCargoLines(game, shipName) {
+		const own = (game.you?.ships ?? []).find(ship => ship.name === shipName);
+		const lines = [
+			...(own?.specialLots ?? []).map(lot => `${lot.units} ${lot.name} for ${lot.sellAtName}${lot.illegal ? ' (illegal)' : ''}`),
+			...(own?.deliveryJob ? [`Delivery: ${own.deliveryJob}`] : []),
+		];
+		return lines.length ? [element('ul', { class: 'fleet-ship__cargo' }, ...lines.map(line => element('li', {}, line)))] : [];
+	}
+
+		/** The Fleet card's crew class with what it adds (playtest, 2026-11-20): "B · jump +3", once the rules have loaded. */
 	function crewStatValue(stat) {
 		const crewClass = stat.label === 'Crew class' ? rules?.crewClasses.find(entry => entry.id === stat.value) : null;
 		return crewClass ? `${stat.value} \u00b7 ${crewBonusText(crewClass)}` : stat.value;
@@ -2720,6 +2740,7 @@
 				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
 				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
 				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, crewStatValue(stat))))),
+				...specialCargoLines(game, ship.name),
 				element('div', { class: 'cargo-meter' },
 					element('div', { class: 'cargo-meter__head' },
 						element('span', { class: 'cargo-meter__label' }, 'Cargo'),
@@ -4933,6 +4954,7 @@
 			renderSabotage(game);
 		}
 		renderAgents(game, opportunity);
+		renderOpportunities(game, opportunity);
 		renderLoan(game, investing);
 	}
 
@@ -5148,6 +5170,66 @@
 	});
 	$('limpy-act-button').addEventListener('click', () => gameAction('trading/limpy', { act: true }, 'trading-message'));
 	$('limpy-pass-button').addEventListener('click', () => gameAction('trading/limpy', { act: false }, 'trading-message'));
+
+	// R111–R114: one form per learned, untaken opportunity; the sales of special goods where a ship holds them; expeditions due.
+	function renderOpportunities(game, opportunity) {
+		const forms = opportunityForms(game);
+		const sales = specialSales(game);
+		const due = expeditionsDue(game);
+		$('opportunities-panel').hidden = !opportunity || (forms.length === 0 && sales.length === 0 && due.length === 0);
+		if ($('opportunities-panel').hidden) {
+			return;
+		}
+		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		showText('opportunities-note', myTurn ? 'Take what you learned in News; the first taker gets it.' : 'You can act on your Opportunity turn.');
+		const shipOptions = names => names.map(name => element('option', { value: name }, name));
+		drawOnce('opportunity-forms', JSON.stringify([forms, myTurn]), () => forms.map(form => {
+			const fields = [];
+			const ship = element('select', { class: 'control', 'aria-label': 'Ship' }, ...shipOptions(form.ships));
+			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: '10', 'aria-label': 'Units (1–10)' });
+			const name = element('input', { class: 'control', 'aria-label': 'New ship name', placeholder: 'Ship name' });
+			const hull = element('select', { class: 'control', 'aria-label': 'Hull' },
+				...(form.hullOptional ? [element('option', { value: '' }, 'No hull: modules for a ship on the Planet')] : []),
+				...form.hulls.map(h => element('option', { value: h.id }, h.name)));
+			const crew = element('select', { class: 'control', 'aria-label': 'Crew class' }, ...['A', 'B', 'C', 'D'].map(c => element('option', { value: c, ...(c === 'B' ? { selected: '' } : {}) }, `Crew ${c}`)));
+			const boxes = form.modules.map(m => element('label', { class: 'choice' }, element('input', { type: 'checkbox', value: m.id }), m.name));
+			if (form.kind === 'MILITARY_SHIP') {
+				fields.push(hull, name, crew);
+			}
+			if (form.ships.length && form.kind !== 'MILITARY_SHIP' || form.hullOptional) {
+				fields.push(ship);
+			}
+			if (form.units) {
+				fields.push(units);
+			}
+			fields.push(...boxes);
+			const take = element('button', { class: 'btn', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, 'Take');
+			take.addEventListener('click', () => gameAction(`opportunity/tip-offs/${form.slot}/take`, {
+				ship: ship.value || null,
+				units: Number(units.value),
+				name: name.value,
+				hull: hull.value || null,
+				modules: boxes.map(b => b.querySelector('input')).filter(input => input.checked).map(input => input.value),
+				crewClass: crew.value,
+			}, 'opportunities-message', 'Taken.'));
+			return element('div', { class: 'offer-form' }, element('strong', {}, `#${form.slot}: ${form.title}`),
+				element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
+		}));
+		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
+			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
+			button.addEventListener('click', () => gameAction(sale.kind === 'FURS' ? 'opportunity/furs' : 'opportunity/black-market',
+				{ system: sale.system, goods: sale.goods }, 'opportunities-message', 'Sold.'));
+			return element('li', {}, button);
+		}));
+		drawOnce('expeditions-due', JSON.stringify([due, myTurn]), () => due.map(expedition => {
+			const system = element('select', { class: 'control', 'aria-label': `Where ${expedition.ship} returns` },
+				...game.board.map(s => element('option', { value: s.id }, s.name)));
+			const button = element('button', { class: 'btn', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, 'Bring back');
+			button.addEventListener('click', () => gameAction('opportunity/expeditions/return', { ship: expedition.ship, system: system.value },
+				'opportunities-message', `${expedition.ship} is back.`));
+			return element('li', {}, `The ${expedition.ship} expedition is back: choose its Port. `, element('div', { class: 'agent-move' }, system, button));
+		}));
+	}
 
 	// ── Investing from the tables (creator, 2026-11-19): warehouse blocks (E06-S04, R45) and factory units (E06-S05, R46) ──
 	//
