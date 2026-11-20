@@ -1323,6 +1323,36 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldRecruitAnAgentShowingOthersOnlyWhereItIsThenBorrowPrivately() {
+		// R103, R105, R102, R90: paying 60 HT always recruits; the other player sees a count aboard the ship, never the agent
+		val (owner, other, gameId, ship) = investingWithAFactory("agents")
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		val recruited = restTestClient.post().uri("/api/games/{id}/agents/recruit", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 60, "ship": "${ship.name}"}""").exchange()
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val agent = recruited.you!!.agents.single()
+		assertThat(agent.ship).isEqualTo(ship.name)
+
+		val seenByOther = pollGame(other, gameId).expectBody(String::class.java).returnResult().responseBody!!
+		assertThat(
+			seenByOther
+		).contains("\"name\":\"${ship.name}\",\"system\":\"TAU_CETI\",\"systemName\":\"Tau Ceti\",\"location\":\"PORT\",\"agents\":1")
+		assertThat(seenByOther).doesNotContain(agent.effect).doesNotContain("\"agent\":\"${agent.agent}\"")
+
+		finishOpportunities(owner, gameId).expectStatus().isOk
+		finishOpportunities(other, gameId).expectStatus().isOk
+		val borrowed = restTestClient.post().uri("/api/games/{id}/loan", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 100, "term": 8}""").exchange()
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(borrowed.you!!.loan!!.loan!!.amount).isEqualTo(100)
+		assertThat(borrowed.you!!.loan!!.loan!!.interest).isEqualTo(8)
+		assertThat(pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.loan!!.loan).isNull()
+		restTestClient.post().uri("/api/games/{id}/loan", gameId).header("Authorization", "Bearer $owner")
+			.contentType(MediaType.APPLICATION_JSON).body("""{"amount": 10, "term": 5}""").exchange()
+			.expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo("You already have a loan; repay it before taking another.")
+	}
+
+	@Test
 	fun shouldOfferNothingToBuyInOpportunity() {
 		// E06-S04-1, R102: buying happens only in Investment, so no warehouse catches output or cargo in Opportunity
 		val (owner, _, gameId, ship) = investingWithAFactory("blocks-collect-first")

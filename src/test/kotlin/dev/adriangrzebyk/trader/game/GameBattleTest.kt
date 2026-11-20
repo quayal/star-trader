@@ -378,11 +378,15 @@ class GameBattleTest {
 		}.isInstanceOf(InvalidGameOperationException::class.java)
 	}
 
+	/** [fighting] once the battle is over and the turn has reached Investment. */
+	private val afterBattleInvesting: Game
+		get() = fighting.copy(turn = fighting.turn!!.withBattle(null).landed().toTrading().endTrading().toInvestment())
+
 	@Test
 	fun shouldRepairADamagedShipAtAShipyardDuringInvestment() {
 		// R79: a Clarinet's hull for 20 HT, at Tau Ceti's port.
 		val investing =
-			withShip(fighting.copy(turn = fighting.turn!!.withBattle(null).landed().toTrading().endTrading().toInvestment()), "Wayfarer") {
+			withShip(afterBattleInvesting, "Wayfarer") {
 				it.copy(location = ShipLocation.PORT, hullDamage = 1)
 			}
 
@@ -397,7 +401,7 @@ class GameBattleTest {
 	fun shouldRefuseARepairAwayFromAShipyard() {
 		// R79: repair stays at a shipyard, though refits happen in any port (R65).
 		val investing =
-			withShip(fighting.copy(turn = fighting.turn!!.withBattle(null).landed().toTrading().endTrading().toInvestment()), "Wayfarer") {
+			withShip(afterBattleInvesting, "Wayfarer") {
 				it.copy(system = GAMMA_LEPORIS, location = ShipLocation.PORT, hullDamage = 1)
 			}
 
