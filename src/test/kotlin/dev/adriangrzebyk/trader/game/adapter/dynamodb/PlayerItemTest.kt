@@ -13,6 +13,11 @@ import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.Warehouse
+import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.agent.AgentPosition
+import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
+import dev.adriangrzebyk.trader.game.loan.Loan
+import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -65,12 +70,17 @@ class PlayerItemTest {
 			Warehouse(system = StarSystem.MU_HERCULIS, blocks = 1, cargo = emptyMap())
 		),
 		factories = listOf(
-			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 3),
-			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.ISO, size = 5)
+			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.FOOD, size = 3, disabledTurns = 0),
+			Factory(system = StarSystem.SIGMA_DRACONIS, goods = Goods.ISO, size = 5, disabledTurns = 0)
 		),
 		connections = Connections(political = 2, business = 7, criminal = 1),
 		connectionPoints = 4,
-		reputation = Reputation(13)
+		reputation = Reputation(13),
+		loan = Loan(312, 14, 3, LoanTerm.FOUR),
+		agents = listOf(
+			RecruitedAgent(Agent.NOVAK, AgentPosition.Aboard("Wayfarer")),
+			RecruitedAgent(Agent.JB, AgentPosition.OnOwn(StarSystem.TAU_CETI, ShipLocation.PLANET))
+		)
 	)
 
 	@Test
@@ -104,7 +114,9 @@ class PlayerItemTest {
 			"business",
 			"criminal",
 			"connectionPoints",
-			"reputation"
+			"reputation",
+			"loan",
+			"agents"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("business").n()).isEqualTo("7")

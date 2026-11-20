@@ -8,6 +8,7 @@ enum class TurnPhase(val displayName: String) {
 	BIDDING("Bidding"),
 	SHIP_JUMPS("Ship-jumps"),
 	TRADING("Trading"),
+	OPPORTUNITY("Opportunity"),
 	INVESTMENT("Investment");
 
 	/** The phase that follows this one in a turn, or null for the last (R44). */

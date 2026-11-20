@@ -44,7 +44,7 @@ class BiddingServiceTest {
 			Turn.bidding(1).copy(
 				phase = TurnPhase.SHIP_JUMPS,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
-				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
 		)
 	}
@@ -64,7 +64,7 @@ class BiddingServiceTest {
 			Turn.bidding(1).copy(
 				phase = TurnPhase.SHIP_JUMPS,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
-				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, listOf(1)))
+				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
 		)
 	}

@@ -104,7 +104,7 @@ data class GameResultResponseDto(val standings: List<StandingResponseDto>, val w
 /** One player's final money (R39: cash only), shown to everyone once the game is over (S08-3). */
 data class StandingResponseDto(val id: String, val corporationName: String, val money: Int) {
 
-	constructor(player: Player, ids: PlayerIds) : this(ids.of(player.email), player.corporationName, player.money)
+	constructor(player: Player, ids: PlayerIds) : this(ids.of(player.email), player.corporationName, player.finalMoney())
 }
 
 /**
@@ -122,20 +122,22 @@ data class PlayerResponseDto(
 	val factories: List<FactoryResponseDto>,
 	val connections: ConnectionsResponseDto,
 	val connectionPoints: Int,
-	val reputation: Int
+	val reputation: Int,
+	val agentsOnOwn: List<AgentCountResponseDto>
 ) {
 
 	constructor(player: Player, ids: PlayerIds) : this(
 		ids.of(player.email),
 		player.name,
 		player.corporationName,
-		player.ships.map { ShipResponseDto(it) },
+		player.ships.map { ShipResponseDto(it, player.agentsAboard(it.name)) },
 		player.marketPositions.map { MarketPositionResponseDto(it) },
 		player.warehouses.map { WarehouseResponseDto(it) },
 		player.factories.map { FactoryResponseDto(it) },
 		ConnectionsResponseDto(player.connections),
 		player.connectionPoints,
-		player.reputation.value
+		player.reputation.value,
+		player.agentsOnOwn().map { AgentCountResponseDto(it) }
 	)
 }
 
@@ -174,15 +176,16 @@ data class WarehouseResponseDto(val system: String, val blocks: Int, val cargoSp
 }
 
 /** A factory's system and good (constants) and its size, the units it produces a turn (R46). */
-data class FactoryResponseDto(val system: String, val goods: String, val size: Int) {
+data class FactoryResponseDto(val system: String, val goods: String, val size: Int, val disabledTurns: Int) {
 
-	constructor(factory: Factory) : this(factory.system.name, factory.goods.name, factory.size)
+	constructor(factory: Factory) : this(factory.system.name, factory.goods.name, factory.size, factory.disabledTurns)
 }
 
 /** Where a ship is, which every player may see; what it carries is only in [YourShipResponseDto]. */
-data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String) {
+data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String, val agents: Int) {
 
-	constructor(ship: Ship) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name)
+	/** [agents] is how many agents ride it: public, unlike who they are (R105). */
+	constructor(ship: Ship, agents: Int) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name, agents)
 }
 
 data class MarketPositionResponseDto(val system: String, val goods: String, val tier: String) {
@@ -259,7 +262,11 @@ data class TurnResponseDto(
 	val interception: InterceptionResponseDto?,
 	val battle: BattleResponseDto?,
 	val publicOffers: List<PublicOfferResponseDto>,
-	val initiativeRolls: List<InitiativeRollResponseDto>
+	val initiativeRolls: List<InitiativeRollResponseDto>,
+	val doneOpportunity: List<String>,
+	val opportunist: String?,
+	val owedChoices: List<String>,
+	val limpyAsk: String?
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -280,7 +287,11 @@ data class TurnResponseDto(
 		turn.interception?.let { InterceptionResponseDto(it, ids) },
 		turn.battle?.let { BattleResponseDto(it, ids, ships) },
 		turn.publicOffers().map { PublicOfferResponseDto(it, ids) },
-		turn.initiativeRolls.map { InitiativeRollResponseDto(it, ids) }
+		turn.initiativeRolls.map { InitiativeRollResponseDto(it, ids) },
+		ids.ofAll(turn.doneOpportunity),
+		turn.opportunist()?.let { ids.of(it) },
+		ids.ofAll(turn.owedChoices()),
+		turn.limpyAsk?.let { ids.of(it) }
 	)
 }
 
@@ -534,7 +545,17 @@ data class YouResponseDto(
 	val interception: YourInterceptionResponseDto?,
 	val battle: YourBattleResponseDto?,
 	val battleReport: BattleReportResponseDto?,
-	val assets: AssetsResponseDto
+	val assets: AssetsResponseDto,
+	val loan: YourLoanResponseDto?,
+	val agents: List<YourAgentResponseDto>,
+	val agentPool: Int,
+	val sabotagesOrdered: List<YourSabotageResponseDto>,
+	val sabotagesSuffered: List<SufferedSabotageResponseDto>,
+	val sabotagedWarehouse: YourWarehouseResponseDto?,
+	val agentOffers: List<AgentOfferResponseDto>,
+	val limpyAsk: MarketGoodResponseDto?,
+	val opportunity: YourOpportunityResponseDto?,
+	val factorySales: List<FactorySaleResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -554,7 +575,17 @@ data class YouResponseDto(
 		view.interception?.let { YourInterceptionResponseDto(it, player) },
 		view.battle?.let { YourBattleResponseDto(it, player.email, id) },
 		view.battleReport?.let { BattleReportResponseDto(it, ids) },
-		AssetsResponseDto(player, view.prices)
+		AssetsResponseDto(player, view.prices),
+		view.loan?.let { YourLoanResponseDto(it) },
+		player.agents.map { YourAgentResponseDto(it) },
+		view.agentPool,
+		view.sabotagesOrdered.map { YourSabotageResponseDto(it, ids) },
+		view.sabotagesSuffered.map { SufferedSabotageResponseDto(it) },
+		view.sabotagedWarehouse?.let { YourWarehouseResponseDto(it) },
+		view.agentOffers.map { AgentOfferResponseDto(it, ids) },
+		view.limpyAsk?.let { MarketGoodResponseDto(it) },
+		view.opportunity?.let { YourOpportunityResponseDto(it) },
+		player.factories.map { FactorySaleResponseDto(it, view.prices) }
 	)
 }
 

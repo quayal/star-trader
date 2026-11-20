@@ -3,6 +3,10 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.agent.AgentOffer
+import dev.adriangrzebyk.trader.game.agent.AgentPosition
+import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleOrder
@@ -11,10 +15,16 @@ import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
+import dev.adriangrzebyk.trader.game.loan.LoanTerm
+import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
+import dev.adriangrzebyk.trader.game.sabotage.Sabotage
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
- * (R35); [log] holds the public events, oldest first, each with its turn.
+ * (R35); [log] holds the public events, oldest first, each with its turn. [deadAgents] are the agents killed in this game,
+ * which never return to the pool (R107).
  */
 data class Game(
 	val id: String,
@@ -24,7 +34,8 @@ data class Game(
 	val players: List<Player>,
 	val turn: Turn?,
 	val prices: MarketPrices,
-	val log: List<LogEntry>
+	val log: List<LogEntry>,
+	val deadAgents: List<Agent>
 ) {
 
 	fun addPlayer(player: Player): Game {
@@ -96,23 +107,23 @@ data class Game(
 			TurnPhase.BIDDING -> closeBidding(current, dice)
 			TurnPhase.SHIP_JUMPS -> copy(turn = current.toTrading())
 			TurnPhase.TRADING -> endTrading(current)
+			TurnPhase.OPPORTUNITY -> openInvestment(current)
 			TurnPhase.INVESTMENT -> endTurn(current)
 		}
 	}
 
-	/**
-	 * [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Investment starts (R44, E06-S01-1).
-	 * A player with no factories has no Collect, so their ships bought last turn leave the yard now (R63).
-	 */
-	private fun endTrading(current: Turn): Game {
-		val investing = copy(turn = current.endTrading(), log = log + LogEntry.event(current.number, ALL_GOODS_RESOLVED))
-		return players.filterNot { it.hasFactories() }.fold(investing) { game, player -> game.withShipsLeavingYard(player.email) }
-	}
+	/** [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Opportunity starts (R44, R102). */
+	private fun endTrading(current: Turn): Game =
+		copy(turn = current.endTrading(), log = log + LogEntry.event(current.number, ALL_GOODS_RESOLVED))
 
 	/**
-	 * This game once [email]'s ships bought in an earlier turn left the yard (R63): right after their Collect, so they never
-	 * take that Investment's output (output is phase 6, the ship phase 7). Each departure is logged.
+	 * [current]'s Opportunity is over (R102): Investment starts, and every player's ships bought in an earlier turn leave the
+	 * yard (R63), so they never took that Opportunity's output.
 	 */
+	private fun openInvestment(current: Turn): Game =
+		players.fold(copy(turn = current.toInvestment())) { game, player -> game.withShipsLeavingYard(player.email) }
+
+	/** This game once [email]'s ships bought in an earlier turn left the yard (R63). Each departure is logged. */
 	private fun withShipsLeavingYard(email: String): Game {
 		val current = runningTurn()
 		val player = playerOf(email)
@@ -136,13 +147,36 @@ data class Game(
 	 */
 	private fun endTurn(current: Turn): Game {
 		val last = current.number >= turns
-		val settled = (if (last) this else withReputationRecovered(current.number)).withReputationBonusPaid(current.number)
+		val loans = withUnpaidInterestPenalized(current).withLoansCollected(current.number)
+		val settled = (if (last) loans else loans.withReputationRecovered(current.number)).withReputationBonusPaid(current.number)
 		return if (last) settled.finished(current.number) else settled.withNextTurn(current)
+	}
+
+	/**
+	 * [current]'s Investment closing (R92): every player whose loan interest was due and unpaid loses 4 reputation and owes
+	 * it on top of their loan, each logged without the amount.
+	 */
+	private fun withUnpaidInterestPenalized(current: Turn): Game {
+		val unpaid = players.filter { it.owesInterestIn(current.number) && !current.hasPaidInterest(it.email) }
+		return unpaid.fold(this) { game, player ->
+			val penalized = player.withUnpaidInterest()
+			game.withPlayerChanged(penalized.player, penalized.lines, current.number)
+		}
+	}
+
+	/** This game with [changed] in place of its player, and [lines] logged in turn [number]. */
+	private fun withPlayerChanged(changed: Player, lines: List<String>, number: Int): Game =
+		copy(players = replace(changed), log = log + lines.map { LogEntry.event(number, it) })
+
+	/** Turn [number]'s Investment closing (R94): every loan at the end of its term is collected, any seizure logged. */
+	private fun withLoansCollected(number: Int): Game = players.filter { it.loan?.fallsDueIn(number) == true }.fold(this) { game, player ->
+		val (collected, collection) = player.collectLoan(prices)
+		game.withPlayerChanged(collected, listOfNotNull(collection.logText(player.corporationName)), number)
 	}
 
 	/** This game over after turn [number], the log ending with the winner (E05-S08-1, S08-5). */
 	private fun finished(number: Int): Game {
-		val text = corporationNames().winText(winners().map { it.email }, winners().first().money)
+		val text = corporationNames().winText(winners().map { it.email }, winners().first().finalMoney())
 		return copy(status = GameStatus.FINISHED, log = log + LogEntry.event(number, text))
 	}
 
@@ -178,14 +212,14 @@ data class Game(
 	}
 
 	/**
-	 * Every player, most money first (R39: only cash counts, so ships and goods are worth nothing); players with the same
-	 * money keep the order they joined in. Each player's money is private (R29) until the game is over, so only a finished
-	 * game's view may show it (E05-S08-3).
+	 * Every player, most final money first (R39, R95: cash less an open loan, so ships and goods are worth nothing); players
+	 * with the same money keep the order they joined in. Each player's money is private (R29) until the game is over, so only
+	 * a finished game's view may show it (E05-S08-3).
 	 */
-	fun standings(): List<Player> = players.sortedByDescending { it.money }
+	fun standings(): List<Player> = players.sortedByDescending { it.finalMoney() }
 
-	/** The players with the most money (R39); several when they tie, and they share the win (E05-S08-4, proposed). */
-	fun winners(): List<Player> = players.filter { it.money == players.maxOf { player -> player.money } }
+	/** The players with the most final money (R39, R95); several when they tie, and they share the win (E05-S08-4, proposed). */
+	fun winners(): List<Player> = players.filter { it.finalMoney() == players.maxOf { player -> player.finalMoney() } }
 
 	/** The result once the game is over (E05-S08-2, R39: then everyone's money is public), and null until then (R29). */
 	fun result(): GameResult? = if (status == GameStatus.FINISHED) GameResult(standings(), winners()) else null
@@ -195,30 +229,288 @@ data class Game(
 	 * (D09), which ends the turn ([endTurn]); a signal after that is refused (A04).
 	 */
 	fun signalDoneInvesting(email: String): Game {
-		val player = playerOf(email)
-		val signalled = copy(turn = investmentAfterCollect(player).signalDoneInvesting(email))
+		playerOf(email)
+		val signalled = copy(turn = investing().signalDoneInvesting(email))
 		val current = signalled.runningTurn()
 		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
 	}
 
 	/**
-	 * [email] confirms where the output of their factories goes (R47, E06-S03-5): stored by [Player.collect], the rest lost,
-	 * and from then on they may signal done. The public log says what each factory's output came to (R50, E06-S07-1). Only in Investment, only for a player with factories, and once; a player with
-	 * none has nothing to collect (S03-6).
+	 * [email] confirms where the output of their factories goes (R47, R102): stored by [Player.collect], the rest lost, and
+	 * from then on they may act in their Opportunity turn. The public log says what each factory's output came to (R50,
+	 * E06-S07-1). Only on their own Opportunity turn, only for a player with factories, and once; a player with none has
+	 * nothing to collect (S03-6).
 	 */
 	fun collectOutput(email: String, placements: List<OutputPlacement>): Game {
 		val player = playerOf(email)
-		val investing = runningTurn()
-		investing.requireInvesting()
+		runningTurn().requireOpportunity()
 		if (!player.hasFactories()) {
 			throw InvalidGameOperationException("You have no factories to collect from.")
 		}
+		val current = opportunityTurnOf(email)
 		val collected = player.collect(placements)
 		return copy(
 			players = replace(collected),
-			turn = investing.collectedBy(email),
-			log = log + collected.collectLog(player).map { LogEntry.event(investing.number, it) }
-		).withShipsLeavingYard(email)
+			turn = current.collectedBy(email),
+			log = log + collected.collectLog(player).map { LogEntry.event(current.number, it) }
+		)
+	}
+
+	/** The running Opportunity, once checked that it's [email]'s turn in it (R102); anyone else is refused, naming whose it is. */
+	private fun opportunityTurnOf(email: String): Turn {
+		runningTurn().requireOpportunity()
+		return turnAwaiting(email, Turn::currentOpportunist, Turn::opportunistWaitingText)
+	}
+
+	/** The running Opportunity on [email]'s turn, once they have collected if they have factories (R102: Collect comes first). */
+	private fun opportunityAfterCollect(email: String): Turn {
+		val current = opportunityTurnOf(email)
+		if (playerOf(email).hasFactories() && !current.hasCollected(email)) {
+			throw InvalidGameOperationException("Collect your output first.")
+		}
+		return current
+	}
+
+	/**
+	 * [email] is done with opportunities (R102): their Collect must be confirmed and any warehouse choice of their sabotage
+	 * made; then the next player in the turn order is on. After the last, Investment opens once no choice owed out of turn
+	 * is open (R102).
+	 */
+	fun finishOpportunities(email: String): Game {
+		val current = opportunityAfterCollect(email)
+		current.refuseDoneWhileChoosing(email)
+		return copy(turn = current.endOpportunityTurn(email)).withOpportunityClosedIfOver()
+	}
+
+	/**
+	 * [email] sabotages [target] on their Opportunity turn (R97–R101), naming [blamedEmail] to take the blame on a 21+
+	 * reputation roll (anyone but themselves and the target's owner; in a two-player game the target's owner). They pay 20
+	 * HT × the target system's legal system up front. Silent in Port there foils it before any roll (R108). Otherwise both
+	 * rolls are made with [dice], the effect applied (a ship's hits wait for its owner, a warehouse's missing units for the
+	 * saboteur's choice) and the reputation changed, each logged; the effect line never names the saboteur (R101).
+	 */
+	fun sabotage(email: String, target: SabotageTarget, blamedEmail: String?, dice: Dice): Game {
+		val current = opportunityAfterCollect(email)
+		if (current.hasSabotaged(email)) {
+			throw InvalidGameOperationException("You've already sabotaged this Opportunity.")
+		}
+		if (target.ownerEmail == email) {
+			throw InvalidSabotageException("You can't sabotage your own assets.")
+		}
+		val owner = players.firstOrNull { it.email == target.ownerEmail } ?: throw InvalidSabotageException("Choose another player's asset.")
+		owner.checkSabotageTarget(target)
+		val blamed = blamedFor(email, owner.email, blamedEmail)
+		val cost = Sabotage.COST_PER_LEGAL_LEVEL * target.system.locations.legalSystem
+		val saboteur = playerOf(email)
+		if (cost > saboteur.money) {
+			throw InvalidSabotageException("Sabotage at ${target.system.displayName} costs $cost HT; you have ${saboteur.money} HT.")
+		}
+		val paid = saboteur.pay(cost)
+		if (owner.isImmuneToSabotageAt(target.system)) {
+			val foiled = Sabotage.foiled(email, target, blamed, cost, Agent.SILENT.displayName)
+			val line = Agent.SILENT.actedLog(owner.corporationName, " foiled a sabotage at ${target.system.displayName}")
+			return copy(players = replace(paid), turn = current.recordSabotage(foiled), log = log + LogEntry.event(current.number, line))
+		}
+		val shorty = saboteur.sabotageBonusAt(target.system)
+		val criminal = saboteur.connections.criminal
+		val factorySize = (target as? SabotageTarget.Factory)?.let { owner.factoryAt(it.system, it.goods)?.size } ?: 0
+		val rolled = Sabotage.rolled(email, target, blamed, cost, criminal + shorty - factorySize, criminal + shorty, dice)
+		val shortyLine =
+			listOfNotNull(
+				Agent.SHORTY.actedLog(saboteur.corporationName, ": +$shorty to a sabotage at ${target.system.displayName}").takeIf {
+					shorty >
+						0
+				}
+			)
+		return copy(players = replace(paid), log = log + shortyLine.map { LogEntry.event(current.number, it) })
+			.withSabotageEffect(rolled, current)
+			.withSabotageReputation(rolled)
+	}
+
+	/** Who takes the blame for [saboteur]'s sabotage on [owner]'s asset (R97): [named], or the owner when nobody else is left. */
+	private fun blamedFor(saboteur: String, owner: String, named: String?): String {
+		if (players.size == MIN_PLAYERS_TO_START) {
+			return owner
+		}
+		if (named == null || named == saboteur || named == owner || !hasPlayer(named)) {
+			throw InvalidSabotageException("Choose an innocent player to take the blame: not yourself or the target.")
+		}
+		return named
+	}
+
+	/** This game once [sabotage]'s effect hit its target (R99), recorded on [current] and logged with a notice for the target's owner. */
+	private fun withSabotageEffect(sabotage: Sabotage, current: Turn): Game {
+		val target = sabotage.target
+		val owner = playerOf(target.ownerEmail)
+		val effect = sabotage.effect()
+		val notice = Notice(NoticeKind.SABOTAGE, target.system, listOf(owner.email), null, null)
+		fun recorded(after: Sabotage, changed: Player, lines: List<String>): Game = copy(
+			players = replace(changed),
+			turn = current.recordSabotage(after),
+			log = log + lines.map { LogEntry.notice(current.number, it, notice) }
+		)
+		if (effect == 0) {
+			return recorded(sabotage.settledWith(emptyMap()), owner, emptyList())
+		}
+		return when (target) {
+			is SabotageTarget.Factory -> recorded(
+				sabotage.settledWith(emptyMap()),
+				owner.withFactoryDisabled(target.system, target.goods, effect),
+				listOf(target.effectLog(corporationNames(), effect))
+			)
+			is SabotageTarget.Warehouse -> {
+				val held = checkNotNull(owner.warehouseAt(target.system)).cargo
+				when {
+					held.values.sum() == 0 -> recorded(sabotage.settledWith(emptyMap()), owner, emptyList())
+					held.values.sum() <= effect -> recorded(
+						sabotage.settledWith(held),
+						owner.withWarehouseLoss(target.system, held),
+						listOf(target.effectLog(corporationNames(), held.values.sum()))
+					)
+					else -> recorded(sabotage, owner, listOf(target.effectLog(corporationNames(), effect)))
+				}
+			}
+			is SabotageTarget.Ship -> {
+				val ship = checkNotNull(owner.ship(target.name))
+				val line = target.effectLog(corporationNames(), effect)
+				if (effect > ship.hitsSurvivable()) {
+					recorded(sabotage.settledWith(ship.cargo), owner.destroyedBySabotage(ship.name), listOf(line, "${ship.name} is destroyed"))
+				} else {
+					recorded(sabotage, owner, listOf(line))
+				}
+			}
+		}
+	}
+
+	/** This game once [sabotage]'s reputation roll took its toll (R100): from the saboteur, or on 21+ from the innocent player named. */
+	private fun withSabotageReputation(sabotage: Sabotage): Game {
+		val number = runningTurn().number
+		val change = if (sabotage.blamesInnocent()) {
+			playerOf(sabotage.blamedEmail).loseReputation(SabotageTable.BLAME, "being blamed for sabotage")
+		} else {
+			playerOf(sabotage.saboteurEmail).loseReputation(sabotage.saboteurLoss(), "sabotage (${sabotage.reputationRollText()})")
+		}
+		return copy(players = replace(change.player), log = log + change.lines.map { LogEntry.event(number, it) })
+	}
+
+	/** [email] chooses the units missing from the warehouse their sabotage hit (R99): [lots], adding up to its effect. */
+	fun chooseSabotageLosses(email: String, lots: Map<Goods, Int>): Game {
+		playerOf(email)
+		val current = runningTurn()
+		current.requireOpportunity()
+		val sabotage = current.lossChoiceOf(email) ?: throw InvalidGameOperationException("You have no warehouse losses to choose.")
+		val owner = playerOf(sabotage.target.ownerEmail)
+		val warehouse = checkNotNull(owner.warehouseAt(sabotage.target.system))
+		lots.forEach { (goods, units) ->
+			if (units > warehouse.holding(goods)) {
+				throw InvalidSabotageException("The warehouse holds only ${warehouse.holding(goods)} ${goods.name}.")
+			}
+		}
+		val chosen = sabotage.withLossChosen(lots, sabotage.effect())
+		return copy(
+			players = replace(owner.withWarehouseLoss(sabotage.target.system, chosen.lost)),
+			turn = current.withSabotageChanged(sabotage, chosen)
+		)
+	}
+
+	/**
+	 * [email] places a sabotage's hits on their ship [shipName] as [placement] (R99): as in battle (R76), out of turn, the
+	 * POLY and ISO that no longer fits going to their warehouse there as far as it fits. Once nothing is owed, Opportunity
+	 * may close (R102).
+	 */
+	fun placeSabotageHits(email: String, shipName: String, placement: HitPlacement): Game {
+		val owner = playerOf(email)
+		val current = runningTurn()
+		current.requireOpportunity()
+		val sabotage = current.sabotageHitsOn(email, shipName)
+		val (hit, lost) = owner.takeSabotageHits(shipName, sabotage.effect(), placement)
+		val destroyed = listOfNotNull("$shipName is destroyed".takeIf { hit.ship(shipName) == null })
+		return copy(
+			players = replace(hit),
+			turn = current.withSabotageChanged(sabotage, sabotage.settledWith(lost)),
+			log = log + destroyed.map { LogEntry.event(current.number, it) }
+		).withOpportunityClosedIfOver()
+	}
+
+	/**
+	 * [email] recruits on their Opportunity turn (R103), once: paying [payment] HT, then 2d6 × 5 from [dice] at or below it
+	 * brings a random agent from the pool to [start]. Only a success is logged, without the agent (R105).
+	 */
+	fun recruitAgent(email: String, payment: Int?, start: AgentPosition, dice: Dice): Game {
+		val current = opportunityAfterCollect(email)
+		val pool = agentPool()
+		if (pool.isEmpty()) {
+			throw InvalidGameOperationException("No agents are left to recruit.")
+		}
+		val recruitedTurn = current.recruitedByPlayer(email)
+		val player = playerOf(email)
+		val roll = dice.twoD6()
+		val picked = pool[dice.oneOf(pool.size) - 1]
+		val recruited = player.recruitAgent(payment, roll, picked, start)
+		val joined = recruited.agents.size > player.agents.size
+		val system = when (start) {
+			is AgentPosition.Aboard -> checkNotNull(player.ship(start.shipName)).system
+			is AgentPosition.OnOwn -> start.system
+		}
+		val line = listOfNotNull("${player.corporationName} recruited an agent at ${system.displayName}".takeIf { joined })
+		return copy(players = replace(recruited), turn = recruitedTurn, log = log + line.map { LogEntry.event(current.number, it) })
+	}
+
+	/** [email] moves their [agent] [to] on their Opportunity turn (R104): see [Player.moveAgent]. The public counts follow. */
+	fun moveAgent(email: String, agent: Agent?, to: AgentPosition): Game {
+		opportunityAfterCollect(email)
+		return copy(players = replace(playerOf(email).moveAgent(agent, to)))
+	}
+
+	/** [email] offers their [agent] to [buyerEmail] for [price] HT on their Opportunity turn (R106). Private until it's bought. */
+	fun offerAgent(email: String, agent: Agent?, buyerEmail: String?, price: Int?): Game {
+		val current = opportunityAfterCollect(email)
+		val offered = playerOf(email).checkAgentForSale(agent)
+		if (buyerEmail == null || buyerEmail == email || !hasPlayer(buyerEmail)) {
+			throw InvalidAgentException("Choose another player to sell to.")
+		}
+		if (price == null || price < 0) {
+			throw InvalidAgentException("Enter a whole number of HT, 0 or more.")
+		}
+		return copy(turn = current.withAgentOffered(AgentOffer(0, email, buyerEmail, offered, price)))
+	}
+
+	/**
+	 * [email] answers the agent offer [id] made to them (R106), any time before Opportunity closes: [accept]ing pays the seller
+	 * and the agent joins them, on its own where it stood, its identity theirs now. The sale is public, the price isn't.
+	 */
+	fun answerAgentOffer(email: String, id: Int?, accept: Boolean): Game {
+		val buyer = playerOf(email)
+		val current = runningTurn()
+		val offer = current.agentOffer(id)
+		offer.requireBuyer(email)
+		val after = current.withoutAgentOffer(offer)
+		if (!accept) {
+			return copy(turn = after)
+		}
+		val seller = playerOf(offer.sellerEmail)
+		val place = seller.placeOfAgent(offer.agent)?.takeIf { it.location != ShipLocation.SPACE }
+			?: throw InvalidGameOperationException("This agent can't be sold now.")
+		val bought = buyer.buyAgent(offer.agent, offer.price, place)
+		val sold = seller.sellAgent(offer.agent, offer.price)
+		val line = "${seller.corporationName} sold an agent at ${place.system.displayName} to ${buyer.corporationName}"
+		return copy(
+			players = players.map {
+				when (it.email) {
+					email -> bought
+					seller.email -> sold
+					else -> it
+				}
+			},
+			turn = after,
+			log = log + LogEntry.event(current.number, line)
+		)
+	}
+
+	/** This game moved on to Investment if its Opportunity is over (R102), else unchanged. */
+	private fun withOpportunityClosedIfOver(): Game {
+		val current = runningTurn()
+		return if (current.isOpportunityOver()) openInvestment(current) else this
 	}
 
 	/**
@@ -238,13 +530,40 @@ data class Game(
 	 * their first factory doesn't make them collect from it, which would block them and have it produce this turn: they are
 	 * recorded as collected. Done is a readiness flag (D09).
 	 */
-	fun buyFactoryUnits(email: String, system: StarSystem, goods: Goods, units: Int): Game {
+	fun buyFactoryUnits(email: String, system: StarSystem, goods: Goods, units: Int): Game =
+		withInvestment(email, { it.factoryUnitsLog(system, goods, units) }) { it.buyFactoryUnits(system, goods, units, prices) }
+
+	/**
+	 * [email] sells [units] units of their [goods] factory at [system] (R96): [Player.sellFactoryUnits] checks and applies it
+	 * at 5 × the good's price there. Public without the amount (R29).
+	 */
+	fun sellFactoryUnits(email: String, system: StarSystem, goods: Goods, units: Int): Game {
+		val factory = playerOf(email).factoryAt(system, goods)
+		return withInvestment(email, { player -> checkNotNull(factory).soldLog(player.corporationName, units) }) {
+			it.sellFactoryUnits(system, goods, units, prices)
+		}
+	}
+
+	/** [email] borrows [amount] HT over [term] in Investment (R90, R91): see [Player.takeLoan]. Private, not logged (R29). */
+	fun takeLoan(email: String, amount: Int?, term: LoanTerm?): Game {
+		val number = investing().number
+		return withInvestment(email, null) { it.takeLoan(amount, term, number) }
+	}
+
+	/** [email] pays this turn's loan interest (R92): once per Investment, while it's due. Private, not logged (R29). */
+	fun payInterest(email: String): Game {
 		val player = playerOf(email)
-		val investing = investmentAfterCollect(player)
-		val bought = player.buyFactoryUnits(system, goods, units, prices)
-		val line = player.factoryUnitsLog(system, goods, units)
-		val settled = if (investing.hasCollected(email)) investing else investing.collectedBy(email)
-		return copy(players = replace(bought), turn = settled, log = log + LogEntry.event(investing.number, line))
+		val current = investing()
+		val paid = current.interestPaidBy(email)
+		return copy(players = replace(player.payInterest(current.number)), turn = paid)
+	}
+
+	/** [email] repays their whole loan (R93), with this turn's interest when it's due and unpaid. Private, not logged (R29). */
+	fun repayLoan(email: String): Game {
+		val player = playerOf(email)
+		val current = investing()
+		val unpaid = player.owesInterestIn(current.number) && !current.hasPaidInterest(email)
+		return copy(players = replace(player.repayLoan(unpaid)))
 	}
 
 	/**
@@ -287,12 +606,12 @@ data class Game(
 	fun sellShip(email: String, shipName: String): Game = withInvestment(email, { it.shipSoldLog(shipName) }) { it.sellShip(shipName) }
 
 	/**
-	 * This game once [change] applied to [email] in Investment, after their Collect (S03-5), with the line [logged] writes
-	 * from the player in the public log when there is one.
+	 * This game once [change] applied to [email] in Investment, with the line [logged] writes from the player in the public
+	 * log when there is one.
 	 */
 	private fun withInvestment(email: String, logged: ((Player) -> String)?, change: (Player) -> Player): Game {
 		val player = playerOf(email)
-		val investing = investmentAfterCollect(player)
+		val investing = investing()
 		val line = logged?.let { LogEntry.event(investing.number, it(player)) }
 		return copy(players = replace(change(player)), log = log + listOfNotNull(line))
 	}
@@ -305,6 +624,7 @@ data class Game(
 	fun viewFor(email: String): PlayerView? {
 		val player = players.firstOrNull { it.email == email } ?: return null
 		val resolution = turn?.resolution
+		val lossChoice = turn?.lossChoiceOf(email)
 		return PlayerView(
 			player = player,
 			offers = turn?.offersOf(email).orEmpty(),
@@ -320,27 +640,41 @@ data class Game(
 			interception = turn?.interception?.takeIf { it.asks(email) },
 			battle = turn?.battle?.takeIf { it.involves(email) },
 			battleReport = turn?.battleReport?.reportFor(email),
-			prices = prices
+			prices = prices,
+			loan = player.loan?.let { LoanView(it, turn?.number ?: 0, turn?.hasPaidInterest(email) == true, player.borrowingCap()) }
+				?: turn?.takeIf { it.phase == TurnPhase.INVESTMENT }?.let { LoanView(null, it.number, false, player.borrowingCap()) },
+			sabotagesOrdered = turn?.sabotagesBy(email).orEmpty(),
+			sabotagesSuffered = turn?.sabotagesOn(email).orEmpty(),
+			sabotagedWarehouse = lossChoice?.let { playerOf(it.target.ownerEmail).warehouseAt(it.target.system) },
+			agentOffers = turn?.agentOffersConcerning(email).orEmpty().map { offer ->
+				AgentOfferView(offer, playerOf(offer.sellerEmail).placeOfAgent(offer.agent), offer.agent.takeIf { offer.sellerEmail == email })
+			},
+			limpyAsk = turn?.takeIf { it.limpyAsk == email }?.tradingQueue?.firstOrNull(),
+			agentPool = agentPool().size,
+			opportunity = turn?.takeIf { it.phase == TurnPhase.OPPORTUNITY }?.let {
+				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasCollected(email))
+			}
 		)
 	}
 
+	/** The agents still to recruit (R103): every recruitable one nobody owns and nobody killed. */
+	fun agentPool(): List<Agent> = Agent.entries.filter { agent ->
+		agent.recruitable && agent !in deadAgents && players.none { it.agent(agent) != null }
+	}
+
 	/**
-	 * Whether [email] may buy in this Investment now (R45, S03-5): the game is running in Investment and they have no
-	 * output left to place. False for anyone who isn't in the game.
+	 * Whether [email] may buy in this Investment now (R45): the game is running in Investment. Collect is in Opportunity
+	 * now (R102), so it never waits for it. False for anyone who isn't in the game.
 	 */
 	fun canInvest(email: String): Boolean {
 		val current = turn ?: return false
-		val player = players.firstOrNull { it.email == email } ?: return false
-		return status == GameStatus.RUNNING && current.phase == TurnPhase.INVESTMENT && !(player.hasFactories() && !current.hasCollected(email))
+		return hasPlayer(email) && status == GameStatus.RUNNING && current.phase == TurnPhase.INVESTMENT
 	}
 
-	/** The running Investment, once checked that [player] has confirmed their collect if they have factories: nothing is done or built before (S03-5). */
-	private fun investmentAfterCollect(player: Player): Turn {
+	/** The running Investment (R44). */
+	private fun investing(): Turn {
 		val investing = runningTurn()
 		investing.requireInvesting()
-		if (player.hasFactories() && !investing.hasCollected(player.email)) {
-			throw InvalidGameOperationException("Collect your output first.")
-		}
 		return investing
 	}
 
@@ -387,11 +721,22 @@ data class Game(
 	 */
 	fun raiseConnection(email: String, kind: ConnectionKind): Game {
 		val player = playerOf(email)
-		val investing = investmentAfterCollect(player)
+		val investing = investing()
 		val raisedTurn = investing.connectionRaisedBy(email)
 		val raised = player.raiseConnection(kind)
-		val lines =
-			listOf(raised.connectionRaisedLog(kind), raised.reputationLog(kind.reputationChange, "raising ${kind.displayName} connections"))
+		val change = player.connectionReputationChange(kind)
+		val jb = listOfNotNull(
+			Agent.JB.actedLog(player.corporationName, ": reputation loss ${-kind.reputationChange} \u2192 ${-change}").takeIf {
+				change !=
+					kind.reputationChange
+			}
+		)
+		val lines = listOf(raised.connectionRaisedLog(kind)) + jb +
+			listOfNotNull(
+				raised.reputationLog(change, "raising ${kind.displayName} connections").takeIf {
+					change != 0 || kind.reputationChange == 0
+				}
+			)
 		return copy(players = replace(raised), turn = raisedTurn, log = log + lines.map { LogEntry.event(investing.number, it) })
 	}
 
@@ -401,7 +746,7 @@ data class Game(
 	 */
 	fun buyReputation(email: String, dice: Dice): Game {
 		val player = playerOf(email)
-		val investing = investmentAfterCollect(player)
+		val investing = investing()
 		val boughtTurn = investing.reputationBoughtBy(email)
 		val roll = dice.d6()
 		val bought = player.buyReputation(roll)
@@ -477,11 +822,15 @@ data class Game(
 			return withShipMovedWithin(player, ship, current)
 		}
 		val roll = dice.twoD6()
-		if (!ship.checkedJumpChanceTo(destination).succeeds(roll)) {
+		val novak = player.jumpBonusFor(ship.name)
+		val novakLog = listOfNotNull(
+			Agent.NOVAK.actedLog(player.corporationName, ": +$novak to ${ship.name}'s jump").takeIf { novak > 0 }
+		).map { LogEntry.event(current.number, it) }
+		if (!JumpChance(ship.checkedJumpChanceTo(destination).target + novak).succeeds(roll)) {
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,
-				log = log + LogEntry.event(current.number, player.failedJumpLog(ship.name, destination, roll))
+				log = log + novakLog + LogEntry.event(current.number, player.failedJumpLog(ship.name, destination, roll))
 			)
 			return if (recorded.haveAllJumped(player.jumpableShips())) failed.endJumpSlot(email) else failed
 		}
@@ -489,7 +838,7 @@ data class Game(
 		return copy(
 			players = replace(moved),
 			turn = current.recordJump(ship),
-			log = log + LogEntry.event(current.number, moved.jumpedLog(ship.name, roll))
+			log = log + novakLog + LogEntry.event(current.number, moved.jumpedLog(ship.name, roll))
 		).withInterceptionAsked(ship.name, email, destination)
 	}
 
@@ -549,31 +898,38 @@ data class Game(
 		val events = mutableListOf<LogEntry>()
 		val caught = mutableListOf<BattleInterception>()
 		var penalized = players
+		val arrivingBonus = playerOf(interception.ownerEmail).interceptBonusFor(arriving.name)
 		for ((email, name) in tries) {
 			val interceptor = checkNotNull(playerOf(email).ship(name))
 			val ours = dice.d6()
 			val theirs = dice.d6()
-			val success = interceptor.interceptTotal(ours) > arriving.interceptTotal(theirs)
+			val ourBonus = playerOf(email).interceptBonusFor(name)
+			val success = interceptor.interceptTotal(ours) + ourBonus > arriving.interceptTotal(theirs) + arrivingBonus
 			if (success) {
 				caught += BattleInterception(arriving.name, interceptor.name)
 			}
 			val roll = InterceptionRoll(
 				email,
 				interceptor.name,
-				interceptor.interceptLog(ours),
+				interceptor.interceptLog(ours, ourBonus),
 				interception.ownerEmail,
 				arriving.name,
-				arriving.interceptLog(theirs),
+				arriving.interceptLog(theirs, arrivingBonus),
 				success
 			)
 			val notice = interception.tryNotice(roll)
+			val triggers = listOfNotNull(
+				triggerLog(email, interceptor.name, ourBonus),
+				triggerLog(interception.ownerEmail, arriving.name, arrivingBonus)
+			)
+			events += triggers.map { LogEntry.notice(current.number, it, notice) }
 			events += LogEntry.notice(current.number, roll.logText(), notice)
 			// R86 (E13-S04): every try is a hostile act and costs 2d6 of reputation, unless the trying ship has a working Battle comm.
 			if (!interceptor.hasWorkingBattleComm()) {
 				val loss = dice.twoD6()
-				val trier = penalized.first { it.email == email }.withReputationChanged(-loss)
-				penalized = penalized.map { if (it.email == email) trier else it }
-				events += LogEntry.notice(current.number, trier.reputationLog(-loss, "trying to intercept (rolled 2d6: $loss)"), notice)
+				val lost = penalized.first { it.email == email }.loseReputation(loss, "trying to intercept (rolled 2d6: $loss)")
+				penalized = penalized.map { if (it.email == email) lost.player else it }
+				events += lost.lines.map { LogEntry.notice(current.number, it, notice) }
 			}
 		}
 		if (tries.isEmpty()) {
@@ -587,6 +943,10 @@ data class Game(
 		)
 		return if (caught.isEmpty()) decided else decided.withBattleStarted(interception.system, caught)
 	}
+
+	/** Trigger's line when he added [bonus] to [email]'s [shipName]'s interception roll (R105, R108), or null. */
+	private fun triggerLog(email: String, shipName: String, bonus: Int): String? =
+		Agent.TRIGGER.actedLog(corporationOf(email), ": +$bonus to $shipName's intercept").takeIf { bonus > 0 }
 
 	/**
 	 * This game with a battle at [system] among every ship in Space there (R73, R80), [interceptions] holding their ships;
@@ -619,23 +979,37 @@ data class Game(
 	 */
 	private fun withRoundFired(battle: Battle, dice: Dice): Game {
 		val current = runningTurn()
+		val xLog = mutableListOf<String>()
 		val salvos = battle.fireOrders().map { order ->
 			val target = order.targetShip()
-			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, battle.isBreakingAway(target), dice)
+			val owner = players.first { it.ship(order.ship) != null }
+			val bonus = if (order.rockets) 0 else owner.weaponsBonusFor(order.ship)
+			if (bonus > 0 && !battle.isBreakingAway(target)) {
+				xLog += Agent.X.actedLog(owner.corporationName, ": +$bonus weapons for ${order.ship}")
+			}
+			Salvo.fire(shipNamed(order.ship), shipNamed(target), order.rockets, battle.isBreakingAway(target), bonus, dice)
 		}
 		val round = battle.fired(salvos, battle.fightingShips().associateWith { shipNamed(it).hitsSurvivable() })
 		// R86 (E13-S04): firing at a ship that didn't try to intercept you costs 2d6 of reputation, once per battle.
 		val penalties = battle.firingPenalties().associateWith { dice.twoD6() }
-		val penalized = players.map { player -> penalties[player.email]?.let { player.withReputationChanged(-it) } ?: player }
-		val penaltyLog = penalties.map { (email, loss) ->
-			penalized.first { it.email == email }.reputationLog(-loss, "firing at a ship that didn't try to intercept (rolled 2d6: $loss)")
+		val losses = players.associate { player ->
+			player.email to penalties[player.email]?.let {
+				player.loseReputation(it, "firing at a ship that didn't try to intercept (rolled 2d6: $it)")
+			}
 		}
+		val penalized = players.map { losses[it.email]?.player ?: it }
+		val penaltyLog = penalties.keys.flatMap { losses.getValue(it)?.lines.orEmpty() }
+		val killedLog = round.destroyed.mapNotNull { ship ->
+			players.firstNotNullOfOrNull { it.takeIf { owner -> owner.ship(ship) != null } }?.agentsKilledLog(ship)
+		}
+		val killed = round.destroyed.flatMap { ship -> players.flatMap { owner -> owner.agents.filter { it.isAboard(ship) }.map { it.agent } } }
 		return copy(
 			players = penalized.map { player -> round.destroyed.fold(player) { owner, ship -> owner.loseShip(ship) } },
 			turn = current.withBattleRound(round.battle.firingPenalizedFor(penalties.keys.toList()), round.report),
-			log = log + (round.log + penaltyLog).map {
+			log = log + (xLog + round.log + penaltyLog + killedLog).map {
 				LogEntry.notice(current.number, it, battle.roundNotice())
-			}
+			},
+			deadAgents = deadAgents + killed
 		).withBattleMovedOn()
 	}
 
@@ -650,12 +1024,14 @@ data class Game(
 		val pending = battle.hitsToPlace(email, placements.keys)
 		val hit = pending.fold(player) { owner, hits -> owner.takeHits(hits.ship, hits.hits, placements.getValue(hits.ship)) }
 		val destroyed = pending.map { it.ship }.filter { hit.ship(it) == null }.toSet()
+		val killed = player.agents.filter { agent -> destroyed.any { agent.isAboard(it) } }.map { it.agent }
 		return copy(
 			players = replace(hit),
 			turn = current.withHitsPlaced(battle.hitsPlaced(email, destroyed), placements.keys, destroyed),
-			log = log + destroyed.map {
-				LogEntry.notice(current.number, "$it is destroyed", battle.notice(NoticeKind.SHIP_DESTROYED))
-			}
+			log = log + destroyed.flatMap {
+				listOf("$it is destroyed") + listOfNotNull(player.agentsKilledLog(it))
+			}.map { LogEntry.notice(current.number, it, battle.notice(NoticeKind.SHIP_DESTROYED)) },
+			deadAgents = deadAgents + killed
 		).withBattleMovedOn()
 	}
 
@@ -749,16 +1125,43 @@ data class Game(
 	fun resolveNextGood(email: String, dice: Dice): Game {
 		val current = turnAwaiting(email, Turn::resolverToDecide, Turn::resolverWaitingText)
 		current.resolution?.waitingText(corporationNames())?.let { throw InvalidGameOperationException(it) }
+		current.limpyAsk?.let { throw InvalidGameOperationException(current.limpyWaitingText(corporationNames())) }
 		val good = current.nextGood()
 		val dictator = players.firstOrNull { it.isDictatorOf(good.system, good.goods) }
+		// R108: with no Dictator there, Limpy's owner in Port there is asked first, once a turn.
+		val limpy = players.firstOrNull { dictator == null && it.mayDictateAt(good.system) && !current.hasUsedLimpy(it.email) }
+		if (limpy != null) {
+			return copy(turn = current.askLimpy(limpy.email))
+		}
+		return withNextGoodResolving(current, email, dictator?.email, dice)
+	}
+
+	/** [current]'s next good starting to resolve, chosen by [resolver], with [dictator] asked first if any (R25, R34, R38). */
+	private fun withNextGoodResolving(current: Turn, resolver: String, dictator: String?, dice: Dice): Game {
+		val good = current.nextGood()
 		val wholesalers = players.filter { it.isWholesalerOf(good) }.map { it.email }
-		val started = current.resolveNext(dictator?.email, wholesalers, prices.priceOf(good), dice)
+		val started = current.resolveNext(dictator, wholesalers, prices.priceOf(good), dice)
 		val resolution = checkNotNull(started.resolution)
 		return withResolutionMoved(
 			started,
 			null,
-			listOf(resolution.resolvingText(email, corporationNames()), resolution.disclosure(corporationNames()))
+			listOf(resolution.resolvingText(resolver, corporationNames()), resolution.disclosure(corporationNames()))
 		)
+	}
+
+	/**
+	 * [email], asked about Limpy (R108), [acts] as Dictator of the next good for its resolution, or passes and keeps him for
+	 * another good this turn. Acting replaces their own offer on that good and reveals Limpy.
+	 */
+	fun answerLimpy(email: String, acts: Boolean, dice: Dice): Game {
+		val current = turnAwaiting(email, Turn::limpyToDecide, Turn::limpyWaitingText)
+		val good = current.nextGood()
+		val answered = current.limpyAnswered(acts)
+		if (!acts) {
+			return withNextGoodResolving(answered, current.firstInInitiative(), null, dice)
+		}
+		val line = LogEntry.event(current.number, Agent.LIMPY.actedLog(corporationOf(email), " lets them act as Dictator of ${good.label()}"))
+		return copy(log = log + line).withNextGoodResolving(answered.withoutOfferOf(email, good), current.firstInInitiative(), email, dice)
 	}
 
 	/**
@@ -913,7 +1316,14 @@ data class Game(
 	/** R86 (E13-S02): a position rise is +2 reputation for its trader and −2 for each Dictator it demoted, logged after the roll. */
 	private fun marketRiseLog(rise: MarketRise): List<String> =
 		listOf(playerOf(rise.riser).reputationLog(Player.MARKET_RISE_REPUTATION, "a market position rise")) +
-			rise.demoted.map { playerOf(it).reputationLog(-Player.MARKET_RISE_REPUTATION, "losing a market position") }
+			rise.demoted.flatMap { email ->
+				val demoted = playerOf(email)
+				val loss = demoted.reputationLossAfterAgents(Player.MARKET_RISE_REPUTATION)
+				listOfNotNull(
+					Agent.JB.actedLog(demoted.corporationName, ": reputation loss ${Player.MARKET_RISE_REPUTATION} \u2192 $loss")
+						.takeIf { loss != Player.MARKET_RISE_REPUTATION }
+				) + demoted.reputationLog(-loss, "losing a market position")
+			}
 
 	/**
 	 * The running turn, once checked that its step waits for [email]: [awaited] says whom it waits for, and anyone else is
@@ -953,11 +1363,13 @@ data class Game(
 	 * rolls: " (tie rolled again: Vega Lines 9, Orion Freight 4)".
 	 */
 	private fun closeBidding(current: Turn, dice: Dice): Game {
-		val closed = current.closeBidding(players.map { it.email }, dice)
+		val bonuses = players.associate { it.email to it.initiativeBonus() }.filterValues { it > 0 }
+		val closed = current.closeBidding(players.map { it.email }, bonuses, dice)
+		val wolf = bonuses.keys.map { Agent.WOLF.actedLog(corporationOf(it), ": +${Agent.WOLF_INITIATIVE_BONUS} initiative") }
 		return copy(
 			players = players.map { it.pay(current.bidAmountOf(it.email)) },
 			turn = closed,
-			log = log + LogEntry.event(current.number, closed.initiativeLog(corporationNames()))
+			log = log + (wolf + closed.initiativeLog(corporationNames())).map { LogEntry.event(current.number, it) }
 		)
 	}
 
@@ -996,7 +1408,7 @@ data class Game(
 			if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {
 				throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
 			}
-			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList())
+			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList(), emptyList())
 		}
 	}
 }

@@ -154,9 +154,9 @@ class GameInitiativeTest {
 		val game = startedWithThree.placeInitiativeBid("creator@example.com", 10).advancePhase(FakeDice(2, 7, 7, 5, 8))
 
 		assertThat(game.turn?.initiativeRolls).containsExactly(
-			InitiativeRoll("creator@example.com", 10, listOf(2)),
-			InitiativeRoll("third@example.com", 0, listOf(7, 8)),
-			InitiativeRoll("joiner@example.com", 0, listOf(7, 5))
+			InitiativeRoll("creator@example.com", 10, 0, listOf(2)),
+			InitiativeRoll("third@example.com", 0, 0, listOf(7, 8)),
+			InitiativeRoll("joiner@example.com", 0, 0, listOf(7, 5))
 		)
 	}
 
@@ -191,6 +191,7 @@ class GameInitiativeTest {
 	@Test
 	fun shouldLogALaterTurnsInitiativeUnderThatTurn() {
 		val turnTwo = started.advancePhase(FakeDice(1, 2)).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
+			.advancePhase(FakeDice())
 
 		val closed = turnTwo.advancePhase(FakeDice(2, 1))
 
@@ -202,7 +203,7 @@ class GameInitiativeTest {
 	fun shouldKeepTheBidsAndOrderThroughTheTurnAndStartTheNextTurnWithNone() {
 		val shipJumps = started.placeInitiativeBid("joiner@example.com", 40).advancePhase(FakeDice(1, 1))
 		val trading = shipJumps.advancePhase(FakeDice())
-		val nextBidding = trading.advancePhase(FakeDice()).advancePhase(FakeDice())
+		val nextBidding = trading.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(trading.turn?.initiative).containsExactly("joiner@example.com", "creator@example.com")
 		assertThat(trading.turn?.bids).containsExactly(InitiativeBid("joiner@example.com", 40))

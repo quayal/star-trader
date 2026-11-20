@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.loan.LoanTerm
 
 class InvestmentService(private val gameStore: GameStore, private val dice: Dice) {
 
@@ -12,12 +13,19 @@ class InvestmentService(private val gameStore: GameStore, private val dice: Dice
 	 */
 	fun signalDone(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.signalDoneInvesting(callerEmail) }
 
-	/**
-	 * [callerEmail] confirms where their factories' output goes inside [GameStore.update], so a double press stores it once
-	 * and the placements are checked against the saved ships and warehouses (A04, R47).
-	 */
-	fun collect(gameId: String, callerEmail: String, placements: List<OutputPlacement>): Game =
-		gameStore.update(gameId) { it.collectOutput(callerEmail, placements) }
+	/** [callerEmail] borrows [amount] over [term] inside [GameStore.update], so the cap is checked against the saved game (A04, R90). */
+	fun takeLoan(gameId: String, callerEmail: String, amount: Int?, term: LoanTerm?): Game =
+		gameStore.update(gameId) { it.takeLoan(callerEmail, amount, term) }
+
+	/** [callerEmail] pays this turn's loan interest inside [GameStore.update], so a double press pays once (A04, R92). */
+	fun payInterest(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.payInterest(callerEmail) }
+
+	/** [callerEmail] repays their loan inside [GameStore.update], so a double press pays once (A04, R93). */
+	fun repayLoan(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.repayLoan(callerEmail) }
+
+	/** [callerEmail] sells [units] of their [goods] factory at [system] inside [GameStore.update] (A04, R96). */
+	fun sellFactoryUnits(gameId: String, callerEmail: String, system: StarSystem, goods: Goods, units: Int): Game =
+		gameStore.update(gameId) { it.sellFactoryUnits(callerEmail, system, goods, units) }
 
 	/**
 	 * [callerEmail] buys [blocks] warehouse blocks at [system] inside [GameStore.update], so the money is checked against the

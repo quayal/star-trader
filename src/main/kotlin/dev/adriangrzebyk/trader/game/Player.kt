@@ -3,13 +3,26 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.agent.AgentCount
+import dev.adriangrzebyk.trader.game.agent.AgentPlace
+import dev.adriangrzebyk.trader.game.agent.AgentPosition
+import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
+import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
+import dev.adriangrzebyk.trader.game.loan.Loan
+import dev.adriangrzebyk.trader.game.loan.LoanCollection
+import dev.adriangrzebyk.trader.game.loan.LoanTerm
+import dev.adriangrzebyk.trader.game.loan.SeizedUnits
+import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
 /**
  * A player's membership in one game; [email] is the membership key. [money] is private to its owner (R29);
  * [marketPositions] are public (R28), and a player holds none until they earn one (R40, R43). [warehouses] and [factories]
  * are public too (R50), and nobody starts with any (R40, R50). [connections] are public (R81), and [connectionPoints] are the
  * starting points they still have to place (R82): 3 + d3 from the start of the game until they place them in turn 1's
- * Bidding, then 0. [reputation] is public too (R85).
+ * Bidding, then 0. [reputation] is public too (R85). [loan] is their open loan, private like money (R29, R90), or null.
+ * [agents] are their special operatives (R103): where they are is public, which they are is theirs alone (R105).
  */
 data class Player(
 	val email: String,
@@ -22,7 +35,9 @@ data class Player(
 	val factories: List<Factory>,
 	val connections: Connections,
 	val connectionPoints: Int,
-	val reputation: Reputation
+	val reputation: Reputation,
+	val loan: Loan?,
+	val agents: List<RecruitedAgent>
 ) {
 
 	init {
@@ -189,7 +204,7 @@ data class Player(
 	/** This player's factory for [goods] at [system], if they have one (R46). */
 	fun factoryAt(system: StarSystem, goods: Goods): Factory? = factories.firstOrNull { it.isFor(system, goods) }
 
-	/** Whether this player has a factory, so they collect output at the start of Investment (R47, E06-S03-6). */
+	/** Whether this player has a factory, so they collect output on their Opportunity turn (R47, R102). */
 	fun hasFactories(): Boolean = factories.isNotEmpty()
 
 	/**
@@ -206,20 +221,36 @@ data class Player(
 		placements.groupBy { it.system to it.goods }.forEach { (key, group) ->
 			val factory = factoryAt(key.first, key.second)
 				?: throw InvalidCollectException("You have no ${key.second.name} factory at ${key.first.displayName}.")
-			if (group.sumOf { it.units } > factory.size) {
-				throw InvalidCollectException("Your ${factory.goods.name} factory at ${factory.system.displayName} makes ${factory.size} units.")
+			if (group.sumOf { it.units } > factory.output()) {
+				throw InvalidCollectException("Your ${factory.goods.name} factory at ${factory.system.displayName} makes ${factory.output()} units.")
 			}
 		}
-		return placements.fold(this) { player, placement -> player.stored(placement) }
+		val stored = placements.fold(this) { player, placement -> player.stored(placement) }
+		return stored.withFactoriesCollected()
 	}
 
 	/**
 	 * The public log lines of the collect that turned [before] into this player (R50, E06-S07-1), one per factory: what
 	 * was stored is what they now hold more of at the factory's system, and the rest of its output was lost.
 	 */
-	fun collectLog(before: Player): List<String> = factories.map { factory ->
+	fun collectLog(before: Player): List<String> = before.factories.map { factory ->
 		factory.collectLog(corporationName, holdingAt(factory.system, factory.goods) - before.holdingAt(factory.system, factory.goods))
 	}
+
+	/** This player once a Collect went by: each disabled factory has one turn fewer to go (R99). */
+	private fun withFactoriesCollected(): Player = copy(factories = factories.map { it.afterCollect() })
+
+	/** This player without their ship [shipName]. */
+	private fun withoutShip(shipName: String): Player = copy(ships = ships.filterNot { it.name == shipName })
+
+	/** This player with [changed] as their loan, or none. */
+	private fun withLoan(changed: Loan?): Player = copy(loan = changed)
+
+	/** This player with [recruited] among their agents. */
+	private fun withAgentAdded(recruited: RecruitedAgent): Player = copy(agents = agents + recruited)
+
+	/** This player without their [agent]. */
+	private fun withoutAgent(agent: Agent): Player = copy(agents = agents.filterNot { it.agent == agent })
 
 	/** This player after one [placement] of their output: into the named ship in port there, or their warehouse at that system. */
 	private fun stored(placement: OutputPlacement): Player {
@@ -270,7 +301,7 @@ data class Player(
 		if (cost > money) {
 			throw InvalidInvestmentException("$units ${if (units == 1) "unit costs" else "units cost"} $cost HT; you have $money HT.")
 		}
-		val factory = factoryAt(system, goods)?.addUnits(units) ?: Factory(system, goods, units)
+		val factory = factoryAt(system, goods)?.addUnits(units) ?: Factory.built(system, goods, units)
 		return pay(cost.toInt()).withFactory(factory)
 	}
 
@@ -313,8 +344,16 @@ data class Player(
 				"Raising ${kind.displayName} connections to ${connections.of(kind) + 1} costs $cost HT; you have $money HT."
 			)
 		}
-		return copy(money = money - cost, connections = connections.raised(kind), reputation = reputation.changedBy(kind.reputationChange))
+		return copy(
+			money = money - cost,
+			connections = connections.raised(kind),
+			reputation = reputation.changedBy(connectionReputationChange(kind))
+		)
 	}
+
+	/** What raising [kind] does to this player's reputation (R86): its change, a loss made smaller by JB (R108). */
+	fun connectionReputationChange(kind: ConnectionKind): Int =
+		if (kind.reputationChange < 0) -reputationLossAfterAgents(-kind.reputationChange) else kind.reputationChange
 
 	/**
 	 * The public log line of a change of [delta] to this player's reputation, given after it (R86, E13-S01-4): "Vega Lines's
@@ -328,6 +367,23 @@ data class Player(
 
 	/** This player after their reputation moved by [delta], clamped to 0–40 (R86). */
 	fun withReputationChanged(delta: Int): Player = copy(reputation = reputation.changedBy(delta))
+
+	/** What a reputation loss of [loss] really costs this player (R108): 1 less, never below 0, while JB is in any Port. */
+	fun reputationLossAfterAgents(loss: Int): Int =
+		if (loss > 0 && isAgentInPort(Agent.JB)) (loss - Agent.JB_REPUTATION_REDUCTION).coerceAtLeast(0) else loss
+
+	/**
+	 * This player after losing [loss] reputation for [reason] (R86), and the public lines that tell it: JB's, when he made
+	 * it smaller (R105, R108: "JB (Kessler Cargo): reputation loss 6 → 5"), then the change itself. A loss of 0 that JB
+	 * didn't cause isn't logged.
+	 */
+	fun loseReputation(loss: Int, reason: String): ReputationChange {
+		val actual = reputationLossAfterAgents(loss)
+		val changed = withReputationChanged(-actual)
+		val jb = listOfNotNull(Agent.JB.actedLog(corporationName, ": reputation loss $loss \u2192 $actual").takeIf { actual != loss })
+		val change = listOfNotNull(changed.reputationLog(-actual, reason).takeIf { actual > 0 || loss > 0 })
+		return ReputationChange(changed, jb + change)
+	}
 
 	/**
 	 * This player after buying reputation in Investment (R87, E13-S03): [Reputation.BUY_COST] HT for [roll] (a d6) more.
@@ -455,7 +511,7 @@ data class Player(
 	fun sellShip(shipName: String): Player {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
 		val warehouse = warehouseAt(ship.system)
-		val sold = copy(money = money + ship.saleValue(), ships = ships.filterNot { it.name == ship.name })
+		val sold = withAgentsSteppedOff(ship).withoutShip(ship.name).receive(ship.saleValue())
 		return if (warehouse == null) sold else sold.withWarehouse(warehouse.storeCargoOf(ship))
 	}
 
@@ -490,8 +546,20 @@ data class Player(
 		return if (hit.isDestroyed()) loseShip(shipName) else withShip(hit)
 	}
 
-	/** This player without their ship [shipName], destroyed in a battle with everything aboard (R77). */
-	fun loseShip(shipName: String): Player = copy(ships = ships.filterNot { it.name == shipName })
+	/**
+	 * This player without their ship [shipName], destroyed in a battle in Space with everything aboard (R77), its agents
+	 * included: they're killed and never come back (R107).
+	 */
+	fun loseShip(shipName: String): Player =
+		copy(ships = ships.filterNot { it.name == shipName }, agents = agents.filterNot { it.isAboard(shipName) })
+
+	/** How many of this player's agents are aboard [shipName]: public, unlike who they are (R105). */
+	fun agentsAboard(shipName: String): Int = agents.count { it.isAboard(shipName) }
+
+	/** The public log line of the agents killed aboard [shipName] (R107), or null with none: "2 agents aboard Starfarer were killed". */
+	fun agentsKilledLog(shipName: String): String? = agentsAboard(shipName).takeIf { it > 0 }?.let {
+		if (it == 1) "1 agent aboard $shipName was killed" else "$it agents aboard $shipName were killed"
+	}
 
 	/** This player's ships that can jump (R64): every one but those still in the shipyard. */
 	fun jumpableShips(): List<Ship> = ships.filterNot { it.isInShipyard() }
@@ -501,6 +569,323 @@ data class Player(
 
 	/** This player once their ships bought before turn [turn] left the yard (R63), each into the Port of its system. */
 	fun releaseShipsFromYard(turn: Int): Player = copy(ships = ships.map { if (it.leavesYardIn(turn)) it.leaveYard() else it })
+
+	/**
+	 * This player after selling [units] units of their [goods] factory at [system] (R96), at [Factory.salePricePerUnit]
+	 * each; a factory left with no units is gone, and may be built again later (R46).
+	 */
+	fun sellFactoryUnits(system: StarSystem, goods: Goods, units: Int, prices: MarketPrices): Player {
+		val factory = factoryAt(system, goods) ?: throw InvalidInvestmentException("You have no ${goods.name} factory at ${system.displayName}.")
+		val left = factory.withoutUnits(units)
+		return receive(units * factory.salePricePerUnit(prices)).withFactoryReplaced(factory, left)
+	}
+
+	/** This player once a sabotage disabled their [goods] factory at [system] for [turns] more Collects (R99). */
+	fun withFactoryDisabled(system: StarSystem, goods: Goods, turns: Int): Player {
+		val factory = checkNotNull(factoryAt(system, goods))
+		return withFactoryReplaced(factory, factory.disabledFor(turns))
+	}
+
+	private fun withFactoryReplaced(factory: Factory, by: Factory?): Player =
+		copy(factories = factories.mapNotNull { if (it.isFor(factory.system, factory.goods)) by else it })
+
+	// Loans (R90–R96, D22).
+
+	/** The most this player may borrow now (R90): 100 HT a ship they own, yard and damaged ones included, 20 a warehouse block, plus their cash. */
+	fun borrowingCap(): Int = LOAN_PER_SHIP * ships.size + LOAN_PER_BLOCK * warehouses.sumOf { it.blocks } + money
+
+	/**
+	 * This player after borrowing [amount] HT over [term] in turn [turn] (R90, R91): paid in at once. Refused while a loan
+	 * is open, for a missing term, and for an amount that isn't from 1 up to [borrowingCap].
+	 */
+	fun takeLoan(amount: Int?, term: LoanTerm?, turn: Int): Player {
+		if (loan != null) {
+			throw InvalidInvestmentException("You already have a loan; repay it before taking another.")
+		}
+		if (term == null) {
+			throw InvalidInvestmentException("Choose a term of 4 or 8 turns.")
+		}
+		val cap = borrowingCap()
+		if (amount == null || amount < 1) {
+			throw InvalidInvestmentException("Enter a whole number of HT, 1 or more.")
+		}
+		if (amount > cap) {
+			throw InvalidInvestmentException("You can borrow at most $cap HT.")
+		}
+		return copy(money = money + amount, loan = Loan.take(amount, term, reputation.value, turn))
+	}
+
+	/** This player's open loan, refused when they have none. */
+	private fun openLoan(): Loan = loan ?: throw InvalidInvestmentException("You have no loan.")
+
+	/** Whether this player owes interest in turn [turn]'s Investment (R92). Paying it is the turn's to record. */
+	fun owesInterestIn(turn: Int): Boolean = loan?.isInterestDue(turn) == true
+
+	/** This player after paying their loan's interest for turn [turn] (R92), refused when none is due or they can't afford it. */
+	fun payInterest(turn: Int): Player {
+		val open = openLoan()
+		if (!open.isInterestDue(turn)) {
+			throw InvalidInvestmentException("No interest is due this turn.")
+		}
+		if (open.interest > money) {
+			throw InvalidInvestmentException("Interest is ${open.interest} HT; you have $money HT.")
+		}
+		return pay(open.interest)
+	}
+
+	/**
+	 * This player after repaying their whole loan (R93), plus this turn's interest when [interestUnpaid]. Refused when they
+	 * can't afford it all: there's no partial repayment.
+	 */
+	fun repayLoan(interestUnpaid: Boolean): Player {
+		val cost = openLoan().repayment(interestUnpaid)
+		if (cost > money) {
+			throw InvalidInvestmentException("Repaying costs $cost HT; you have $money HT.")
+		}
+		return copy(money = money - cost, loan = null)
+	}
+
+	/**
+	 * This player once their interest for a turn went unpaid (R92): −4 reputation (JB may make it 3, R108), logged without
+	 * the amount, and the interest added to what they owe.
+	 */
+	fun withUnpaidInterest(): ReputationChange {
+		val open = openLoan()
+		val lost = withLoan(open.withInterestAdded()).loseReputation(UNPAID_INTEREST_REPUTATION, "unpaid loan interest")
+		return lost
+	}
+
+	/**
+	 * This player once their loan fell due at the end of its term (R94): what they owe comes from cash first, then from their
+	 * ships sold at [Ship.saleValue], highest first, then from factory units at [Factory.salePricePerUnit] ([prices]),
+	 * highest first and only as many as needed. A surplus stays in cash; whatever is still owed is written off.
+	 */
+	fun collectLoan(prices: MarketPrices): Pair<Player, LoanCollection> {
+		var owed = openLoan().amount
+		var player = withLoan(null)
+		var collected = 0
+		fun settle() {
+			val paid = minOf(player.money, owed)
+			player = player.pay(paid)
+			owed -= paid
+			collected += paid
+		}
+		settle()
+		val seizedShips = mutableListOf<String>()
+		for (ship in ships.sortedByDescending { it.saleValue() }) {
+			if (owed == 0) break
+			player = player.sellShip(ship.name)
+			seizedShips += ship.name
+			settle()
+		}
+		val seizedUnits = mutableListOf<SeizedUnits>()
+		for (factory in factories.sortedByDescending { it.salePricePerUnit(prices) }) {
+			if (owed == 0) break
+			val price = factory.salePricePerUnit(prices)
+			val units = minOf(factory.size, (owed + price - 1) / price)
+			player = player.sellFactoryUnits(factory.system, factory.goods, units, prices)
+			seizedUnits += SeizedUnits(factory.system, factory.goods, units)
+			settle()
+		}
+		return player to LoanCollection(collected, seizedShips, seizedUnits, owed)
+	}
+
+	/** This player's money for the final result (R95): cash less what an open loan still owes; it can be negative. */
+	fun finalMoney(): Int = money - (loan?.amount ?: 0)
+
+	// Agents (R103–R108, D25).
+
+	/** This player's [agent], or null when it isn't theirs. */
+	fun agent(agent: Agent): RecruitedAgent? = agents.firstOrNull { it.agent == agent }
+
+	/** Where [recruited] stands on the board: its ship's system and location when it's aboard one. */
+	private fun placeOf(recruited: RecruitedAgent): AgentPlace = when (val position = recruited.position) {
+		is AgentPosition.Aboard -> checkNotNull(ship(position.shipName)).let { AgentPlace(it.system, it.location) }
+		is AgentPosition.OnOwn -> AgentPlace(position.system, position.location)
+	}
+
+	/** Whether this player has [agent] at [system], anywhere there (R108: "present at a system"). */
+	private fun isAgentAt(agent: Agent, system: StarSystem): Boolean = agent(agent)?.let { placeOf(it).system == system } == true
+
+	/** Whether this player has [agent] in a Port, aboard a ship or on its own, at [system] or, when null, at any system. */
+	private fun isAgentInPort(agent: Agent, system: StarSystem? = null): Boolean = agent(agent)?.let {
+		val place = placeOf(it)
+		place.location == ShipLocation.PORT && (system == null || place.system == system)
+	} == true
+
+	/** Whether [agent] of this player is aboard [shipName]. */
+	private fun isAgentAboard(agent: Agent, shipName: String): Boolean = agent(agent)?.isAboard(shipName) == true
+
+	/** Novak (R108): +4 to the jump result of the ship he travels on, [shipName]; 0 otherwise. */
+	fun jumpBonusFor(shipName: String): Int = if (isAgentAboard(Agent.NOVAK, shipName)) Agent.NOVAK_JUMP_BONUS else 0
+
+	/** Trigger (R108): +1 to intercept for the ship carrying him, [shipName]; 0 otherwise. */
+	fun interceptBonusFor(shipName: String): Int = if (isAgentAboard(Agent.TRIGGER, shipName)) Agent.TRIGGER_INTERCEPT_BONUS else 0
+
+	/** X (R108): +5 weapons for the ship carrying him, [shipName]; 0 otherwise. */
+	fun weaponsBonusFor(shipName: String): Int = if (isAgentAboard(Agent.X, shipName)) Agent.X_WEAPONS_BONUS else 0
+
+	/** Wolf (R108): +4 on this player's initiative roll, wherever he is; 0 without him. */
+	fun initiativeBonus(): Int = if (agent(Agent.WOLF) != null) Agent.WOLF_INITIATIVE_BONUS else 0
+
+	/** Shorty (R108): +4 on both rolls of this player's sabotage at [system] when he's present there; 0 otherwise. */
+	fun sabotageBonusAt(system: StarSystem): Int = if (isAgentAt(Agent.SHORTY, system)) Agent.SHORTY_SABOTAGE_BONUS else 0
+
+	/** Silent (R108): whether this player's assets at [system] are immune to sabotage, with him in Port there. */
+	fun isImmuneToSabotageAt(system: StarSystem): Boolean = isAgentInPort(Agent.SILENT, system)
+
+	/** Limpy (R108): whether this player may act as Dictator for a good at [system], with him in Port there. */
+	fun mayDictateAt(system: StarSystem): Boolean = isAgentInPort(Agent.LIMPY, system)
+
+	/** How many of this player's agents are on their own at each place (R105), in a stable order: public. */
+	fun agentsOnOwn(): List<AgentCount> = agents.map { it.position }.filterIsInstance<AgentPosition.OnOwn>()
+		.groupingBy { AgentPlace(it.system, it.location) }.eachCount()
+		.map { (place, count) -> AgentCount(place, count) }
+		.sortedWith(compareBy({ it.place.system.ordinal }, { it.place.location.ordinal }))
+
+	/**
+	 * This player after paying [payment] HT to recruit (R103): 10 to 60, and they must have it. When [roll] (2d6) × 5 is at
+	 * or below the payment, [picked], drawn at random from the pool, joins them at [start]; otherwise the money is gone.
+	 */
+	fun recruitAgent(payment: Int?, roll: Int, picked: Agent, start: AgentPosition): Player {
+		if (payment == null || payment !in Agent.MIN_RECRUIT_PAYMENT..Agent.MAX_RECRUIT_PAYMENT) {
+			throw InvalidAgentException("Pay a whole number from ${Agent.MIN_RECRUIT_PAYMENT} to ${Agent.MAX_RECRUIT_PAYMENT} HT.")
+		}
+		if (payment > money) {
+			throw InvalidAgentException("You have $money HT.")
+		}
+		checkAgentStart(start)
+		val paid = pay(payment)
+		return if (roll * Agent.RECRUIT_ROLL_MULTIPLIER <= payment) paid.withAgentAdded(RecruitedAgent(picked, start)) else paid
+	}
+
+	/**
+	 * Refuses a new agent's [start] unless it's aboard one of this player's ships out of the yard, or on its own in the Port
+	 * or on the Planet of a system where they have a ship or a warehouse (R103).
+	 */
+	fun checkAgentStart(start: AgentPosition) {
+		when (start) {
+			is AgentPosition.Aboard -> {
+				val ship = ship(start.shipName)
+				if (ship == null || ship.isInShipyard()) {
+					throw InvalidAgentException("Choose one of your ships out of the shipyard.")
+				}
+			}
+			is AgentPosition.OnOwn -> if (ships.none { it.system == start.system && !it.isInShipyard() } && warehouseAt(start.system) == null) {
+				throw InvalidAgentException("You need a ship or a warehouse at ${start.system.displayName}.")
+			}
+		}
+	}
+
+	/**
+	 * This player after moving their [agent] [to] (R104): boarding one of their ships at the same system and location,
+	 * stepping off a ship in Port or on a Planet there, or moving between two of their ships at the same place.
+	 */
+	fun moveAgent(agent: Agent?, to: AgentPosition): Player {
+		val recruited = agent?.let { agent(it) } ?: throw InvalidAgentException("Choose one of your agents.")
+		val from = placeOf(recruited)
+		when (to) {
+			is AgentPosition.Aboard -> {
+				val ship = ship(to.shipName)
+				if (ship == null || ship.isInShipyard() || ship.system != from.system || ship.location != from.location) {
+					throw InvalidAgentException("${recruited.agent.displayName} can board only your ships at the same place.")
+				}
+				if (recruited.isAboard(ship.name)) {
+					throw InvalidAgentException("${recruited.agent.displayName} is already aboard ${ship.name}.")
+				}
+			}
+			is AgentPosition.OnOwn -> if (recruited.position !is AgentPosition.Aboard || AgentPlace(to.system, to.location) != from) {
+				throw InvalidAgentException("${recruited.agent.displayName} can step off only where his ship is, in Port or on the Planet.")
+			}
+		}
+		return withAgent(recruited.movedTo(to))
+	}
+
+	/** Refuses offering [agent] for sale (R106) unless it's theirs and not aboard a ship in Space. */
+	fun checkAgentForSale(agent: Agent?): Agent {
+		val recruited = agent?.let { agent(it) } ?: throw InvalidAgentException("Choose one of your agents.")
+		if (placeOf(recruited).location == ShipLocation.SPACE) {
+			throw InvalidAgentException("An agent aboard a ship in Space can't be sold.")
+		}
+		return recruited.agent
+	}
+
+	/** Where [agent] of this player stands, for the buyer of an offer (R106), or null once it's no longer theirs. */
+	fun placeOfAgent(agent: Agent): AgentPlace? = agent(agent)?.let { placeOf(it) }
+
+	/**
+	 * This player after selling [agent] for [price] (R106): paid, and the agent gone. Where it stood, on its own (stepping
+	 * off any ship first), is the buyer's to take.
+	 */
+	fun sellAgent(agent: Agent, price: Int): Player = receive(price).withoutAgent(agent)
+
+	/** This player after buying [agent] for [price] (R106), standing on its own at [place]; refused when they can't pay. */
+	fun buyAgent(agent: Agent, price: Int, place: AgentPlace): Player {
+		if (price > money) {
+			throw InvalidAgentException("This agent costs $price HT; you have $money HT.")
+		}
+		return pay(price).withAgentAdded(RecruitedAgent(agent, AgentPosition.OnOwn(place.system, place.location)))
+	}
+
+	/**
+	 * This player with the agents aboard [ship] stepped off at its location (R107): sold or destroyed outside Space; one in
+	 * Space puts them in that system's Port.
+	 */
+	private fun withAgentsSteppedOff(ship: Ship): Player {
+		val location = if (ship.location == ShipLocation.PORT || ship.location == ShipLocation.PLANET) ship.location else ShipLocation.PORT
+		return copy(agents = agents.map { if (it.isAboard(ship.name)) it.movedTo(AgentPosition.OnOwn(ship.system, location)) else it })
+	}
+
+	/**
+	 * This player after a sabotage's [hits] on their ship [shipName], placed as [placement] (R99): as in battle (R76), with the
+	 * POLY and ISO that no longer fits going to their warehouse there as far as it fits, the rest lost. A ship destroyed this
+	 * way goes with its cargo, and its agents step off into the Port (R107). Returns the goods lost too.
+	 */
+	fun takeSabotageHits(shipName: String, hits: Int, placement: HitPlacement): Pair<Player, Map<Goods, Int>> {
+		val ship = checkNotNull(ship(shipName))
+		val hit = ship.takeHits(hits, placement)
+		if (hit.isDestroyed()) {
+			return withAgentsSteppedOff(ship).withoutShip(shipName) to ship.cargo
+		}
+		val warehouse = warehouseAt(ship.system)
+		val thrown = placement.jettison.filterValues { it > 0 }
+		val kept = warehouse?.let { thrown.entries.fold(it) { stored, (goods, units) -> stored.load(goods, units) } }
+		val lost = thrown.mapValues { (goods, units) -> units - ((kept?.holding(goods) ?: 0) - (warehouse?.holding(goods) ?: 0)) }
+		val damaged = withShip(hit)
+		return (if (kept == null) damaged else damaged.withWarehouse(kept)) to lost.filterValues { it > 0 }
+	}
+
+	/**
+	 * Refuses [target] as a sabotage on this player's assets (R97) unless it names a ship of theirs in Port at its system, or
+	 * their warehouse or factory there.
+	 */
+	fun checkSabotageTarget(target: SabotageTarget) {
+		when (target) {
+			is SabotageTarget.Ship -> if (ship(target.name)?.isInPortAt(target.system) != true) {
+				throw InvalidSabotageException("Choose a ship in Port: ships in the yard, on a Planet or in Space can't be sabotaged.")
+			}
+			is SabotageTarget.Warehouse -> if (warehouseAt(target.system) == null) {
+				throw InvalidSabotageException("$corporationName has no warehouse at ${target.system.displayName}.")
+			}
+			is SabotageTarget.Factory -> if (factoryAt(target.system, target.goods) == null) {
+				throw InvalidSabotageException("$corporationName has no ${target.goods.name} factory at ${target.system.displayName}.")
+			}
+		}
+	}
+
+	/** This player once a sabotage's hits destroyed their ship [shipName] in Port (R99): it goes with its cargo; its agents step off (R107). */
+	fun destroyedBySabotage(shipName: String): Player {
+		val ship = checkNotNull(ship(shipName))
+		return withAgentsSteppedOff(ship).withoutShip(shipName)
+	}
+
+	/** This player after a sabotage took [lots] from their warehouse at [system] (R99): what it holds, as far as it goes. */
+	fun withWarehouseLoss(system: StarSystem, lots: Map<Goods, Int>): Player {
+		val warehouse = checkNotNull(warehouseAt(system))
+		return withWarehouse(lots.entries.fold(warehouse) { held, (goods, units) -> held.unload(goods, minOf(units, held.holding(goods))) })
+	}
+
+	private fun withAgent(recruited: RecruitedAgent): Player = copy(agents = agents.map { if (it.agent == recruited.agent) recruited else it })
 
 	/** This player with [factory] in place of their factory for that good at that system, or added when they had none. */
 	private fun withFactory(factory: Factory): Player {
@@ -597,7 +982,7 @@ data class Player(
 
 	/** This player as Wholesaler of [good], once someone else became its Dictator (S06-3). */
 	fun demotedAt(good: MarketGood): Player = copy(
-		reputation = reputation.changedBy(-MARKET_RISE_REPUTATION)
+		reputation = reputation.changedBy(-reputationLossAfterAgents(MARKET_RISE_REPUTATION))
 	).withPosition(MarketPosition(good.system, good.goods, MarketTier.WHOLESALER))
 
 	/** This player holding [position], in place of whatever they held for that good at that system. */
@@ -625,11 +1010,31 @@ data class Player(
 	}
 
 	companion object {
+		/** R90: what each ship and each warehouse block adds to the borrowing cap. */
+		const val LOAN_PER_SHIP = 100
+		const val LOAN_PER_BLOCK = 20
+
+		/** R92: what a turn's unpaid interest costs in reputation. */
+		const val UNPAID_INTEREST_REPUTATION = 4
+
 		/** R86: what a rise in market position adds to reputation, and a fall (a Dictator demoted) takes away. */
 		const val MARKET_RISE_REPUTATION = 2
 
 		/** A player in the lobby: money, ships and connection points arrive when the game starts (R40, R82); reputation starts at 20 (R85). */
-		fun newcomer(email: String, name: String, corporationName: String) =
-			Player(email, name, corporationName, 0, emptyList(), emptyList(), emptyList(), emptyList(), Connections.NONE, 0, Reputation.INITIAL)
+		fun newcomer(email: String, name: String, corporationName: String) = Player(
+			email,
+			name,
+			corporationName,
+			0,
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			Connections.NONE,
+			0,
+			Reputation.INITIAL,
+			null,
+			emptyList()
+		)
 	}
 }

@@ -22,8 +22,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			BUSINESS to number(player.connections.business),
 			CRIMINAL to number(player.connections.criminal),
 			CONNECTION_POINTS to number(player.connectionPoints),
-			REPUTATION to number(player.reputation.value)
-		)
+			REPUTATION to number(player.reputation.value),
+			AGENTS to AttributeValue.fromL(player.agents.map { AttributeValue.fromM(RecruitedAgentItem(it).attributes) })
+		) + listOfNotNull(player.loan?.let { LOAN to AttributeValue.fromM(LoanItem(it).attributes) })
 	)
 
 	fun toPlayer(): Player = Player(
@@ -42,7 +43,11 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		connections = Connections(level(POLITICAL), level(BUSINESS), level(CRIMINAL)),
 		connectionPoints = level(CONNECTION_POINTS),
 		// Items saved before E13 have no reputation: they load at the start value, 20 (R85).
-		reputation = Reputation(attributes[REPUTATION]?.n()?.toInt() ?: Reputation.START)
+		reputation = Reputation(attributes[REPUTATION]?.n()?.toInt() ?: Reputation.START),
+		// Absent when there's no loan, which is also how items saved before loans (R90) read.
+		loan = attributes[LOAN]?.m()?.let { LoanItem(it).toLoan() },
+		// Absent from items saved before agents (R103): nobody had one.
+		agents = attributes[AGENTS]?.l().orEmpty().map { RecruitedAgentItem(it.m()).toRecruitedAgent() }
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -61,5 +66,7 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val CRIMINAL = "criminal"
 		const val CONNECTION_POINTS = "connectionPoints"
 		const val REPUTATION = "reputation"
+		const val LOAN = "loan"
+		const val AGENTS = "agents"
 	}
 }

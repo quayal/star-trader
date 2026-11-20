@@ -41,10 +41,11 @@ data class Salvo(
 	companion object {
 		/**
 		 * [firer] fires at [target] (R75), with [rockets] or not, rolling a d6 and, for a rocket salvo that hits, another d6 from
-		 * [dice]. When the target [brokeAway] that round the salvo misses without rolling (R74).
+		 * [dice]. When the target [brokeAway] that round the salvo misses without rolling (R74). [bonus] is what an agent aboard
+		 * adds to its weapons (X, R108).
 		 */
-		fun fire(firer: Ship, target: Ship, rockets: Boolean, brokeAway: Boolean, dice: Dice): Salvo {
-			val firepower = firer.firepower(rockets)
+		fun fire(firer: Ship, target: Ship, rockets: Boolean, brokeAway: Boolean, bonus: Int, dice: Dice): Salvo {
+			val firepower = firer.firepower(rockets) + bonus
 			if (brokeAway) {
 				return Salvo(firer.name, target.name, rockets, firepower, 0, target.shields(), 0, null, true)
 			}

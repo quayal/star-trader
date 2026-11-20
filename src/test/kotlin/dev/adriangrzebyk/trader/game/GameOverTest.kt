@@ -47,13 +47,15 @@ class GameOverTest {
 		started(1, grace).placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 	).resolveNextGood("grace@example.com", FakeDice.twoD6(2))
 
-	private val investing = graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+	private val investing = OpportunityPassed(
+		graceBought.trade("grace@example.com", 1, listOf(ShipLoad("Meridian", 1)), FakeDice.twoD6())
+	).byEveryone()
 
 	private val over = everyoneDoneInvesting(investing, "ada@example.com", "grace@example.com")
 
 	/** [game] once each of [emails] has signalled done investing: the last one ends the turn (R44). */
 	private fun everyoneDoneInvesting(game: Game, vararg emails: String): Game =
-		emails.fold(game) { investing, email -> investing.signalDoneInvesting(email) }
+		emails.fold(OpportunityPassed(game).byEveryone()) { investing, email -> investing.signalDoneInvesting(email) }
 
 	@Test
 	fun shouldEndTheGameOnceEveryoneIsDoneInvestingAfterTheLastTurnsLastGood() {

@@ -48,7 +48,7 @@ class ShipBattleTest {
 		val comm = wayfarer.copy(modules = listOf(Module.BATTLE_COMM, Module.BATTLE_COMM))
 		assertThat(comm.interceptTotal(4)).isEqualTo(7)
 		assertThat(comm.copy(damagedModules = listOf(Module.BATTLE_COMM, Module.BATTLE_COMM)).interceptTotal(4)).isEqualTo(6)
-		assertThat(wayfarer.copy(crewClass = CrewClass.D).interceptLog(4)).isEqualTo("Wayfarer (2 + d6 4 − 1 = 5)")
+		assertThat(wayfarer.copy(crewClass = CrewClass.D).interceptLog(4, 0)).isEqualTo("Wayfarer (2 + d6 4 − 1 = 5)")
 	}
 
 	@Test

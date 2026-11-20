@@ -27,6 +27,12 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			COLLECTED to AttributeValue.fromL(turn.collected.map { AttributeValue.fromS(it) }),
 			CONNECTIONS_RAISED to strings(turn.connectionsRaised),
 			REPUTATION_BOUGHT to strings(turn.reputationBought),
+			DONE_OPPORTUNITY to strings(turn.doneOpportunity),
+			SABOTAGES to AttributeValue.fromL(turn.sabotages.map { AttributeValue.fromM(SabotageItem(it).attributes) }),
+			RECRUITED_BY to strings(turn.recruitedBy),
+			AGENT_OFFERS to AttributeValue.fromL(turn.agentOffers.map { AttributeValue.fromM(AgentOfferItem(it).attributes) }),
+			INTEREST_PAID to strings(turn.interestPaid),
+			LIMPY_USED_BY to strings(turn.limpyUsedBy),
 			INTERCEPTION_TRIES to AttributeValue.fromL(
 				turn.interceptionTries.map {
 					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromS(it.ship), INTERCEPTOR to AttributeValue.fromS(it.interceptor)))
@@ -34,6 +40,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			)
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
+			turn.limpyAsk?.let { LIMPY_ASK to AttributeValue.fromS(it) },
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
 			turn.interception?.let { INTERCEPTION to AttributeValue.fromM(InterceptionItem(it).attributes) },
 			turn.battle?.let { BATTLE to AttributeValue.fromM(BattleItem(it).attributes) },
@@ -86,11 +93,28 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 				BattleInterception(ship = it.m().attribute(SHIP).s(), interceptor = it.m().attribute(INTERCEPTOR).s())
 			} ?: emptyList(),
 			// Absent from items saved before 2026-11-18: the order was known, but not what anyone bid or rolled.
-			initiativeRolls = attributes[INITIATIVE_ROLLS]?.l()?.map { InitiativeRollItem(it.m()).toInitiativeRoll() } ?: emptyList()
+			initiativeRolls = attributes[INITIATIVE_ROLLS]?.l()?.map { InitiativeRollItem(it.m()).toInitiativeRoll() } ?: emptyList(),
+			// Absent from items saved before the Opportunity phase, loans and agents (R90, R102, R103): nothing had happened yet.
+			doneOpportunity = list(DONE_OPPORTUNITY),
+			sabotages = attributes[SABOTAGES]?.l().orEmpty().map { SabotageItem(it.m()).toSabotage() },
+			recruitedBy = list(RECRUITED_BY),
+			agentOffers = attributes[AGENT_OFFERS]?.l().orEmpty().map { AgentOfferItem(it.m()).toAgentOffer() },
+			interestPaid = list(INTEREST_PAID),
+			limpyAsk = attributes[LIMPY_ASK]?.s(),
+			limpyUsedBy = list(LIMPY_USED_BY)
 		)
 	}
 
+	private fun list(name: String): List<String> = attributes[name]?.l().orEmpty().map { it.s() }
+
 	private companion object {
+		const val DONE_OPPORTUNITY = "doneOpportunity"
+		const val SABOTAGES = "sabotages"
+		const val RECRUITED_BY = "recruitedBy"
+		const val AGENT_OFFERS = "agentOffers"
+		const val INTEREST_PAID = "interestPaid"
+		const val LIMPY_ASK = "limpyAsk"
+		const val LIMPY_USED_BY = "limpyUsedBy"
 		const val NUMBER = "number"
 		const val PHASE = "phase"
 		const val DONE_BIDDING = "doneBidding"

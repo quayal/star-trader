@@ -66,11 +66,11 @@ data class Ship(
 	/** Whether this ship has a working Battle comm module: +1 to intercept (R71), and an interception try costs no reputation (R86). */
 	fun hasWorkingBattleComm(): Boolean = Module.BATTLE_COMM in workingModules()
 
-	/** The public log's account of an interception roll (R70): "Lantern (2 + d6 4 + 0 = 6)". */
-	fun interceptLog(d6: Int): String {
-		val modifier = interceptModifier()
+	/** The public log's account of an interception roll (R70), with [bonus] from an agent aboard (Trigger, R108): "Lantern (2 + d6 4 + 0 = 6)". */
+	fun interceptLog(d6: Int, bonus: Int): String {
+		val modifier = interceptModifier() + bonus
 		val sign = if (modifier < 0) "− ${-modifier}" else "+ $modifier"
-		return "$name (${intercept()} + d6 $d6 $sign = ${interceptTotal(d6)})"
+		return "$name (${intercept()} + d6 $d6 $sign = ${interceptTotal(d6) + bonus})"
 	}
 
 	/** Whether this ship has battle damage to repair (R79). */

@@ -72,6 +72,8 @@ class WholeGameTest {
 			override fun d6(): Int = 3
 
 			override fun d3(): Int = 1
+
+			override fun oneOf(faces: Int): Int = 1
 		}
 
 		/** The host starts at Tau Ceti and Mu Herculis, the guest at Gamma Leporis and Beta Hydri. */
@@ -105,12 +107,14 @@ class WholeGameTest {
 		val placed = post(host, "/api/games/$gameId/connections/placement", """{"political": 2, "business": 2, "criminal": 0}""")
 		assertThat(placed.players.map { it.connections }).containsExactly(ConnectionsResponseDto(2, 2, 0), ConnectionsResponseDto(0, 0, 4))
 
-		// Turn 1: nobody trades; in Investment the host builds a warehouse and a 3-unit ISO factory at Tau Ceti.
+		// Turn 1: nobody trades; nobody has an opportunity to take (R102); in Investment the host builds a warehouse and a
+		// 3-unit ISO factory at Tau Ceti.
 		bidPickAndFinishJumping(host, guest, gameId)
 		resolveEveryGood(host, gameId)
+		doneWithOpportunities(host, guest, gameId)
 		post(host, "/api/games/$gameId/investment/warehouse-blocks", """{"system": "TAU_CETI", "blocks": 1}""")
 		val built = post(host, "/api/games/$gameId/investment/factory-units", """{"system": "TAU_CETI", "goods": "ISO", "units": 3}""")
-		assertThat(built.players.first().factories).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 3))
+		assertThat(built.players.first().factories).containsExactly(FactoryResponseDto("TAU_CETI", "ISO", 3, 0))
 		assertThat(built.you!!.invest!!.factoryUnits).isEqualTo(3)
 		assertThat(built.you!!.invest!!.factoryCap).isEqualTo(4)
 		// R83: one raise per Investment, at the new level × 10 HT
@@ -126,10 +130,11 @@ class WholeGameTest {
 		resolveEveryGood(host, gameId)
 		val collected = post(
 			host,
-			"/api/games/$gameId/investment/collect",
+			"/api/games/$gameId/opportunity/collect",
 			"""{"placements": [{"system": "TAU_CETI", "goods": "ISO", "ship": null, "units": 3}]}"""
 		)
 		assertThat(collected.you!!.warehouses.single().cargo).isEqualTo(mapOf("ISO" to 3))
+		doneWithOpportunities(host, guest, gameId)
 		assertThat(doneInvesting(host, guest, gameId).turn!!.number).isEqualTo(3)
 
 		// Turn 3, Bidding: last turn's output is loaded onto the ship in port (R58), and offered for sale at Mu Herculis.
@@ -165,7 +170,7 @@ class WholeGameTest {
 			post(host, "/api/games/$gameId/trading/trade", """{"amount": 3, "ships": [{"name": "$wayfarer", "units": 3}]}""")
 		}
 		val sold = poll(host, gameId)
-		assertThat(sold.turn!!.phase).isEqualTo("INVESTMENT")
+		assertThat(sold.turn!!.phase).isEqualTo("OPPORTUNITY")
 		assertThat(sold.you!!.ships.first().cargo).isEmpty()
 		assertThat(sold.you!!.money).isEqualTo(moneyBefore + 3 * price)
 		assertThat(sold.log.map { it.text }).anyMatch { it.endsWith(": sold 3 u at $price HT each, received ${3 * price} HT") }
@@ -175,7 +180,8 @@ class WholeGameTest {
 		)
 
 		// Investment closes the last turn: the game is over, and everyone sees everyone's money (R39).
-		post(host, "/api/games/$gameId/investment/collect", """{"placements": []}""")
+		post(host, "/api/games/$gameId/opportunity/collect", """{"placements": []}""")
+		doneWithOpportunities(host, guest, gameId)
 		val over = doneInvesting(host, guest, gameId)
 		assertThat(over.status).isEqualTo("FINISHED")
 		assertThat(over.result!!.standings.map { it.id }).containsExactlyInAnyOrder("p1", "p2")
@@ -205,6 +211,12 @@ class WholeGameTest {
 			if (game.turn.resolution?.awaitingTrade != null) onTrade(game) else post(host, "/api/games/$gameId/trading/resolve-next")
 		}
 		error("Trading didn't finish")
+	}
+
+	/** The host, first in the turn order, then the guest are done with opportunities (R102); Investment opens. */
+	private fun doneWithOpportunities(host: String, guest: String, gameId: String) {
+		post(host, "/api/games/$gameId/opportunity/done")
+		assertThat(post(guest, "/api/games/$gameId/opportunity/done").turn!!.phase).isEqualTo("INVESTMENT")
 	}
 
 	private fun doneInvesting(host: String, guest: String, gameId: String): GameResponseDto {

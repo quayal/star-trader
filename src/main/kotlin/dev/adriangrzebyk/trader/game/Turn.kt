@@ -3,10 +3,13 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.agent.AgentOffer
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.sabotage.Sabotage
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
 /**
  * The turn a running game is in and its phase (R41: a game starts in turn 1, Bidding).
@@ -34,6 +37,11 @@ import dev.adriangrzebyk.trader.game.battle.Interception
  * started later in the turn at the same system still knows who tried whom first (R86). [initiativeRolls] are every
  * player's bid and 2d6 rolls for initiative, in initiative order, public once Bidding closes and empty before (R27,
  * creator 2026-11-18).
+ * [doneOpportunity] lists, in order, the players whose Opportunity turn has ended (R102); the player on turn is the first
+ * in the turn order who isn't in it. [sabotages] are this Opportunity's sabotages (R97–R101), [recruitedBy] who recruited
+ * (R103) and [agentOffers] the agents offered for sale and not yet answered (R106); all emptied when Trading closes into
+ * Opportunity. [interestPaid] lists who paid loan interest this Investment (R92). [limpyAsk] is the player asked whether
+ * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn.
  */
 data class Turn(
 	val number: Int,
@@ -57,7 +65,14 @@ data class Turn(
 	val connectionsRaised: List<String>,
 	val reputationBought: List<String>,
 	val interceptionTries: List<BattleInterception>,
-	val initiativeRolls: List<InitiativeRoll>
+	val initiativeRolls: List<InitiativeRoll>,
+	val doneOpportunity: List<String>,
+	val sabotages: List<Sabotage>,
+	val recruitedBy: List<String>,
+	val agentOffers: List<AgentOffer>,
+	val interestPaid: List<String>,
+	val limpyAsk: String?,
+	val limpyUsedBy: List<String>
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -105,7 +120,7 @@ data class Turn(
 	fun requireShipJumps() {
 		when (phase) {
 			TurnPhase.BIDDING -> throw InvalidGameOperationException("Ship-jumps hasn't started.")
-			TurnPhase.TRADING, TurnPhase.INVESTMENT -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
+			TurnPhase.TRADING, TurnPhase.OPPORTUNITY, TurnPhase.INVESTMENT -> throw PhaseClosedException(TurnPhase.SHIP_JUMPS)
 			TurnPhase.SHIP_JUMPS -> Unit
 		}
 	}
@@ -145,15 +160,6 @@ data class Turn(
 
 	/** What [email] pays when Bidding closes (R27): their bid, or 0 if they never placed one (Q07, proposed). */
 	fun bidAmountOf(email: String): Int = bidOf(email)?.amount ?: 0
-
-	/**
-	 * Bidding → Ship-jumps (R27): [emails] are put in initiative order by bid + 2d6 from [dice], ties rolled again. Every
-	 * bid and roll is kept as [initiativeRolls], public from now on (creator, 2026-11-18).
-	 */
-	fun closeBidding(emails: List<String>, dice: Dice): Turn {
-		val rolls = initiativeOrder(emails.map { InitiativeRoll(it, bidAmountOf(it), listOf(dice.twoD6())) }, InitiativeRoll::total, dice)
-		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = rolls.map { it.playerEmail }, initiativeRolls = rolls)
-	}
 
 	/**
 	 * The public log line of the initiative once Bidding closed, in initiative order (creator, 2026-11-18): "Initiative
@@ -309,18 +315,182 @@ data class Turn(
 		return if (ended.jumper() == null) ended.toTrading() else ended
 	}
 
+	/**
+	 * Bidding → Ship-jumps (R27) with each player's initiative [bonuses] (Wolf, R108) added to their bid + 2d6.
+	 */
+	fun closeBidding(emails: List<String>, bonuses: Map<String, Int>, dice: Dice): Turn {
+		val rolls = initiativeOrder(
+			emails.map { InitiativeRoll(it, bidAmountOf(it), bonuses[it] ?: 0, listOf(dice.twoD6())) },
+			InitiativeRoll::total,
+			dice
+		)
+		return copy(phase = TurnPhase.SHIP_JUMPS, doneBidding = emptyList(), initiative = rolls.map { it.playerEmail }, initiativeRolls = rolls)
+	}
+
 	/** Ship-jumps → Trading (N06): every good at every system is queued to resolve (R36, S01-2). */
 	fun toTrading(): Turn =
 		copy(phase = TurnPhase.TRADING, tradingQueue = MarketGood.everyOnBoard(), resolvedGoods = emptyList(), resolution = null)
 
-	/** Trading → Investment (R44): the phase after Trading, with nobody done investing yet. */
+	/** Trading → Opportunity (R44, R102): nobody has collected or acted yet, and the first player in the turn order is on turn. */
 	fun endTrading(): Turn = copy(
-		phase = checkNotNull(TurnPhase.TRADING.next()),
-		doneInvesting = emptyList(),
+		phase = TurnPhase.OPPORTUNITY,
 		collected = emptyList(),
-		connectionsRaised = emptyList(),
-		reputationBought = emptyList()
+		doneOpportunity = emptyList(),
+		sabotages = emptyList(),
+		recruitedBy = emptyList(),
+		agentOffers = emptyList()
 	)
+
+	/** Refuses anything but Opportunity (R102). */
+	fun requireOpportunity() {
+		if (phase != TurnPhase.OPPORTUNITY) {
+			throw InvalidGameOperationException("Opportunity isn't open.")
+		}
+	}
+
+	/**
+	 * Whose Opportunity turn it is (R102): the first player in the turn order (R26) whose turn hasn't ended, or null outside
+	 * Opportunity and once everyone is done.
+	 */
+	fun opportunist(): String? {
+		if (phase != TurnPhase.OPPORTUNITY) {
+			return null
+		}
+		return turnOrder().filterNotNull().ifEmpty { initiative }.firstOrNull { it !in doneOpportunity }
+	}
+
+	/** Whose Opportunity turn it is, refused outside Opportunity and once everyone is done (R102). */
+	fun currentOpportunist(): String {
+		requireOpportunity()
+		return opportunist() ?: throw InvalidGameOperationException("Everyone is done with opportunities.")
+	}
+
+	/** Refusing an Opportunity action out of turn (R04, R102): "It's Vega Lines's Opportunity turn." */
+	fun opportunistWaitingText(names: CorporationNames): String = "It's ${names.of(currentOpportunist())}'s Opportunity turn."
+
+	/** This turn after [email]'s Opportunity turn ended (R102): the next player in the turn order is on. */
+	fun endOpportunityTurn(email: String): Turn = copy(doneOpportunity = doneOpportunity + email)
+
+	/** Whether Opportunity can close (R102): everyone is done, and no choice owed out of turn, like a ship's hits, is open. */
+	fun isOpportunityOver(): Boolean = phase == TurnPhase.OPPORTUNITY && opportunist() == null && sabotages.none { it.awaitsHits() }
+
+	/** Opportunity → Investment (R44): nobody done investing yet, and agent offers nobody answered expire (R106). */
+	fun toInvestment(): Turn = copy(
+		phase = TurnPhase.INVESTMENT,
+		doneInvesting = emptyList(),
+		connectionsRaised = emptyList(),
+		reputationBought = emptyList(),
+		interestPaid = emptyList(),
+		agentOffers = emptyList()
+	)
+
+	/** The players who owe a choice out of turn before Opportunity can close (R102): ship owners with sabotage hits to place. */
+	fun owedChoices(): List<String> = sabotages.filter { it.awaitsHits() }.map { it.target.ownerEmail }.distinct()
+
+	/** Whether [email] has sabotaged this Opportunity: once per Opportunity (R97). */
+	fun hasSabotaged(email: String): Boolean = sabotages.any { it.saboteurEmail == email }
+
+	/** This turn with [sabotage] recorded (R97): once per Opportunity per player. */
+	fun recordSabotage(sabotage: Sabotage): Turn {
+		requireOpportunity()
+		if (hasSabotaged(sabotage.saboteurEmail)) {
+			throw InvalidGameOperationException("You've already sabotaged this Opportunity.")
+		}
+		return copy(sabotages = sabotages + sabotage)
+	}
+
+	/** [email]'s sabotage waiting for them to choose a warehouse's missing units (R99), or null. */
+	fun lossChoiceOf(email: String): Sabotage? = sabotages.firstOrNull { it.awaitsLossChoiceBy(email) }
+
+	/** The sabotage hits waiting for [email] to place them on [shipName] (R99), refused when there are none. */
+	fun sabotageHitsOn(email: String, shipName: String): Sabotage =
+		sabotages.firstOrNull { it.awaitsHitsFrom(email) && (it.target as? SabotageTarget.Ship)?.name == shipName }
+			?: throw InvalidGameOperationException("$shipName has no sabotage hits to place.")
+
+	/** The sabotages whose hits [email] still has to place (R99). */
+	fun sabotageHitsOwedBy(email: String): List<Sabotage> = sabotages.filter { it.awaitsHitsFrom(email) }
+
+	/** This turn with [before] replaced by [after]. */
+	fun withSabotageChanged(before: Sabotage, after: Sabotage): Turn = copy(sabotages = sabotages.map { if (it == before) after else it })
+
+	/** The sabotages [email] ordered this Opportunity (R101): theirs to see with the rolls. */
+	fun sabotagesBy(email: String): List<Sabotage> = sabotages.filter { it.saboteurEmail == email }
+
+	/** The sabotages on [email]'s assets this Opportunity (R101): what happened, never who did it. */
+	fun sabotagesOn(email: String): List<Sabotage> = sabotages.filter { it.target.ownerEmail == email && it.saboteurEmail != email }
+
+	/** Refuses [email]'s done signal while a choice of their own sabotage is open (R99). */
+	fun refuseDoneWhileChoosing(email: String) {
+		lossChoiceOf(email)?.let { throw InvalidGameOperationException("Choose the units missing from the warehouse first.") }
+	}
+
+	/** Whether [email] has recruited this Opportunity: once per Opportunity (R103). */
+	fun hasRecruited(email: String): Boolean = email in recruitedBy
+
+	/** This turn after [email] tried to recruit (R103), refused the second time. */
+	fun recruitedByPlayer(email: String): Turn {
+		requireOpportunity()
+		if (hasRecruited(email)) {
+			throw InvalidGameOperationException("You've already recruited this Opportunity.")
+		}
+		return copy(recruitedBy = recruitedBy + email)
+	}
+
+	/** This turn with [offer]'s agent offered (R106), replacing an earlier offer of the same agent; [offer]'s id is made here. */
+	fun withAgentOffered(offer: AgentOffer): Turn {
+		requireOpportunity()
+		val id = (agentOffers.maxOfOrNull { it.id } ?: 0) + 1
+		return copy(agentOffers = agentOffers.filterNot { it.agent == offer.agent } + offer.withId(id))
+	}
+
+	/** The agent offer [id], refused when it's gone (answered, or expired when Opportunity closed). */
+	fun agentOffer(id: Int?): AgentOffer {
+		requireOpportunity()
+		return agentOffers.firstOrNull { it.id == id } ?: throw InvalidGameOperationException("This offer is no longer open.")
+	}
+
+	/** This turn once the agent offer [offer] was answered. */
+	fun withoutAgentOffer(offer: AgentOffer): Turn = copy(agentOffers = agentOffers.filterNot { it.id == offer.id })
+
+	/** The agent offers [email] made or may answer (R106). */
+	fun agentOffersConcerning(email: String): List<AgentOffer> = agentOffers.filter { it.concerns(email) }
+
+	/** Whether [email] has paid loan interest this Investment (R92). */
+	fun hasPaidInterest(email: String): Boolean = email in interestPaid
+
+	/** This turn after [email] paid loan interest (R92): once per Investment. */
+	fun interestPaidBy(email: String): Turn {
+		requireInvesting()
+		if (hasPaidInterest(email)) {
+			throw InvalidGameOperationException("You've already paid this turn's interest.")
+		}
+		return copy(interestPaid = interestPaid + email)
+	}
+
+	/** This turn asking [email] whether Limpy lets them act as Dictator of the next good (R108). */
+	fun askLimpy(email: String): Turn = copy(limpyAsk = email)
+
+	/** Whom the Limpy question waits for, refused when nobody is asked (R108). */
+	fun limpyToDecide(): String {
+		requireTrading()
+		return limpyAsk ?: throw InvalidGameOperationException("Nobody is asked about Limpy.")
+	}
+
+	/** Refusing the Limpy answer to anyone else: "Waiting for Vega Lines to decide on Limpy." */
+	fun limpyWaitingText(names: CorporationNames): String = "Waiting for ${names.of(limpyToDecide())} to decide on Limpy."
+
+	/** This turn once the Limpy question was answered, [used] or not (R108): used, it's gone for the turn. */
+	fun limpyAnswered(used: Boolean): Turn {
+		val asked = limpyToDecide()
+		return copy(limpyAsk = null, limpyUsedBy = if (used) limpyUsedBy + asked else limpyUsedBy)
+	}
+
+	/** Whether [email] has used Limpy this turn: one good a turn (R108). */
+	fun hasUsedLimpy(email: String): Boolean = email in limpyUsedBy
+
+	/** This turn without [email]'s own offer on [good] (R108): acting as its Dictator replaces it. */
+	fun withoutOfferOf(email: String, good: MarketGood): Turn =
+		copy(offers = offers.filterNot { it.playerEmail == email && it.system == good.system && it.goods == good.goods })
 
 	/** Refuses anything but Investment: before it, it hasn't started, and once it has closed the turn has moved on (A04). */
 	fun requireInvesting() {
@@ -338,15 +508,15 @@ data class Turn(
 	/** Whether [email] has confirmed where this turn's output goes (R47, E06-S03-5). */
 	fun hasCollected(email: String): Boolean = email in collected
 
-	/** Whether it's Investment and [email] hasn't confirmed their collect yet: the only time they may place output (R47). */
-	fun isCollecting(email: String): Boolean = phase == TurnPhase.INVESTMENT && !hasCollected(email)
+	/** Whether it's Opportunity and [email] hasn't confirmed their collect yet: they may fill in their placements (R47, R102). */
+	fun isCollecting(email: String): Boolean = phase == TurnPhase.OPPORTUNITY && !hasCollected(email)
 
 	/**
-	 * This turn after [email] confirmed where their output goes (R47, E06-S03-5). Once: a second confirm is refused, so
+	 * This turn after [email] confirmed where their output goes (R47, R102), in Opportunity. Once: a second confirm is refused, so
 	 * the output can't be stored twice (A04).
 	 */
 	fun collectedBy(email: String): Turn {
-		requireInvesting()
+		requireOpportunity()
 		if (hasCollected(email)) {
 			throw InvalidGameOperationException("You have already collected your output.")
 		}
@@ -551,6 +721,13 @@ data class Turn(
 			emptyList(),
 			emptyList(),
 			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			emptyList(),
+			null,
 			emptyList()
 		)
 	}

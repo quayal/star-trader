@@ -15,6 +15,8 @@ import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnOrderPick
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Wholesale
+import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.agent.AgentOffer
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleAction
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
@@ -28,6 +30,8 @@ import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
 import dev.adriangrzebyk.trader.game.battle.SalvoRolls
+import dev.adriangrzebyk.trader.game.sabotage.Sabotage
+import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -58,7 +62,48 @@ class TurnItemTest {
 		connectionsRaised = listOf("ada@example.com"),
 		reputationBought = listOf("grace@example.com"),
 		interceptionTries = listOf(BattleInterception("Meridian", "Wayfarer")),
-		initiativeRolls = listOf(InitiativeRoll("ada@example.com", 0, listOf(7, 9)), InitiativeRoll("grace@example.com", 40, listOf(7, 3))),
+		initiativeRolls = listOf(InitiativeRoll("ada@example.com", 0, 4, listOf(7, 9)), InitiativeRoll("grace@example.com", 40, 0, listOf(7, 3))),
+		doneOpportunity = listOf("grace@example.com"),
+		sabotages = listOf(
+			Sabotage(
+				"ada@example.com",
+				SabotageTarget.Warehouse("grace@example.com", StarSystem.TAU_CETI),
+				"grace@example.com",
+				60,
+				9,
+				3,
+				6,
+				3,
+				null,
+				mapOf(Goods.ISO to 2),
+				false
+			),
+			Sabotage.foiled(
+				"grace@example.com",
+				SabotageTarget.Ship("ada@example.com", StarSystem.TAU_CETI, "Wayfarer"),
+				"ada@example.com",
+				40,
+				"Silent"
+			),
+			Sabotage(
+				"grace@example.com",
+				SabotageTarget.Factory("ada@example.com", StarSystem.MU_HERCULIS, Goods.CHIPS),
+				"ada@example.com",
+				80,
+				11,
+				-3,
+				10,
+				0,
+				null,
+				emptyMap(),
+				true
+			)
+		),
+		recruitedBy = listOf("ada@example.com"),
+		agentOffers = listOf(AgentOffer(2, "ada@example.com", "grace@example.com", Agent.NOVAK, 35)),
+		interestPaid = listOf("grace@example.com"),
+		limpyAsk = "ada@example.com",
+		limpyUsedBy = listOf("grace@example.com"),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -171,7 +216,14 @@ class TurnItemTest {
 					connectionsRaised = emptyList(),
 					reputationBought = emptyList(),
 					interceptionTries = emptyList(),
-					initiativeRolls = emptyList()
+					initiativeRolls = emptyList(),
+					doneOpportunity = emptyList(),
+					sabotages = emptyList(),
+					recruitedBy = emptyList(),
+					agentOffers = emptyList(),
+					interestPaid = emptyList(),
+					limpyAsk = null,
+					limpyUsedBy = emptyList()
 				)
 			assertThat(TurnItem(TurnItem(inPhase).attributes).toTurn()).isEqualTo(inPhase)
 		}
@@ -182,7 +234,7 @@ class TurnItemTest {
 		val withOneOfEach = turn.copy(
 			offers = listOf(offer),
 			bids = listOf(InitiativeBid("grace@example.com", 40)),
-			initiativeRolls = listOf(InitiativeRoll("grace@example.com", 40, listOf(7))),
+			initiativeRolls = listOf(InitiativeRoll("grace@example.com", 40, 0, listOf(7))),
 			turnOrderPicks = listOf(TurnOrderPick("ada@example.com", 2)),
 			jumpedShips = listOf("Wayfarer"),
 			tradingQueue = listOf(MarketGood(StarSystem.MU_HERCULIS, Goods.ISO)),
@@ -198,7 +250,14 @@ class TurnItemTest {
 				emptyList(),
 				emptyList(),
 				emptyList()
-			)
+			),
+			doneOpportunity = listOf("ada@example.com"),
+			sabotages = emptyList(),
+			recruitedBy = listOf("grace@example.com"),
+			agentOffers = listOf(AgentOffer(1, "ada@example.com", "grace@example.com", Agent.WOLF, 30)),
+			interestPaid = listOf("ada@example.com"),
+			limpyAsk = null,
+			limpyUsedBy = emptyList()
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -233,6 +292,7 @@ class TurnItemTest {
 							mapOf(
 								"playerEmail" to AttributeValue.fromS("grace@example.com"),
 								"bid" to AttributeValue.fromN("40"),
+								"bonus" to AttributeValue.fromN("0"),
 								"rolls" to AttributeValue.fromL(listOf(AttributeValue.fromN("7")))
 							)
 						)
@@ -255,6 +315,24 @@ class TurnItemTest {
 				"interceptionTries" to AttributeValue.fromL(
 					listOf(AttributeValue.fromM(mapOf("ship" to AttributeValue.fromS("Meridian"), "interceptor" to AttributeValue.fromS("Wayfarer"))))
 				),
+				"doneOpportunity" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
+				"sabotages" to AttributeValue.fromL(emptyList()),
+				"recruitedBy" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
+				"agentOffers" to AttributeValue.fromL(
+					listOf(
+						AttributeValue.fromM(
+							mapOf(
+								"id" to AttributeValue.fromN("1"),
+								"seller" to AttributeValue.fromS("ada@example.com"),
+								"buyer" to AttributeValue.fromS("grace@example.com"),
+								"agent" to AttributeValue.fromS("WOLF"),
+								"price" to AttributeValue.fromN("30")
+							)
+						)
+					)
+				),
+				"interestPaid" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
+				"limpyUsedBy" to AttributeValue.fromL(emptyList()),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),
@@ -438,7 +516,14 @@ class TurnItemTest {
 				connectionsRaised = emptyList(),
 				reputationBought = emptyList(),
 				interceptionTries = emptyList(),
-				initiativeRolls = emptyList()
+				initiativeRolls = emptyList(),
+				doneOpportunity = emptyList(),
+				sabotages = emptyList(),
+				recruitedBy = emptyList(),
+				agentOffers = emptyList(),
+				interestPaid = emptyList(),
+				limpyAsk = null,
+				limpyUsedBy = emptyList()
 			)
 
 		assertThat(TurnItem(older).toTurn()).isEqualTo(expected)

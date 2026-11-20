@@ -19,7 +19,7 @@ class PlayerAssetsTest {
 	private val wayfarer = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3).load(Goods.FOOD, 2)
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer), 0).copy(
 		warehouses = listOf(Warehouse(StarSystem.MU_HERCULIS, 1, mapOf(Goods.POLY to 2, Goods.ISO to 5))),
-		factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 3))
+		factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 3, 0))
 	)
 
 	@Test
@@ -62,7 +62,7 @@ class PlayerAssetsTest {
 
 	@Test
 	fun shouldValueAFactoryByOneTurnsOutputAtTheMeanPrice() {
-		assertThat(Factory(StarSystem.TAU_CETI, Goods.ISO, 3).outputValue(prices)).isEqualTo(21)
+		assertThat(Factory(StarSystem.TAU_CETI, Goods.ISO, 3, 0).outputValue(prices)).isEqualTo(21)
 		assertThat(player.factoryOutputValue(prices)).isEqualTo(21)
 	}
 }

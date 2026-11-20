@@ -21,12 +21,12 @@ class GameBuyWarehouseBlocksTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
 	private fun withFactoryFor(game: Game, email: String): Game =
-		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6))) else it })
+		game.copy(players = game.players.map { if (it.email == email) it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 6, 0))) else it })
 
 	@Test
 	fun shouldBuyBlocksTakeTheMoneyAndLogItPublicly() {
@@ -53,29 +53,11 @@ class GameBuyWarehouseBlocksTest {
 	}
 
 	@Test
-	fun shouldNotLetAPlayerWithFactoriesBuyBeforeTheyCollect() {
-		// S03-5: nothing is built before the output is placed
-		val game = withFactoryFor(investing, "ada@example.com")
-
-		assertThatThrownBy { game.buyWarehouseBlocks("ada@example.com", TAU_CETI, 1) }
-			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Collect your output first.")
-	}
-
-	@Test
-	fun shouldLetThemBuyOnceTheyHaveCollected() {
-		val game = withFactoryFor(investing, "ada@example.com").collectOutput("ada@example.com", emptyList())
-			.buyWarehouseBlocks("ada@example.com", TAU_CETI, 1)
+	fun shouldLetAPlayerWithFactoriesBuyWithoutACollectInInvestment() {
+		// R102: Collect happened in Opportunity, so a warehouse bought now holds nothing from it (R48)
+		val game = withFactoryFor(investing, "ada@example.com").buyWarehouseBlocks("ada@example.com", TAU_CETI, 1)
 
 		assertThat(playerOf(game, "ada@example.com").warehouseAt(TAU_CETI)!!.blocks).isEqualTo(1)
-	}
-
-	@Test
-	fun shouldKeepWhatWasJustCollectedAndNotCatchItInTheNewBlocks() {
-		// R48: this turn's Collect has finished, so a warehouse bought now holds nothing from it
-		val game = withFactoryFor(investing, "ada@example.com").collectOutput("ada@example.com", emptyList())
-			.buyWarehouseBlocks("ada@example.com", TAU_CETI, 1)
-
 		assertThat(playerOf(game, "ada@example.com").warehouseAt(TAU_CETI)!!.cargo).isEmpty()
 	}
 

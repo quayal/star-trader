@@ -9,7 +9,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-// E06-S03: at the start of Investment a player with factories places their output before they can be done (R47, R48).
+// E06-S03, R102: on their Opportunity turn a player with factories places their output before anything else (R47, R48).
 class GameCollectTest {
 
 	private val ada = Player.newcomer("ada@example.com", "Ada", "Orion Freight")
@@ -21,10 +21,10 @@ class GameCollectTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 
-	/** [started] taken to the start of Investment: advancing a phase needs no players' acts. */
+	/** [started] taken to the start of Opportunity, Ada first in the order: advancing a phase needs no players' acts. */
 	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
-	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6)
+	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6, 0)
 
 	/** [investing] where Ada owns an ISO factory at Tau Ceti and a one-block warehouse there; Grace owns nothing. */
 	private val withFactory = investing.copy(
@@ -84,7 +84,7 @@ class GameCollectTest {
 	@Test
 	fun shouldCountOutputThatDidNotFitAsLost() {
 		// R16: the Wayfarer has 8 cargo spaces (R55), so 2 of 10 placed units don't fit
-		val big = withFactories(Factory(TAU_CETI, Goods.ISO, 10))
+		val big = withFactories(Factory(TAU_CETI, Goods.ISO, 10, 0))
 
 		val game = big.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 10)))
 
@@ -93,7 +93,7 @@ class GameCollectTest {
 
 	@Test
 	fun shouldLogOneLinePerFactoryEvenWhenAllOfItWasLost() {
-		val two = withFactories(isoAtTau, Factory(GAMMA_LEPORIS, Goods.POLY, 3))
+		val two = withFactories(isoAtTau, Factory(GAMMA_LEPORIS, Goods.POLY, 3, 0))
 
 		val game = two.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 6)))
 
@@ -105,10 +105,24 @@ class GameCollectTest {
 
 	@Test
 	fun shouldNotLetAPlayerWithoutFactoriesCollect() {
-		// S03-6: they have nothing to collect and go straight to the invest step
-		assertThatThrownBy { withFactory.collectOutput("grace@example.com", emptyList()) }
+		// S03-6: they have nothing to collect and go straight to the phase's actions
+		val gracesTurn = withFactory.collectOutput("ada@example.com", emptyList()).finishOpportunities("ada@example.com")
+
+		assertThatThrownBy { gracesTurn.collectOutput("grace@example.com", emptyList()) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("You have no factories to collect from.")
+	}
+
+	@Test
+	fun shouldRefuseACollectOutOfTurnNamingWhoseTurnItIs() {
+		// R102: players act one at a time in the turn order
+		val graceWithFactory = withFactory.copy(
+			players = withFactory.players.map { if (it.email == "grace@example.com") it.copy(factories = listOf(isoAtTau)) else it }
+		)
+
+		assertThatThrownBy { graceWithFactory.collectOutput("grace@example.com", emptyList()) }
+			.isInstanceOf(NotYourTurnException::class.java)
+			.hasMessage("It's Orion Freight's Opportunity turn.")
 	}
 
 	@Test
@@ -122,10 +136,13 @@ class GameCollectTest {
 	}
 
 	@Test
-	fun shouldRefuseACollectOutsideInvestment() {
+	fun shouldRefuseACollectOutsideOpportunity() {
 		assertThatThrownBy { started.collectOutput("ada@example.com", emptyList()) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
-			.hasMessage("Investment isn't open.")
+			.hasMessage("Opportunity isn't open.")
+		assertThatThrownBy { withFactory.advancePhase(FakeDice()).collectOutput("ada@example.com", emptyList()) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Opportunity isn't open.")
 	}
 
 	@Test
@@ -135,52 +152,53 @@ class GameCollectTest {
 
 	@Test
 	fun shouldNotLetAPlayerWithFactoriesBeDoneBeforeTheyCollect() {
-		// E06-S03-5: a player can't go on to invest, nor be done, before confirming
-		assertThatThrownBy { withFactory.signalDoneInvesting("ada@example.com") }
+		// R102: Collect comes before anything else on their turn
+		assertThatThrownBy { withFactory.finishOpportunities("ada@example.com") }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Collect your output first.")
-		assertThat(withFactory.turn!!.doneInvesting).isEmpty()
+		assertThat(withFactory.turn!!.doneOpportunity).isEmpty()
 	}
 
 	@Test
-	fun shouldLetThemBeDoneOnceTheyCollected() {
-		val done = withFactory.collectOutput("ada@example.com", emptyList()).signalDoneInvesting("ada@example.com")
+	fun shouldPassTheTurnOnceTheyCollectedAndAreDone() {
+		val done = withFactory.collectOutput("ada@example.com", emptyList()).finishOpportunities("ada@example.com")
 
-		assertThat(done.turn!!.doneInvesting).containsExactly("ada@example.com")
+		assertThat(done.turn!!.doneOpportunity).containsExactly("ada@example.com")
+		assertThat(done.turn!!.opportunist()).isEqualTo("grace@example.com")
 	}
 
 	@Test
-	fun shouldLetAPlayerWithoutFactoriesBeDoneAtOnce() {
-		// S03-6
-		assertThat(withFactory.signalDoneInvesting("grace@example.com").turn!!.doneInvesting).containsExactly("grace@example.com")
-	}
-
-	@Test
-	fun shouldKeepWaitingForAPlayerWhoHasNotCollectedEvenWhenTheOthersAreDone() {
-		// D09: the game waits; Ada hasn't confirmed, so the turn doesn't end
-		val game = withFactory.signalDoneInvesting("grace@example.com")
+	fun shouldOpenInvestmentOnceTheLastPlayerIsDone() {
+		// R102: after the last player, Investment starts
+		val game = withFactory.collectOutput("ada@example.com", emptyList())
+			.finishOpportunities("ada@example.com").finishOpportunities("grace@example.com")
 
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
-		assertThat(game.turn!!.collected).isEmpty()
+		assertThat(game.turn!!.collected).containsExactly("ada@example.com")
 	}
 
 	@Test
-	fun shouldStartTheNextTurnWithNoCollectsWhenEveryoneIsDone() {
-		val game = withFactory.collectOutput("ada@example.com", emptyList())
-			.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+	fun shouldProduceNothingWhileDisabledAndCountTheTurnsDown() {
+		// R99: a sabotaged factory's next N Collects produce nothing
+		val disabled = withFactories(isoAtTau.disabledFor(2))
 
-		assertThat(game.turn).isEqualTo(Turn.bidding(2))
-		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(isoAtTau)
+		assertThatThrownBy { disabled.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 1))) }
+			.isInstanceOf(InvalidCollectException::class.java)
+			.hasMessage("Your ISO factory at Tau Ceti makes 0 units.")
+		val game = disabled.collectOutput("ada@example.com", emptyList())
+
+		assertThat(game.log.last().text).isEqualTo("Orion Freight collected nothing at Tau Ceti: its ISO factory is disabled")
+		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(isoAtTau.disabledFor(1))
 	}
 
 	@Test
-	fun shouldCollectInTheNextInvestmentToo() {
-		// E06-S03-7 / R48: the factory keeps making its output every turn; collects reset each Investment
-		val next = (1..3).fold(
-			withFactory.collectOutput("ada@example.com", emptyList()).signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+	fun shouldCollectInTheNextOpportunityToo() {
+		// E06-S03-7 / R48: the factory keeps making its output every turn; collects reset each Opportunity
+		val next = (1..4).fold(
+			withFactory.collectOutput("ada@example.com", emptyList()).finishOpportunities("ada@example.com").finishOpportunities("grace@example.com")
 		) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
-		assertThat(next.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
+		assertThat(next.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
 		assertThat(next.turn!!.collected).isEmpty()
 		assertThat(next.collectOutput("ada@example.com", listOf(OutputPlacement(TAU_CETI, Goods.ISO, wayfarerShip, 6))).turn!!.collected)
 			.containsExactly("ada@example.com")

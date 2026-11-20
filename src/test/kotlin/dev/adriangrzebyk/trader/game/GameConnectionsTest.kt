@@ -1,6 +1,5 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
@@ -21,7 +20,7 @@ class GameConnectionsTest {
 
 	private val placed = started.placeConnections("ada@example.com", 2, 3, 0).placeConnections("grace@example.com", 0, 0, 4)
 
-	private val investing = (1..3).fold(placed) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..4).fold(placed) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 
@@ -99,7 +98,7 @@ class GameConnectionsTest {
 		val raised = investing.raiseConnection("ada@example.com", ConnectionKind.POLITICAL)
 		val nextInvestment = raised.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
 			.signalDoneBidding("ada@example.com", FakeDice()).signalDoneBidding("grace@example.com", FakeDice(2, 1))
-			.advancePhase(FakeDice()).advancePhase(FakeDice())
+			.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(nextInvestment.turn!!.number).isEqualTo(2)
 		assertThat(nextInvestment.turn!!.connectionsRaised).isEmpty()
@@ -123,16 +122,9 @@ class GameConnectionsTest {
 	}
 
 	@Test
-	fun shouldRefuseARaiseOutsideInvestmentOrBeforeTheirCollect() {
+	fun shouldRefuseARaiseOutsideInvestment() {
 		assertThatThrownBy { placed.raiseConnection("ada@example.com", ConnectionKind.POLITICAL) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Investment isn't open.")
-		val withFactory = investing.copy(
-			players = investing.players.map {
-				if (it.email == "ada@example.com") it.copy(factories = listOf(Factory(TAU_CETI, Goods.ISO, 1))) else it
-			}
-		)
-		assertThatThrownBy { withFactory.raiseConnection("ada@example.com", ConnectionKind.POLITICAL) }
-			.hasMessage("Collect your output first.")
 	}
 }
