@@ -18,6 +18,17 @@ export const DONE_TEXT = 'You signalled done — you can still add offers';
 export const CLOSED_BY_YOU = 'Everyone is done. Bidding has closed.';
 export const ALREADY_CLOSED = 'Bidding has already closed.';
 
+/** The question asked before "done" when the player has placed nothing this Bidding (playtest, 2026-11-21). */
+export const EMPTY_DONE_QUESTION = 'Are you done bidding?';
+export const EMPTY_DONE_TEXT = 'You haven’t placed any offers or an initiative bid this turn. You can still add them until '
+	+ 'everyone is done, but Bidding closes as soon as the last player is.';
+
+/** Whether "I'm done bidding" asks first: during Bidding, with no initiative bid and no offers placed (playtest, 2026-11-21). */
+export function asksBeforeDone(game) {
+	const bid = game.you?.bid;
+	return isBidding(game) && (bid === null || bid === undefined) && (game.you?.offers ?? []).length === 0;
+}
+
 /** Whether the player with [playerId] has signalled done this Bidding. */
 export function isDone(game, playerId) {
 	return isBidding(game) && game.turn.doneBidding.includes(playerId);

@@ -10,6 +10,8 @@ import {
 	defaultSplit,
 	lossWarning,
 	lostUnits,
+	placeMax,
+	rebalanceSplit,
 	shipLabel,
 	warehouseLabel,
 	tradeForm,
@@ -435,6 +437,28 @@ describe('a trader choosing an amount (E05-S04)', () => {
 		assert.equal(buy.help, 'You pay your offer price, 11 HT each. Trading more leaves less for others.');
 		assert.deepEqual(defaultSplit(buy, 4), [4, 0]);
 		assert.deepEqual(defaultSplit(buy, 12), [10, 2]);
+	});
+
+	it('keeps the split adding up to the amount when one place’s slider moves (playtest, 2026-11-21)', () => {
+		const sell = tradeForm(mine(game({ resolution: awaitingMe() })), ME); // Wayfarer holds 3 ISO, Lantern 8
+		const buy = tradeForm(mine(game({ resolution: awaitingMe({ type: 'BUY', price: 11 }) }), { tradeMax: 12 }), ME); // free 7 and 2
+
+		assert.deepEqual(rebalanceSplit(buy, 6, [6, 0], 1, 2), [4, 2]);
+		assert.deepEqual(rebalanceSplit(buy, 6, [4, 2], 0, 6), [6, 0]);
+		// The other place takes what's left, even beyond its free space: the loss warning says so.
+		assert.deepEqual(rebalanceSplit(buy, 6, [6, 0], 0, 1), [1, 5]);
+		// A sell can't draw more from a place than it holds, so the slider stops where the others can make up the rest.
+		assert.deepEqual(rebalanceSplit(sell, 10, [3, 7], 0, 1), [2, 8]);
+		assert.deepEqual(rebalanceSplit(sell, 5, [3, 2], 0, 1), [1, 4]);
+		assert.deepEqual(rebalanceSplit(sell, 4, [3, 1], 1, 2), [2, 2]);
+		assert.equal(placeMax(sell, 4, 0), 3);
+		assert.equal(placeMax(buy, 6, 1), 6);
+	});
+
+	it('takes from the last places first and gives to the first when there are three', () => {
+		const form = { type: 'BUY', ships: [{ free: 5 }, { free: 5 }, { free: 5 }] };
+		assert.deepEqual(rebalanceSplit(form, 9, [5, 4, 0], 2, 3), [5, 1, 3]);
+		assert.deepEqual(rebalanceSplit(form, 9, [5, 1, 3], 2, 0), [5, 4, 0]);
 	});
 
 	it('warns before confirming when some of a buy will be lost (S04-4)', () => {

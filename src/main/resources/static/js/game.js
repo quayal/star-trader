@@ -161,6 +161,14 @@ export function screenForPhaseChange(previous, game) {
 }
 
 /**
+ * The link a phase change opens, for one of [screenForPhaseChange]'s screens. Every screen it can return has one: News
+ * once had none, so the page threw instead of opening it (playtest, 2026-11-21).
+ */
+export function phaseScreenLink(screen, id) {
+	return { game: deckLink, news: newsLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen](id);
+}
+
+/**
  * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the bid's in Bidding, the
  * turn order's in Initiative and Jumps; null in any other phase.
  */

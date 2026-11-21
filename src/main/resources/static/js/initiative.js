@@ -30,15 +30,30 @@ export function validateBid(raw, money) {
 	return amount <= money ? { amount } : { error: overMoneyText(money) };
 }
 
-/** S05-2: the line in "Your offers this turn"; once Bidding has closed, the bid has been paid. */
+/**
+ * S05-2: the bid's line in "Your offers this turn" once Bidding has closed and it's been paid. While Bidding is open the
+ * bid shows in the bid box instead (playtest, 2026-11-21), so this is null then, as before a bid is placed.
+ */
 export function bidLine(game) {
 	const bid = game.you?.bid;
-	if (bid === null || bid === undefined) {
-		return null;
-	}
-	return isBidding(game)
-		? `Initiative bid: ${bid} HT (paid when Bidding closes, win or lose)`
-		: `Initiative bid: ${bid} HT (paid)`;
+	return bid === null || bid === undefined || isBidding(game) ? null : `Initiative bid: ${bid} HT (paid)`;
+}
+
+/**
+ * The bid box's own line (playtest, 2026-11-21), so it's clear whether a bid has been made: `{ value: '40 HT', note }`
+ * once one is placed, `{ value: 'None yet', note }` before. The note says a placed bid can still change, and that a bid is
+ * optional.
+ */
+export function bidStatus(game) {
+	const bid = game.you?.bid;
+	return bid === null || bid === undefined
+		? { value: 'None yet', note: 'A bid is optional: you can be done without one, and then you bid 0 HT.' }
+		: { value: `${bid} HT`, note: 'Placed. You can change it until Bidding closes; it’s paid then, win or lose.' };
+}
+
+/** The hint under the field: what the player has and how the order is set. */
+export function bidHint(money) {
+	return `You have ${money} HT. The order is bid + 2d6; every bid and roll is shown to all once Bidding closes.`;
 }
 
 /** S05-2: the button reads "Change bid" once a bid is placed. */

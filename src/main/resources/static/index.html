@@ -110,6 +110,11 @@
 			.deck { grid-template-columns: minmax(0, 1fr); }
 			.deck__map { order: -1; }
 		}
+		/* Playtest 2026-11-21: the bid box stands out and shows the placed bid large. */
+		.bid-current { display: grid; gap: var(--space-hairline); margin-bottom: var(--space-related); }
+		.bid-current p { margin: 0; }
+		.bid-current__value { font-size: var(--text-display); font-variant-numeric: tabular-nums; line-height: 1.1; }
+		#bid-panel .price-input { max-width: 160px; font-size: var(--text-value); }
 		/* E03-S03: the offer forms on s01 and s02. */
 		.offer-form { max-width: none; gap: var(--space-related); }
 		.offer-form .control { width: 100%; }
@@ -335,6 +340,9 @@
 		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
 		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
 		.trade-ships legend { padding: 0; }
+		/* Playtest 2026-11-21: each place's label over its linked slider. */
+		.trade-place { display: grid; gap: var(--space-hairline); }
+		.trade-place > span, .trade-place > label { overflow-wrap: anywhere; }
 		/* s10 (E06-S08): the whole Investment phase, one column of panels. */
 		.infrastructure { display: grid; gap: var(--space-panel); max-width: 720px; }
 		.infrastructure > h2, .infrastructure p { margin: 0; }
@@ -366,6 +374,11 @@
 		.corporation h3 { margin: 0; font-size: var(--text-title); }
 		.corporation h4 { margin: 0; font-size: var(--text-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 		.corporation p { margin: 0; }
+		/* Playtest 2026-11-21: the tip-offs grouped by the turn they take place or expire. */
+		.news-turns { display: grid; gap: var(--space-group); }
+		.news-turn { display: grid; gap: var(--space-related); }
+		/* Playtest 2026-11-21: each Guide card as tall as its own lines, not stretched to the tallest card in its row. */
+		.guide-cards { align-items: start; }
 		.corporation__section { display: grid; gap: var(--space-hairline); }
 		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		/* Assets (creator, 2026-11-18): where the player's money sits, laid out like Corporations. */
@@ -514,7 +527,7 @@
 <body>
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
-	<a class="nav-item" id="nav-home" href="/">Deck</a>
+	<a class="nav-item" id="nav-home" href="/">Command deck</a>
 	<!-- s03 (E05-S01): only while a started game is open; its href is that game's Trading screen. -->
 	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
 	<!-- s10 (E06-S08, D12): only while a started game is open; its href is that game's Infrastructure screen. -->
@@ -771,9 +784,15 @@
 				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
 				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
 					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
+					<!-- Playtest 2026-11-21: the placed bid is shown here, so it's clear one has been made and can change. -->
+					<div class="bid-current">
+						<span class="field-label">Your bid</span>
+						<strong class="bid-current__value" id="bid-current-value" role="status">None yet</strong>
+						<p class="muted" id="bid-current-note"></p>
+					</div>
 					<form class="offer-form" id="bid-form" novalidate>
 						<div>
-							<label class="field-label" for="bid-amount">Your bid (HT)</label>
+							<label class="field-label" for="bid-amount">Bid (HT)</label>
 							<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
 								aria-describedby="bid-hint bid-error">
 							<p class="message muted" id="bid-hint"></p>
@@ -836,6 +855,17 @@
 				<div class="notice__actions">
 					<button class="btn" id="notice-next" type="submit" value="next"></button>
 					<button class="quiet-button" id="notice-all" type="submit" value="all">Dismiss all</button>
+				</div>
+			</form>
+		</dialog>
+		<!-- Playtest 2026-11-21: "I'm done bidding" with no offers and no bid asks first. -->
+		<dialog class="notice" id="done-confirm-dialog" aria-labelledby="done-confirm-title" aria-describedby="done-confirm-text">
+			<form method="dialog">
+				<h2 id="done-confirm-title"></h2>
+				<p id="done-confirm-text"></p>
+				<div class="notice__actions">
+					<button class="btn" type="submit" value="done">Yes, I’m done</button>
+					<button class="quiet-button" type="submit" value="cancel">Not yet</button>
 				</div>
 			</form>
 		</dialog>
@@ -915,7 +945,7 @@
 			<div class="corporations__cards">
 				<section class="panel corporation" aria-labelledby="news-tipoffs-title">
 					<h3 id="news-tipoffs-title">Tip-offs in play</h3>
-					<ul class="corporation__list" id="news-tipoffs"></ul>
+					<div class="news-turns" id="news-tipoffs"></div>
 				</section>
 				<section class="panel corporation" aria-labelledby="news-announcements-title">
 					<h3 id="news-announcements-title">This turn's news</h3>
@@ -930,12 +960,12 @@
 		<div class="corporations" id="guide-panel" hidden>
 			<h2 class="system__title" id="guide-title" tabindex="-1">Guide</h2>
 			<p class="muted" id="guide-loading">Loading the rules…</p>
-			<div class="corporations__cards" id="guide-cards"></div>
+			<div class="corporations__cards guide-cards" id="guide-cards"></div>
 		</div>
 
 		<!-- s04: Game log, public events by turn (E03-S06) -->
 		<div class="game-log" id="log-panel" hidden>
-			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
+			<p><a class="link" id="log-back" href="/">&larr; Back to the Command deck</a></p>
 			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
 			<div class="game-log__turns" id="log-turns"></div>
 			<p class="muted">Public events only: offers, bids and money are never logged.</p>
@@ -1258,7 +1288,11 @@
 						<p id="trade-cannot"></p>
 						<div id="trade-amount-field">
 							<label class="field-label" for="trade-amount" id="trade-amount-label"></label>
-							<input class="control price-input" id="trade-amount" inputmode="numeric" aria-describedby="trade-help trade-amount-error">
+							<!-- Playtest 2026-11-21: a slider, linked to the number beside it for typing an exact amount. -->
+							<div class="slider">
+								<input class="slider__range" id="trade-amount-range" type="range" min="1" max="1" step="1" value="1" aria-labelledby="trade-amount-label" aria-describedby="trade-help trade-amount-error">
+								<input class="control price-input" id="trade-amount" inputmode="numeric" aria-describedby="trade-help trade-amount-error">
+							</div>
 							<p class="message muted" id="trade-help"></p>
 							<p class="message message--error field-error" id="trade-amount-error"></p>
 						</div>
@@ -1289,7 +1323,7 @@
 		</div>
 
 		<div class="system" id="system-panel" hidden>
-			<p><a class="link" id="system-back" href="/">&larr; Back to the Deck</a></p>
+			<p><a class="link" id="system-back" href="/">&larr; Back to the Command deck</a></p>
 			<h2 class="system__title" id="system-title" tabindex="-1"></h2>
 			<div class="system__body">
 			<div class="system__main">
@@ -1383,7 +1417,7 @@
 	<div class="view" id="unknown-view" hidden>
 		<section class="panel" aria-labelledby="unknown-title">
 			<h2 id="unknown-title" tabindex="-1">This screen doesn't exist</h2>
-			<p><a class="link" id="unknown-link" href="/">Go to the Deck</a></p>
+			<p><a class="link" id="unknown-link" href="/">Go to the Command deck</a></p>
 		</section>
 	</div>
 </main>
@@ -1411,6 +1445,7 @@
 		infrastructureLink,
 		validateTurns,
 		screenForPhaseChange,
+		phaseScreenLink,
 		deckHeadingFor,
 	} from './js/game.js';
 	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
@@ -1436,6 +1471,8 @@
 		lineText,
 		decisionText,
 		defaultSplit,
+		placeMax,
+		rebalanceSplit,
 		TRADE_NOTHING_BUTTON,
 		lossWarning,
 		dictatorFormKey,
@@ -1589,7 +1626,7 @@
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
-	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import { DONE_TEXT, EMPTY_DONE_QUESTION, EMPTY_DONE_TEXT, asksBeforeDone, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
 		COLLECT_BUTTON,
 		COLLECT_ELSEWHERE_TEXT,
@@ -1654,11 +1691,11 @@
 		validateRecruit,
 		waitTurnText,
 	} from './js/opportunity.js';
-	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
+	import { BID_CLOSED_TEXT, bidButtonLabel, bidHint, bidLine, bidPlacedText, bidStatus, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
-	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffRows } from './js/news.js';
+	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
 	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
@@ -1768,6 +1805,9 @@
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		if ($('notice-dialog').open) {
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
+		}
+		if ($('done-confirm-dialog').open) {
+			$('done-confirm-dialog').close('stale'); // asked about the game being left: never signals done
 		}
 		const { view, id, ship } = parseRoute(location.hash);
 		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
@@ -2254,8 +2294,7 @@
 		viewerId = game.you?.id ?? null;
 		if (screen !== null && screen !== parseRoute(location.hash).view) {
 			focusDeckHeading = screen === 'game';
-			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
-			location.hash = link(game.id); // read at once by renderRunning below; route() redraws on hashchange
+			location.hash = phaseScreenLink(screen, game.id); // read at once by renderRunning below; route() redraws on hashchange
 		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -2768,24 +2807,28 @@
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
 	/** News (R109–R110): the tip-offs in play with Learn while News is open, this turn's announcements, and done. */
 	function renderNews(game) {
-		const rows = tipOffRows(game);
-		drawOnce('news-tipoffs', JSON.stringify(rows), () => rows.length === 0
-			? [element('li', { class: 'muted' }, NO_TIP_OFFS_TEXT)]
-			: rows.map(row => {
-				const parts = [element('strong', {}, row.title), ` \u2014 ${row.need} \u00b7 ${row.turn}`];
-				if (row.details) {
-					parts.push(element('br'), element('span', {}, row.details));
-				}
-				if (row.taken) {
-					parts.push(' ', element('span', { class: 'muted' }, row.taken));
-				}
-				if (row.learn) {
-					const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
-					button.addEventListener('click', () => gameAction(`news/${row.slot}/learn`, null, 'news-message', `You've learned tip-off #${row.slot}.`));
-					parts.push(element('div', { class: 'agent-move' }, button, ...(row.learn.reason ? [element('span', { class: 'muted' }, row.learn.reason)] : [])));
-				}
-				return element('li', {}, ...parts);
-			}));
+		const groups = tipOffGroups(game);
+		const tipOffItem = row => {
+			const parts = [element('strong', {}, row.title), ` \u2014 ${row.need}`];
+			if (row.details) {
+				parts.push(element('br'), element('span', {}, row.details));
+			}
+			if (row.taken) {
+				parts.push(' ', element('span', { class: 'muted' }, row.taken));
+			}
+			if (row.learn) {
+				const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
+				button.addEventListener('click', () => gameAction(`news/${row.slot}/learn`, null, 'news-message', `You've learned tip-off #${row.slot}.`));
+				parts.push(element('div', { class: 'agent-move' }, button, ...(row.learn.reason ? [element('span', { class: 'muted' }, row.learn.reason)] : [])));
+			}
+			return element('li', {}, ...parts);
+		};
+		// Playtest 2026-11-21: grouped by the turn each takes place or expires, so that's read at a glance.
+		drawOnce('news-tipoffs', JSON.stringify(groups), () => groups.length === 0
+			? [element('p', { class: 'muted' }, NO_TIP_OFFS_TEXT)]
+			: groups.map(group => element('section', { class: 'news-turn' },
+				element('h4', {}, group.heading),
+				element('ul', { class: 'corporation__list' }, ...group.rows.map(tipOffItem)))));
 		const lines = newsAnnouncements(game);
 		drawOnce('news-announcements', JSON.stringify(lines), () => lines.length === 0
 			? [element('li', { class: 'muted' }, 'Nothing announced this turn.')]
@@ -3086,9 +3129,14 @@
 			$('trade-help').textContent = form.help;
 			$('trade-ships-legend').textContent = form.shipsLegend;
 			$('trade-no-ship').textContent = form.noShip;
-			$('trade-ship-rows').replaceChildren(...form.ships.map((ship, index) => element('div', { class: 'trade-ship' },
-				element('label', { for: `trade-ship-${index}` }, ship.label),
-				element('input', { class: 'control price-input', id: `trade-ship-${index}`, inputmode: 'numeric', 'aria-describedby': 'trade-ships-error' }))));
+			// Playtest 2026-11-21: with two or more places, a linked slider each (moving one moves the others, so they always
+			// add up to the amount); with one, it takes the whole amount and just shows it.
+			const linked = form.ships.length > 1;
+			$('trade-ship-rows').replaceChildren(...form.ships.map((ship, index) => element('div', { class: 'trade-place' },
+				element(linked ? 'label' : 'span', linked ? { for: `trade-ship-${index}` } : {}, ship.label),
+				element('div', { class: 'slider' },
+					...(linked ? [element('input', { class: 'slider__range', id: `trade-ship-${index}`, type: 'range', min: '0', max: '0', step: '1', value: '0', 'aria-describedby': 'trade-ships-error' })] : []),
+					element('output', { class: 'slider__value', id: `trade-ship-value-${index}` })))));
 			$('trade-ship-rows').hidden = form.ships.length === 0;
 			// S04-5: with nothing to trade, the player only acknowledges it; otherwise they trade 1 to their max (R34).
 			// S05-4: in the wholesale step they may always pass instead, and Pass is how they trade nothing.
@@ -3103,6 +3151,8 @@
 			$('trade-pass-button').hidden = !form.wholesale;
 			setTradeError(null);
 			$('trade-amount').value = cannot ? '' : String(form.max); // S04-1: pre-filled with the max
+			$('trade-amount-range').max = String(Math.max(1, form.max));
+			$('trade-amount-range').value = String(Math.max(1, form.max));
 			fillDefaultSplit();
 		}
 		$('trade-button').disabled = submittingTrade;
@@ -3120,18 +3170,37 @@
 		return [...$('trade-ship-rows').querySelectorAll('input')];
 	}
 
-	/** S04-3: the split follows the amount until the player changes a ship's units; S04-4: the warning follows both. */
-	function fillDefaultSplit() {
+	/** The typed amount as a whole number, or null while it isn't one. */
+	function typedAmount() {
 		const amount = Number($('trade-amount').value.trim());
-		if (Number.isInteger(amount) && amount > 0) {
-			defaultSplit(shownTrade, amount).forEach((units, index) => { shipInputs()[index].value = String(units); });
-		}
+		return $('trade-amount').value.trim() !== '' && Number.isInteger(amount) && amount > 0 ? amount : null;
+	}
+
+	/** The units per place: the sliders' values, or the whole amount on the only place. */
+	function currentSplit() {
+		return shipInputs().length ? shipInputs().map(input => Number(input.value)) : shownTrade.ships.map(() => typedAmount() ?? 0);
+	}
+
+	/** Sets the place sliders to [split] (each ranging up to what it may take of the amount) and shows each value. */
+	function showSplit(split) {
+		const amount = typedAmount() ?? 0;
+		shipInputs().forEach((input, index) => {
+			input.max = String(placeMax(shownTrade, amount, index));
+			input.value = String(split[index]);
+		});
+		split.forEach((units, index) => { $(`trade-ship-value-${index}`).textContent = `${units} u`; });
+	}
+
+	/** S04-3: the split follows the amount (its default) until the player moves a place's slider; S04-4: the warning follows both. */
+	function fillDefaultSplit() {
+		const amount = typedAmount();
+		showSplit(defaultSplit(shownTrade, amount ?? 0));
 		updateTradeWarning();
 	}
 
 	function updateTradeWarning() {
-		const amount = Number($('trade-amount').value.trim());
-		const split = shipInputs().map(input => Number(input.value.trim()) || 0);
+		const amount = typedAmount() ?? NaN;
+		const split = currentSplit();
 		const text = Number.isInteger(amount) && amount > 0 ? lossWarning(shownTrade, amount, split) : '';
 		if ($('trade-warning').textContent !== text) {
 			$('trade-warning').textContent = text;
@@ -3152,17 +3221,32 @@
 	// Typing again clears a shown error: it was about what was there before.
 	$('trade-amount').addEventListener('input', () => {
 		setTradeError(null);
+		const amount = typedAmount();
+		if (amount !== null) {
+			$('trade-amount-range').value = String(Math.min(amount, Number($('trade-amount-range').max)));
+		}
 		fillDefaultSplit();
 	});
-	$('trade-ship-rows').addEventListener('input', () => {
+	$('trade-amount-range').addEventListener('input', () => {
 		setTradeError(null);
+		$('trade-amount').value = $('trade-amount-range').value;
+		fillDefaultSplit();
+	});
+	// Playtest 2026-11-21: the place sliders are linked; moving one moves the others so they add up to the amount.
+	$('trade-ship-rows').addEventListener('input', (event) => {
+		setTradeError(null);
+		const index = shipInputs().indexOf(event.target);
+		const amount = typedAmount();
+		if (index >= 0 && amount !== null) {
+			showSplit(rebalanceSplit(shownTrade, amount, currentSplit(), index, Number(event.target.value)));
+		}
 		updateTradeWarning();
 	});
 
 	/** S04-1: the amount and split are checked here first, then by the server; the answer redraws Trading. */
 	$('trade-form').addEventListener('submit', (event) => {
 		event.preventDefault();
-		const checked = validateTrade(shownTrade, $('trade-amount').value, shipInputs().map(input => input.value));
+		const checked = validateTrade(shownTrade, $('trade-amount').value, currentSplit().map(String));
 		const target = setTradeError(checked.error ? checked : null);
 		if (checked.error) {
 			target.focus();
@@ -3844,8 +3928,12 @@
 		if ($('bid-button').textContent !== label) {
 			$('bid-button').textContent = label;
 		}
-		const money = game.you?.money ?? 0;
-		const hint = `You have ${money} HT. Every bidder pays their bid when Bidding closes, win or lose; the order is bid + 2d6, and every bid and roll is shown to all once Bidding closes.`;
+		const status = bidStatus(game);
+		if ($('bid-current-value').textContent !== status.value) {
+			$('bid-current-value').textContent = status.value; // only on a change, so the live region isn't re-announced
+		}
+		$('bid-current-note').textContent = status.note;
+		const hint = bidHint(game.you?.money ?? 0);
 		if ($('bid-hint').textContent !== hint) {
 			$('bid-hint').textContent = hint;
 		}
@@ -4322,7 +4410,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -6072,7 +6160,23 @@
 		}
 	}
 
-	$('done-button').addEventListener('click', signalDone);
+	$('done-button').addEventListener('click', () => {
+		if (lastGame && asksBeforeDone(lastGame)) {
+			$('done-confirm-title').textContent = EMPTY_DONE_QUESTION;
+			$('done-confirm-text').textContent = EMPTY_DONE_TEXT;
+			$('done-confirm-dialog').returnValue = '';
+			$('done-confirm-dialog').showModal();
+			return;
+		}
+		signalDone();
+	});
+	$('done-confirm-dialog').addEventListener('close', () => {
+		if ($('done-confirm-dialog').returnValue === 'done') {
+			signalDone();
+		} else {
+			$('done-button').focus();
+		}
+	});
 	$('infra-done-button').addEventListener('click', signalDoneInvesting);
 	$('done-investing-button').addEventListener('click', signalDoneInvesting);
 

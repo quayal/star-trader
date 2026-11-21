@@ -54,7 +54,7 @@ export function jumpingText(game, playerId) {
 	return who === playerId ? 'your jumps' : `${corporation(game, who)} is jumping`;
 }
 
-export const GO_TO_DECK = 'Go to the Deck';
+export const GO_TO_DECK = 'Go to the Command deck';
 
 /**
  * The step on the Deck the game waits on [playerId] for, as the decision alert's text on other screens, or "" when there's

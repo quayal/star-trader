@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { newsAnnouncements, tipOffRows, waitingForNews } from '../../main/resources/static/js/news.js';
+import { newsAnnouncements, tipOffGroups, tipOffRows, turnHeading, waitingForNews } from '../../main/resources/static/js/news.js';
 
 const ME = 'me';
 
@@ -22,7 +22,7 @@ describe('the News screen (R109–R110)', () => {
 		const [row] = tipOffRows(game({ tipOffs: [hidden] }));
 		assert.equal(row.title, 'Tip-off #3');
 		assert.equal(row.need, 'CRIM 5');
-		assert.equal(row.turn, 'effective turn 5');
+		assert.equal(row.effectiveTurn, 5);
 		assert.equal(row.details, null);
 		assert.deepEqual(row.learn, { enabled: true, reason: '', label: 'Learn (5 HT)' });
 	});
@@ -46,5 +46,19 @@ describe('the News screen (R109–R110)', () => {
 		assert.deepEqual(waitingForNews(game({ phase: 'JUMPS' }), ME), []);
 		const log = [{ turn: 2, text: 'News: old' }, { turn: 3, text: 'Vega Lines chose 1st' }, { turn: 3, text: 'News: Epidemics' }];
 		assert.deepEqual(newsAnnouncements(game({ log })), ['News: Epidemics']);
+	});
+
+	it('groups the tip-offs by the turn they take place or expire, soonest first (playtest, 2026-11-21)', () => {
+		const at = (slot, effectiveTurn) => ({ ...hidden, slot, effectiveTurn });
+		const groups = tipOffGroups(game({ tipOffs: [at(1, 6), at(2, 4), at(3, 3), at(4, 4)] }));
+		assert.deepEqual(groups.map(group => group.heading), ['This turn (turn 3)', 'Next turn (turn 4)', 'Turn 6']);
+		assert.deepEqual(groups.map(group => group.rows.map(row => row.slot)), [[3], [2, 4], [1]]);
+		assert.deepEqual(tipOffGroups(game()), []);
+	});
+
+	it('names a turn relative to the current one', () => {
+		assert.equal(turnHeading(3, 3), 'This turn (turn 3)');
+		assert.equal(turnHeading(4, 3), 'Next turn (turn 4)');
+		assert.equal(turnHeading(7, 3), 'Turn 7');
 	});
 });
