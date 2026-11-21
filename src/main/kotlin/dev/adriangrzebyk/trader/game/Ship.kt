@@ -248,8 +248,25 @@ data class Ship(
 	/** This ship once its delivery arrived (R114). */
 	fun delivered(): Ship = copy(deliveryJob = null)
 
-	/** This ship with military [added] modules fitted on a Planet through an opportunity (R113), refused when they don't fit. */
-	fun withMilitaryModules(added: List<Module>): Ship {
+	/**
+	 * This ship with military [added] modules fitted on a Planet through an opportunity (R113), refused when they don't
+	 * fit. To make room, [removed] modules come off first (creator, 2026-11-21), each as a refit removal does
+	 * ([withModuleRemoved]), but only as many as the room needs: a Planet is no place for refitting otherwise (R65).
+	 */
+	fun withMilitaryModules(added: List<Module>, removed: List<Module> = emptyList()): Ship {
+		val short = (modulesUsed() + added.count { it.takesModuleCapacity } - moduleCapacity()).coerceAtLeast(0)
+		val modulesText = { count: Int -> "$count ${if (count == 1) "module" else "modules"}" }
+		when {
+			removed.any { !it.takesModuleCapacity } -> throw InvalidFittingException("A ${Module.SAFE_JUMP.displayName} module takes no room.")
+			short == 0 && removed.isNotEmpty() -> throw InvalidFittingException("$name has room; nothing needs to come off.")
+			removed.size > short -> throw InvalidFittingException("Remove only what makes room: ${modulesText(short)}.")
+			removed.size < short -> throw InvalidFittingException("$name has no room for these: remove ${modulesText(short)} to fit them.")
+		}
+		return removed.fold(this) { ship, module -> ship.withModuleRemoved(module) }.withFitted(added)
+	}
+
+	/** This ship with [added] modules fitted, refused when they don't fit the hull (R52). */
+	private fun withFitted(added: List<Module>): Ship {
 		hull.checkFits(modules + added)
 		return copy(modules = modules + added)
 	}

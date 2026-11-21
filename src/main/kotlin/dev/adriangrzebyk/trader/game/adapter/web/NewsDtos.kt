@@ -9,7 +9,8 @@ import dev.adriangrzebyk.trader.game.news.TakeOrder
 import java.math.BigDecimal
 
 /**
- * Taking an opportunity (R111–R114): `{ ship, units, name, hull, modules, crewClass }`, the parts its kind needs. Names
+ * Taking an opportunity (R111–R114): `{ ship, units, name, hull, modules, crewClass, remove }`, the parts its kind needs
+ * (`remove`: modules taken off to make room for military ones, creator 2026-11-21). Names
  * are checked here: an unknown one reads as missing, so the domain refuses it with its own message.
  */
 data class TakeOpportunityRequestDto(
@@ -18,7 +19,8 @@ data class TakeOpportunityRequestDto(
 	val name: String? = null,
 	val hull: String? = null,
 	val modules: List<String>? = null,
-	val crewClass: String? = null
+	val crewClass: String? = null,
+	val remove: List<String>? = null
 ) {
 
 	fun order(): TakeOrder = TakeOrder(
@@ -27,7 +29,8 @@ data class TakeOpportunityRequestDto(
 		name,
 		Hull.entries.firstOrNull { it.name == hull },
 		modules.orEmpty().mapNotNull { id -> Module.entries.firstOrNull { it.name == id } },
-		CrewClass.entries.firstOrNull { it.name == crewClass }
+		CrewClass.entries.firstOrNull { it.name == crewClass },
+		remove.orEmpty().mapNotNull { id -> Module.entries.firstOrNull { it.name == id } }
 	)
 }
 

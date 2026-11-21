@@ -111,11 +111,17 @@ data class Player(
 	/** This player after buying the military [ship] through an opportunity (R113): its hull, modules and crew. */
 	fun buyMilitaryShip(ship: Ship): Player = copy(ships = ships + ship).payFor(ship.price(), "Bought ${ship.name}")
 
-	/** This player after fitting military [modules] to their ship [shipName] on a Planet (R113), crew at its class. */
-	fun fitMilitaryModules(shipName: String?, modules: List<Module>): Player {
+	/**
+	 * This player after fitting military [modules] to their ship [shipName] on a Planet (R113), crew at its class, with
+	 * [removed] modules taken off to make room ([Ship.withMilitaryModules]), each paying half its price back as in R65.
+	 */
+	fun fitMilitaryModules(shipName: String?, modules: List<Module>, removed: List<Module> = emptyList()): Player {
 		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
-		val fitted = ship.withMilitaryModules(modules)
-		return payFor(modules.sumOf { it.fittingCost(ship.crewClass) }, "Military modules for ${ship.name}").withShip(fitted)
+		val fitted = ship.withMilitaryModules(modules, removed)
+		val refunded = removed.fold(this) { player, module ->
+			player.receive(module.resaleValue(), "${module.displayName} module removed from ${ship.name}")
+		}
+		return refunded.payFor(modules.sumOf { it.fittingCost(ship.crewClass) }, "Military modules for ${ship.name}").withShip(fitted)
 	}
 
 	/** This player with their ship [shipName] carrying the delivery of [tipOff] in a whole [space] module (R114); [minReputation] to accept. */

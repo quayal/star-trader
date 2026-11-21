@@ -292,17 +292,17 @@ class GameResponseDtoTest {
 			FittedModuleResponseDto(
 				"CARGO", "Cargo", 4, damaged = 0,
 				weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 2, passengers = 0, military = false,
-				resaleValue = 2
+				resaleValue = 2, takesModuleCapacity = true
 			),
 			FittedModuleResponseDto(
 				"LIGHT_WEAPONS", "Light weapons", 1, damaged = 0,
 				weapons = 3, rocketWeapons = 5, crew = 0, cargoSpaces = 0, passengers = 0, military = false,
-				resaleValue = 8
+				resaleValue = 8, takesModuleCapacity = true
 			),
 			FittedModuleResponseDto(
 				"SAFE_JUMP", "Safe jump", 1, damaged = 0,
 				weapons = 0, rocketWeapons = 0, crew = 0, cargoSpaces = 0, passengers = 0, military = false,
-				resaleValue = 5
+				resaleValue = 5, takesModuleCapacity = false
 			)
 		)
 		assertThat(wayfarer.stats).isEqualTo(

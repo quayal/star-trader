@@ -372,11 +372,11 @@ data class Game(
 			is OpportunityTerms.Furs -> buyFurs(email, slot, order.ship, order.units)
 			is OpportunityTerms.MilitaryShip ->
 				if (order.hull == null && terms.hullOptional) {
-					buyMilitaryModules(email, slot, order.ship, order.modules)
+					buyMilitaryModules(email, slot, order.ship, order.modules, order.removed)
 				} else {
 					buyMilitaryShip(email, slot, order.name, order.hull, order.modules, order.crewClass)
 				}
-			is OpportunityTerms.MilitaryModules -> buyMilitaryModules(email, slot, order.ship, order.modules)
+			is OpportunityTerms.MilitaryModules -> buyMilitaryModules(email, slot, order.ship, order.modules, order.removed)
 			is OpportunityTerms.Delivery -> acceptDelivery(email, slot, order.ship)
 			OpportunityTerms.Expedition -> sendExpedition(email, slot, order.ship, dice)
 			null -> throw InvalidGameOperationException("An event can't be taken.")
@@ -464,8 +464,11 @@ data class Game(
 		return withOpportunityTaken(email, tipOff, playerOf(email).buyMilitaryShip(ship))
 	}
 
-	/** [email] fits [modules] from the card in [slot] to their ship [shipName] on its Planet (R113). */
-	fun buyMilitaryModules(email: String, slot: Int?, shipName: String?, modules: List<Module>): Game {
+	/**
+	 * [email] fits [modules] from the card in [slot] to their ship [shipName] on its Planet (R113), taking [removed] off
+	 * first when there's no room (creator, 2026-11-21; [Player.fitMilitaryModules]).
+	 */
+	fun buyMilitaryModules(email: String, slot: Int?, shipName: String?, modules: List<Module>, removed: List<Module> = emptyList()): Game {
 		val tipOff = opportunityToTake(email, slot)
 		val (allowed, at, max) = when (val terms = tipOff.tipOff.opportunity) {
 			is OpportunityTerms.MilitaryModules -> Triple(terms.modules, terms.at, terms.modules.size)
@@ -484,7 +487,7 @@ data class Game(
 		if (ship?.isAt(at, ShipLocation.PLANET) != true) {
 			throw InvalidGameOperationException("You need a ship on ${at.displayName}'s Planet.")
 		}
-		return withOpportunityTaken(email, tipOff, playerOf(email).fitMilitaryModules(shipName, modules))
+		return withOpportunityTaken(email, tipOff, playerOf(email).fitMilitaryModules(shipName, modules, removed))
 	}
 
 	/** [email] accepts the delivery in [slot] with their ship [shipName] in the pickup Port (R114). */
