@@ -21,6 +21,20 @@ function shipsAt(game, system, location) {
 	return positions(game).filter(s => (!system || s.system === system) && s.location === location).map(s => s.name);
 }
 
+/**
+ * For military modules alone (R113), each of [names]' room (creator, 2026-11-21): `{ [ship]: { free, removable } }`, its
+ * free module slots and the modules that could come off to make room, one entry per module fitted, with what each pays back.
+ */
+function roomOf(game, names) {
+	const ships = Object.fromEntries((game.you?.ships ?? []).map(s => [s.name, s]));
+	return Object.fromEntries(names.filter(name => ships[name]).map(name => {
+		const ship = ships[name];
+		const removable = (ship.modules ?? []).filter(m => m.takesModuleCapacity !== false)
+			.flatMap(m => Array.from({ length: m.count }, () => ({ id: m.id, name: m.name, resaleValue: m.resaleValue })));
+		return [name, { free: Math.max(0, ship.stats.moduleCapacity - ship.stats.modulesUsed), removable }];
+	}));
+}
+
 const HOLD_TEXT = { CARGO_SPACE: 'Each unit takes a cargo space.', PASSENGER_SEAT: 'Each unit takes a passenger seat.' };
 
 /**
@@ -49,7 +63,7 @@ function defaultUnits(game, terms) {
 
 /**
  * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, maxUnits, facts, hulls, modules,
- * maxModules, crewClasses, hullOptional, note, takeable }`. [ships] are those that can take it now; an empty list says why in [note].
+ * maxModules, crewClasses, hullOptional, room, note, takeable }`; [room] is each ship's room for modules alone ([roomOf]). [ships] are those that can take it now; an empty list says why in [note].
  */
 export function opportunityForms(game) {
 	// Playtest 2026-11-21: [takeable] says a ship can take it now (a military ship's hull appears on the Planet by itself).
@@ -63,6 +77,7 @@ function opportunityFormsWithoutTakeable(game) {
 		const base = {
 			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0,
 			facts: goodsFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
+			room: {},
 		};
 		switch (terms.kind) {
 		case 'ILLEGAL_GOODS':
@@ -75,10 +90,19 @@ function opportunityFormsWithoutTakeable(game) {
 				hulls: terms.hulls.map(id => ({ id, name: HULL_NAMES[id] ?? id })),
 				modules: terms.modules.map(id => ({ id, name: MODULE_NAMES[id] ?? id })),
 				ships: terms.hullOptional ? shipsAt(game, terms.buyAt, 'PLANET') : [],
+				room: terms.hullOptional ? roomOf(game, shipsAt(game, terms.buyAt, 'PLANET')) : {},
 				note: `The ship appears on ${at}'s Planet.`,
 			};
-		case 'MILITARY_MODULES':
-			return { ...base, modules: terms.modules.map(id => ({ id, name: MODULE_NAMES[id] ?? id })), ships: shipsAt(game, terms.buyAt, 'PLANET'), note: `Needs a ship on ${at}'s Planet with room.` };
+		case 'MILITARY_MODULES': {
+			const ships = shipsAt(game, terms.buyAt, 'PLANET');
+			return {
+				...base,
+				modules: terms.modules.map(id => ({ id, name: MODULE_NAMES[id] ?? id })),
+				ships,
+				room: roomOf(game, ships),
+				note: `Needs a ship on ${at}'s Planet. With no room, take modules off to make it (half their price back).`,
+			};
+		}
 		case 'DELIVERY':
 			return { ...base, ships: shipsAt(game, terms.buyAt, 'PORT'), note: `Needs a ship in ${at}'s Port with a free ${terms.space === 'PASSENGER' ? 'Passenger' : 'Cargo'} module.` };
 		default:

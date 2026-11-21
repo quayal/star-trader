@@ -5701,6 +5701,22 @@
 				fields.push(units);
 			}
 			fields.push(...boxes);
+			// Creator, 2026-11-21: modules alone on a full ship: the chosen ship's room, and what could come off to make it.
+			const room = element('div', { class: 'opportunity-room' });
+			const removeBoxes = () => [...room.querySelectorAll('input')];
+			const showRoom = () => {
+				const shipRoom = hull.value ? null : form.room[ship.value];
+				room.hidden = !shipRoom;
+				room.replaceChildren(...(shipRoom ? [
+					element('p', { class: 'muted' }, `${ship.value} has room for ${shipRoom.free} more ${shipRoom.free === 1 ? 'module' : 'modules'}.` +
+						(shipRoom.removable.length ? ' To make room, take off:' : '')),
+					...shipRoom.removable.map(m => element('label', { class: 'choice' },
+						element('input', { type: 'checkbox', value: m.id }), `${m.name} (${m.resaleValue} HT back)`)),
+				] : []));
+			};
+			ship.addEventListener('change', showRoom);
+			hull.addEventListener('change', showRoom);
+			showRoom();
 			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.takeable ? {} : { disabled: '' }) }, 'Take');
 			take.addEventListener('click', () => gameAction(`opportunity/tip-offs/${form.slot}/take`, {
 				ship: ship.value || null,
@@ -5709,11 +5725,12 @@
 				hull: hull.value || null,
 				modules: boxes.map(b => b.querySelector('input')).filter(input => input.checked).map(input => input.value),
 				crewClass: crew.value,
+				remove: removeBoxes().filter(input => input.checked).map(input => input.value),
 			}, 'opportunities-message', 'Taken.'));
 			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
 			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
 			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
-				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
+				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), element('div', { class: 'agent-move' }, ...fields, take), room);
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);

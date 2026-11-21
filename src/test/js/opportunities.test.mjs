@@ -68,4 +68,32 @@ describe('the Opportunities card (R111–R114)', () => {
 		assert.equal(facts({ hold: 'PASSENGER_SEAT' })[1], 'Each unit takes a passenger seat.');
 		assert.equal(facts({ hold: 'CARGO_SPACE' })[2], 'Sell them on Gamma Leporis\'s black market (on its Planet), at a price rolled on a d6.');
 	});
+
+	it('shows each ship\'s free module room and the modules that could come off to make it (creator, 2026-11-21)', () => {
+		const comm = {
+			slot: 1, learned: true, taken: false, details: 'Opportunity: Battle comm on Gamma Leporis\'s Planet.',
+			terms: { kind: 'MILITARY_MODULES', buyAt: 'GAMMA_LEPORIS', hulls: [], modules: ['BATTLE_COMM'], hullOptional: false },
+		};
+		const ships = [{
+			name: 'Wayfarer',
+			stats: { modulesUsed: 5, moduleCapacity: 5 },
+			modules: [
+				{ id: 'CARGO', name: 'Cargo', count: 2, resaleValue: 2, takesModuleCapacity: true },
+				{ id: 'SAFE_JUMP', name: 'Safe jump', count: 1, resaleValue: 5, takesModuleCapacity: false },
+				{ id: 'LIGHT_WEAPONS', name: 'Light weapons', count: 1, resaleValue: 8, takesModuleCapacity: true },
+			],
+		}];
+		const [form] = opportunityForms(game([comm], ships, [{ name: 'Wayfarer', system: 'GAMMA_LEPORIS', location: 'PLANET' }]));
+
+		assert.deepEqual(form.room, {
+			Wayfarer: {
+				free: 0,
+				removable: [
+					{ id: 'CARGO', name: 'Cargo', resaleValue: 2 },
+					{ id: 'CARGO', name: 'Cargo', resaleValue: 2 },
+					{ id: 'LIGHT_WEAPONS', name: 'Light weapons', resaleValue: 8 },
+				],
+			},
+		});
+	});
 });

@@ -134,6 +134,25 @@ class GameOpportunitiesTest {
 	}
 
 	@Test
+	fun shouldTakeAModuleOffToMakeRoomAndPayHalfOfItBack() {
+		// Creator, 2026-11-21: Bright Reach's 5 modules fill its Clarinet, so a Cargo module comes off (2 HT back) for the
+		// Battle comm (50 HT + 2 crew at class B, 20 HT)
+		val game = with(TipOff.O4, system = GAMMA_LEPORIS)
+		val removed = kim(game).ship("Bright Reach")!!.modules.first { it.takesModuleCapacity }
+
+		val fitted = game.takeOpportunity(
+			KIM,
+			1,
+			TakeOrder(ship = "Bright Reach", modules = listOf(Module.BATTLE_COMM), removed = listOf(removed)),
+			FakeDice(emptyList())
+		)
+
+		val ship = kim(fitted).ship("Bright Reach")!!
+		assertThat(ship.modules).containsExactlyInAnyOrderElementsOf(kim(game).ship("Bright Reach")!!.modules - removed + Module.BATTLE_COMM)
+		assertThat(kim(fitted).money).isEqualTo(kim(game).money + removed.resaleValue() - Module.BATTLE_COMM.fittingCost(ship.crewClass))
+	}
+
+	@Test
 	fun shouldSendTheExpeditionAndBringItBackPaid() {
 		// O15: a public d6 of 3 brings it back in turn 4; a 1 would have lost it
 		val game = with(TipOff.O15, location = ShipLocation.PORT)

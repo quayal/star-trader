@@ -1254,7 +1254,8 @@ data class FittedModuleResponseDto(
 	val cargoSpaces: Int,
 	val passengers: Int,
 	val military: Boolean,
-	val resaleValue: Int
+	val resaleValue: Int,
+	val takesModuleCapacity: Boolean
 ) {
 
 	constructor(module: Module, count: Int, damaged: Int) : this(
@@ -1268,7 +1269,8 @@ data class FittedModuleResponseDto(
 		module.cargoSpaces,
 		module.passengers,
 		module.military,
-		module.resaleValue()
+		module.resaleValue(),
+		module.takesModuleCapacity
 	)
 }
 
