@@ -25,6 +25,9 @@ function groupKey(notice, index) {
 	if (notice.kind === 'INTERCEPTION') {
 		return `I/${notice.interception?.interceptorShip}/${notice.interception?.arrivingShip}/${notice.system}`;
 	}
+	if (notice.kind === 'NEWS_EVENT') {
+		return 'NEWS_EVENT'; // an event's announcement with the lines of what it did (playtest, 2026-11-21)
+	}
 	return notice.kind === 'BATTLE_ROUND' ? `R/${notice.system}/${notice.round}` : `${notice.kind}/${index}`;
 }
 
@@ -59,6 +62,11 @@ function interceptionCard(game, notice, myId) {
 	};
 }
 
+/** A News announcement's line without its "News: " prefix, which the card's title says already. */
+function newsLead(texts) {
+	return texts.map(text => text.replace(/^News: (.)/, (_, first) => first.toUpperCase())).join(' ');
+}
+
 /** A card's heading and opening line for [notice]; [texts] are its log lines, [entry] the group's first log entry. */
 function cardFor(game, notice, texts, myId, entry) {
 	const where = notice.systemName;
@@ -82,7 +90,12 @@ function cardFor(game, notice, texts, myId, entry) {
 		// Playtest 2026-11-20: the whole battle in one card, by round, then the aftermath (reputation included).
 		return { title: `Battle at ${where} — summary`, lead: '', tone: null, lines: [], sections: entry?.battleSummary ?? [] };
 	case 'SABOTAGE':
-		return { title: `Sabotage at ${where}`, lead: 'One of your assets was sabotaged. See Infrastructure.', tone: 'alert', lines: texts };
+		return { title: `Sabotage at ${where}`, lead: 'One of your assets was sabotaged. See Opportunity.', tone: 'alert', lines: texts };
+	case 'NEWS_EVENT':
+		// Playtest 2026-11-21: what News announced, for everyone to acknowledge.
+		return { title: 'News', lead: newsLead(texts.slice(0, 1)), tone: null, lines: texts.slice(1) };
+	case 'OPPORTUNITY_EXPIRED':
+		return { title: 'An opportunity expired', lead: newsLead(texts), tone: null, lines: [] };
 	default:
 		return { title: `The battle at ${where} is over`, lead: '', tone: null, lines: [] };
 	}

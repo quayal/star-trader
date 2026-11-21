@@ -529,8 +529,8 @@ data class BattleSummarySectionResponseDto(val title: String, val lines: List<St
 /** The interception or battle moment a log entry tells of, for the pop-up cards (creator, 2026-11-18); public, like the line. */
 data class NoticeResponseDto(
 	val kind: String,
-	val system: String,
-	val systemName: String,
+	val system: String?,
+	val systemName: String?,
 	val playerIds: List<String>,
 	val round: Int?,
 	val interception: InterceptionRollResponseDto?
@@ -538,8 +538,8 @@ data class NoticeResponseDto(
 
 	constructor(notice: Notice, ids: PlayerIds) : this(
 		notice.kind.name,
-		notice.system.name,
-		notice.system.displayName,
+		notice.system?.name,
+		notice.system?.displayName,
 		ids.ofAll(notice.players),
 		notice.round,
 		notice.interception?.let { InterceptionRollResponseDto(it, ids) }

@@ -18,6 +18,9 @@ data class LogEntry(
 	val battleSummary: BattleSummary? = null
 ) {
 
+	/** This entry as part of the pop-up moment [notice], unless it already is one of its own. */
+	fun noticed(notice: Notice): LogEntry = if (this.notice == null) copy(notice = notice) else this
+
 	companion object {
 		/** An event that is neither a trade nor a pop-up moment. */
 		fun event(turn: Int, text: String) = LogEntry(turn, text, null, null)

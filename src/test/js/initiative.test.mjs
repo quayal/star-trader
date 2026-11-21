@@ -68,14 +68,14 @@ describe('bidStatus (playtest, 2026-11-21)', () => {
 	it('shows the placed bid, and that it can still change', () => {
 		const status = bidStatus(game({ bid: 40 }));
 		assert.equal(status.value, '40 HT');
-		assert.match(status.note, /change it until Bidding closes/);
+		assert.equal(status.note, 'You can change it until Bidding closes.');
 		assert.equal(bidStatus(game({ bid: 0 })).value, '0 HT');
 	});
 
 	it('says no bid is placed yet, and that none is needed', () => {
 		const status = bidStatus(game());
 		assert.equal(status.value, 'None yet');
-		assert.match(status.note, /optional/);
+		assert.equal(status.note, 'Optional.');
 	});
 });
 

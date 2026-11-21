@@ -47,14 +47,12 @@ export function bidLine(game) {
 export function bidStatus(game) {
 	const bid = game.you?.bid;
 	return bid === null || bid === undefined
-		? { value: 'None yet', note: 'A bid is optional: you can be done without one, and then you bid 0 HT.' }
-		: { value: `${bid} HT`, note: 'Placed. You can change it until Bidding closes; it’s paid then, win or lose.' };
+		? { value: 'None yet', note: 'Optional.' }
+		: { value: `${bid} HT`, note: 'You can change it until Bidding closes.' };
 }
 
-/** The hint under the field: what the player has and how the order is set. */
-export function bidHint(money) {
-	return `You have ${money} HT. The order is bid + 2d6; every bid and roll is shown to all once Bidding closes.`;
-}
+/** The hint under the field (creator, 2026-11-21: the rest was too much). */
+export const BID_HINT = 'Your initiative is your bid + 2d6.';
 
 /** S05-2: the button reads "Change bid" once a bid is placed. */
 export function bidButtonLabel(game) {

@@ -41,6 +41,7 @@ class GameEventsTest {
 		val game = takingPlace(TipOff.E2)
 
 		assertThat(game.log.map { it.text }).contains("News: Aliens attack the frontier: every price falls by 3.")
+		assertThat(game.log.first { it.text.startsWith("News: Aliens") }.notice?.kind).isEqualTo(NoticeKind.NEWS_EVENT)
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.JUMPS)
 		assertThat(game.news.retired).containsExactly(TipOff.E2)
 		assertThat(game.prices.priceOf(MarketGood(TAU_CETI, Goods.POLY))).isEqualTo(
@@ -108,6 +109,10 @@ class GameEventsTest {
 		val game = takingPlace(TipOff.E13)
 
 		assertThat(player(game, "ada@example.com").money).isEqualTo(player(initiative, "ada@example.com").money - 10)
+		// Playtest 2026-11-21: what the event did is part of its pop-up, after its announcement.
+		val announced = game.log.indexOfFirst { it.text.startsWith("News: ") && it.notice?.kind == NoticeKind.NEWS_EVENT }
+		assertThat(game.log[announced + 1].text).startsWith("Special tax paid by:")
+		assertThat(game.log[announced + 1].notice).isEqualTo(game.log[announced].notice)
 	}
 
 	@Test

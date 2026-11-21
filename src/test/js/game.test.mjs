@@ -17,6 +17,7 @@ import {
 	corporationsLink,
 	guideLink,
 	newsLink,
+	opportunityLink,
 	fleetLink,
 	fleetShipLink,
 	infrastructureLink,

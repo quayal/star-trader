@@ -13,7 +13,7 @@ export const LAST_TURN_WARNING = 'This ship would never leave the yard: the game
 export const SECOND_LAST_TURN_WARNING = 'This ship would leave the yard only in the last Investment, too late to jump.';
 export const BUY_BUTTON = 'Buy ship';
 export const BUY_CLOSED_TEXT = 'You can buy a ship here during Investment.';
-export const BUY_COLLECT_FIRST_TEXT = 'Place your factories\' output on Infrastructure first, then buy a ship here.';
+export const BUY_COLLECT_FIRST_TEXT = 'Place your factories\' output on the Opportunity tab first, then buy a ship here.';
 export const REFIT_NOTE = 'Fit or remove modules in port, or while the ship is still in the yard.';
 export const REPAIR_NOTE = 'Repair at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
 

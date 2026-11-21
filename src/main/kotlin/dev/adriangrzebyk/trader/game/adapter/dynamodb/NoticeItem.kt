@@ -11,9 +11,9 @@ internal class NoticeItem(val attributes: Map<String, AttributeValue>) {
 	constructor(notice: Notice) : this(
 		mapOf(
 			KIND to AttributeValue.fromS(notice.kind.name),
-			SYSTEM to AttributeValue.fromS(notice.system.name),
 			PLAYERS to strings(notice.players)
 		) + listOfNotNull(
+			notice.system?.let { SYSTEM to AttributeValue.fromS(it.name) },
 			notice.round?.let { ROUND to number(it) },
 			notice.interception?.let { INTERCEPTION to AttributeValue.fromM(InterceptionRollItem(it).attributes) }
 		)
@@ -21,7 +21,7 @@ internal class NoticeItem(val attributes: Map<String, AttributeValue>) {
 
 	fun toNotice(): Notice = Notice(
 		kind = NoticeKind.valueOf(attributes.attribute(KIND).s()),
-		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
+		system = attributes[SYSTEM]?.s()?.let { StarSystem.valueOf(it) },
 		players = attributes.attribute(PLAYERS).l().map { it.s() },
 		round = attributes[ROUND]?.n()?.toInt(),
 		interception = attributes[INTERCEPTION]?.m()?.let { InterceptionRollItem(it).toInterceptionRoll() }

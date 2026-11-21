@@ -59,6 +59,10 @@ class LogEntryItemTest {
 		assertThat(LogEntryItem(LogEntryItem(tried).attribute).toLogEntry()).isEqualTo(tried)
 		assertThat(LogEntryItem(LogEntryItem(round).attribute).toLogEntry()).isEqualTo(round)
 		assertThat(LogEntryItem(round).attribute.m().getValue("notice").m().keys).containsExactlyInAnyOrder("kind", "system", "players", "round")
+		// Playtest 2026-11-21: News's pop-ups have no system.
+		val news = LogEntry.notice(3, "News: Epidemics …", Notice(NoticeKind.NEWS_EVENT, null, emptyList(), null, null))
+		assertThat(LogEntryItem(LogEntryItem(news).attribute).toLogEntry()).isEqualTo(news)
+		assertThat(LogEntryItem(news).attribute.m().getValue("notice").m().keys).containsExactlyInAnyOrder("kind", "players")
 	}
 
 	@Test

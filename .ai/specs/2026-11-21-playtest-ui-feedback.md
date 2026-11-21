@@ -45,6 +45,10 @@ Six frontend fixes, no rule changes and no API changes:
    still put more on a place than fits, and the loss warning says so as before; a sell's slider stops where the others can
    still cover the rest. Changing the amount resets the places to the default split. With one place, it takes the whole
    amount and only shows it.
+9. **One possible amount** (creator, same day: the slider looked stuck at its minimum): when only 1 unit can be traded, a
+   browser draws a 1..1 slider with its thumb at the left, which reads as nothing. Such a slider is drawn full and locked
+   at 1 instead. A trade must be 1 to the max (`Player.trade`), so there's no other value to move to. The same goes for
+   the invest dialog's and Move goods' sliders, through one `fitSlider` in `index.html`.
 
 ## Verification
 
@@ -53,3 +57,33 @@ JS unit tests for each helper (`bidStatus`, `asksBeforeDone`, `tipOffGroups`, `t
 box before and after a bid, a poll moving an open Deck to News when Initiative ended, the grouped tip-offs, the Guide card
 heights (Initiative 94 px), and a buy of POLY at Tau Ceti split across two ships with the linked sliders (10 → 8 + 2; Wayfarer to 3 → Lantern 7; Lantern to 9 → Wayfarer 1 with the loss warning; typing 12 → 8 + 4), confirmed
 as 4 + 8 and stored by the server as such.
+
+## Second round (creator, same day)
+
+10. **A slider's number is where its thumb is.** With nothing possible (max 0, e.g. no money for a factory unit) the
+    slider sits at the left and reads `0 units`, not `1`. With one possible amount it's full and locked at 1 (criterion 9).
+11. **Bid box:** the current bid is styled like the panels' titles ("Your fleet"), not larger. The text is cut to "Your
+    initiative is your bid + 2d6." under the field, "Optional." before a bid and "You can change it until Bidding
+    closes." after one.
+12. **Command deck layout:** left of the map, Your fleet, Your agents, Your account and the turn order; right of it, what
+    must be decided first (battle, jump, connections, bid), then Place an offer, Your offers, Your trades and Your
+    market positions. **What blocks goes on top:** a panel waiting on the viewer moves to the top of its column (the turn
+    order while it's the viewer's pick).
+13. **Opportunity tab:** the Opportunity phase moves off Infrastructure onto its own tab (nav between Trading and
+    Infrastructure), which opens by itself when the phase starts (D15). From the top: the output to collect, whose turn
+    it is (with the done button and any sabotage hits to place), agents, sabotage, the learned opportunities. Outside the
+    phase the tab says when it comes; agents still move from there. Infrastructure keeps Investment and the loan, and
+    during Opportunity points to the new tab. The creator plans two more Opportunity features; they'll go here.
+14. **Shorty in the sabotage tile:** the modifiers line adds `+4 Shorty` to both rolls when the viewer's Shorty is at the
+    chosen target's system (anywhere there: Port, Planet or aboard), as the server already rolled it (R108). It follows
+    the chosen target and the poll.
+15. **News pop-ups:** an event taking place and an opportunity expiring each get a card everyone acknowledges, like
+    interceptions and battles. An event's card lists what it did (ships lost, reputation, tax) under its headline. The
+    server marks those log lines with new notice kinds (`NEWS_EVENT`, `OPPORTUNITY_EXPIRED`), which have no system, so
+    `Notice.system` is now optional (stored only when set; older items always have one).
+
+Verified with JS and Kotlin tests (`shortyBonus`, the Opportunity route and phase mapping, the News cards, the notice
+round trip without a system, the event lines' notice) and a browser walk: the deck columns, the bid box, the page
+moving to the Opportunity tab with its panels in order, the Pirates event's card in News, and the factory dialog with
+0 HT reading `0 units`. Shorty's bonus isn't in the walk: recruiting him is a random draw, so it's covered by the unit
+test only.
