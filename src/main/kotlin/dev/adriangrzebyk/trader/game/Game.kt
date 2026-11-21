@@ -1003,18 +1003,8 @@ data class Game(
 		val raisedTurn = investing.connectionRaisedBy(email)
 		val raised = player.raiseConnection(kind)
 		val change = player.connectionReputationChange(kind)
-		val jb = listOfNotNull(
-			Agent.JB.actedLog(player.corporationName, ": reputation loss ${-kind.reputationChange} \u2192 ${-change}").takeIf {
-				change !=
-					kind.reputationChange
-			}
-		)
-		val lines = listOf(raised.connectionRaisedLog(kind)) + jb +
-			listOfNotNull(
-				raised.reputationLog(change, "raising ${kind.displayName} connections").takeIf {
-					change != 0 || kind.reputationChange == 0
-				}
-			)
+		val lines = listOf(raised.connectionRaisedLog(kind)) +
+			raised.reputationLog(change, "raising ${kind.displayName} connections", change - kind.reputationChange)
 		return copy(players = replace(raised), turn = raisedTurn, log = log + lines.map { LogEntry.event(investing.number, it) })
 	}
 
@@ -1203,8 +1193,8 @@ data class Game(
 	 * escapes into Space, 1–3 it's lost with its cargo (agents step off into the Port, R107). Each ship's fate is logged.
 	 */
 	private fun withPiratesAt(system: StarSystem, number: Int, dice: Dice): Game = players.fold(this) { game, owner ->
-		val looted = game.playerOf(owner.email).afterWarehouseLooted(system)
-		looted.shipsInPortAt(system).fold(game.withPlayerChanged(looted, emptyList(), number)) { current, ship ->
+		val looted = game.playerOf(owner.email).lootWarehouse(system)
+		looted.player.shipsInPortAt(system).fold(game.withPlayerChanged(looted.player, looted.lines, number)) { current, ship ->
 			val roll = dice.d6()
 			val player = current.playerOf(owner.email)
 			val (changed, line) = if (roll > PIRATE_ESCAPE_ABOVE) {
@@ -1832,10 +1822,7 @@ data class Game(
 			rise.demoted.flatMap { email ->
 				val demoted = playerOf(email)
 				val loss = demoted.reputationLossAfterAgents(Player.MARKET_RISE_REPUTATION)
-				listOfNotNull(
-					Agent.JB.actedLog(demoted.corporationName, ": reputation loss ${Player.MARKET_RISE_REPUTATION} \u2192 $loss")
-						.takeIf { loss != Player.MARKET_RISE_REPUTATION }
-				) + demoted.reputationLog(-loss, "losing a market position")
+				listOf(demoted.reputationLog(-loss, "losing a market position", Player.MARKET_RISE_REPUTATION - loss))
 			}
 
 	/**

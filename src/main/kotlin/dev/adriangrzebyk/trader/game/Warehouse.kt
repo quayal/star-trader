@@ -66,6 +66,9 @@ data class Warehouse(override val system: StarSystem, val blocks: Int, override 
 	/** This warehouse with nothing in it: what the pirates leave (E12). */
 	fun emptied(): Warehouse = copy(cargo = emptyMap())
 
+	/** How many units of goods this warehouse holds, all goods together. */
+	fun unitsHeld(): Int = cargo.values.sum()
+
 	companion object {
 		/** R45: one block costs 20 HT. */
 		const val BLOCK_COST = 20
