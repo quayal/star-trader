@@ -29,8 +29,8 @@ class GameEventsTest {
 	 * [tipOff] drawn so that it becomes effective as turn 1's News opens, rolling [twoD6] and [d6] for the event. An event that
 	 * goes back to the pool is drawn again at once (d3 1), so everyone then finishes reading the News.
 	 */
-	private fun takingPlace(tipOff: TipOff, twoD6: List<Int> = emptyList(), d6: List<Int> = emptyList()): Game {
-		val opened = initiative.copy(news = News.NONE.copy(inPlay = listOf(ActiveTipOff(1, tipOff, 1 - tipOff.lead, emptyList(), null))))
+	private fun takingPlace(tipOff: TipOff, twoD6: List<Int> = emptyList(), d6: List<Int> = emptyList(), from: Game = initiative): Game {
+		val opened = from.copy(news = News.NONE.copy(inPlay = listOf(ActiveTipOff(1, tipOff, 1 - tipOff.lead, emptyList(), null))))
 			.advancePhase(FakeDice(twoD6, d6, listOf(1), listOf(1)))
 		return if (opened.turn!!.phase == TurnPhase.NEWS) opened.signalDoneNews("ada@example.com").signalDoneNews("grace@example.com") else opened
 	}
@@ -108,6 +108,21 @@ class GameEventsTest {
 
 		assertThat(player(game, "grace@example.com").ships.map { it.name }).doesNotContain("Halcyon")
 		assertThat(game.log.map { it.text }).contains("Halcyon (Vega Lines) was lost to the pirates (rolled 2)")
+	}
+
+	@Test
+	fun shouldLogTheLootedWarehouseInTheNewsCard() {
+		// Grace keeps 5 CHIPS at Mu Herculis; the pirates take them all, and the line goes into the News card
+		val stocked = initiative.copy(
+			players = initiative.players.map {
+				if (it.email == "grace@example.com") it.copy(warehouses = listOf(Warehouse(MU_HERCULIS, 1, mapOf(Goods.CHIPS to 5)))) else it
+			}
+		)
+		val game = takingPlace(TipOff.E12, d6 = listOf(2), from = stocked)
+
+		assertThat(player(game, "grace@example.com").warehouseAt(MU_HERCULIS)!!.holding(Goods.CHIPS)).isZero()
+		val line = game.log.first { it.text == "Pirates at Mu Herculis: Vega Lines's warehouse lost 5 u" }
+		assertThat(line.notice?.kind).isEqualTo(NoticeKind.NEWS_EVENT)
 	}
 
 	@Test

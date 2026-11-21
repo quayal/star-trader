@@ -200,8 +200,15 @@ data class Player(
 	fun hasAssetsAt(system: StarSystem): Boolean =
 		ships.any { it.isInPortAt(system) } || warehouseAt(system) != null || factories.any { it.system == system }
 
-	/** This player once pirates emptied their warehouse at [system] (E12). */
-	fun afterWarehouseLooted(system: StarSystem): Player = warehouseAt(system)?.let { withWarehouse(it.emptied()) } ?: this
+	/**
+	 * This player once pirates emptied their warehouse at [system] (E12), and the public line that tells it, as a
+	 * sabotage's does (R101): how many units were lost, never which goods. An empty warehouse, or none, isn't logged.
+	 */
+	fun lootWarehouse(system: StarSystem): LoggedChange {
+		val warehouse = warehouseAt(system)?.takeIf { it.unitsHeld() > 0 } ?: return LoggedChange(this, emptyList())
+		val line = "Pirates at ${system.displayName}: $corporationName's warehouse lost ${warehouse.unitsHeld()} u"
+		return LoggedChange(withWarehouse(warehouse.emptied()), listOf(line))
+	}
 
 	/** This player recording money movements in turn [number] from now on (R29's ledger). */
 	fun inTurn(number: Int): Player = copy(ledger = ledger.inTurn(number))
@@ -516,12 +523,15 @@ data class Player(
 	/**
 	 * The public log line of a change of [delta] to this player's reputation, given after it (R86, E13-S01-4): "Vega Lines's
 	 * reputation: −7 for trying to intercept (rolled 2d6: 7) → 13". [delta] is the change the rule made, so a change
-	 * clamped to nothing still shows why.
+	 * clamped to nothing still shows why. When JB made a loss [jbSaved] smaller (R108), the sum is shown in the same line,
+	 * as Wolf's is in the initiative line (R105): "Kessler Cargo's reputation: −6 + JB 1 = −5 for sabotage … → 15".
 	 */
-	fun reputationLog(delta: Int, reason: String): String {
-		val signed = if (delta >= 0) "+$delta" else "\u2212${-delta}"
-		return "$corporationName's reputation: $signed for $reason \u2192 ${reputation.value}"
+	fun reputationLog(delta: Int, reason: String, jbSaved: Int = 0): String {
+		val change = if (jbSaved == 0) signed(delta) else "${signed(delta - jbSaved)} + ${Agent.JB.displayName} $jbSaved = ${signed(delta)}"
+		return "$corporationName's reputation: $change for $reason \u2192 ${reputation.value}"
 	}
+
+	private fun signed(delta: Int): String = if (delta >= 0) "+$delta" else "\u2212${-delta}"
 
 	/** This player after their reputation moved by [delta], clamped to 0–40 (R86). */
 	fun withReputationChanged(delta: Int): Player = copy(reputation = reputation.changedBy(delta))
@@ -531,16 +541,14 @@ data class Player(
 		if (loss > 0 && isAgentInPort(Agent.JB)) (loss - Agent.JB_REPUTATION_REDUCTION).coerceAtLeast(0) else loss
 
 	/**
-	 * This player after losing [loss] reputation for [reason] (R86), and the public lines that tell it: JB's, when he made
-	 * it smaller (R105, R108: "JB (Kessler Cargo): reputation loss 6 → 5"), then the change itself. A loss of 0 that JB
-	 * didn't cause isn't logged.
+	 * This player after losing [loss] reputation for [reason] (R86), and the public line that tells it, with JB's part in
+	 * it when he made it smaller (R105, R108: "Kessler Cargo's reputation: −6 + JB 1 = −5 for sabotage … → 15"). A loss
+	 * of 0 isn't logged.
 	 */
-	fun loseReputation(loss: Int, reason: String): ReputationChange {
+	fun loseReputation(loss: Int, reason: String): LoggedChange {
 		val actual = reputationLossAfterAgents(loss)
 		val changed = withReputationChanged(-actual)
-		val jb = listOfNotNull(Agent.JB.actedLog(corporationName, ": reputation loss $loss \u2192 $actual").takeIf { actual != loss })
-		val change = listOfNotNull(changed.reputationLog(-actual, reason).takeIf { actual > 0 || loss > 0 })
-		return ReputationChange(changed, jb + change)
+		return LoggedChange(changed, listOfNotNull(changed.reputationLog(-actual, reason, loss - actual).takeIf { loss > 0 }))
 	}
 
 	/**
@@ -844,7 +852,7 @@ data class Player(
 	 * This player once their interest for a turn went unpaid (R92): −4 reputation (JB may make it 3, R108), logged without
 	 * the amount, and the interest added to what they owe.
 	 */
-	fun withUnpaidInterest(): ReputationChange {
+	fun withUnpaidInterest(): LoggedChange {
 		val open = openLoan()
 		val lost = withLoan(open.withInterestAdded()).loseReputation(UNPAID_INTEREST_REPUTATION, "unpaid loan interest")
 		return lost
