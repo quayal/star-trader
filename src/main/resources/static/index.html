@@ -47,6 +47,12 @@
 		/* .btn sets its own display, so hidden must win explicitly (lessons 2026-10-30). */
 		.topbar__done[hidden], .topbar__done > [hidden] { display: none; }
 		.topbar__done #done-text { color: var(--text-primary); }
+		.status-strip { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--space-group) var(--space-between-groups); margin: 0; font-size: var(--text-value); }
+		.status-strip[hidden] { display: none; }
+		.status-strip > div { display: flex; gap: var(--space-group); align-items: baseline; }
+		.status-strip dt { color: var(--text-muted); }
+		.status-strip dd { margin: 0; color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+		.status-strip .status-strip__note { color: var(--text-muted); font-weight: 400; }
 		main { grid-area: main; padding: var(--space-section); }
 		/* Each view has its own display rule, so hidden must win explicitly (lessons 2026-10-30). */
 		.view { display: grid; gap: var(--space-panel); max-width: 720px; }
@@ -385,6 +391,15 @@
 		.news-turn { display: grid; gap: var(--space-related); }
 		/* Playtest 2026-11-21: each Guide card as tall as its own lines, not stretched to the tallest card in its row. */
 		.guide-cards { align-items: start; }
+		.guide-table { grid-column: 1 / -1; } /* the hull and module tables take the whole width */
+		/* Playtest 2026-11-21: recruiting on one row; an agent's buttons beside its place. */
+		.recruit-form { display: grid; gap: var(--space-group); max-width: none; }
+		.recruit-form p { margin: 0; }
+		.recruit-row { display: flex; align-items: center; gap: var(--space-group); flex-wrap: wrap; }
+		.recruit-row .field-label { margin: 0; }
+		.recruit-row .price-input { width: 7ch; }
+		.agent-actions { display: flex; gap: var(--space-group); flex-wrap: wrap; align-items: center; margin-top: var(--space-hairline); }
+		.opportunity-form p { margin: 0; }
 		.corporation__section { display: grid; gap: var(--space-hairline); }
 		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		/* Assets (creator, 2026-11-18): where the player's money sits, laid out like Corporations. */
@@ -575,6 +590,8 @@
 		<a class="link" id="collect-link" href="/" hidden>Go to Infrastructure</a>
 		<p class="message" id="done-message" role="status" tabindex="-1"></p>
 	</div>
+	<!-- Playtest 2026-11-21: the viewer's money, reputation (with what it does) and connections, on every game screen. -->
+	<dl class="status-strip" id="status-strip" hidden></dl>
 	<!-- E04-S04: other players' progress as polls bring it in, for screen readers (the screen shows it already). -->
 	<p class="visually-hidden" id="progress-announce" role="status"></p>
 </header>
@@ -876,6 +893,53 @@
 				</div>
 			</form>
 		</dialog>
+		<!-- Playtest 2026-11-21: selling one of the viewer's agents (R106), opened by its Sell button. -->
+		<dialog class="notice" id="agent-sell-dialog" aria-labelledby="agent-sell-title">
+			<form id="agent-sell-form" method="dialog" novalidate>
+				<h2 id="agent-sell-title"></h2>
+				<p class="muted">The buyer sees only that you offer an agent, and where; they learn who once they've bought him.</p>
+				<div>
+					<label class="field-label" for="agent-sell-buyer">To</label>
+					<select class="control" id="agent-sell-buyer"></select>
+				</div>
+				<div>
+					<label class="field-label" for="agent-sell-price">Price (HT)</label>
+					<input class="control price-input" id="agent-sell-price" inputmode="numeric" value="30">
+				</div>
+				<p class="message message--error field-error" id="agent-sell-error"></p>
+				<div class="notice__actions">
+					<button class="btn" type="submit" value="offer">Offer</button>
+					<button class="quiet-button" type="submit" value="cancel" formnovalidate>Cancel</button>
+				</div>
+			</form>
+		</dialog>
+		<!-- Playtest 2026-11-21: where a just-recruited agent starts, chosen once the player knows who joined. -->
+		<dialog class="notice" id="agent-place-dialog" aria-labelledby="agent-place-title">
+			<form method="dialog">
+				<h2 id="agent-place-title"></h2>
+				<p id="agent-place-effect"></p>
+				<div>
+					<label class="field-label" for="agent-place-start">Where he starts</label>
+					<select class="control" id="agent-place-start"></select>
+				</div>
+				<div class="notice__actions">
+					<button class="btn" type="submit" value="place">Place</button>
+					<button class="quiet-button" type="submit" value="later">Later</button>
+				</div>
+			</form>
+		</dialog>
+		<!-- Playtest 2026-11-21: an agent offered to the viewer pops up to buy or decline (R106). -->
+		<dialog class="notice" id="agent-offer-dialog" aria-labelledby="agent-offer-title">
+			<form method="dialog">
+				<h2 id="agent-offer-title">An agent for sale</h2>
+				<p id="agent-offer-text"></p>
+				<div class="notice__actions">
+					<button class="btn" type="submit" value="buy">Buy</button>
+					<button class="btn btn--danger" type="submit" value="decline">Decline</button>
+					<button class="quiet-button" type="submit" value="later">Later</button>
+				</div>
+			</form>
+		</dialog>
 		<div class="toasts" id="toasts" aria-live="polite"></div>
 
 		<!-- The battle report (R75–R78), static markup filled on render: what the last round's salvos did, for the viewer. -->
@@ -1075,6 +1139,16 @@
 					<p class="message" id="collect-message" role="status"></p>
 				</form>
 			</section>
+			<!-- Playtest 2026-11-21: what can be taken first, right after the output to collect. -->
+			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
+			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
+				<h3 id="opportunities-title">Opportunities</h3>
+				<p class="muted" id="opportunities-note"></p>
+				<div id="opportunity-forms"></div>
+				<ul class="corporation__list" id="special-sales"></ul>
+				<ul class="corporation__list" id="expeditions-due"></ul>
+				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
+			</section>
 			<!-- R102 (D24): the Opportunity phase, played in turn order. Static markup; lists are redrawn only when what they show changes. -->
 			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-turn-title" hidden>
 				<h2 id="opportunity-turn-title">Whose turn</h2>
@@ -1088,33 +1162,16 @@
 				<h3 id="agents-title">Agents</h3>
 				<ul class="corporation__list" id="agents-own"></ul>
 				<ul class="corporation__list" id="agent-offers"></ul>
-				<form class="offer-form" id="recruit-form" novalidate>
+				<!-- Playtest 2026-11-21: compact. Where the agent starts is chosen after it joins (the place dialog); selling is a
+				     button beside each agent (the sell dialog). -->
+				<form class="recruit-form" id="recruit-form" novalidate>
 					<p class="muted" id="agents-pool"></p>
-					<div>
+					<div class="recruit-row">
 						<label class="field-label" for="recruit-amount">Pay (10–60 HT)</label>
 						<input class="control price-input" id="recruit-amount" inputmode="numeric" value="35">
+						<button class="btn" id="recruit-button" type="submit">Recruit</button>
 						<span class="muted" id="recruit-odds"></span>
 					</div>
-					<div>
-						<label class="field-label" for="recruit-start">Where the agent starts</label>
-						<select class="control" id="recruit-start"></select>
-					</div>
-					<div><button class="btn" id="recruit-button" type="submit">Recruit</button></div>
-				</form>
-				<form class="offer-form" id="agent-offer-form" novalidate hidden>
-					<div>
-						<label class="field-label" for="agent-offer-agent">Sell an agent</label>
-						<select class="control" id="agent-offer-agent"></select>
-					</div>
-					<div>
-						<label class="field-label" for="agent-offer-buyer">To</label>
-						<select class="control" id="agent-offer-buyer"></select>
-					</div>
-					<div>
-						<label class="field-label" for="agent-offer-price">Price (HT)</label>
-						<input class="control price-input" id="agent-offer-price" inputmode="numeric" value="30">
-					</div>
-					<div><button class="btn" type="submit">Offer</button></div>
 				</form>
 				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
 			</section>
@@ -1142,15 +1199,6 @@
 					<div><button class="btn" type="submit">Take these units</button></div>
 				</form>
 				<p class="message" id="sabotage-message" role="status" tabindex="-1"></p>
-			</section>
-			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
-			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
-				<h3 id="opportunities-title">Opportunities</h3>
-				<p class="muted" id="opportunities-note"></p>
-				<div id="opportunity-forms"></div>
-				<ul class="corporation__list" id="special-sales"></ul>
-				<ul class="corporation__list" id="expeditions-due"></ul>
-				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
 			</section>
 		</div>
 
@@ -1696,6 +1744,7 @@
 		OPENS_IN_INVESTMENT,
 		opportunityStatusText,
 		publicAgentLines,
+		corporationAgentLines,
 		recruitOdds,
 		sabotageCost,
 		sabotageModifiers,
@@ -1711,6 +1760,7 @@
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
+	import { statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
 	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
@@ -1778,6 +1828,7 @@
 	}
 
 	function setTitle(title, subtitle) {
+		$('status-strip').hidden = true; // shown again by a running game's render
 		$('page-title').textContent = title;
 		$('page-subtitle').textContent = subtitle;
 		$('done-bar').hidden = true; // only a running game's top bar shows it (updateDoneBar)
@@ -1822,6 +1873,11 @@
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		if ($('notice-dialog').open) {
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
+		}
+		for (const id of ['agent-sell-dialog', 'agent-place-dialog', 'agent-offer-dialog']) {
+			if ($(id).open) {
+				$(id).close('stale'); // about the game being left
+			}
 		}
 		if ($('done-confirm-dialog').open) {
 			$('done-confirm-dialog').close('stale'); // asked about the game being left: never signals done
@@ -2367,7 +2423,8 @@
 		const { view, systemId } = parseRoute(location.hash);
 		// The top bar (S01-1, R29, S04-3, S05-5): the initiative order joins the money once Bidding has closed.
 		const order = initiativeText(game);
-		setTitle(phaseText(game, viewerId), `Money: ${game.you?.money ?? 0} HT${order ? ` \u00b7 ${order}` : ''}`);
+		setTitle(phaseText(game, viewerId), order ?? ''); // money is in the status strip now
+		renderStatusStrip(game);
 		$('nav-log').href = logLink(game.id);
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
@@ -2396,6 +2453,7 @@
 		updateFight(game); // likewise: the battle in its own dialog (creator, 2026-11-19), under the report
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
+		updateAgentOfferPopup(game); // playtest 2026-11-21: an agent offered to the viewer, to buy or decline
 		updateInvestDialog(game); // closes itself once Investment does (creator, 2026-11-19)
 		views.game.classList.add('view--wide');
 		const key = JSON.stringify([view, systemId, game.status, game.turn, game.players, game.board, game.you, game.log.length]); // the log only grows at its end
@@ -2596,6 +2654,15 @@
 		if (anchor.nextElementSibling !== offers) {
 			anchor.after(offers);
 		}
+	}
+
+	/** The status strip (playtest, 2026-11-21): money, reputation and its effect, connections; redrawn only on a change. */
+	function renderStatusStrip(game) {
+		const items = statusItems(game, bonusFrom(rules));
+		$('status-strip').hidden = items.length === 0;
+		drawOnce('status-strip', JSON.stringify(items), () => items.map(item => element('div', {},
+			element('dt', {}, item.label),
+			element('dd', {}, item.value, ...(item.note ? [' ', element('span', { class: 'status-strip__note' }, `(${item.note})`)] : [])))));
 	}
 
 	function renderDeck(game) {
@@ -2898,7 +2965,15 @@
 			card('Each turn', list(guide.phases.map(phase => [element('strong', {}, phase.name), ` \u2014 ${phase.text}`]))),
 			card('Agents', list(guide.agents.map(agent => [element('strong', {}, agent.name), ` \u2014 ${agent.effect}`,
 				...(agent.note ? [element('span', { class: 'muted' }, ` (${agent.note})`)] : [])]))),
-			...guide.modifiers.map(section => card(section.title, list(section.lines))));
+			...guide.modifiers.map(section => card(section.title, list(section.lines))),
+			// Playtest 2026-11-21: every hull and module, to plan a ship while waiting on others.
+			...[['Hulls', guide.ships.hulls], ['Modules', guide.ships.modules]].map(([title, table]) => element('section', { class: 'panel corporation guide-table' },
+				element('h3', {}, title),
+				element('div', { class: 'table-wrap' }, element('table', { class: 'data-table' },
+					element('thead', {}, element('tr', {}, ...table.columns.map(column => element('th', { scope: 'col' }, column)))),
+					element('tbody', {}, ...table.rows.map(row => element('tr', {}, ...row.map((cell, index) => index === 0
+						? element('th', { scope: 'row' }, cell) : element('td', {}, cell))))))),
+				...(table.note ? [element('p', { class: 'muted' }, table.note)] : []))));
 	}
 
 	/** R112, R114: the special goods and the delivery aboard one of the viewer's ships, for its Fleet card. */
@@ -2926,7 +3001,7 @@
 		if (corporationsMessageKey !== null && corporationsMessageKey !== `${game.id}/${game.turn.number}`) {
 			setCorporationsMessage('', false, null);
 		}
-		const key = JSON.stringify([game.id, cards, raise, purchase]);
+		const key = JSON.stringify([game.id, cards, raise, purchase, game.you?.agents]); // the viewer's own agents are named on their card
 		if (key === shownCorporationsKey) {
 			return;
 		}
@@ -2956,8 +3031,8 @@
 				[`${position.tier} \u2014 `, good(position.goods), ` at ${position.systemName}`])),
 			section(card, 'warehouses', 'Warehouses', card.warehouses),
 			section(card, 'factories', 'Factories', card.factories.map(factory => [good(factory.goods), factory.text])),
-			// R105: where each player's agents are, never which.
-			section(card, 'agents', 'Agents', publicAgentLines(game.players.find(player => player.id === card.id) ?? {})))));
+			// R105: where each player's agents are, never which; the viewer's own card names theirs (playtest, 2026-11-21).
+			section(card, 'agents', 'Agents', corporationAgentLines(game, game.players.find(player => player.id === card.id) ?? {})))));
 	}
 
 	function renderFleet(game) {
@@ -5370,9 +5445,14 @@
 
 	// R104 (playtest, 2026-11-20): the viewer's agents with where each is and, at any time like cargo, where it can move; on
 	// the Agents card and the Deck's "Your agents" panel. [messageId] is the status line under that list.
-	function drawOwnAgents(game, listId, messageId) {
+	/**
+	 * The viewer's agents with where each is and a Move control (R104). On the Opportunity tab ([trading] true) each also has
+	 * Sell (R106, on their Opportunity turn) and, just after recruiting, Place (playtest, 2026-11-21), each opening a dialog.
+	 */
+	function drawOwnAgents(game, listId, messageId, trading = false) {
 		const you = game.you ?? {};
-		drawOnce(listId, JSON.stringify([you.agents, game.players.find(player => player.id === viewerId)?.ships]), () => {
+		const myTurn = trading && isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		drawOnce(listId, JSON.stringify([you.agents, game.players.find(player => player.id === viewerId)?.ships, myTurn]), () => {
 			if ((you.agents ?? []).length === 0) {
 				return [element('li', { class: 'muted' }, 'You have no agents.')];
 			}
@@ -5387,9 +5467,20 @@
 						gameAction('agents/move', { agent: agent.agent, ...move.body }, messageId, `${agent.name} moved.`);
 					}
 				});
-				const controls = moves.length ? [element('div', { class: 'agent-move' }, select, button)] : [];
+				const actions = moves.length && !(trading && agent.placeable) ? [select, button] : [];
+				if (trading && agent.placeable) {
+					const place = element('button', { class: 'btn', type: 'button' }, 'Place');
+					place.addEventListener('click', () => openPlaceDialog(agent));
+					actions.push(place);
+				}
+				if (myTurn) {
+					const sell = element('button', { class: 'quiet-button', type: 'button' }, 'Sell');
+					sell.addEventListener('click', () => openSellDialog(agent));
+					actions.push(sell);
+				}
 				return element('li', {}, element('strong', {}, agent.name), ` — ${agent.effect}`,
-					element('br'), element('span', { class: 'muted' }, agentWhereText(game, agent)), ...controls);
+					element('br'), element('span', { class: 'muted' }, agent.placeable ? 'Just joined: choose where he starts.' : agentWhereText(game, agent)),
+					...(actions.length ? [element('div', { class: 'agent-actions' }, ...actions)] : []));
 			});
 		});
 	}
@@ -5397,58 +5488,140 @@
 	function renderAgents(game, opportunity) {
 		const you = game.you ?? {};
 		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
-		drawOwnAgents(game, 'agents-own', 'agents-message');
+		drawOwnAgents(game, 'agents-own', 'agents-message', true);
 		drawOnce('agent-offers', JSON.stringify(you.agentOffers ?? []), () => (you.agentOffers ?? []).map(offer => {
 			const line = element('li', {}, agentOfferText(game, offer, viewerId));
 			if (offer.buyerId === viewerId) {
 				const accept = element('button', { class: 'btn', type: 'button' }, 'Buy');
 				// Playtest 2026-11-20: declining is a pass, and every pass is the red button.
 				const decline = element('button', { class: 'btn btn--danger', type: 'button' }, 'Decline');
-				accept.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/accept`, null, 'agents-message',
-					bought => `It's ${bought.you.agents[bought.you.agents.length - 1]?.name ?? 'yours'}.`));
-				decline.addEventListener('click', () => gameAction(`agents/offers/${offer.id}/decline`, null, 'agents-message', 'Declined.'));
+				accept.addEventListener('click', () => answerAgentOffer(offer, true));
+				decline.addEventListener('click', () => answerAgentOffer(offer, false));
 				line.append(' ', accept, ' ', decline);
 			}
 			return line;
 		}));
 		$('recruit-form').hidden = !opportunity || Boolean(you.opportunity?.recruited);
-		showText('agents-pool', `${you.agentPool ?? 0} agents are left to recruit. Pay 10–60 HT; 2d6 × 5 at or below it brings a random one.`);
-		fillSelect('recruit-start', agentStarts(game));
+		showText('agents-pool', `${you.agentPool ?? 0} agents are left to recruit. Pay 10–60 HT; 2d6 × 5 at or below it brings a random one, and you then choose where he starts.`);
 		const amount = validateRecruit($('recruit-amount').value);
 		showText('recruit-odds', amount.error ? '' : `Chance ${recruitOdds(amount.amount)}`);
 		$('recruit-button').disabled = !myTurn || (you.agentPool ?? 0) === 0;
-		$('agent-offer-form').hidden = !opportunity || (you.agents ?? []).length === 0;
-		fillSelect('agent-offer-agent', (you.agents ?? []).map(agent => ({ value: agent.agent, label: agent.name })));
-		fillSelect('agent-offer-buyer', game.players.filter(player => player.id !== viewerId).map(player => ({ value: player.id, label: player.corporationName })));
-		$('agent-offer-form').querySelector('button').disabled = !myTurn;
 	}
 
-	$('deck-account-more').addEventListener('click', () => {
-		accountExpandedFor = accountExpandedFor === currentGameId ? null : currentGameId;
-		renderAccount(lastGame);
-	});
+	/** R106: buy or decline an agent offered to the viewer, from the list or its pop-up. */
+	function answerAgentOffer(offer, accept) {
+		return accept
+			? gameAction(`agents/offers/${offer.id}/accept`, null, 'agents-message', bought => `It's ${bought.you.agents[bought.you.agents.length - 1]?.name ?? 'yours'}.`)
+			: gameAction(`agents/offers/${offer.id}/decline`, null, 'agents-message', 'Declined.');
+	}
+
 	$('recruit-amount').addEventListener('input', () => renderAgents(lastGame, isOpportunity(lastGame)));
-	$('recruit-form').addEventListener('submit', (event) => {
+	$('recruit-form').addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const amount = validateRecruit($('recruit-amount').value);
 		if (amount.error) {
 			setActionMessage('agents-message', amount.error, true);
 			return;
 		}
-		const start = agentStarts(lastGame).find(entry => entry.value === $('recruit-start').value);
+		// Playtest 2026-11-21: the agent joins at a first valid place, and the place dialog then asks where he starts.
+		const start = agentStarts(lastGame)[0];
+		if (!start) {
+			setActionMessage('agents-message', 'You need a ship out of the shipyard or a warehouse for an agent to start at.', true);
+			return;
+		}
 		const before = (lastGame.you?.agents ?? []).length;
-		gameAction('agents/recruit', { amount: amount.amount, ...(start?.body ?? {}) }, 'agents-message', game => {
-			const agents = game.you?.agents ?? [];
+		const game = await gameAction('agents/recruit', { amount: amount.amount, ...start.body }, 'agents-message', joined => {
+			const agents = joined.you?.agents ?? [];
 			return agents.length > before ? `${agents[agents.length - 1].name} joins you: ${agents[agents.length - 1].effect}.` : 'Nobody joined: the money is spent.';
 		});
+		const joined = game?.you?.agents?.find(agent => agent.placeable);
+		if (joined) {
+			openPlaceDialog(joined);
+		}
 	});
-	$('agent-offer-form').addEventListener('submit', (event) => {
-		event.preventDefault();
-		gameAction('agents/offer', {
-			agent: $('agent-offer-agent').value,
-			buyerId: $('agent-offer-buyer').value,
-			price: Number($('agent-offer-price').value),
-		}, 'agents-message', 'Offered: they can accept until Opportunity closes.');
+
+	// ── Playtest 2026-11-21: the place, sell and offer dialogs ──
+
+	let placingAgent = null;
+
+	function openPlaceDialog(agent) {
+		placingAgent = agent;
+		$('agent-place-title').textContent = `${agent.name} joins you`;
+		$('agent-place-effect').textContent = `${agent.effect}. Where does he start?`;
+		fillSelect('agent-place-start', agentStarts(lastGame));
+		$('agent-place-dialog').returnValue = '';
+		$('agent-place-dialog').showModal();
+	}
+
+	$('agent-place-dialog').addEventListener('close', () => {
+		const agent = placingAgent;
+		placingAgent = null;
+		const start = agentStarts(lastGame).find(entry => entry.value === $('agent-place-start').value);
+		if ($('agent-place-dialog').returnValue === 'place' && agent && start) {
+			gameAction('agents/place', { agent: agent.agent, ...start.body }, 'agents-message', `${agent.name} starts there.`);
+		}
+	});
+
+	let sellingAgent = null;
+
+	function openSellDialog(agent) {
+		sellingAgent = agent;
+		$('agent-sell-title').textContent = `Sell ${agent.name}`;
+		fillSelect('agent-sell-buyer', lastGame.players.filter(player => player.id !== viewerId).map(player => ({ value: player.id, label: player.corporationName })));
+		$('agent-sell-error').textContent = '';
+		$('agent-sell-dialog').returnValue = '';
+		$('agent-sell-dialog').showModal();
+	}
+
+	$('agent-sell-form').addEventListener('submit', (event) => {
+		if (event.submitter?.value !== 'offer') {
+			return; // Cancel closes the dialog
+		}
+		const price = $('agent-sell-price').value.trim();
+		if (!/^\d+$/.test(price)) {
+			event.preventDefault(); // stays open with the error
+			$('agent-sell-error').textContent = 'Enter a whole number of HT, 0 or more.';
+			return;
+		}
+		const agent = sellingAgent;
+		gameAction('agents/offer', { agent: agent.agent, buyerId: $('agent-sell-buyer').value, price: Number(price) }, 'agents-message',
+			`Offered ${agent.name}: they can accept until Opportunity closes.`);
+	});
+
+	$('agent-sell-dialog').addEventListener('close', () => { sellingAgent = null; });
+
+	// The agent offers to the viewer already popped up, by game and offer id, so each shows once.
+	const shownAgentOffers = new Set();
+	let poppedOffer = null;
+
+	/** R106: an agent offered to the viewer pops up once, when no other dialog is open; Later leaves it in the Agents list. */
+	function updateAgentOfferPopup(game) {
+		const dialog = $('agent-offer-dialog');
+		const offers = (game.you?.agentOffers ?? []).filter(offer => offer.buyerId === viewerId);
+		if (dialog.open) {
+			if (!offers.some(offer => offer.id === poppedOffer?.id)) {
+				dialog.close('stale'); // answered elsewhere, withdrawn or Opportunity closed
+			}
+			return;
+		}
+		const offer = offers.find(candidate => !shownAgentOffers.has(`${game.id}/${candidate.id}`));
+		if (!offer || document.querySelector('dialog[open]')) {
+			return;
+		}
+		shownAgentOffers.add(`${game.id}/${offer.id}`);
+		poppedOffer = offer;
+		$('agent-offer-text').textContent = agentOfferText(game, offer, viewerId);
+		dialog.returnValue = '';
+		dialog.showModal();
+	}
+
+	$('agent-offer-dialog').addEventListener('close', () => {
+		const offer = poppedOffer;
+		poppedOffer = null;
+		const answer = $('agent-offer-dialog').returnValue;
+		if (offer && (answer === 'buy' || answer === 'decline')) {
+			answerAgentOffer(offer, answer === 'buy');
+		}
 	});
 
 	function renderLoan(game, investing) {
@@ -5528,7 +5701,7 @@
 				fields.push(units);
 			}
 			fields.push(...boxes);
-			const take = element('button', { class: 'btn', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, 'Take');
+			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.takeable ? {} : { disabled: '' }) }, 'Take');
 			take.addEventListener('click', () => gameAction(`opportunity/tip-offs/${form.slot}/take`, {
 				ship: ship.value || null,
 				units: Number(units.value),
@@ -5539,8 +5712,8 @@
 			}, 'opportunities-message', 'Taken.'));
 			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
 			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
-			return element('div', { class: 'offer-form' }, element('strong', {}, `#${form.slot}: ${form.title}`),
-				...facts, element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
+			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
+				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);

@@ -17,9 +17,34 @@ const PHASE_TEXT = {
 
 const signed = n => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '+0');
 
+const MILITARY_NOTE = 'Military (opportunity only)';
+
+/**
+ * The Guide's hull and module tables (playtest, 2026-11-21: plan a ship while waiting on others), `{ hulls, modules }`, each
+ * `{ columns, rows }` of strings; [modules] also has a [note] on what fitting costs in crew.
+ */
+function shipTables(rules) {
+	const notes = parts => parts.filter(Boolean).join(' · ');
+	const crew = (rules.crewClasses ?? []).map(c => `${c.id} ${c.pricePerCrew} HT`).join(' · ');
+	return {
+		hulls: {
+			columns: ['Hull', 'Price', 'Modules', 'Crew', 'Cargo', 'Weapons', 'Shields', 'Intercept', 'Repair', 'Notes'],
+			rows: (rules.hulls ?? []).map(h => [h.name, `${h.price} HT`, `${h.moduleCapacity}`, `${h.crew}`, `${h.cargoSpaces}`, `${h.weapons}`,
+				`${h.shields}`, `${h.intercept}`, `${h.repairCost} HT`, notes([h.military && MILITARY_NOTE, h.aerodynamic && 'aerodynamic'])]),
+		},
+		modules: {
+			columns: ['Module', 'Price', 'Crew', 'Weapons (rockets)', 'Cargo', 'Passengers', 'Notes'],
+			rows: (rules.modules ?? []).map(m => [m.name, `${m.price} HT`, `${m.crew}`, m.rocketWeapons ? `${m.weapons} (${m.rocketWeapons})` : `${m.weapons}`,
+				`${m.cargoSpaces}`, `${m.passengers}`,
+				notes([m.military && MILITARY_NOTE, !m.takesModuleCapacity && 'Takes no module space', m.jumpModifier && `jump ${signed(m.jumpModifier)}`])]),
+			note: `Fitting a module costs its price plus its crew at the ship's class: ${crew} a crew member.`,
+		},
+	};
+}
+
 /**
  * The Guide's sections from [rules] (`/api/rules`), or null until they've loaded: `{ phases: [{ name, text }], agents:
- * [{ name, effect, note }], modifiers: [{ title, lines }] }`.
+ * [{ name, effect, note }], modifiers: [{ title, lines }], ships: { hulls, modules } }`.
  */
 export function guideSections(rules) {
 	if (!rules) {
@@ -29,6 +54,7 @@ export function guideSections(rules) {
 	const reputation = rules.reputation;
 	const bonus = Object.entries(reputation.bonus).map(([level, ht]) => `${level}: ${ht} HT`).join(', ');
 	return {
+		ships: shipTables(rules),
 		phases: rules.phases.map(name => ({ name, text: PHASE_TEXT[name] ?? '' })),
 		agents: rules.agents.map(agent => ({ name: agent.name, effect: agent.effect, note: agent.inGame ? '' : 'Not in the game yet' })),
 		modifiers: [

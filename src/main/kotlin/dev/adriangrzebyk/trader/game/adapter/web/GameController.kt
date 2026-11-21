@@ -304,6 +304,17 @@ class GameController(
 		return GameResponseDto(opportunityService.recruit(id, session.email, body.wholeAmount(), start), session.email)
 	}
 
+	/**
+	 * The player places the agent they recruited this turn where it starts (playtest, 2026-11-21): `{ agent, ship }` or
+	 * `{ agent, system, location }`, anywhere a new agent may start.
+	 */
+	@PostMapping("/games/{id}/agents/place")
+	fun placeNewAgent(@PathVariable id: String, @RequestBody(required = false) request: AgentRequestDto?, session: Session): GameResponseDto {
+		val body = request ?: AgentRequestDto()
+		val to = body.position() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose where the agent starts.")
+		return GameResponseDto(opportunityService.placeNewAgent(id, session.email, body.agentNamed(), to), session.email)
+	}
+
 	/** The player moves one of their agents on their Opportunity turn (R104): `{ agent, ship }` or `{ agent, system, location }`. */
 	@PostMapping("/games/{id}/agents/move")
 	fun moveAgent(@PathVariable id: String, @RequestBody(required = false) request: AgentRequestDto?, session: Session): GameResponseDto {

@@ -245,6 +245,18 @@ export function publicAgentLines(player) {
 	return [...own, ...aboard];
 }
 
+/**
+ * The Agents lines of [player]'s Corporations card for the viewer of [game] (playtest, 2026-11-21: "the player should
+ * know what agent this is"): on their own card each agent by name and effect, and where; on anyone else's only the public
+ * counts (R105).
+ */
+export function corporationAgentLines(game, player) {
+	if (player.id !== game.you?.id) {
+		return publicAgentLines(player);
+	}
+	return (game.you.agents ?? []).map(agent => `${agent.name} (${agent.effect}): ${agentWhereText(game, agent)}`);
+}
+
 /** An agent offer's line for the viewer (R106): the seller sees which agent, the buyer only where it is. */
 export function agentOfferText(game, offer, playerId) {
 	const where = offer.systemName ? ` (${offer.location === 'PLANET' ? 'Planet' : 'Port'} at ${offer.systemName})` : '';
