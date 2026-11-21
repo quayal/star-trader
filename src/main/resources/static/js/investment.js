@@ -160,7 +160,11 @@ export function validateCollect(factories, values) {
 export const NOT_INVESTING_TEXT = 'Investment opens after Opportunity.';
 /** S08-4: on the Deck and System details, while the viewer still has to place their output. */
 export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
-export const INFRASTRUCTURE_LINK_TEXT = 'Go to Infrastructure';
+export const OPPORTUNITY_LINK_TEXT = 'Go to Opportunity';
+/** Infrastructure during Opportunity (playtest, 2026-11-21): the phase is played on its own tab. */
+export const OPPORTUNITY_ELSEWHERE_TEXT = 'It’s Opportunity now: collect, sabotage, agents and opportunities are on the Opportunity tab. Investment comes next.';
+/** The Opportunity tab outside its phase. */
+export const OPPORTUNITY_NOT_YET_TEXT = 'Opportunity comes after Trading. You can move your agents from here at any time.';
 
 /**
  * What the Infrastructure screen is for the viewer: 'collect' or 'opportunity' in Opportunity (R102), 'invest' or 'done'

@@ -17,6 +17,7 @@ import {
 	sabotageCost,
 	sabotageModifiers,
 	sabotageTargets,
+	shortyBonus,
 	sufferedSabotageText,
 	unpaidInterestWarning,
 	validateRecruit,
@@ -82,6 +83,17 @@ describe('sabotage (R97)', () => {
 		assert.equal(sabotageCost(game(), ship), 40);
 		assert.equal(sabotageCost(game(), warehouse), 60);
 		assert.deepEqual(sabotageModifiers(3, factory), { effect: 'Effect +3 criminal −4 factory units', reputation: 'Reputation +3 criminal' });
+	});
+
+	it('adds Shorty when he is at the target’s system, wherever there (R108, playtest 2026-11-21)', () => {
+		const ship = { kind: 'SHIP', system: 'TAU_CETI', systemName: 'Tau Ceti' };
+		const you = agents => ({ you: { agents } });
+		const shorty = { agent: 'SHORTY', placeSystemName: 'Tau Ceti' };
+		assert.equal(shortyBonus(you([shorty]), ship, 4), 4);
+		assert.equal(shortyBonus(you([{ ...shorty, placeSystemName: 'Mu Herculis' }]), ship, 4), 0);
+		assert.equal(shortyBonus(you([{ ...shorty, agent: 'WOLF' }]), ship, 4), 0);
+		assert.equal(shortyBonus(you([shorty]), null, 4), 0);
+		assert.deepEqual(sabotageModifiers(5, ship, 4), { effect: 'Effect +5 criminal +4 Shorty', reputation: 'Reputation +5 criminal +4 Shorty' });
 	});
 
 	it('names an innocent player only with three or more', () => {

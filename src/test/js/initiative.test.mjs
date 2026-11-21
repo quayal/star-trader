@@ -6,6 +6,7 @@ import {
 	BID_WHOLE,
 	bidButtonLabel,
 	bidLine,
+	bidStatus,
 	bidPlacedText,
 	initiativeRolls,
 	initiativeText,
@@ -32,8 +33,14 @@ describe('validateBid', () => {
 		assert.deepEqual(validateBid('300', 300), { amount: 300 });
 	});
 
-	it('asks for a whole number when empty, fractional or not a number', () => {
-		for (const raw of ['', '  ', '2.5', 'ten', '1e2', null]) {
+	it('bids 0 when the field is left empty, as its placeholder shows (playtest, 2026-11-21)', () => {
+		for (const raw of ['', '  ', null, undefined]) {
+			assert.deepEqual(validateBid(raw, 300), { amount: 0 }, String(raw));
+		}
+	});
+
+	it('asks for a whole number when fractional or not a number', () => {
+		for (const raw of ['2.5', 'ten', '1e2']) {
 			assert.deepEqual(validateBid(raw, 300), { error: BID_WHOLE }, String(raw));
 		}
 	});
@@ -53,13 +60,28 @@ describe('bidLine', () => {
 		assert.equal(bidLine(game()), null);
 	});
 
-	it('says the bid is paid when Bidding closes, win or lose', () => {
-		assert.equal(bidLine(game({ bid: 40 })), 'Initiative bid: 40 HT (paid when Bidding closes, win or lose)');
-		assert.equal(bidLine(game({ bid: 0 })), 'Initiative bid: 0 HT (paid when Bidding closes, win or lose)');
+	it('is nothing while Bidding is open: the bid box shows it then (playtest, 2026-11-21)', () => {
+		assert.equal(bidLine(game({ bid: 40 })), null);
+		assert.equal(bidLine(game({ bid: 0 })), null);
 	});
 
 	it('says it was paid once Bidding has closed', () => {
 		assert.equal(bidLine(game({ bid: 40, phase: 'JUMPS' })), 'Initiative bid: 40 HT (paid)');
+	});
+});
+
+describe('bidStatus (playtest, 2026-11-21)', () => {
+	it('shows the placed bid, and that it can still change', () => {
+		const status = bidStatus(game({ bid: 40 }));
+		assert.equal(status.value, '40 HT');
+		assert.equal(status.note, 'You can change it until Bidding closes.');
+		assert.equal(bidStatus(game({ bid: 0 })).value, '0 HT');
+	});
+
+	it('says no bid is placed yet, and that none is needed', () => {
+		const status = bidStatus(game());
+		assert.equal(status.value, 'None yet');
+		assert.equal(status.note, 'Optional.');
 	});
 });
 

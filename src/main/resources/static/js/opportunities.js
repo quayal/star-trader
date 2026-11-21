@@ -21,15 +21,44 @@ function shipsAt(game, system, location) {
 	return positions(game).filter(s => (!system || s.system === system) && s.location === location).map(s => s.name);
 }
 
+const HOLD_TEXT = { CARGO_SPACE: 'Each unit takes a cargo space.', PASSENGER_SEAT: 'Each unit takes a passenger seat.' };
+
 /**
- * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, hulls, modules, maxModules, crewClasses,
- * hullOptional, note }`. [ships] are those that can take it now; an empty list says why in [note].
+ * What a goods opportunity's form says besides its title (playtest, 2026-11-21: all a player needs): how many units and
+ * what they cost against the viewer's money, what each takes aboard, and where and how they sell. Empty for the others.
+ */
+function goodsFacts(game, terms) {
+	if (!terms.maxUnits) {
+		return [];
+	}
+	const affordable = Math.min(terms.maxUnits, Math.floor((game.you?.money ?? 0) / terms.price));
+	const sellAt = systemName(game, terms.sellAt);
+	return [
+		`Buy 1 to ${terms.maxUnits} units at ${terms.price} HT each: you can afford ${affordable} (${affordable * terms.price} HT).`,
+		terms.kind === 'FURS' && terms.hold === 'NONE' ? 'Furs need no cargo space.' : HOLD_TEXT[terms.hold] ?? 'They need no cargo space.',
+		terms.kind === 'FURS'
+			? `Sell them for ${terms.salePrice} HT each in ${sellAt}'s Port, on your Opportunity turn there.`
+			: `Sell them on ${sellAt}'s black market (on its Planet), at a price rolled on a d6.`,
+	];
+}
+
+/** The units field's start: as many as the viewer can afford, at least 1 (the server refuses 0). */
+function defaultUnits(game, terms) {
+	return terms.maxUnits ? Math.max(1, Math.min(terms.maxUnits, Math.floor((game.you?.money ?? 0) / terms.price))) : 0;
+}
+
+/**
+ * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, maxUnits, facts, hulls, modules,
+ * maxModules, crewClasses, hullOptional, note }`. [ships] are those that can take it now; an empty list says why in [note].
  */
 export function opportunityForms(game) {
 	return (game.you?.tipOffs ?? []).filter(t => t.learned && t.terms && !t.taken).map(tipOff => {
 		const terms = tipOff.terms;
 		const at = systemName(game, terms.buyAt);
-		const base = { slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional };
+		const base = {
+			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0,
+			facts: goodsFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
+		};
 		switch (terms.kind) {
 		case 'ILLEGAL_GOODS':
 			return { ...base, units: true, ships: shipsAt(game, terms.buyAt, 'PLANET'), note: `Needs a ship on ${at}'s Planet.` };

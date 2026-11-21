@@ -108,10 +108,21 @@ export function sabotageCost(game, target) {
  * The modifiers shown before confirming (R97 criterion 5): "Effect +3 criminal −4 factory units" and "Reputation +3
  * criminal". [criminal] is the viewer's criminal connections; Shorty is secret even to the form, so it's not counted.
  */
-export function sabotageModifiers(criminal, target) {
+export function sabotageModifiers(criminal, target, shorty = 0) {
 	const sign = n => (n < 0 ? `−${-n}` : `+${n}`);
 	const factory = target?.kind === 'FACTORY' ? ` −${target.size} factory units` : '';
-	return { effect: `Effect ${sign(criminal)} criminal${factory}`, reputation: `Reputation ${sign(criminal)} criminal` };
+	const agent = shorty ? ` ${sign(shorty)} Shorty` : '';
+	return { effect: `Effect ${sign(criminal)} criminal${agent}${factory}`, reputation: `Reputation ${sign(criminal)} criminal${agent}` };
+}
+
+/**
+ * Shorty's bonus (R108) on a sabotage of [target]: [bonus] (`rules.shortySabotageBonus`) when the viewer's Shorty is at the
+ * target's system, wherever there (in Port, on a Planet, aboard a ship); 0 otherwise. Follows the chosen target (playtest,
+ * 2026-11-21), as the server's `Player.sabotageBonusAt` does.
+ */
+export function shortyBonus(game, target, bonus) {
+	const shorty = (game.you?.agents ?? []).find(agent => agent.agent === 'SHORTY');
+	return target && shorty && shorty.placeSystemName === target.systemName ? bonus ?? 0 : 0;
 }
 
 /** One of the viewer's sabotages as their own result line (R101): the rolls and what came of them. */

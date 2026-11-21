@@ -1,5 +1,8 @@
 package dev.adriangrzebyk.trader.game.news
 
+import dev.adriangrzebyk.trader.game.Notice
+import dev.adriangrzebyk.trader.game.NoticeKind
+
 /**
  * A tip-off in play (R109): drawn in turn [drawnIn] into board [slot], public as "Tip-off #3 · CRIM 5 · effective turn 7".
  * [learnedBy] are the players who paid to learn it (private, R110); [takenBy] the player who took its opportunity (R111),
@@ -42,4 +45,8 @@ data class ActiveTipOff(val slot: Int, val tipOff: TipOff, val drawnIn: Int, val
 		}
 		return "News: the opportunity to ${terms.description()} has expired$taken."
 	}
+
+	/** The pop-up for its [announcement] (playtest, 2026-11-21): for everyone, an event that took place or an expired opportunity. */
+	fun announcementNotice(): Notice =
+		Notice(if (tipOff.event != null) NoticeKind.NEWS_EVENT else NoticeKind.OPPORTUNITY_EXPIRED, null, emptyList(), null, null)
 }

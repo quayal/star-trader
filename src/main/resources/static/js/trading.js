@@ -501,6 +501,43 @@ export function defaultSplit(form, amount) {
 	return split;
 }
 
+/**
+ * The most one place's slider can take of [amount] (playtest, 2026-11-21): all of it for a buy (what doesn't fit is lost,
+ * and the warning says so), at most what the place holds for a sell.
+ */
+export function placeMax(form, amount, index) {
+	return form.type === 'SELL' ? Math.min(form.ships[index].holding, amount) : amount;
+}
+
+/**
+ * The split after the player moves place [index]'s slider to [value] (playtest, 2026-11-21): the sliders are linked, so the
+ * others make up the rest of [amount]. A sell's value stops where the others can still cover the rest. What's taken comes
+ * off the last places first; what's given goes to the first places, into a buy's free space first, then onto the first
+ * other place (where it's lost, as with [defaultSplit]).
+ */
+export function rebalanceSplit(form, amount, split, index, value) {
+	const others = form.ships.map((_, i) => i).filter(i => i !== index);
+	const othersCap = others.reduce((sum, i) => sum + placeMax(form, amount, i), 0);
+	const next = form.ships.map((_, i) => split[i] ?? 0);
+	next[index] = Math.min(placeMax(form, amount, index), Math.max(value, amount - othersCap, 0));
+	let diff = amount - next[index] - others.reduce((sum, i) => sum + next[i], 0);
+	for (const i of [...others].reverse()) {
+		const take = Math.min(next[i], Math.max(0, -diff));
+		next[i] -= take;
+		diff += take;
+	}
+	for (const i of others) {
+		const room = form.type === 'SELL' ? placeMax(form, amount, i) - next[i] : Math.max(0, form.ships[i].free - next[i]);
+		const give = Math.min(room, Math.max(0, diff));
+		next[i] += give;
+		diff -= give;
+	}
+	if (diff > 0 && others.length > 0) {
+		next[others[0]] += diff;
+	}
+	return next;
+}
+
 /** How many of a buy's units won't fit (S04-4): POLY and ISO beyond each ship's free space, everything with no ship there. */
 export function lostUnits(form, amount, split) {
 	if (form.type !== 'BUY') {

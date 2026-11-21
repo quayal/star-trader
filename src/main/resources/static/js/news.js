@@ -24,8 +24,8 @@ export function waitingForNews(game, playerId) {
 }
 
 /**
- * One row per tip-off in play: `{ slot, title: 'Tip-off #3', need: 'CRIM 5', turn: 'effective turn 7', details, taken,
- * learn: { enabled, reason } }`. Learning is offered only in News and only for what isn't learned yet; the reason says why
+ * One row per tip-off in play: `{ slot, effectiveTurn, title: 'Tip-off #3', need: 'CRIM 5', details, taken, learn: {
+ * enabled, reason } }`. Learning is offered only in News and only for what isn't learned yet; the reason says why
  * the button is disabled: the connection (in the server's words), or that it opens in News.
  */
 export function tipOffRows(game) {
@@ -35,13 +35,34 @@ export function tipOffRows(game) {
 		return {
 			slot: tipOff.slot,
 			title: `Tip-off #${tipOff.slot}`,
+			effectiveTurn: tipOff.effectiveTurn,
 			need: tipOff.need,
-			turn: `effective turn ${tipOff.effectiveTurn}`,
 			details: tipOff.learned ? tipOff.details : null,
 			taken: tipOff.taken ? 'Already taken.' : '',
 			learn: learnable ? { enabled: reason === '', reason, label: `Learn (${LEARN_COST} HT)` } : null,
 		};
 	});
+}
+
+/** "This turn (turn 3)", "Next turn (turn 4)" or "Turn 6": when a group of tip-offs takes place or expires. */
+export function turnHeading(effectiveTurn, currentTurn) {
+	if (effectiveTurn === currentTurn) {
+		return `This turn (turn ${effectiveTurn})`;
+	}
+	return effectiveTurn === currentTurn + 1 ? `Next turn (turn ${effectiveTurn})` : `Turn ${effectiveTurn}`;
+}
+
+/**
+ * The tip-offs in play grouped by the turn they take place or expire (playtest, 2026-11-21), soonest first: `[{ heading,
+ * rows }]`, the rows as [tipOffRows]. Within a turn the order doesn't matter, so they keep the server's.
+ */
+export function tipOffGroups(game) {
+	const byTurn = new Map();
+	for (const row of tipOffRows(game)) {
+		byTurn.set(row.effectiveTurn, [...(byTurn.get(row.effectiveTurn) ?? []), row]);
+	}
+	return [...byTurn.keys()].sort((a, b) => a - b)
+		.map(turn => ({ heading: turnHeading(turn, game.turn?.number), rows: byTurn.get(turn) }));
 }
 
 /** This turn's announcements (R109): the log lines of the current turn that start with "News:", oldest first. */

@@ -166,3 +166,27 @@ describe('battle summary and untraded offers (playtest, 2026-11-20)', () => {
 		assert.deepEqual(untradedCards({ id: 'g', turn: { number: 3 }, you: {} }), []);
 	});
 });
+
+describe('News cards (playtest, 2026-11-21)', () => {
+	const news = kind => ({ kind, system: null, systemName: null, playerIds: [], round: null, interception: null });
+
+	it('pops up an event and an expired opportunity for everyone, one card each', () => {
+		const cards = noticeCards(game([
+			{ turn: 3, text: 'News: Epidemics: FOOD prices rise.', notice: news('NEWS_EVENT') },
+			{ turn: 3, text: 'News: the opportunity to buy drugs has expired.', notice: news('OPPORTUNITY_EXPIRED') },
+		]), 0, 'p1');
+		assert.deepEqual(cards.map(card => [card.title, card.lead]), [
+			['News', 'Epidemics: FOOD prices rise.'],
+			['An opportunity expired', 'The opportunity to buy drugs has expired.'],
+		]);
+	});
+
+	it('lists what an event did under its announcement, in the same card', () => {
+		const [card] = noticeCards(game([
+			{ turn: 3, text: 'News: Pirates attack Mu Herculis.', notice: news('NEWS_EVENT') },
+			{ turn: 3, text: 'Lantern (Orion Freight) was lost to the pirates (rolled 2)', notice: news('NEWS_EVENT') },
+		]), 0, 'p1');
+		assert.equal(card.lead, 'Pirates attack Mu Herculis.');
+		assert.deepEqual(card.lines, ['Lantern (Orion Freight) was lost to the pirates (rolled 2)']);
+	});
+});

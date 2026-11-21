@@ -102,6 +102,7 @@
 			align-items: start;
 		}
 		.deck__side { display: grid; gap: var(--space-panel); }
+		.deck__side > .is-blocking { order: -1; } /* playtest 2026-11-21: what must be decided first is on top */
 		@media (max-width: 1200px) {
 			.deck { grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr); }
 			.deck__offers { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
@@ -110,6 +111,16 @@
 			.deck { grid-template-columns: minmax(0, 1fr); }
 			.deck__map { order: -1; }
 		}
+		/* Playtest 2026-11-21: the bid box stands out and shows the placed bid large. */
+		.bid-panel { display: grid; gap: var(--space-group); }
+		.bid-panel[hidden] { display: none; } /* after the rule above, which sets display */
+		.bid-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-related); flex-wrap: wrap; }
+		.bid-head h2 { margin: 0; }
+		.bid-head__value { font-family: var(--font-display); font-size: var(--text-title); font-variant-numeric: tabular-nums; } /* as a panel's title */
+		.bid-note, .bid-panel .message { margin: 0; }
+		.bid-panel .message:empty { display: none; }
+		.bid-form { display: flex; gap: var(--space-group); align-items: center; flex-wrap: wrap; max-width: none; }
+		.bid-form .price-input { width: 9ch; font-variant-numeric: tabular-nums; }
 		/* E03-S03: the offer forms on s01 and s02. */
 		.offer-form { max-width: none; gap: var(--space-related); }
 		.offer-form .control { width: 100%; }
@@ -335,6 +346,9 @@
 		.trade-ship { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); flex-wrap: wrap; }
 		.trade-ship label { min-width: 0; overflow-wrap: anywhere; }
 		.trade-ships legend { padding: 0; }
+		/* Playtest 2026-11-21: each place's label over its linked slider. */
+		.trade-place { display: grid; gap: var(--space-hairline); }
+		.trade-place > span, .trade-place > label { overflow-wrap: anywhere; }
 		/* s10 (E06-S08): the whole Investment phase, one column of panels. */
 		.infrastructure { display: grid; gap: var(--space-panel); max-width: 720px; }
 		.infrastructure > h2, .infrastructure p { margin: 0; }
@@ -366,6 +380,11 @@
 		.corporation h3 { margin: 0; font-size: var(--text-title); }
 		.corporation h4 { margin: 0; font-size: var(--text-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 		.corporation p { margin: 0; }
+		/* Playtest 2026-11-21: the tip-offs grouped by the turn they take place or expire. */
+		.news-turns { display: grid; gap: var(--space-group); }
+		.news-turn { display: grid; gap: var(--space-related); }
+		/* Playtest 2026-11-21: each Guide card as tall as its own lines, not stretched to the tallest card in its row. */
+		.guide-cards { align-items: start; }
 		.corporation__section { display: grid; gap: var(--space-hairline); }
 		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		/* Assets (creator, 2026-11-18): where the player's money sits, laid out like Corporations. */
@@ -426,6 +445,7 @@
 		.slider { display: flex; align-items: center; gap: var(--space-related); }
 		.slider__range { flex: 1; min-width: 0; accent-color: var(--accent-selected); }
 		.slider__range:disabled { opacity: 0.5; }
+		.slider__range[data-only] { opacity: 1; } /* the one possible amount: locked, but not greyed out */
 		.slider__value { min-width: 7ch; font-family: var(--font-display); font-variant-numeric: tabular-nums; color: var(--text-primary); }
 		.ship-buy { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: var(--space-between-groups); align-items: start; }
 		@media (max-width: 1100px) {
@@ -514,9 +534,11 @@
 <body>
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
-	<a class="nav-item" id="nav-home" href="/">Deck</a>
+	<a class="nav-item" id="nav-home" href="/">Command deck</a>
 	<!-- s03 (E05-S01): only while a started game is open; its href is that game's Trading screen. -->
 	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
+	<!-- Playtest 2026-11-21: the Opportunity phase's own tab. -->
+	<a class="nav-item" id="nav-opportunity" href="/" hidden>Opportunity</a>
 	<!-- s10 (E06-S08, D12): only while a started game is open; its href is that game's Infrastructure screen. -->
 	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
 	<!-- E07-S03: only while a started game is open; its href is that game's Fleet tab. -->
@@ -662,9 +684,28 @@
 			<p><span class="badge badge--warn">Waiting</span> <span id="waiting-text"></span></p>
 		</section>
 
-		<!-- s01: the Deck. The initiative bid (S05) joins the right column later. -->
+		<!-- s01: the Command deck (playtest, 2026-11-21): the initiative bid, fleet, agents, account and the turn order left of
+		     the map; what the player must decide first (battle, jump, connections), then positions, trades and offers right
+		     of it. A panel waiting on the viewer goes to the top of its column (.is-blocking). -->
 		<div class="deck" id="deck-panel" hidden>
 			<div class="deck__side">
+				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. Playtest 2026-11-21:
+				     compact, at the top of the left column, the placed bid beside the title so it's clear one has been made. -->
+				<section class="panel bid-panel" id="bid-panel" aria-labelledby="bid-title" hidden>
+					<div class="bid-head">
+						<h2 id="bid-title" tabindex="-1">Initiative bid</h2>
+						<strong class="bid-head__value" id="bid-current-value" role="status">None yet</strong>
+					</div>
+					<p class="muted bid-note"><span id="bid-hint"></span> <span id="bid-current-note"></span></p>
+					<form class="bid-form" id="bid-form" novalidate>
+						<label class="visually-hidden" for="bid-amount">Bid (HT)</label>
+						<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
+							aria-describedby="bid-hint bid-current-note bid-error">
+						<button class="btn" id="bid-button" type="submit">Place bid</button>
+					</form>
+					<p class="message message--error field-error" id="bid-error"></p>
+					<p class="message" id="bid-message" role="status"></p>
+				</section>
 				<section class="panel" aria-labelledby="fleet-title">
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
@@ -675,23 +716,11 @@
 					<ul class="corporation__list" id="deck-agents"></ul>
 					<p class="message" id="deck-agents-message" role="status" tabindex="-1"></p>
 				</section>
-				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
-				<section class="panel" aria-labelledby="deck-positions-title">
-					<h2 id="deck-positions-title">Your market positions</h2>
-					<ul class="corporation__list" id="deck-positions"></ul>
-				</section>
 				<!-- Playtest 2026-11-20: the viewer's own money movements, newest first (R29: theirs alone). -->
 				<section class="panel" aria-labelledby="deck-account-title">
 					<h2 id="deck-account-title">Your account</h2>
 					<ul class="corporation__list account-list" id="deck-account"></ul>
 					<div><button class="quiet-button" id="deck-account-more" type="button" hidden></button></div>
-				</section>
-				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
-				<section class="panel" aria-labelledby="your-trades-title">
-					<h2 id="your-trades-title">Your trades</h2>
-					<ul class="trade-history" id="your-trades"></ul>
-					<p class="muted" id="your-trades-none"></p>
-					<div><button class="quiet-button" id="your-trades-more" type="button" hidden></button></div>
 				</section>
 				<!-- E04-S01: from Ship-jumps on. Static markup, updated on render, so the chosen place and focus survive the poll. -->
 				<section class="panel" id="turn-order-panel" aria-labelledby="turn-order-title" hidden>
@@ -768,20 +797,17 @@
 						<p class="muted" id="placement-note"></p>
 					</form>
 				</section>
-				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
-				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
-					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
-					<form class="offer-form" id="bid-form" novalidate>
-						<div>
-							<label class="field-label" for="bid-amount">Your bid (HT)</label>
-							<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
-								aria-describedby="bid-hint bid-error">
-							<p class="message muted" id="bid-hint"></p>
-							<p class="message message--error field-error" id="bid-error"></p>
-						</div>
-						<div><button class="btn" id="bid-button" type="submit">Place bid</button></div>
-						<p class="message" id="bid-message" role="status"></p>
-					</form>
+				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
+				<section class="panel" aria-labelledby="deck-positions-title">
+					<h2 id="deck-positions-title">Your market positions</h2>
+					<ul class="corporation__list" id="deck-positions"></ul>
+				</section>
+				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
+				<section class="panel" aria-labelledby="your-trades-title">
+					<h2 id="your-trades-title">Your trades</h2>
+					<ul class="trade-history" id="your-trades"></ul>
+					<p class="muted" id="your-trades-none"></p>
+					<div><button class="quiet-button" id="your-trades-more" type="button" hidden></button></div>
 				</section>
 				<section class="panel" id="deck-offer-panel" aria-labelledby="deck-offer-title" hidden>
 					<h2 id="deck-offer-title">Place an offer</h2>
@@ -836,6 +862,17 @@
 				<div class="notice__actions">
 					<button class="btn" id="notice-next" type="submit" value="next"></button>
 					<button class="quiet-button" id="notice-all" type="submit" value="all">Dismiss all</button>
+				</div>
+			</form>
+		</dialog>
+		<!-- Playtest 2026-11-21: "I'm done bidding" with no offers and no bid asks first. -->
+		<dialog class="notice" id="done-confirm-dialog" aria-labelledby="done-confirm-title" aria-describedby="done-confirm-text">
+			<form method="dialog">
+				<h2 id="done-confirm-title"></h2>
+				<p id="done-confirm-text"></p>
+				<div class="notice__actions">
+					<button class="btn" type="submit" value="done">Yes, I’m done</button>
+					<button class="quiet-button" type="submit" value="cancel">Not yet</button>
 				</div>
 			</form>
 		</dialog>
@@ -915,7 +952,7 @@
 			<div class="corporations__cards">
 				<section class="panel corporation" aria-labelledby="news-tipoffs-title">
 					<h3 id="news-tipoffs-title">Tip-offs in play</h3>
-					<ul class="corporation__list" id="news-tipoffs"></ul>
+					<div class="news-turns" id="news-tipoffs"></div>
 				</section>
 				<section class="panel corporation" aria-labelledby="news-announcements-title">
 					<h3 id="news-announcements-title">This turn's news</h3>
@@ -930,12 +967,12 @@
 		<div class="corporations" id="guide-panel" hidden>
 			<h2 class="system__title" id="guide-title" tabindex="-1">Guide</h2>
 			<p class="muted" id="guide-loading">Loading the rules…</p>
-			<div class="corporations__cards" id="guide-cards"></div>
+			<div class="corporations__cards guide-cards" id="guide-cards"></div>
 		</div>
 
 		<!-- s04: Game log, public events by turn (E03-S06) -->
 		<div class="game-log" id="log-panel" hidden>
-			<p><a class="link" id="log-back" href="/">&larr; Back to the Deck</a></p>
+			<p><a class="link" id="log-back" href="/">&larr; Back to the Command deck</a></p>
 			<h2 class="system__title" id="log-title" tabindex="-1">Game log</h2>
 			<div class="game-log__turns" id="log-turns"></div>
 			<p class="muted">Public events only: offers, bids and money are never logged.</p>
@@ -1022,57 +1059,30 @@
 		</div>
 
 		<!-- s10 Infrastructure (E06-S08, D12): the whole Investment phase. -->
-		<div class="infrastructure" id="infrastructure-panel" hidden>
-			<h2 class="system__title" id="infrastructure-title" tabindex="-1">Infrastructure</h2>
-			<section class="panel" id="investment-status-panel" aria-label="Investment">
-				<p id="infrastructure-status" role="status" tabindex="-1"></p>
-				<!-- Static markup, shown when the player can signal done; the top bar keeps Bidding's button only. -->
-				<div id="infra-done-row" hidden>
-					<button class="btn" id="infra-done-button" type="button">I'm done investing</button>
-				</div>
-				<p class="message" id="infra-done-message" role="status" tabindex="-1"></p>
-				<!-- E06-S04-6: all the time Investment is open, so nobody thinks they wait for a builder. -->
-				<p class="muted" id="invest-note"></p>
-				<!-- Buying a ship is on Fleet, beside the ships the player has. -->
-				<p id="ship-pointer" hidden><a class="link" id="ship-pointer-link" href="/">Buy a ship on the Fleet tab</a></p>
-				<!-- Creator, 2026-11-19: raising a connection (E12-S02) and buying reputation (E13-S03) are on the player's own Corporations card. -->
-				<p id="corporation-pointer" hidden><a class="link" id="corporation-pointer-link" href="/">Raise a connection or buy reputation on your Corporations card</a></p>
-				<!-- Creator, 2026-11-19: warehouses and factories are bought from the tables below; what the last purchase did. -->
-				<p class="message message--success" id="infra-invest-message" role="status" tabindex="-1"></p>
+		<!-- Playtest 2026-11-21: the Opportunity phase on its own tab, what blocks first (the output to collect) at the top. -->
+		<div class="infrastructure" id="opportunity-screen" hidden>
+			<h2 class="system__title" id="opportunity-title" tabindex="-1">Opportunity</h2>
+			<p class="message" id="opportunity-screen-status" role="status"></p>
+			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
+			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
+				<h2 id="collect-title" tabindex="-1">Collect your output</h2>
+				<p class="muted" id="collect-intro"></p>
+				<form class="offer-form" id="collect-form" novalidate>
+					<div class="collect-factories" id="collect-factories"></div>
+					<p class="message message--warn" id="collect-warning" role="status"></p>
+					<p class="message message--error field-error" id="collect-error" role="alert"></p>
+					<div><button class="btn" id="collect-button" type="submit"></button></div>
+					<p class="message" id="collect-message" role="status"></p>
+				</form>
 			</section>
 			<!-- R102 (D24): the Opportunity phase, played in turn order. Static markup; lists are redrawn only when what they show changes. -->
-			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-title" hidden>
-				<h2 id="opportunity-title" tabindex="-1">Opportunity</h2>
+			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-turn-title" hidden>
+				<h2 id="opportunity-turn-title">Whose turn</h2>
 				<p id="opportunity-status" role="status" tabindex="-1"></p>
 				<div id="opportunity-done-row" hidden><button class="btn" id="opportunity-done-button" type="button">I'm done with opportunities</button></div>
 				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
 				<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
 				<div id="owed-hits"></div>
-			</section>
-			<section class="panel" id="sabotage-panel" aria-labelledby="sabotage-title" hidden>
-				<h3 id="sabotage-title">Sabotage</h3>
-				<ul class="corporation__list" id="sabotage-suffered"></ul>
-				<ul class="corporation__list" id="sabotage-results"></ul>
-				<form class="offer-form" id="sabotage-form" novalidate>
-					<div>
-						<label class="field-label" for="sabotage-target">Target</label>
-						<select class="control" id="sabotage-target"></select>
-					</div>
-					<div id="sabotage-blamed-row">
-						<label class="field-label" for="sabotage-blamed">Blamed on a 21+ reputation roll</label>
-						<select class="control" id="sabotage-blamed"></select>
-					</div>
-					<p id="sabotage-cost"></p>
-					<p class="muted" id="sabotage-modifiers"></p>
-					<div><button class="btn" id="sabotage-button" type="submit">Sabotage</button></div>
-					<p class="muted" id="sabotage-wait"></p>
-				</form>
-				<form class="offer-form" id="losses-form" novalidate hidden>
-					<p id="losses-intro"></p>
-					<div class="trade-ships" id="losses-goods"></div>
-					<div><button class="btn" type="submit">Take these units</button></div>
-				</form>
-				<p class="message" id="sabotage-message" role="status" tabindex="-1"></p>
 			</section>
 			<section class="panel" id="agents-panel" aria-labelledby="agents-title" hidden>
 				<h3 id="agents-title">Agents</h3>
@@ -1108,6 +1118,31 @@
 				</form>
 				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
 			</section>
+			<section class="panel" id="sabotage-panel" aria-labelledby="sabotage-title" hidden>
+				<h3 id="sabotage-title">Sabotage</h3>
+				<ul class="corporation__list" id="sabotage-suffered"></ul>
+				<ul class="corporation__list" id="sabotage-results"></ul>
+				<form class="offer-form" id="sabotage-form" novalidate>
+					<div>
+						<label class="field-label" for="sabotage-target">Target</label>
+						<select class="control" id="sabotage-target"></select>
+					</div>
+					<div id="sabotage-blamed-row">
+						<label class="field-label" for="sabotage-blamed">Blamed on a 21+ reputation roll</label>
+						<select class="control" id="sabotage-blamed"></select>
+					</div>
+					<p id="sabotage-cost"></p>
+					<p class="muted" id="sabotage-modifiers"></p>
+					<div><button class="btn" id="sabotage-button" type="submit">Sabotage</button></div>
+					<p class="muted" id="sabotage-wait"></p>
+				</form>
+				<form class="offer-form" id="losses-form" novalidate hidden>
+					<p id="losses-intro"></p>
+					<div class="trade-ships" id="losses-goods"></div>
+					<div><button class="btn" type="submit">Take these units</button></div>
+				</form>
+				<p class="message" id="sabotage-message" role="status" tabindex="-1"></p>
+			</section>
 			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
 			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
 				<h3 id="opportunities-title">Opportunities</h3>
@@ -1116,6 +1151,26 @@
 				<ul class="corporation__list" id="special-sales"></ul>
 				<ul class="corporation__list" id="expeditions-due"></ul>
 				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
+			</section>
+		</div>
+
+		<div class="infrastructure" id="infrastructure-panel" hidden>
+			<h2 class="system__title" id="infrastructure-title" tabindex="-1">Infrastructure</h2>
+			<section class="panel" id="investment-status-panel" aria-label="Investment">
+				<p id="infrastructure-status" role="status" tabindex="-1"></p>
+				<!-- Static markup, shown when the player can signal done; the top bar keeps Bidding's button only. -->
+				<div id="infra-done-row" hidden>
+					<button class="btn" id="infra-done-button" type="button">I'm done investing</button>
+				</div>
+				<p class="message" id="infra-done-message" role="status" tabindex="-1"></p>
+				<!-- E06-S04-6: all the time Investment is open, so nobody thinks they wait for a builder. -->
+				<p class="muted" id="invest-note"></p>
+				<!-- Buying a ship is on Fleet, beside the ships the player has. -->
+				<p id="ship-pointer" hidden><a class="link" id="ship-pointer-link" href="/">Buy a ship on the Fleet tab</a></p>
+				<!-- Creator, 2026-11-19: raising a connection (E12-S02) and buying reputation (E13-S03) are on the player's own Corporations card. -->
+				<p id="corporation-pointer" hidden><a class="link" id="corporation-pointer-link" href="/">Raise a connection or buy reputation on your Corporations card</a></p>
+				<!-- Creator, 2026-11-19: warehouses and factories are bought from the tables below; what the last purchase did. -->
+				<p class="message message--success" id="infra-invest-message" role="status" tabindex="-1"></p>
 			</section>
 			<section class="panel" id="loan-panel" aria-labelledby="loan-title" hidden>
 				<h3 id="loan-title">Loan</h3>
@@ -1139,18 +1194,6 @@
 					<div><button class="btn" id="loan-button" type="submit">Borrow</button></div>
 				</form>
 				<p class="message" id="loan-message" role="status" tabindex="-1"></p>
-			</section>
-			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
-			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
-				<h2 id="collect-title" tabindex="-1">Collect your output</h2>
-				<p class="muted" id="collect-intro"></p>
-				<form class="offer-form" id="collect-form" novalidate>
-					<div class="collect-factories" id="collect-factories"></div>
-					<p class="message message--warn" id="collect-warning" role="status"></p>
-					<p class="message message--error field-error" id="collect-error" role="alert"></p>
-					<div><button class="btn" id="collect-button" type="submit"></button></div>
-					<p class="message" id="collect-message" role="status"></p>
-				</form>
 			</section>
 			<!-- E08-S02 (R58): moving goods is on each system's page since 2026-11-19; a pointer for a player with a warehouse. -->
 			<p class="muted" id="cargo-pointer" hidden></p>
@@ -1258,7 +1301,11 @@
 						<p id="trade-cannot"></p>
 						<div id="trade-amount-field">
 							<label class="field-label" for="trade-amount" id="trade-amount-label"></label>
-							<input class="control price-input" id="trade-amount" inputmode="numeric" aria-describedby="trade-help trade-amount-error">
+							<!-- Playtest 2026-11-21: a slider, linked to the number beside it for typing an exact amount. -->
+							<div class="slider">
+								<input class="slider__range" id="trade-amount-range" type="range" min="1" max="1" step="1" value="1" aria-labelledby="trade-amount-label" aria-describedby="trade-help trade-amount-error">
+								<input class="control price-input" id="trade-amount" inputmode="numeric" aria-describedby="trade-help trade-amount-error">
+							</div>
 							<p class="message muted" id="trade-help"></p>
 							<p class="message message--error field-error" id="trade-amount-error"></p>
 						</div>
@@ -1289,7 +1336,7 @@
 		</div>
 
 		<div class="system" id="system-panel" hidden>
-			<p><a class="link" id="system-back" href="/">&larr; Back to the Deck</a></p>
+			<p><a class="link" id="system-back" href="/">&larr; Back to the Command deck</a></p>
 			<h2 class="system__title" id="system-title" tabindex="-1"></h2>
 			<div class="system__body">
 			<div class="system__main">
@@ -1383,7 +1430,7 @@
 	<div class="view" id="unknown-view" hidden>
 		<section class="panel" aria-labelledby="unknown-title">
 			<h2 id="unknown-title" tabindex="-1">This screen doesn't exist</h2>
-			<p><a class="link" id="unknown-link" href="/">Go to the Deck</a></p>
+			<p><a class="link" id="unknown-link" href="/">Go to the Command deck</a></p>
 		</section>
 	</div>
 </main>
@@ -1408,9 +1455,11 @@
 		corporationsLink,
 		guideLink,
 		newsLink,
+		opportunityLink,
 		infrastructureLink,
 		validateTurns,
 		screenForPhaseChange,
+		phaseScreenLink,
 		deckHeadingFor,
 	} from './js/game.js';
 	import { CASH_ONLY_TEXT, NOT_OVER_TEXT, isOver, standingRows, winnerText } from './js/game-over.js';
@@ -1436,6 +1485,8 @@
 		lineText,
 		decisionText,
 		defaultSplit,
+		placeMax,
+		rebalanceSplit,
 		TRADE_NOTHING_BUTTON,
 		lossWarning,
 		dictatorFormKey,
@@ -1589,13 +1640,14 @@
 		refusalText,
 		validatePrice,
 	} from './js/offers.js';
-	import { DONE_TEXT, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
+	import { DONE_TEXT, EMPTY_DONE_QUESTION, EMPTY_DONE_TEXT, asksBeforeDone, doneAcceptedText, doneRefusedText, isDone, phaseText } from './js/bidding.js';
 	import {
 		COLLECT_BUTTON,
 		COLLECT_ELSEWHERE_TEXT,
-		COLLECT_FIRST_TEXT,
 		COLLECT_INTRO,
-		INFRASTRUCTURE_LINK_TEXT,
+		OPPORTUNITY_LINK_TEXT,
+		OPPORTUNITY_ELSEWHERE_TEXT,
+		OPPORTUNITY_NOT_YET_TEXT,
 		INVEST_NOTE,
 		NOT_INVESTING_TEXT,
 		blocksCostText,
@@ -1647,6 +1699,7 @@
 		recruitOdds,
 		sabotageCost,
 		sabotageModifiers,
+		shortyBonus,
 		sabotageResultText,
 		sabotageTargets,
 		sufferedSabotageText,
@@ -1654,11 +1707,11 @@
 		validateRecruit,
 		waitTurnText,
 	} from './js/opportunity.js';
-	import { BID_CLOSED_TEXT, bidButtonLabel, bidLine, bidPlacedText, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
+	import { BID_CLOSED_TEXT, BID_HINT, bidButtonLabel, bidLine, bidStatus, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
-	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffRows } from './js/news.js';
+	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
 	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
@@ -1670,7 +1723,7 @@
 	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'join-requests-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'opportunity-screen', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1705,6 +1758,7 @@
 	let focusCorporationsTitle = false;
 	let focusGuideTitle = false;
 	let focusNewsTitle = false;
+	let focusOpportunityTitle = false;
 	/** The game's fixed rules from /api/rules (playtest, 2026-11-20), for the Guide, the map's jump modifiers and reputation notes. */
 	let rules = null;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
@@ -1769,12 +1823,16 @@
 		if ($('notice-dialog').open) {
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
 		}
+		if ($('done-confirm-dialog').open) {
+			$('done-confirm-dialog').close('stale'); // asked about the game being left: never signals done
+		}
 		const { view, id, ship } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'opportunity' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
 		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
+		$('nav-opportunity').toggleAttribute('aria-current', view === 'opportunity');
 		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
 		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
 		$('nav-assets').toggleAttribute('aria-current', view === 'assets');
@@ -1784,6 +1842,7 @@
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
 		$('nav-trading').hidden = true;
+		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -1806,10 +1865,11 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', news: 'nav-news', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			$({ log: 'nav-log', trading: 'nav-trading', opportunity: 'nav-opportunity', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', news: 'nav-news', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
+			focusOpportunityTitle = view === 'opportunity';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
 			focusFleetShip = view === 'fleet' ? ship ?? null : null;
@@ -1829,6 +1889,7 @@
 		showView('unknown');
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -2254,8 +2315,7 @@
 		viewerId = game.you?.id ?? null;
 		if (screen !== null && screen !== parseRoute(location.hash).view) {
 			focusDeckHeading = screen === 'game';
-			const link = { game: deckLink, trading: tradingLink, infrastructure: infrastructureLink, over: gameOverLink }[screen];
-			location.hash = link(game.id); // read at once by renderRunning below; route() redraws on hashchange
+			location.hash = phaseScreenLink(screen, game.id); // read at once by renderRunning below; route() redraws on hashchange
 		}
 		if (fresh) {
 			lastLoadedAt = Date.now();
@@ -2276,6 +2336,7 @@
 		focusOverTitle = false;
 		$('nav-log').hidden = true;
 		$('nav-trading').hidden = true;
+		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -2311,6 +2372,8 @@
 		$('nav-log').hidden = false;
 		$('nav-trading').href = tradingLink(game.id);
 		$('nav-trading').hidden = false;
+		$('nav-opportunity').href = opportunityLink(game.id);
+		$('nav-opportunity').hidden = false;
 		$('nav-infrastructure').href = infrastructureLink(game.id);
 		$('nav-infrastructure').hidden = false;
 		$('nav-fleet').href = fleetLink(game.id);
@@ -2325,7 +2388,7 @@
 		$('nav-news').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide' && view !== 'news') {
+		if (view !== 'log' && view !== 'trading' && view !== 'opportunity' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide' && view !== 'news') {
 			updateDoneBar(game); // "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02; s10 has its own
 		}
 		updateDecisionAlert(game, view);
@@ -2367,6 +2430,16 @@
 			return;
 		}
 		focusTradingTitle = false;
+		if (view === 'opportunity') {
+			renderOpportunityScreen(game);
+			showPanels('opportunity-screen');
+			if (focusOpportunityTitle) {
+				focusOpportunityTitle = false;
+				$('opportunity-title').focus();
+			}
+			return;
+		}
+		focusOpportunityTitle = false;
 		if (view === 'infrastructure') {
 			renderInfrastructure(game, changed);
 			showPanels('infrastructure-panel');
@@ -2470,6 +2543,7 @@
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
+		placeYourOffers(game);
 		showPanels('deck-panel');
 		if (focusDeckHeading) {
 			focusDeckHeading = false;
@@ -2510,6 +2584,18 @@
 	function levelLabel(level) {
 		const triangle = level.symbol ? [element('span', { class: 'market-level__triangle' }, level.symbol), ' '] : [];
 		return element('span', { class: 'market-level', 'data-level': level.key }, ...triangle, level.label);
+	}
+
+	/**
+	 * Playtest 2026-11-21: in Jumps, "Your offers this turn" sits just below the jump panel, so the player sees where their
+	 * offers need ships; otherwise it's with the offer form. Moved only when its place changes, so focus inside survives.
+	 */
+	function placeYourOffers(game) {
+		const offers = $('your-offers-panel');
+		const anchor = game.turn?.phase === 'JUMPS' ? $('jump-panel') : $('deck-offer-panel');
+		if (anchor.nextElementSibling !== offers) {
+			anchor.after(offers);
+		}
 	}
 
 	function renderDeck(game) {
@@ -2768,24 +2854,28 @@
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
 	/** News (R109–R110): the tip-offs in play with Learn while News is open, this turn's announcements, and done. */
 	function renderNews(game) {
-		const rows = tipOffRows(game);
-		drawOnce('news-tipoffs', JSON.stringify(rows), () => rows.length === 0
-			? [element('li', { class: 'muted' }, NO_TIP_OFFS_TEXT)]
-			: rows.map(row => {
-				const parts = [element('strong', {}, row.title), ` \u2014 ${row.need} \u00b7 ${row.turn}`];
-				if (row.details) {
-					parts.push(element('br'), element('span', {}, row.details));
-				}
-				if (row.taken) {
-					parts.push(' ', element('span', { class: 'muted' }, row.taken));
-				}
-				if (row.learn) {
-					const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
-					button.addEventListener('click', () => gameAction(`news/${row.slot}/learn`, null, 'news-message', `You've learned tip-off #${row.slot}.`));
-					parts.push(element('div', { class: 'agent-move' }, button, ...(row.learn.reason ? [element('span', { class: 'muted' }, row.learn.reason)] : [])));
-				}
-				return element('li', {}, ...parts);
-			}));
+		const groups = tipOffGroups(game);
+		const tipOffItem = row => {
+			const parts = [element('strong', {}, row.title), ` \u2014 ${row.need}`];
+			if (row.details) {
+				parts.push(element('br'), element('span', {}, row.details));
+			}
+			if (row.taken) {
+				parts.push(' ', element('span', { class: 'muted' }, row.taken));
+			}
+			if (row.learn) {
+				const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
+				button.addEventListener('click', () => gameAction(`news/${row.slot}/learn`, null, 'news-message', `You've learned tip-off #${row.slot}.`));
+				parts.push(element('div', { class: 'agent-move' }, button, ...(row.learn.reason ? [element('span', { class: 'muted' }, row.learn.reason)] : [])));
+			}
+			return element('li', {}, ...parts);
+		};
+		// Playtest 2026-11-21: grouped by the turn each takes place or expires, so that's read at a glance.
+		drawOnce('news-tipoffs', JSON.stringify(groups), () => groups.length === 0
+			? [element('p', { class: 'muted' }, NO_TIP_OFFS_TEXT)]
+			: groups.map(group => element('section', { class: 'news-turn' },
+				element('h4', {}, group.heading),
+				element('ul', { class: 'corporation__list' }, ...group.rows.map(tipOffItem)))));
 		const lines = newsAnnouncements(game);
 		drawOnce('news-announcements', JSON.stringify(lines), () => lines.length === 0
 			? [element('li', { class: 'muted' }, 'Nothing announced this turn.')]
@@ -3086,9 +3176,14 @@
 			$('trade-help').textContent = form.help;
 			$('trade-ships-legend').textContent = form.shipsLegend;
 			$('trade-no-ship').textContent = form.noShip;
-			$('trade-ship-rows').replaceChildren(...form.ships.map((ship, index) => element('div', { class: 'trade-ship' },
-				element('label', { for: `trade-ship-${index}` }, ship.label),
-				element('input', { class: 'control price-input', id: `trade-ship-${index}`, inputmode: 'numeric', 'aria-describedby': 'trade-ships-error' }))));
+			// Playtest 2026-11-21: with two or more places, a linked slider each (moving one moves the others, so they always
+			// add up to the amount); with one, it takes the whole amount and just shows it.
+			const linked = form.ships.length > 1;
+			$('trade-ship-rows').replaceChildren(...form.ships.map((ship, index) => element('div', { class: 'trade-place' },
+				element(linked ? 'label' : 'span', linked ? { for: `trade-ship-${index}` } : {}, ship.label),
+				element('div', { class: 'slider' },
+					...(linked ? [element('input', { class: 'slider__range', id: `trade-ship-${index}`, type: 'range', min: '0', max: '0', step: '1', value: '0', 'aria-describedby': 'trade-ships-error' })] : []),
+					element('output', { class: 'slider__value', id: `trade-ship-value-${index}` })))));
 			$('trade-ship-rows').hidden = form.ships.length === 0;
 			// S04-5: with nothing to trade, the player only acknowledges it; otherwise they trade 1 to their max (R34).
 			// S05-4: in the wholesale step they may always pass instead, and Pass is how they trade nothing.
@@ -3103,6 +3198,7 @@
 			$('trade-pass-button').hidden = !form.wholesale;
 			setTradeError(null);
 			$('trade-amount').value = cannot ? '' : String(form.max); // S04-1: pre-filled with the max
+			fitSlider($('trade-amount-range'), form.max, form.max);
 			fillDefaultSplit();
 		}
 		$('trade-button').disabled = submittingTrade;
@@ -3120,18 +3216,37 @@
 		return [...$('trade-ship-rows').querySelectorAll('input')];
 	}
 
-	/** S04-3: the split follows the amount until the player changes a ship's units; S04-4: the warning follows both. */
-	function fillDefaultSplit() {
+	/** The typed amount as a whole number, or null while it isn't one. */
+	function typedAmount() {
 		const amount = Number($('trade-amount').value.trim());
-		if (Number.isInteger(amount) && amount > 0) {
-			defaultSplit(shownTrade, amount).forEach((units, index) => { shipInputs()[index].value = String(units); });
-		}
+		return $('trade-amount').value.trim() !== '' && Number.isInteger(amount) && amount > 0 ? amount : null;
+	}
+
+	/** The units per place: the sliders' values, or the whole amount on the only place. */
+	function currentSplit() {
+		return shipInputs().length ? shipInputs().map(input => Number(input.value)) : shownTrade.ships.map(() => typedAmount() ?? 0);
+	}
+
+	/** Sets the place sliders to [split] (each ranging up to what it may take of the amount) and shows each value. */
+	function showSplit(split) {
+		const amount = typedAmount() ?? 0;
+		shipInputs().forEach((input, index) => {
+			input.max = String(placeMax(shownTrade, amount, index));
+			input.value = String(split[index]);
+		});
+		split.forEach((units, index) => { $(`trade-ship-value-${index}`).textContent = `${units} u`; });
+	}
+
+	/** S04-3: the split follows the amount (its default) until the player moves a place's slider; S04-4: the warning follows both. */
+	function fillDefaultSplit() {
+		const amount = typedAmount();
+		showSplit(defaultSplit(shownTrade, amount ?? 0));
 		updateTradeWarning();
 	}
 
 	function updateTradeWarning() {
-		const amount = Number($('trade-amount').value.trim());
-		const split = shipInputs().map(input => Number(input.value.trim()) || 0);
+		const amount = typedAmount() ?? NaN;
+		const split = currentSplit();
 		const text = Number.isInteger(amount) && amount > 0 ? lossWarning(shownTrade, amount, split) : '';
 		if ($('trade-warning').textContent !== text) {
 			$('trade-warning').textContent = text;
@@ -3152,17 +3267,32 @@
 	// Typing again clears a shown error: it was about what was there before.
 	$('trade-amount').addEventListener('input', () => {
 		setTradeError(null);
+		const amount = typedAmount();
+		if (amount !== null) {
+			$('trade-amount-range').value = String(Math.min(amount, Number($('trade-amount-range').max)));
+		}
 		fillDefaultSplit();
 	});
-	$('trade-ship-rows').addEventListener('input', () => {
+	$('trade-amount-range').addEventListener('input', () => {
 		setTradeError(null);
+		$('trade-amount').value = $('trade-amount-range').value;
+		fillDefaultSplit();
+	});
+	// Playtest 2026-11-21: the place sliders are linked; moving one moves the others so they add up to the amount.
+	$('trade-ship-rows').addEventListener('input', (event) => {
+		setTradeError(null);
+		const index = shipInputs().indexOf(event.target);
+		const amount = typedAmount();
+		if (index >= 0 && amount !== null) {
+			showSplit(rebalanceSplit(shownTrade, amount, currentSplit(), index, Number(event.target.value)));
+		}
 		updateTradeWarning();
 	});
 
 	/** S04-1: the amount and split are checked here first, then by the server; the answer redraws Trading. */
 	$('trade-form').addEventListener('submit', (event) => {
 		event.preventDefault();
-		const checked = validateTrade(shownTrade, $('trade-amount').value, shipInputs().map(input => input.value));
+		const checked = validateTrade(shownTrade, $('trade-amount').value, currentSplit().map(String));
 		const target = setTradeError(checked.error ? checked : null);
 		if (checked.error) {
 			target.focus();
@@ -3844,8 +3974,13 @@
 		if ($('bid-button').textContent !== label) {
 			$('bid-button').textContent = label;
 		}
-		const money = game.you?.money ?? 0;
-		const hint = `You have ${money} HT. Every bidder pays their bid when Bidding closes, win or lose; the order is bid + 2d6, and every bid and roll is shown to all once Bidding closes.`;
+		const status = bidStatus(game);
+		if ($('bid-current-value').textContent !== status.value) {
+			$('bid-current-value').textContent = status.value; // only on a change, so the live region isn't re-announced
+		}
+		$('bid-current-note').textContent = status.note;
+		$('bid-amount').placeholder = String(game.you?.bid ?? 0);
+		const hint = BID_HINT;
 		if ($('bid-hint').textContent !== hint) {
 			$('bid-hint').textContent = hint;
 		}
@@ -4040,6 +4175,7 @@
 		}
 		const free = freePlaces(game, viewerId);
 		$('pick-form').hidden = free.length === 0;
+		$('turn-order-panel').classList.toggle('is-blocking', free.length > 0); // the viewer's pick: on top of its column
 		const choicesKey = JSON.stringify([game.id, game.turn?.number, free]);
 		if (free.length && choicesKey !== pickChoicesKey) {
 			pickChoicesKey = choicesKey;
@@ -4322,7 +4458,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -4795,7 +4931,8 @@
 		event.preventDefault();
 		setBidError('');
 		setBidMessage('', false);
-		const checked = validateBid($('bid-amount').value, lastGame?.you?.money ?? 0);
+		// An empty field bids what its placeholder shows: the placed bid, or 0 before one (playtest, 2026-11-21).
+		const checked = validateBid($('bid-amount').value.trim() || $('bid-amount').placeholder, lastGame?.you?.money ?? 0);
 		if (checked.error) {
 			setBidError(checked.error);
 			$('bid-amount').focus();
@@ -4823,7 +4960,7 @@
 			const game = await response.json();
 			$('bid-amount').value = '';
 			render(game);
-			setBidMessage(bidPlacedText(checked.amount), false);
+			setBidMessage('', false); // the bid shows beside the box's title (playtest, 2026-11-21)
 			$('bid-amount').focus();
 			return;
 		}
@@ -4931,9 +5068,9 @@
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
 		$('collect-link').hidden = !collecting;
-		$('collect-link').href = infrastructureLink(game.id);
-		if ($('collect-link').textContent !== INFRASTRUCTURE_LINK_TEXT) {
-			$('collect-link').textContent = INFRASTRUCTURE_LINK_TEXT;
+		$('collect-link').href = opportunityLink(game.id);
+		if ($('collect-link').textContent !== OPPORTUNITY_LINK_TEXT) {
+			$('collect-link').textContent = OPPORTUNITY_LINK_TEXT;
 		}
 		$('done-bar').hidden = !bidding && !collecting && investState !== 'invest' && investState !== 'done' && !isOpportunity(game) && !$('done-message').textContent;
 	}
@@ -4990,20 +5127,19 @@
 		if (infraMessageKey !== null && infraMessageKey !== turnKey) {
 			setInfraMessage('', false, null);
 		}
-		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' ? COLLECT_FIRST_TEXT
-			: state === 'opportunity' ? '' : infrastructureStatusText(game, viewerId);
+		const status = state === 'closed' ? NOT_INVESTING_TEXT : state === 'collect' || state === 'opportunity' ? OPPORTUNITY_ELSEWHERE_TEXT
+			: infrastructureStatusText(game, viewerId);
 		if ($('infrastructure-status').textContent !== status) {
 			$('infrastructure-status').textContent = status; // only on a change, so the live region isn't re-announced every poll
 		}
 		$('infra-done-row').hidden = state !== 'invest';
-		// R102: in Opportunity the Opportunity panel says what's going on; this one is Investment's.
-		$('investment-status-panel').hidden = state === 'opportunity' || state === 'collect';
+		// Playtest 2026-11-21: Opportunity is on its own tab; this panel says so then, and is Investment's otherwise.
+		$('investment-status-panel').hidden = false;
 		const note = isInvesting(game) ? INVEST_NOTE : '';
 		if ($('invest-note').textContent !== note) {
 			$('invest-note').textContent = note;
 		}
-		updateCollectForm(game);
-		renderOpportunity(game);
+		renderOpportunity(game); // the loan, on this screen; the rest is drawn for the Opportunity tab
 		clearStaleInvestMessage(game);
 		const pointer = canBuy(game);
 		$('ship-pointer').hidden = !pointer;
@@ -5043,6 +5179,19 @@
 	}
 
 
+	/**
+	 * The Opportunity tab (playtest, 2026-11-21): the output to collect first, then whose turn it is, agents, sabotage and
+	 * the learned opportunities. Outside the phase it says when it comes; agents still move from here at any time.
+	 */
+	function renderOpportunityScreen(game) {
+		const text = isOpportunity(game) ? '' : OPPORTUNITY_NOT_YET_TEXT;
+		if ($('opportunity-screen-status').textContent !== text) {
+			$('opportunity-screen-status').textContent = text;
+		}
+		updateCollectForm(game);
+		renderOpportunity(game);
+	}
+
 	// ── R102 Opportunity, R97–R101 sabotage, R103–R108 agents, R90–R96 loans (D22–D25) ──
 	//
 	// Static forms; selects are refilled only when their options change, so a choice survives the poll. The server decides
@@ -5064,6 +5213,20 @@
 	}
 
 	/** Redraws [id]'s children only when [key] changed. */
+	/**
+	 * Sets an amount slider to 1..[max] at [value] (clamped), so the number shown is always where the thumb is (playtest,
+	 * 2026-11-21). With one possible amount (max 1), a browser would draw min = max with the thumb at the left, which reads
+	 * as "nothing": it's drawn 0..1 instead, full and locked at 1. With none (max 0) it's 0, at the left, and disabled.
+	 */
+	function fitSlider(range, max, value) {
+		const only = max === 1;
+		range.min = only || max === 0 ? '0' : '1';
+		range.max = String(Math.max(0, max));
+		range.value = String(only ? 1 : max === 0 ? 0 : Math.min(Math.max(1, value), max));
+		range.disabled = max <= 1;
+		range.toggleAttribute('data-only', only);
+	}
+
 	function drawOnce(id, key, build) {
 		if ($(id).dataset.key !== key) {
 			$(id).dataset.key = key;
@@ -5165,7 +5328,7 @@
 		$('sabotage-blamed-row').hidden = blamed.length === 0;
 		const me = game.players.find(player => player.id === viewerId);
 		showText('sabotage-cost', target ? `Costs ${sabotageCost(game, target)} HT, paid whatever happens.` : 'Nobody else has a ship in Port, a warehouse or a factory.');
-		const modifiers = target ? sabotageModifiers(me?.connections?.criminal ?? 0, target) : null;
+		const modifiers = target ? sabotageModifiers(me?.connections?.criminal ?? 0, target, shortyBonus(game, target, rules?.shortySabotageBonus)) : null;
 		showText('sabotage-modifiers', modifiers ? `${modifiers.effect} · ${modifiers.reputation}` : '');
 		$('sabotage-button').disabled = !target || !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
 		showText('sabotage-wait', waitTurnText(game, viewerId));
@@ -5348,7 +5511,7 @@
 		drawOnce('opportunity-forms', JSON.stringify([forms, myTurn]), () => forms.map(form => {
 			const fields = [];
 			const ship = element('select', { class: 'control', 'aria-label': 'Ship' }, ...shipOptions(form.ships));
-			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: '10', 'aria-label': 'Units (1–10)' });
+			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: String(form.defaultUnits), 'aria-label': `Units (1–${form.maxUnits})` });
 			const name = element('input', { class: 'control', 'aria-label': 'New ship name', placeholder: 'Ship name' });
 			const hull = element('select', { class: 'control', 'aria-label': 'Hull' },
 				...(form.hullOptional ? [element('option', { value: '' }, 'No hull: modules for a ship on the Planet')] : []),
@@ -5374,8 +5537,10 @@
 				modules: boxes.map(b => b.querySelector('input')).filter(input => input.checked).map(input => input.value),
 				crewClass: crew.value,
 			}, 'opportunities-message', 'Taken.'));
+			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
+			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
 			return element('div', { class: 'offer-form' }, element('strong', {}, `#${form.slot}: ${form.title}`),
-				element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
+				...facts, element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
@@ -5481,12 +5646,7 @@
 		$('invest-cap').hidden = !cap;
 		showText('invest-units-label', investTarget.kind === 'blocks' ? 'Blocks' : 'Units');
 		const max = investMax(game, text);
-		const range = $('invest-units');
-		range.max = String(Math.max(1, max));
-		if (Number(range.value) > max) {
-			range.value = String(Math.max(1, max));
-		}
-		range.disabled = max === 0;
+		fitSlider($('invest-units'), max, Number($('invest-units').value));
 		showText('invest-max', investMaxText(investTarget.kind, max));
 		$('invest-button').disabled = submittingInvest || max === 0;
 		updateInvestCost(game, text);
@@ -5824,16 +5984,14 @@
 		}
 		const slider = $('cargo-units');
 		const { max, value } = moveSlider(from, to, goods, slider.dataset.picked ?? '');
-		slider.max = String(Math.max(1, max));
-		slider.value = String(Math.max(1, value));
-		slider.disabled = max === 0;
+		fitSlider(slider, max, value);
 		updateSliderText();
 		$('cargo-button').disabled = submittingCargo || max === 0;
 	}
 
 	function updateSliderText() {
 		const slider = $('cargo-units');
-		const text = slider.disabled ? sliderText(0, 0) : sliderText(Number(slider.value), Number(slider.max));
+		const text = sliderText(Number(slider.value), Number(slider.max)); // fitSlider keeps the value where the thumb is
 		if ($('cargo-units-value').textContent !== text) {
 			$('cargo-units-value').textContent = text;
 		}
@@ -6072,7 +6230,23 @@
 		}
 	}
 
-	$('done-button').addEventListener('click', signalDone);
+	$('done-button').addEventListener('click', () => {
+		if (lastGame && asksBeforeDone(lastGame)) {
+			$('done-confirm-title').textContent = EMPTY_DONE_QUESTION;
+			$('done-confirm-text').textContent = EMPTY_DONE_TEXT;
+			$('done-confirm-dialog').returnValue = '';
+			$('done-confirm-dialog').showModal();
+			return;
+		}
+		signalDone();
+	});
+	$('done-confirm-dialog').addEventListener('close', () => {
+		if ($('done-confirm-dialog').returnValue === 'done') {
+			signalDone();
+		} else {
+			$('done-button').focus();
+		}
+	});
 	$('infra-done-button').addEventListener('click', signalDoneInvesting);
 	$('done-investing-button').addEventListener('click', signalDoneInvesting);
 

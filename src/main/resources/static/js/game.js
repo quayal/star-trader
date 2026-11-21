@@ -61,6 +61,10 @@ export function parseRoute(hash) {
 	if (corporations) {
 		return { view: 'corporations', id: decodeURIComponent(corporations[1]) };
 	}
+	const opportunity = /^#game\/([^/]+)\/opportunity$/.exec(text);
+	if (opportunity) {
+		return { view: 'opportunity', id: decodeURIComponent(opportunity[1]) };
+	}
 	const news = /^#game\/([^/]+)\/news$/.exec(text);
 	if (news) {
 		return { view: 'news', id: decodeURIComponent(news[1]) };
@@ -121,6 +125,14 @@ export function assetsLink(id) {
 	return `#game/${encodeURIComponent(id)}/assets`;
 }
 
+/**
+ * The Opportunity tab of game [id] (playtest, 2026-11-21): the phase's own screen, the output to collect at the top, then
+ * sabotage, agents and the learned opportunities.
+ */
+export function opportunityLink(id) {
+	return `#game/${encodeURIComponent(id)}/opportunity`;
+}
+
 /** The News tab of game [id] (R109): the tip-offs in play and this turn's announcements. */
 export function newsLink(id) {
 	return `#game/${encodeURIComponent(id)}/news`;
@@ -143,8 +155,8 @@ export function gameOverLink(id) {
 
 /**
  * D15 (E08-S03): the screen to open because [game] has moved on since [previous], the last state this page drew of it,
- * or null when it hasn't. A new phase or turn is played on 'game' (the Deck: Bidding and Ship-jumps), 'trading' or
- * 'infrastructure' (Opportunity and Investment, R102), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
+ * or null when it hasn't. A new phase or turn is played on 'game' (the Deck: Bidding and Ship-jumps), 'trading',
+ * 'opportunity' (its own tab since the 2026-11-21 playtest) or 'infrastructure' (Investment), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
  * load (no previous, or another game's) never counts, so a reload doesn't pull the player away from where they opened.
  */
 export function screenForPhaseChange(previous, game) {
@@ -157,7 +169,15 @@ export function screenForPhaseChange(previous, game) {
 	if (game.status === 'FINISHED') {
 		return 'over';
 	}
-	return { NEWS: 'news', TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+	return { NEWS: 'news', TRADING: 'trading', OPPORTUNITY: 'opportunity', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+}
+
+/**
+ * The link a phase change opens, for one of [screenForPhaseChange]'s screens. Every screen it can return has one: News
+ * once had none, so the page threw instead of opening it (playtest, 2026-11-21).
+ */
+export function phaseScreenLink(screen, id) {
+	return { game: deckLink, news: newsLink, trading: tradingLink, opportunity: opportunityLink, infrastructure: infrastructureLink, over: gameOverLink }[screen](id);
 }
 
 /**

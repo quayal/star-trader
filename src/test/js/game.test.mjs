@@ -17,12 +17,14 @@ import {
 	corporationsLink,
 	guideLink,
 	newsLink,
+	opportunityLink,
 	fleetLink,
 	fleetShipLink,
 	infrastructureLink,
 	turnText,
 	validateTurns,
 	screenForPhaseChange,
+	phaseScreenLink,
 	deckHeadingFor,
 } from '../../main/resources/static/js/game.js';
 
@@ -218,6 +220,19 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 		assert.equal(screenForPhaseChange(at('JUMPS'), at('TRADING')), 'trading');
 		assert.equal(screenForPhaseChange(at('TRADING'), at('INVESTMENT')), 'infrastructure');
 		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('INVESTMENT', { status: 'FINISHED' })), 'over');
+	});
+
+	it('opens News when News starts, through a link the page can follow (playtest, 2026-11-21)', () => {
+		const screen = screenForPhaseChange(at('INITIATIVE'), at('NEWS'));
+		assert.equal(screen, 'news');
+		assert.equal(phaseScreenLink(screen, 'g-1'), '#game/g-1/news');
+	});
+
+	it('has a link for every screen a phase change opens', () => {
+		for (const phase of ['BIDDING', 'INITIATIVE', 'NEWS', 'JUMPS', 'TRADING', 'OPPORTUNITY', 'INVESTMENT']) {
+			assert.match(phaseScreenLink(screenForPhaseChange(at('BIDDING', { number: 2 }), at(phase)), 'g-1'), /^#game\/g-1/);
+		}
+		assert.equal(phaseScreenLink('over', 'g-1'), '#game/g-1/game-over');
 	});
 
 	it('follows a change that skipped a state between two polls', () => {

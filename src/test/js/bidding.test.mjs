@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
 	ALREADY_CLOSED,
 	CLOSED_BY_YOU,
+	asksBeforeDone,
 	doneAcceptedText,
 	doneRefusedText,
 	isDone,
@@ -104,5 +105,22 @@ describe('doneRefusedText', () => {
 	it('shows the server message otherwise, or the fallback', () => {
 		assert.equal(doneRefusedText(403, 'Not a player', 'x'), 'Not a player');
 		assert.equal(doneRefusedText(500, '', 'Try again.'), 'Try again.');
+	});
+});
+
+describe('asksBeforeDone (playtest, 2026-11-21)', () => {
+	const withYou = (you, phase = 'BIDDING') => ({ ...game({ phase }), you: { id: ME, ...you } });
+
+	it('asks when the player has placed neither an offer nor a bid', () => {
+		assert.equal(asksBeforeDone(withYou({ bid: null, offers: [] })), true);
+	});
+
+	it('doesn’t ask once there is a bid (even 0 HT) or an offer', () => {
+		assert.equal(asksBeforeDone(withYou({ bid: 0, offers: [] })), false);
+		assert.equal(asksBeforeDone(withYou({ bid: null, offers: [{ type: 'BUY' }] })), false);
+	});
+
+	it('never asks outside Bidding', () => {
+		assert.equal(asksBeforeDone(withYou({ bid: null, offers: [] }, 'JUMPS')), false);
 	});
 });

@@ -924,6 +924,7 @@ data class Game(
 			},
 			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) },
 			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },
+			jumpChances = player.ships.associate { it.name to it.jumpChances(jumpBonusOf(player, it)) },
 			turnNumber = turn?.number ?: 0
 		)
 	}
@@ -1086,8 +1087,10 @@ data class Game(
 		val due = news.dueIn(current.number)
 		val effective = due.fold(copy(turn = current, news = news.afterEffectiveIn(current.number))) { game, tipOff ->
 			val taker = tipOff.takenBy?.let { corporationOf(it) }
-			val announced = game.withLogged(current.number, listOf(tipOff.announcement(taker)))
-			tipOff.tipOff.event?.let { announced.withEventTakenPlace(it, dice) } ?: announced
+			val notice = tipOff.announcementNotice()
+			val announced = game.withNoticed(current.number, tipOff.announcement(taker), notice)
+			// Playtest 2026-11-21: what the event did (ships lost, reputation, tax) goes in its pop-up too.
+			tipOff.tipOff.event?.let { announced.withEventTakenPlace(it, dice).withNoticeFrom(announced.log.size, notice) } ?: announced
 		}
 		val opened = effective.withTipOffsDrawn(current.number, dice)
 		return if (opened.news.hasTipOffsInPlay()) opened else opened.openJumps(opened.runningTurn())
@@ -1108,6 +1111,21 @@ data class Game(
 
 	/** This game with [lines] logged as public events of turn [number]. */
 	private fun withLogged(number: Int, lines: List<String>): Game = copy(log = log + lines.map { LogEntry.event(number, it) })
+
+	/**
+	 * What [ship] of [player]'s gets on a jump beyond its own crew and modules (R68): Novak aboard (R108) and this turn's
+	 * news (E1). Both the roll and the chance its player sees use it (playtest, 2026-11-21: the chance ignored the news).
+	 */
+	private fun jumpBonusOf(player: Player, ship: Ship): Int {
+		val newsModifier = news.conditions.jumpModifierIn(turn?.number ?: 0)
+		return player.jumpBonusFor(ship.name) + newsModifier
+	}
+
+	/** This game with the log's lines from index [from] on that have no pop-up moment given [notice]. */
+	private fun withNoticeFrom(from: Int, notice: Notice): Game = copy(log = log.take(from) + log.drop(from).map { it.noticed(notice) })
+
+	/** This game with [line] logged as a pop-up moment, [notice] (playtest, 2026-11-21: News's announcements). */
+	private fun withNoticed(number: Int, line: String, notice: Notice): Game = copy(log = log + LogEntry.notice(number, line, notice))
 
 	/**
 	 * [event] takes place in this turn's News (R115), with [dice] for its rolls: price moves are one-off (R35's 1–20),
@@ -1248,7 +1266,7 @@ data class Game(
 		val novakLog = listOfNotNull(
 			Agent.NOVAK.actedLog(player.corporationName, ": +$novak to ${ship.name}'s jump").takeIf { novak > 0 }
 		).map { LogEntry.event(current.number, it) }
-		if (!JumpChance(ship.checkedJumpChanceTo(destination).target + novak + news.conditions.jumpModifierIn(current.number)).succeeds(roll)) {
+		if (!ship.checkedJumpChanceTo(destination, jumpBonusOf(player, ship)).succeeds(roll)) {
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,

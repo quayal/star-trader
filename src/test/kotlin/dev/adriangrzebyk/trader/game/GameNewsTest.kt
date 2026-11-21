@@ -85,6 +85,9 @@ class GameNewsTest {
 		assertThat(opened.log.map { it.text }).contains(
 			"News: the opportunity to buy drugs on Beta Hydri's Planet (15 HT) for sale on Gamma Leporis's Planet has expired."
 		)
+		// Playtest 2026-11-21: a pop-up for everyone, with no system and nobody singled out.
+		val expired = opened.log.first { it.text.endsWith("has expired.") }
+		assertThat(expired.notice).isEqualTo(Notice(NoticeKind.OPPORTUNITY_EXPIRED, null, emptyList(), null, null))
 		assertThat(opened.news.pool).contains(TipOff.O7)
 		assertThat(opened.news.inPlay.map { it.tipOff }).containsExactly(TipOff.O1, TipOff.O2)
 	}

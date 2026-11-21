@@ -14,9 +14,17 @@ sealed interface OpportunityTerms {
 
 	fun description(): String
 
+	/** The special goods it sells (R112), or null for one that sells none; they say what each unit takes aboard. */
+	fun specialGoods(): SpecialGoods? = null
+
+	/** The most units one taker may buy (R112), or null for one that sells no goods. */
+	fun maxUnits(): Int? = specialGoods()?.let { MAX_UNITS }
+
 	/** R112: up to [MAX_UNITS] of illegal [goods] at [price] HT each, bought on [buyAt]'s Planet, sold on [sellAt]'s Planet. */
 	data class IllegalGoods(val goods: SpecialGoods, val price: Int, val buyAt: StarSystem, val sellAt: StarSystem) : OpportunityTerms {
 		override val legal = false
+
+		override fun specialGoods(): SpecialGoods = goods
 
 		override fun description(): String =
 			"buy ${goods.displayName} on ${buyAt.displayName}'s Planet ($price HT) for sale on ${sellAt.displayName}'s Planet"
@@ -25,6 +33,8 @@ sealed interface OpportunityTerms {
 	/** R112: up to [MAX_UNITS] furs at [price] in [buyAt]'s Port, sold for [salePrice] each in [sellAt]'s Port. */
 	data class Furs(val price: Int, val buyAt: StarSystem, val salePrice: Int, val sellAt: StarSystem) : OpportunityTerms {
 		override val legal = true
+
+		override fun specialGoods(): SpecialGoods = SpecialGoods.FURS
 
 		override fun description(): String =
 			"buy furs in ${buyAt.displayName}'s Port ($price HT) for sale in ${sellAt.displayName}'s Port ($salePrice HT)"
