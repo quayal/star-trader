@@ -23,7 +23,7 @@ class GameCreationServiceTest {
 				listOf(
 					creator
 				),
-				null, MarketPrices.board(), emptyList(), emptyList(), News.full()
+				emptyList(), null, MarketPrices.board(), emptyList(), emptyList(), News.full()
 			)
 		)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)

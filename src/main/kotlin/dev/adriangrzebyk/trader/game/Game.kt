@@ -39,7 +39,8 @@ import dev.adriangrzebyk.trader.game.smuggling.LandingRoll
 /**
  * [turn] is null until the game starts; [prices] are each good's price at each system in this game, which Trading moves
  * (R35); [log] holds the public events, oldest first, each with its turn. [deadAgents] are the agents killed in this game,
- * which never return to the pool (R107). [news] holds the tip-offs (R109–R111) and what this turn's events changed (R115).
+ * which never return to the pool (R107). [joinRequests] are the players asking to join while the game is in its lobby, in the
+ * order they asked, for the creator to accept or decline (R120). [news] holds the tip-offs (R109–R111) and what this turn's events changed (R115).
  */
 data class Game(
 	val id: String,
@@ -47,6 +48,7 @@ data class Game(
 	val status: GameStatus,
 	val creatorEmail: String,
 	val players: List<Player>,
+	val joinRequests: List<Player>,
 	val turn: Turn?,
 	val prices: MarketPrices,
 	val log: List<LogEntry>,
@@ -56,19 +58,68 @@ data class Game(
 ) {
 
 	fun addPlayer(player: Player): Game {
+		checkJoinable(player.email)
+		return copy(players = players + player)
+	}
+
+	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
+
+	/** R120: [player] asks to join; the creator decides. Only in the lobby, not when full, in the game already, or asked. */
+	fun requestToJoin(player: Player): Game {
+		checkJoinable(player.email)
+		if (hasAskedToJoin(player.email)) {
+			throw InvalidGameOperationException("You have already asked to join this game")
+		}
+		return copy(joinRequests = joinRequests + player)
+	}
+
+	/** R120: the player with [email] no longer asks to join; nothing changes when they hadn't asked. */
+	fun withdrawJoinRequest(email: String): Game = copy(joinRequests = joinRequests.filterNot { it.email == email })
+
+	/** R120: the creator lets the player who asked, [email], in, with [addPlayer]'s checks. */
+	fun acceptJoinRequest(callerEmail: String, email: String): Game {
+		val requester = joinRequestOf(callerEmail, email)
+		return withdrawJoinRequest(email).addPlayer(requester)
+	}
+
+	/** R120: the creator turns the player who asked, [email], away. */
+	fun declineJoinRequest(callerEmail: String, email: String): Game {
+		joinRequestOf(callerEmail, email)
+		return withdrawJoinRequest(email)
+	}
+
+	/** The player who created the game: always one of its players. */
+	fun creator(): Player = playerOf(creatorEmail)
+
+	fun hasAskedToJoin(email: String): Boolean = joinRequests.any { it.email == email }
+
+	/** R119: where the player with [email] stands in this game's lobby. */
+	fun lobbyStandingOf(email: String): LobbyStanding = when {
+		hasPlayer(email) -> LobbyStanding.IN
+		hasAskedToJoin(email) -> LobbyStanding.ASKED
+		else -> LobbyStanding.NONE
+	}
+
+	/** The player [email] whose request the creator, [callerEmail], decides on. */
+	private fun joinRequestOf(callerEmail: String, email: String): Player {
+		if (callerEmail != creatorEmail) {
+			throw NotTheCreatorException("Only the creator can accept or decline a request to join")
+		}
+		return joinRequests.firstOrNull { it.email == email }
+			?: throw InvalidGameOperationException("That request to join is no longer waiting")
+	}
+
+	private fun checkJoinable(email: String) {
 		if (status != GameStatus.LOBBY) {
 			throw InvalidGameOperationException("This game has already started")
 		}
 		if (players.size >= MAX_PLAYERS) {
 			throw InvalidGameOperationException("This game is full")
 		}
-		if (hasPlayer(player.email)) {
+		if (hasPlayer(email)) {
 			throw InvalidGameOperationException("This player is already in the game")
 		}
-		return copy(players = players + player)
 	}
-
-	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
 
 	/**
 	 * The log entries after the first [count], for a reader who already has those: the log only ever grows at its end. The
@@ -104,6 +155,7 @@ data class Game(
 		return copy(
 			status = GameStatus.RUNNING,
 			players = setUp.map { it.first },
+			joinRequests = emptyList(), // R120: joining closes at the start
 			turn = Turn.bidding(1),
 			log = log + LogEntry.event(1, "Game started: ${setUp.size} players, $turns turns") +
 				LogEntry.event(1, "Starting positions: " + setUp.joinToString("; ") { it.first.startingPositions() }) +
@@ -1855,7 +1907,13 @@ data class Game(
 			if (turns == null || turns !in MIN_TURNS..MAX_TURNS) {
 				throw InvalidGameOperationException("Enter a whole number of turns from $MIN_TURNS to $MAX_TURNS.")
 			}
-			return Game(id, turns, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList(), emptyList(), news)
+			return Game(
+				id, turns, GameStatus.LOBBY, creator.email,
+				listOf(
+					creator
+				),
+				emptyList(), null, MarketPrices.board(), emptyList(), emptyList(), news
+			)
 		}
 	}
 }

@@ -6,6 +6,9 @@ interface GameStore {
 
 	fun find(id: String): Game?
 
+	/** R119: every game still in its lobby, in no particular order. */
+	fun lobbies(): List<Game>
+
 	/**
 	 * Reads, changes and writes one game as a single atomic step; throws [GameNotFoundException] if no game has [id].
 	 * A store may run [mutate] more than once when another change lands first, so it must have no side effects.

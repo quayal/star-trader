@@ -10,31 +10,43 @@ class GameJoiningServiceTest {
 	private val service = GameJoiningService(gameStore)
 	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
 	private val joiner = Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")
-	private val game =
-		Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator), null, MarketPrices.board(), emptyList(), emptyList())
+	private val game = Game.lobby("game-1", 20, creator)
 
 	@Test
-	fun shouldAddThePlayerToTheGame() {
+	fun shouldStoreTheRequestAndThenThePlayerOnceTheCreatorAccepts() {
 		gameStore.create(game)
 
-		val joined = service.joinGame("game-1", joiner)
+		service.requestToJoin("game-1", joiner)
+		val joined = service.acceptJoinRequest("game-1", creator.email, joiner.email)
 
 		assertThat(joined.players).containsExactly(creator, joiner)
+		assertThat(joined.joinRequests).isEmpty()
 		assertThat(gameStore.find("game-1")).isEqualTo(joined)
 	}
 
 	@Test
+	fun shouldStoreADeclineAndAWithdrawal() {
+		gameStore.create(game)
+
+		service.requestToJoin("game-1", joiner)
+		assertThat(service.declineJoinRequest("game-1", creator.email, joiner.email).joinRequests).isEmpty()
+		service.requestToJoin("game-1", joiner)
+		assertThat(service.withdrawJoinRequest("game-1", joiner.email).joinRequests).isEmpty()
+		assertThat(gameStore.find("game-1")!!.joinRequests).isEmpty()
+	}
+
+	@Test
 	fun shouldRejectAnUnknownGame() {
-		assertThatThrownBy { service.joinGame("missing", joiner) }
+		assertThatThrownBy { service.requestToJoin("missing", joiner) }
 			.isInstanceOf(GameNotFoundException::class.java)
 			.hasMessage("This game doesn't exist")
 	}
 
 	@Test
-	fun shouldLeaveTheGameUnchangedWhenThePlayerCannotJoin() {
+	fun shouldLeaveTheGameUnchangedWhenThePlayerCannotAsk() {
 		gameStore.create(game)
 
-		assertThatThrownBy { service.joinGame("game-1", creator) }.isInstanceOf(InvalidGameOperationException::class.java)
+		assertThatThrownBy { service.requestToJoin("game-1", creator) }.isInstanceOf(InvalidGameOperationException::class.java)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}
 }

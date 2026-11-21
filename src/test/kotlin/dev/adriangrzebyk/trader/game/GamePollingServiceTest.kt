@@ -11,7 +11,14 @@ class GamePollingServiceTest {
 	private val creator = Player.newcomer("creator@example.com", "Creator", "Creator Corp")
 	private val joiner = Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")
 	private val game =
-		Game("game-1", 20, GameStatus.LOBBY, creator.email, listOf(creator, joiner), null, MarketPrices.board(), emptyList(), emptyList())
+		Game(
+			"game-1", 20, GameStatus.LOBBY, creator.email,
+			listOf(
+				creator,
+				joiner
+			),
+			emptyList(), null, MarketPrices.board(), emptyList(), emptyList()
+		)
 
 	@Test
 	fun shouldReturnTheGameToItsCreator() {
