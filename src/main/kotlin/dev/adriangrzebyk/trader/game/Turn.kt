@@ -42,7 +42,9 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * (R103) and [agentOffers] the agents offered for sale and not yet answered (R106); all emptied when Trading closes into
  * Opportunity. [interestPaid] lists who paid loan interest this Investment (R92). [limpyAsk] is the player asked whether
  * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn. [doneNews] lists
- * who has signalled done with the news (R109), public like [doneBidding].
+ * who has signalled done with the news (R109), public like [doneBidding]. [reachedOffers] are the offers the counter
+ * reached this Trading, each put to its player, who then traded or chose nothing (playtest, 2026-11-21): public, like the
+ * resolution that asked.
  */
 data class Turn(
 	val number: Int,
@@ -74,7 +76,8 @@ data class Turn(
 	val interestPaid: List<String>,
 	val limpyAsk: String?,
 	val limpyUsedBy: List<String>,
-	val doneNews: List<String> = emptyList()
+	val doneNews: List<String> = emptyList(),
+	val reachedOffers: List<Offer> = emptyList()
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -82,10 +85,12 @@ data class Turn(
 
 	/**
 	 * [email]'s offers whose good has finished resolving with no trade of theirs among [trades] (this turn's): each gets a card
-	 * to acknowledge (playtest, 2026-11-20), whether it lost or won and couldn't trade.
+	 * to acknowledge (playtest, 2026-11-20) when it lost. One the counter reached isn't among them: its player was already
+	 * asked and answered, even if with nothing (playtest, 2026-11-21).
 	 */
-	fun untradedOffersOf(email: String, trades: List<TradeRecord>): List<Offer> =
-		offersOf(email).filter { offer -> resolvedGoods.any { offer.isFor(it) } && trades.none { it.isFor(offer) } }
+	fun untradedOffersOf(email: String, trades: List<TradeRecord>): List<Offer> = offersOf(email).filter { offer ->
+		resolvedGoods.any { offer.isFor(it) } && trades.none { it.isFor(offer) } && offer !in reachedOffers
+	}
 
 	/** Every offer of this turn once Trading has started, when they become public to all players (R17); none before. */
 	fun publicOffers(): List<Offer> = if (phase >= TurnPhase.TRADING) offers else emptyList()
@@ -696,7 +701,10 @@ data class Turn(
 	 * This turn after the awaited trade's player traded [units] (E05-S04) and made [positionRoll], if any (R43); once
 	 * nothing is left, its good counts as resolved.
 	 */
-	fun recordTrade(units: Int, positionRoll: PositionRoll?): Turn = withResolution(resolutionNow().withTrade(units, positionRoll))
+	fun recordTrade(units: Int, positionRoll: PositionRoll?): Turn {
+		val reached = tradeAwaited().offer
+		return copy(reachedOffers = reachedOffers + reached).withResolution(resolutionNow().withTrade(units, positionRoll))
+	}
 
 	/**
 	 * Whom the wholesale step waits for to trade or pass (R37, S05-4), refused when nobody is asked. Checking that it's the

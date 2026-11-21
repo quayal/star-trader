@@ -3,7 +3,7 @@
 **Brief:** `.ai/specs/product-brief.md`: R27 and R29 (initiative bid), R17 and D09 (done bidding), R109–R110 (News and
 tip-offs), D15 (the screen follows the phase).
 **Source:** the creator's UI notes of 2026-11-21, after playing the build with News (PR 171).
-**Status:** implemented on `feat/playtest-ui-2026-11-21`.
+**Status:** shipped in PR 173; criterion 24 in the follow-up fix.
 
 ## 📝 TLDR
 
@@ -116,6 +116,12 @@ as 4 + 8 and stored by the server as such.
     (`SupplyDemand` gives a positive indicator a negative price modifier), not more demand. Chips (+3) and synthetic food
     (+2) now tell of goods flooding the markets; the isotope breakthrough (−3) is a new fusion drive that runs on
     isotopes, so demand and prices rise. Each says which way prices tend to go.
+
+24. **No "didn't trade" card for an offer the player was already asked about** (after PR 173). When the counter reaches
+    an offer, its player is asked and answers, even if only with "Trade nothing" because they can't trade any. That
+    offer no longer gets the "Your offer didn't trade" card afterwards; only an offer that lost (the counter never reached
+    it) does. `Turn.reachedOffers` remembers the offers the counter reached, since "trade nothing" records no trade and
+    the resolution forgets its trades at the next good. It's stored in DynamoDB; older items read as none reached.
 
 Verified with JS and Kotlin tests (`shortyBonus`, the Opportunity route and phase mapping, the News cards, the notice
 round trip without a system, the event lines' notice) and a browser walk: the deck columns, the bid box, the page
