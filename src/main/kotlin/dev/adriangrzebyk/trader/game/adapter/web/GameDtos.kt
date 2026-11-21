@@ -651,7 +651,7 @@ data class YouResponseDto(
 		view.battleReport?.let { BattleReportResponseDto(it, ids) },
 		AssetsResponseDto(player, view.prices),
 		view.loan?.let { YourLoanResponseDto(it) },
-		player.agents.map { YourAgentResponseDto(it, checkNotNull(player.placeOfAgent(it.agent))) },
+		player.agents.map { YourAgentResponseDto(it, checkNotNull(player.placeOfAgent(it.agent)), view.turnNumber) },
 		view.agentPool,
 		view.sabotagesOrdered.map { YourSabotageResponseDto(it, ids) },
 		view.sabotagesSuffered.map { SufferedSabotageResponseDto(it) },

@@ -19,6 +19,14 @@ const rules = {
 	sabotage: [{ from: null, effect: 0, reputationLoss: 0 }, { from: 7, effect: 0, reputationLoss: 10 }, { from: 21, effect: 10, reputationLoss: null }],
 	sabotageBlame: 8,
 	reputation: { start: 20, max: 40, recovery: 3, recoveryUpTo: 17, buyCost: 20, bonus: { 25: 5, 27: 10 } },
+	hulls: [
+		{ name: 'Clarinet', price: 160, moduleCapacity: 5, crew: 1, cargoSpaces: 0, weapons: 3, shields: 2, intercept: 2, repairCost: 20, military: false, aerodynamic: false },
+		{ name: 'Dagger', price: 250, moduleCapacity: 1, crew: 1, cargoSpaces: 0, weapons: 5, shields: 4, intercept: 2, repairCost: 50, military: true, aerodynamic: true },
+	],
+	modules: [
+		{ name: 'Safe jump', price: 10, crew: 0, weapons: 0, rocketWeapons: 0, cargoSpaces: 0, passengers: 0, military: false, takesModuleCapacity: false, jumpModifier: 2 },
+		{ name: 'Arsenal', price: 100, crew: 1, weapons: 7, rocketWeapons: 14, cargoSpaces: 0, passengers: 0, military: true, takesModuleCapacity: true, jumpModifier: 0 },
+	],
 };
 
 describe('the Guide (playtest, 2026-11-20)', () => {
@@ -53,5 +61,16 @@ describe('the Guide (playtest, 2026-11-20)', () => {
 		assert.deepEqual(jumpModifierLines(rules), ['Crew A +5 · D +0', 'Safe jump +2', 'Novak +4']);
 		assert.deepEqual(jumpModifierLines(rules, { jumpModifier: -4 }).at(-1), 'This turn −4 (news)');
 		assert.equal(crewBonusText(rules.crewClasses[1]), 'jump +0 · intercept −1');
+	});
+
+	it('tabulates every hull and module, so a ship can be planned outside Investment (playtest, 2026-11-21)', () => {
+		const { hulls, modules } = guideSections(rules).ships;
+		assert.deepEqual(hulls.columns, ['Hull', 'Price', 'Modules', 'Crew', 'Cargo', 'Weapons', 'Shields', 'Intercept', 'Repair', 'Notes']);
+		assert.deepEqual(hulls.rows[0], ['Clarinet', '160 HT', '5', '1', '0', '3', '2', '2', '20 HT', '']);
+		assert.deepEqual(hulls.rows[1].at(-1), 'Military (opportunity only) · aerodynamic');
+		assert.deepEqual(modules.columns, ['Module', 'Price', 'Crew', 'Weapons (rockets)', 'Cargo', 'Passengers', 'Notes']);
+		assert.deepEqual(modules.rows[0], ['Safe jump', '10 HT', '0', '0', '0', '0', 'Takes no module space · jump +2']);
+		assert.deepEqual(modules.rows[1], ['Arsenal', '100 HT', '1', '7 (14)', '0', '0', 'Military (opportunity only)']);
+		assert.match(modules.note, /crew at the ship's class: A 20 HT · D 2 HT/);
 	});
 });

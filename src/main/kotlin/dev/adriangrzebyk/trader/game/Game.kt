@@ -710,14 +710,17 @@ data class Game(
 		val player = playerOf(email)
 		val roll = dice.twoD6()
 		val picked = pool[dice.oneOf(pool.size) - 1]
-		val recruited = player.recruitAgent(payment, roll, picked, start)
+		val recruited = player.recruitAgent(payment, roll, picked, start, current.number)
 		val joined = recruited.agents.size > player.agents.size
-		val system = when (start) {
-			is AgentPosition.Aboard -> checkNotNull(player.ship(start.shipName)).system
-			is AgentPosition.OnOwn -> start.system
-		}
-		val line = listOfNotNull("${player.corporationName} recruited an agent at ${system.displayName}".takeIf { joined })
+		// Playtest 2026-11-21: where the agent starts is chosen after joining, so the line no longer names a system.
+		val line = listOfNotNull("${player.corporationName} recruited an agent".takeIf { joined })
 		return copy(players = replace(recruited), turn = recruitedTurn, log = log + line.map { LogEntry.event(current.number, it) })
+	}
+
+	/** [email] places their [agent], recruited this turn, where it starts (playtest, 2026-11-21): see [Player.placeNewAgent]. */
+	fun placeNewAgent(email: String, agent: Agent?, to: AgentPosition): Game {
+		val current = runningTurn()
+		return copy(players = replace(playerOf(email).placeNewAgent(agent, to, current.number)))
 	}
 
 	/** [email] moves their [agent] [to] at any time in a running game, like cargo (R104): see [Player.moveAgent]. The public counts follow. */

@@ -11,19 +11,23 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 internal class RecruitedAgentItem(val attributes: Map<String, AttributeValue>) {
 
 	constructor(recruited: RecruitedAgent) : this(
-		mapOf(AGENT to AttributeValue.fromS(recruited.agent.name)) + when (val position = recruited.position) {
-			is AgentPosition.Aboard -> mapOf(SHIP to AttributeValue.fromS(position.shipName))
-			is AgentPosition.OnOwn -> mapOf(
-				SYSTEM to AttributeValue.fromS(position.system.name),
-				LOCATION to AttributeValue.fromS(position.location.name)
-			)
-		}
+		mapOf(AGENT to AttributeValue.fromS(recruited.agent.name)) +
+			listOfNotNull(recruited.placeableIn?.let { PLACEABLE_IN to AttributeValue.fromN(it.toString()) }) +
+			when (val position = recruited.position) {
+				is AgentPosition.Aboard -> mapOf(SHIP to AttributeValue.fromS(position.shipName))
+				is AgentPosition.OnOwn -> mapOf(
+					SYSTEM to AttributeValue.fromS(position.system.name),
+					LOCATION to AttributeValue.fromS(position.location.name)
+				)
+			}
 	)
 
 	fun toRecruitedAgent(): RecruitedAgent = RecruitedAgent(
 		agent = Agent.valueOf(attributes.attribute(AGENT).s()),
 		position = attributes[SHIP]?.let { AgentPosition.Aboard(it.s()) }
-			?: AgentPosition.OnOwn(StarSystem.valueOf(attributes.attribute(SYSTEM).s()), ShipLocation.valueOf(attributes.attribute(LOCATION).s()))
+			?: AgentPosition.OnOwn(StarSystem.valueOf(attributes.attribute(SYSTEM).s()), ShipLocation.valueOf(attributes.attribute(LOCATION).s())),
+		// Absent from items saved before 2026-11-21, and once placed.
+		placeableIn = attributes[PLACEABLE_IN]?.n()?.toInt()
 	)
 
 	private companion object {
@@ -31,5 +35,6 @@ internal class RecruitedAgentItem(val attributes: Map<String, AttributeValue>) {
 		const val SHIP = "ship"
 		const val SYSTEM = "system"
 		const val LOCATION = "location"
+		const val PLACEABLE_IN = "placeableIn"
 	}
 }

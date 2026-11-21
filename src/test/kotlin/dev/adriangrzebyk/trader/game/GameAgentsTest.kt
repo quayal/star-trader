@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
 import dev.adriangrzebyk.trader.board.StarSystem.SIGMA_DRACONIS
 import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import dev.adriangrzebyk.trader.game.OpportunityGame.Companion.ADA
@@ -31,11 +32,25 @@ class GameAgentsTest {
 
 		val recruited = game.recruitAgent(KIM, 35, aboard, recruitDice(7))
 
-		assertThat(fixture.playerOf(recruited, KIM).agents).containsExactly(RecruitedAgent(Agent.NOVAK, aboard))
+		assertThat(fixture.playerOf(recruited, KIM).agents).containsExactly(RecruitedAgent(Agent.NOVAK, aboard, game.turn!!.number))
 		assertThat(fixture.playerOf(recruited, KIM).money).isEqualTo(265)
 		assertThat(recruited.agentPool()).hasSize(9).doesNotContain(Agent.NOVAK)
-		assertThat(recruited.log.last().text).isEqualTo("Kessler Cargo recruited an agent at Tau Ceti")
+		assertThat(recruited.log.last().text).isEqualTo("Kessler Cargo recruited an agent")
 		assertThatThrownBy { recruited.recruitAgent(KIM, 60, aboard, recruitDice(2)) }.hasMessage("You've already recruited this Opportunity.")
+	}
+
+	@Test
+	fun shouldPlaceANewAgentWhereItStartsOnceItsPlayerKnowsWhoJoined() {
+		// Playtest 2026-11-21: recruited aboard Bright Reach (Tau Ceti), Novak is placed on his own on Tau Ceti's Planet instead.
+		val recruited = game.recruitAgent(KIM, 35, aboard, recruitDice(7))
+		val planet = AgentPosition.OnOwn(TAU_CETI, ShipLocation.PLANET)
+
+		val placed = recruited.placeNewAgent(KIM, Agent.NOVAK, planet)
+
+		assertThat(fixture.playerOf(placed, KIM).agents).containsExactly(RecruitedAgent(Agent.NOVAK, planet))
+		assertThatThrownBy { placed.placeNewAgent(KIM, Agent.NOVAK, aboard) }.hasMessage("Novak has already started: move him like any agent.")
+		assertThatThrownBy { recruited.placeNewAgent(KIM, Agent.NOVAK, AgentPosition.OnOwn(MU_HERCULIS, ShipLocation.PORT)) }
+			.hasMessage("You need a ship or a warehouse at Mu Herculis.")
 	}
 
 	@Test

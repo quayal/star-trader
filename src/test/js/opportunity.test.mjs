@@ -13,6 +13,7 @@ import {
 	openLoanText,
 	opportunityStatusText,
 	publicAgentLines,
+	corporationAgentLines,
 	recruitOdds,
 	sabotageCost,
 	sabotageModifiers,
@@ -165,6 +166,10 @@ describe('agents (R103–R106)', () => {
 
 	it('shows counts per place and per ship, never names', () => {
 		assert.deepEqual(publicAgentLines(game().players[1]), ['1 agent in Port at Tau Ceti', 'Starfarer: 2 agents aboard']);
+		// Playtest 2026-11-21: the viewer's own card names their agents; another player's keeps the counts.
+		const own = { you: { id: 'me', agents: [{ name: 'Wolf', effect: '+4 on your initiative roll, wherever he is', system: 'SIGMA_DRACONIS', location: 'PORT', placeSystemName: 'Sigma Draconis', placeLocation: 'PORT' }] }, board: [] };
+		assert.deepEqual(corporationAgentLines(own, { id: 'me' }), ['Wolf (+4 on your initiative roll, wherever he is): on his own in Port at Sigma Draconis']);
+		assert.deepEqual(corporationAgentLines(own, game().players[1]), ['1 agent in Port at Tau Ceti', 'Starfarer: 2 agents aboard']);
 	});
 
 	it('tells the buyer where the agent is and the seller which one', () => {

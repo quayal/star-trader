@@ -957,7 +957,7 @@ data class Player(
 	 * This player after paying [payment] HT to recruit (R103): 10 to 60, and they must have it. When [roll] (2d6) × 5 is at
 	 * or below the payment, [picked], drawn at random from the pool, joins them at [start]; otherwise the money is gone.
 	 */
-	fun recruitAgent(payment: Int?, roll: Int, picked: Agent, start: AgentPosition): Player {
+	fun recruitAgent(payment: Int?, roll: Int, picked: Agent, start: AgentPosition, turn: Int? = null): Player {
 		if (payment == null || payment !in Agent.MIN_RECRUIT_PAYMENT..Agent.MAX_RECRUIT_PAYMENT) {
 			throw InvalidAgentException("Pay a whole number from ${Agent.MIN_RECRUIT_PAYMENT} to ${Agent.MAX_RECRUIT_PAYMENT} HT.")
 		}
@@ -966,7 +966,20 @@ data class Player(
 		}
 		checkAgentStart(start)
 		val paid = pay(payment, "Agent recruitment")
-		return if (roll * Agent.RECRUIT_ROLL_MULTIPLIER <= payment) paid.withAgentAdded(RecruitedAgent(picked, start)) else paid
+		return if (roll * Agent.RECRUIT_ROLL_MULTIPLIER <= payment) paid.withAgentAdded(RecruitedAgent(picked, start, turn)) else paid
+	}
+
+	/**
+	 * [agent], recruited in turn [turn] and not placed yet, starts at [to] instead of where it joined (playtest, 2026-11-21):
+	 * anywhere a new agent may start ([checkAgentStart]), once.
+	 */
+	fun placeNewAgent(agent: Agent?, to: AgentPosition, turn: Int): Player {
+		val recruited = agent?.let { agent(it) } ?: throw InvalidAgentException("Choose one of your agents.")
+		if (!recruited.isPlaceableIn(turn)) {
+			throw InvalidAgentException("${recruited.agent.displayName} has already started: move him like any agent.")
+		}
+		checkAgentStart(to)
+		return withAgent(recruited.placedAt(to))
 	}
 
 	/**

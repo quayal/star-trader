@@ -49,9 +49,14 @@ function defaultUnits(game, terms) {
 
 /**
  * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, maxUnits, facts, hulls, modules,
- * maxModules, crewClasses, hullOptional, note }`. [ships] are those that can take it now; an empty list says why in [note].
+ * maxModules, crewClasses, hullOptional, note, takeable }`. [ships] are those that can take it now; an empty list says why in [note].
  */
 export function opportunityForms(game) {
+	// Playtest 2026-11-21: [takeable] says a ship can take it now (a military ship's hull appears on the Planet by itself).
+	return opportunityFormsWithoutTakeable(game).map(form => ({ ...form, takeable: form.kind === 'MILITARY_SHIP' || form.ships.length > 0 }));
+}
+
+function opportunityFormsWithoutTakeable(game) {
 	return (game.you?.tipOffs ?? []).filter(t => t.learned && t.terms && !t.taken).map(tipOff => {
 		const terms = tipOff.terms;
 		const at = systemName(game, terms.buyAt);

@@ -26,6 +26,9 @@ describe('the Opportunities card (R111–R114)', () => {
 		assert.equal(form.title, 'buy weapons on Tau Ceti\'s Planet (10 HT) for sale on Gamma Leporis\'s Planet.');
 		assert.deepEqual(form.ships, ['Wayfarer']);
 		assert.equal(form.units, true);
+		assert.equal(form.takeable, true);
+		// Playtest 2026-11-21: with no ship where it's taken, Take isn't offered as if it could work.
+		assert.equal(opportunityForms(game([weapons], [], [{ ...positions[0], location: 'PORT' }]))[0].takeable, false);
 		assert.deepEqual(opportunityForms(game([{ ...weapons, taken: true }])), []);
 	});
 

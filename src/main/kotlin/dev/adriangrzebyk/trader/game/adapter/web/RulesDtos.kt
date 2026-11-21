@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.CrewClass
+import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
@@ -24,7 +25,9 @@ data class RulesResponseDto(
 	val shortySabotageBonus: Int,
 	val sabotage: List<SabotageRowResponseDto>,
 	val sabotageBlame: Int,
-	val reputation: ReputationRulesResponseDto
+	val reputation: ReputationRulesResponseDto,
+	val hulls: List<HullRuleResponseDto>,
+	val modules: List<ModuleRuleResponseDto>
 ) {
 
 	constructor() : this(
@@ -39,7 +42,70 @@ data class RulesResponseDto(
 		Agent.SHORTY_SABOTAGE_BONUS,
 		SabotageTable().rows().map { SabotageRowResponseDto(it) },
 		SabotageTable.BLAME,
-		ReputationRulesResponseDto()
+		ReputationRulesResponseDto(),
+		Hull.entries.map { HullRuleResponseDto(it) },
+		Module.entries.map { ModuleRuleResponseDto(it) }
+	)
+}
+
+/**
+ * Every hull (R51) for the Guide's table (playtest, 2026-11-21: plan a ship outside Investment), military ones too, which
+ * come only through an opportunity (R56).
+ */
+data class HullRuleResponseDto(
+	val name: String,
+	val price: Int,
+	val moduleCapacity: Int,
+	val crew: Int,
+	val cargoSpaces: Int,
+	val weapons: Int,
+	val shields: Int,
+	val intercept: Int,
+	val repairCost: Int,
+	val military: Boolean,
+	val aerodynamic: Boolean
+) {
+
+	constructor(hull: Hull) : this(
+		hull.displayName,
+		hull.price,
+		hull.moduleCapacity,
+		hull.crew,
+		hull.builtInCargo,
+		hull.weapons,
+		hull.shields,
+		hull.intercept,
+		hull.repairCost,
+		hull.military,
+		hull.aerodynamic
+	)
+}
+
+/** Every module (R52) for the Guide's table, with its [rocketWeapons] (the table's bracketed figure) and jump modifier. */
+data class ModuleRuleResponseDto(
+	val name: String,
+	val price: Int,
+	val crew: Int,
+	val weapons: Int,
+	val rocketWeapons: Int,
+	val cargoSpaces: Int,
+	val passengers: Int,
+	val military: Boolean,
+	val takesModuleCapacity: Boolean,
+	val jumpModifier: Int
+) {
+
+	constructor(module: Module) : this(
+		module.displayName,
+		module.price,
+		module.crew,
+		module.weapons,
+		module.rocketWeapons,
+		module.cargoSpaces,
+		module.passengers,
+		module.military,
+		module.takesModuleCapacity,
+		module.jumpModifier
 	)
 }
 

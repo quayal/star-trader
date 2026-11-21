@@ -110,7 +110,8 @@ data class SellFactoryRequestDto(val system: String? = null, val goods: String? 
 /**
  * One of the viewer's own agents (R105): its name, effect and where it is, aboard [ship] or on its own at [system] [location].
  * [placeSystemName] and [placeLocation] say where it stands either way, its ship's place when aboard (playtest, 2026-11-20:
- * "player should have info where their agents are").
+ * "player should have info where their agents are"). [placeable] says its player may still choose where it starts, having
+ * just recruited it (playtest, 2026-11-21).
  */
 data class YourAgentResponseDto(
 	val agent: String,
@@ -120,10 +121,11 @@ data class YourAgentResponseDto(
 	val system: String?,
 	val location: String?,
 	val placeSystemName: String,
-	val placeLocation: String
+	val placeLocation: String,
+	val placeable: Boolean
 ) {
 
-	constructor(recruited: RecruitedAgent, place: AgentPlace) : this(
+	constructor(recruited: RecruitedAgent, place: AgentPlace, turn: Int) : this(
 		recruited.agent.name,
 		recruited.agent.displayName,
 		recruited.agent.effect,
@@ -131,7 +133,8 @@ data class YourAgentResponseDto(
 		(recruited.position as? AgentPosition.OnOwn)?.system?.name,
 		(recruited.position as? AgentPosition.OnOwn)?.location?.name,
 		place.system.displayName,
-		place.location.name
+		place.location.name,
+		recruited.isPlaceableIn(turn)
 	)
 }
 

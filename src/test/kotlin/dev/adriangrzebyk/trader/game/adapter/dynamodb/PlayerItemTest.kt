@@ -81,7 +81,7 @@ class PlayerItemTest {
 		loan = Loan(312, 14, 3, LoanTerm.FOUR),
 		agents = listOf(
 			RecruitedAgent(Agent.NOVAK, AgentPosition.Aboard("Wayfarer")),
-			RecruitedAgent(Agent.JB, AgentPosition.OnOwn(StarSystem.TAU_CETI, ShipLocation.PLANET))
+			RecruitedAgent(Agent.JB, AgentPosition.OnOwn(StarSystem.TAU_CETI, ShipLocation.PLANET), placeableIn = 3)
 		),
 		ledger = MoneyLedger(4, listOf(MoneyMovement(3, "Sold 6 ISO at Tau Ceti", 72), MoneyMovement(4, "Loan interest", -14)))
 	)

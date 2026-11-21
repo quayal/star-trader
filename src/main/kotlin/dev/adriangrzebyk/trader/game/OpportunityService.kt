@@ -53,6 +53,10 @@ class OpportunityService(private val gameStore: GameStore, private val dice: Dic
 	fun recruit(gameId: String, callerEmail: String, payment: Int?, start: AgentPosition): Game =
 		gameStore.update(gameId) { it.recruitAgent(callerEmail, payment, start, dice) }
 
+	/** [callerEmail] places their [agent], recruited this turn, at [to] (playtest, 2026-11-21). */
+	fun placeNewAgent(gameId: String, callerEmail: String, agent: Agent?, to: AgentPosition): Game =
+		gameStore.update(gameId) { it.placeNewAgent(callerEmail, agent, to) }
+
 	/** [callerEmail] moves their [agent] [to] (R104). */
 	fun moveAgent(gameId: String, callerEmail: String, agent: Agent?, to: AgentPosition): Game =
 		gameStore.update(gameId) { it.moveAgent(callerEmail, agent, to) }
