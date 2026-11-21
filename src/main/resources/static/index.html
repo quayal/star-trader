@@ -560,6 +560,14 @@
 <main>
 	<!-- s11: the Lobby — create a game, or pick up one of yours. `/` opens it when there is no game to go back to. -->
 	<div class="view" id="new-view" hidden>
+		<!-- R119: games waiting for players; asking to join needs the creator's yes (R120). -->
+		<section class="panel" id="open-games-panel" aria-labelledby="open-games-title">
+			<h2 id="open-games-title">Open games</h2>
+			<p class="message" id="open-games-message" role="status"></p>
+			<ul class="games-list" id="open-games-list"></ul>
+			<p class="empty" id="open-games-empty" hidden>No game is waiting for players. Create one below.</p>
+		</section>
+
 		<section class="panel" aria-labelledby="new-title">
 			<h2 id="new-title">Create a game</h2>
 			<form id="create-form" novalidate>
@@ -607,9 +615,9 @@
 		<!-- s07: a 403 can't say whether the game is still in its lobby without leaking its state (A05). -->
 		<section class="panel" id="join-panel" hidden aria-labelledby="join-title">
 			<h2 id="join-title">You're not a player in this game</h2>
-			<p>If it hasn't started yet, you can join it.</p>
+			<p>If it hasn't started yet, you can ask its creator to let you in.</p>
 			<div class="actions">
-				<button class="btn" id="join-button" type="button">Join this game</button>
+				<button class="btn" id="join-button" type="button">Ask to join</button>
 				<p class="message message--error" id="join-message" role="status"></p>
 			</div>
 		</section>
@@ -620,7 +628,8 @@
 				<div><dt>Length</dt><dd id="lobby-length"></dd></div>
 				<div><dt>Players</dt><dd>2 to 6 players</dd></div>
 			</dl>
-			<label class="field-label" for="lobby-link">Send this link to the players</label>
+			<p>Players find this game under Open games once they sign in at <span id="lobby-origin"></span>, and ask to join.</p>
+			<label class="field-label" for="lobby-link">Or send them a direct link</label>
 			<div class="link-row">
 				<input class="control" id="lobby-link" readonly>
 				<button class="text-action" id="copy-link" type="button">Copy link</button>
@@ -631,6 +640,14 @@
 		<section class="panel" id="players-panel" hidden aria-labelledby="players-title">
 			<h2 id="players-title">Players</h2>
 			<ul class="player-list" id="player-list"></ul>
+		</section>
+
+		<!-- R120: the creator lets in, or turns away, each player who asked. -->
+		<section class="panel" id="join-requests-panel" hidden aria-labelledby="join-requests-title">
+			<h2 id="join-requests-title">Requests to join</h2>
+			<ul class="games-list" id="join-requests-list"></ul>
+			<p class="empty" id="join-requests-empty">Nobody has asked to join yet.</p>
+			<p class="message message--error" id="join-requests-message" role="status"></p>
 		</section>
 
 		<section class="panel" id="start-panel" hidden>
@@ -1646,12 +1663,13 @@
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
+	import { OPEN_GAMES_POLL_MS, openGameRow, requestOutcome } from './js/open-games.js';
 
 	const UNREACHABLE = "We couldn't reach the server. Try again.";
 	const $ = id => document.getElementById(id);
 	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
-	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'start-panel',
+	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'join-requests-panel', 'start-panel',
 		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
@@ -1746,6 +1764,7 @@
 
 	function route() {
 		stopPolling();
+		stopOpenGames();
 		closeLanding(); // the dialog belongs to the game being left; the next render opens it again if needed
 		if ($('notice-dialog').open) {
 			$('notice-dialog').close('stale'); // likewise; its cards stay unseen until the next render shows them
@@ -1781,8 +1800,8 @@
 			showHome();
 		} else if (view === 'new') {
 			$('nav-new').setAttribute('aria-current', 'page');
-			setTitle('Lobby', 'Create a game and invite the players, or pick up one of yours.');
-			$('turns').focus();
+			setTitle('Lobby', 'Join an open game, create one, or pick up one of yours.');
+			loadOpenGames();
 			loadYourGames();
 		} else if (view === 'unknown') {
 			showUnknown(id);
@@ -2018,6 +2037,147 @@
 		schedulePoll(id);
 	}
 
+	// ── Open games (on s11, R119, R120) ──
+
+	let openGames = []; // the last list loaded, to tell what became of the viewer's requests
+	let openGamesTimer = null;
+	let openGamesGeneration = 0;
+
+	function stopOpenGames() {
+		clearTimeout(openGamesTimer);
+		openGamesTimer = null;
+		openGamesGeneration += 1;
+	}
+
+	async function loadOpenGames() {
+		const generation = ++openGamesGeneration;
+		let games = null;
+		try {
+			const response = await api('/api/open-games', { cache: 'no-store' });
+			games = response.ok ? await response.json() : null;
+		} catch {
+			games = null; // unreachable for now: keep the list on screen and try again
+		}
+		if (generation !== openGamesGeneration) {
+			return; // the player has left the Lobby screen, or a newer load owns it
+		}
+		if (games) {
+			const outcome = requestOutcome(openGames, games);
+			openGames = games;
+			if (outcome.accepted) {
+				rememberGame(outcome.accepted);
+				location.hash = `#game/${encodeURIComponent(outcome.accepted)}`;
+				return;
+			}
+			if (outcome.message) {
+				showOpenGamesMessage(outcome.message, 'message message--warn');
+			}
+			renderOpenGames();
+		}
+		openGamesTimer = setTimeout(() => {
+			if (!document.hidden) {
+				loadOpenGames();
+			} else {
+				openGamesTimer = setTimeout(loadOpenGames, OPEN_GAMES_POLL_MS);
+			}
+		}, OPEN_GAMES_POLL_MS);
+	}
+
+	function showOpenGamesMessage(text, className = 'message') {
+		$('open-games-message').textContent = text;
+		$('open-games-message').className = className;
+	}
+
+	function renderOpenGames() {
+		const rows = openGames.map(openGameRow);
+		const focusedAction = document.activeElement?.closest?.('#open-games-list li')?.dataset.game ?? null;
+		$('open-games-list').replaceChildren(...rows.map(row => {
+			const parts = [];
+			if (row.badge) {
+				parts.push(element('span', { class: row.badge.tone ? `badge badge--${row.badge.tone}` : 'badge' }, row.badge.text));
+			}
+			parts.push(element('span', {}, element('strong', {}, row.title), ` \u00b7 ${row.details}`));
+			if (row.action === 'open') {
+				parts.push(element('a', { class: 'link', href: row.href }, 'Open'));
+			} else if (row.action === 'ask') {
+				const button = element('button', { class: 'btn', type: 'button' }, 'Ask to join');
+				button.addEventListener('click', () => changeRequest(button, row, 'POST', 'Request sent. The game opens here once its creator accepts.'));
+				parts.push(button);
+			} else if (row.action === 'cancel') {
+				const button = element('button', { class: 'text-action', type: 'button' }, 'Cancel request');
+				button.addEventListener('click', () => changeRequest(button, row, 'DELETE', 'Request cancelled.'));
+				parts.push(button);
+			}
+			const li = element('li', { 'data-game': row.id }, ...parts);
+			return li;
+		}));
+		if (focusedAction) {
+			$('open-games-list').querySelector(`li[data-game="${CSS.escape(focusedAction)}"] button, li[data-game="${CSS.escape(focusedAction)}"] a`)?.focus();
+		}
+		$('open-games-empty').hidden = rows.length > 0;
+	}
+
+	/** Asks to join ([method] POST) or cancels the request (DELETE), and shows the row's new standing at once. */
+	async function changeRequest(button, row, method, doneText) {
+		button.disabled = true;
+		const path = `/api/games/${encodeURIComponent(row.id)}/join-requests${method === 'DELETE' ? '/mine' : ''}`;
+		try {
+			const response = await api(path, { method });
+			if (!response.ok) {
+				showOpenGamesMessage(await errorText(response, "That didn't work. Try again."), 'message message--error');
+				button.disabled = false;
+				return;
+			}
+			const updated = await response.json();
+			openGames = openGames.map(game => (game.id === updated.id ? updated : game));
+			showOpenGamesMessage(doneText, 'message message--success');
+			renderOpenGames();
+		} catch {
+			showOpenGamesMessage(UNREACHABLE, 'message message--error');
+			button.disabled = false;
+		}
+	}
+
+	// ── Requests to join, for the creator (s12, R120) ──
+
+	let shownJoinRequestsKey = null;
+
+	function renderJoinRequests(game) {
+		const requests = game.joinRequests ?? [];
+		const key = `${game.id}|${requests.map(r => r.id).join(',')}`;
+		if (key === shownJoinRequestsKey) {
+			return; // unchanged: keep the buttons, and the focus on them, through the poll
+		}
+		shownJoinRequestsKey = key;
+		$('join-requests-list').replaceChildren(...requests.map(request => {
+			const accept = element('button', { class: 'btn', type: 'button' }, 'Accept');
+			const decline = element('button', { class: 'btn btn--danger', type: 'button' }, 'Decline');
+			accept.addEventListener('click', () => answerJoinRequest(request, 'accept', accept, decline));
+			decline.addEventListener('click', () => answerJoinRequest(request, 'decline', accept, decline));
+			return element('li', {}, element('span', {}, element('strong', {}, request.corporationName), ` (${request.name})`), accept, decline);
+		}));
+		$('join-requests-empty').hidden = requests.length > 0;
+	}
+
+	async function answerJoinRequest(request, answer, ...buttons) {
+		$('join-requests-message').textContent = '';
+		buttons.forEach(button => { button.disabled = true; });
+		const path = `/api/games/${encodeURIComponent(currentGameId)}/join-requests/${encodeURIComponent(request.id)}/${answer}`;
+		try {
+			const response = await api(path, { method: 'POST' });
+			if (!response.ok) {
+				$('join-requests-message').textContent = await errorText(response, "That didn't work. Try again.");
+				shownJoinRequestsKey = null; // redraw the rows, enabled, from the next poll
+				buttons.forEach(button => { button.disabled = false; });
+				return;
+			}
+			render(await response.json());
+		} catch {
+			$('join-requests-message').textContent = UNREACHABLE;
+			buttons.forEach(button => { button.disabled = false; });
+		}
+	}
+
 	// ── Your games (on s11) ──
 
 	let yourGamesGeneration = 0;
@@ -2131,11 +2291,13 @@
 		if ($('lobby-link').value !== link) {
 			$('lobby-link').value = link;
 		}
+		$('lobby-origin').textContent = location.origin;
 		fillList($('player-list'), state.corporationNames);
+		renderJoinRequests(game);
 		$('start-button').disabled = !state.canStart;
 		$('start-reason').textContent = state.startBlockedReason ?? '';
 		$('waiting-text').textContent = state.waitingText ?? '';
-		showPanels('lobby-panel', 'players-panel', state.isCreator ? 'start-panel' : 'waiting-panel');
+		showPanels('lobby-panel', 'players-panel', ...(state.isCreator ? ['join-requests-panel', 'start-panel'] : ['waiting-panel']));
 	}
 
 	// ── s01 Deck and s02 System details ──
@@ -6153,14 +6315,12 @@
 		$('join-message').textContent = '';
 		$('join-button').disabled = true;
 		try {
-			const response = await api(`/api/games/${encodeURIComponent(currentGameId)}/join`, { method: 'POST' });
+			const response = await api(`/api/games/${encodeURIComponent(currentGameId)}/join-requests`, { method: 'POST' });
 			if (!response.ok) {
-				$('join-message').textContent = await errorText(response, "You couldn't join this game.");
+				$('join-message').textContent = await errorText(response, "You couldn't ask to join this game.");
 				return;
 			}
-			rememberGame(currentGameId);
-			render(await response.json());
-			schedulePoll(currentGameId);
+			location.hash = '#new'; // R120: the Lobby screen's Open games shows the request and opens the game once accepted
 		} catch {
 			$('join-message').textContent = UNREACHABLE;
 		} finally {

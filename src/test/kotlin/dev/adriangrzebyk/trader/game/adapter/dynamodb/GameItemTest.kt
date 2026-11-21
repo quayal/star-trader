@@ -118,6 +118,7 @@ class GameItemTest {
 				agents = emptyList()
 			)
 		),
+		joinRequests = emptyList(),
 		turn = Turn(
 			number = 1,
 			phase = TurnPhase.BIDDING,
@@ -185,6 +186,17 @@ class GameItemTest {
 	}
 
 	@Test
+	fun shouldReadBackALobbyGameWithRequestsToJoinAndReadAGameSavedBeforeThemWithNone() {
+		// R120; a game saved before join requests had nobody asking (BACKWARD_COMPATIBILITY.md §7).
+		val lobby = Game.lobby("game-3", 12, Player.newcomer("host@example.com", "Host", "Host Corp"))
+			.requestToJoin(Player.newcomer("ada@example.com", "Ada", "Ada Lines"))
+		val item = GameItem(lobby, version = 0).attributes
+
+		assertThat(GameItem(item).toGame(emptyList())).isEqualTo(lobby)
+		assertThat(GameItem(item - "joinRequests").toGame(emptyList()).joinRequests).isEmpty()
+	}
+
+	@Test
 	fun shouldStoreEachPriceUnderItsGoodAndReadAGameSavedBeforePricesMovedAtTheBoardsPrices() {
 		// E05-S05, R35: a game saved before then never moved a price (BACKWARD_COMPATIBILITY.md §7).
 		val item = GameItem(startedGame, version = 0).attributes
@@ -205,7 +217,8 @@ class GameItemTest {
 		assertThat(
 			item.keys
 		).containsExactlyInAnyOrder(
-			"id", "turns", "status", "creatorEmail", "players", "turn", "prices", "logTurns", "deadAgents", "news", "supplyDemandShifts", "version"
+			"id", "turns", "status", "creatorEmail", "players", "joinRequests", "turn", "prices", "logTurns", "deadAgents", "news",
+			"supplyDemandShifts", "version"
 		)
 		assertThat(item.getValue("status").s()).isEqualTo("RUNNING")
 		assertThat(item.getValue("turn").m()).isEqualTo(TurnItem(startedGame.turn!!).attributes)

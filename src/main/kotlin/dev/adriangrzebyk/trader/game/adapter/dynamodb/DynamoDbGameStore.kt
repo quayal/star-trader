@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.Game
 import dev.adriangrzebyk.trader.game.GameNotFoundException
+import dev.adriangrzebyk.trader.game.GameStatus
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.LogEntry
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -39,6 +40,18 @@ class DynamoDbGameStore(private val client: DynamoDbClient, private val tableNam
 	}
 
 	override fun find(id: String): Game? = read(id)?.game
+
+	/**
+	 * R119: a scan of the whole table, filtered to games in their lobby. Fine for the playtest's handful of games; an index
+	 * on the status is the next step if the table grows. A lobby has no log yet, but its log items are read like any game's.
+	 */
+	override fun lobbies(): List<Game> = client.scanPaginator {
+		it.tableName(tableName)
+			.filterExpression("#status = :lobby AND attribute_exists(#creator)")
+			.expressionAttributeNames(mapOf("#status" to GameItem.STATUS, "#creator" to GameItem.CREATOR_EMAIL))
+			.expressionAttributeValues(mapOf(":lobby" to AttributeValue.fromS(GameStatus.LOBBY.name)))
+			.consistentRead(true)
+	}.items().map { GameItem(it) }.map { item -> item.toGame(readLog(item.id, item.logTurns()).values.flatten()) }
 
 	override fun update(id: String, mutate: (Game) -> Game): Game {
 		repeat(MAX_ATTEMPTS) {

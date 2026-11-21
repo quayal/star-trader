@@ -11,6 +11,8 @@ class FakeGameStore : GameStore {
 
 	override fun find(id: String): Game? = games[id]
 
+	override fun lobbies(): List<Game> = games.values.filter { it.status == GameStatus.LOBBY }
+
 	override fun update(id: String, mutate: (Game) -> Game): Game {
 		val updated = mutate(games[id] ?: throw GameNotFoundException())
 		games[id] = updated

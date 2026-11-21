@@ -8,12 +8,14 @@ import dev.adriangrzebyk.trader.game.Dice
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
 import dev.adriangrzebyk.trader.game.GameJoiningService
+import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.GamePollingService
 import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvestmentService
 import dev.adriangrzebyk.trader.game.NewsService
+import dev.adriangrzebyk.trader.game.OpenGamesService
 import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
@@ -39,11 +41,17 @@ import org.springframework.web.server.ResponseStatusException
  */
 @RestController
 @RequestMapping("/api")
-class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startingSystemPicker: StartingSystemPicker, dice: Dice) {
+class GameController(
+	idGenerator: GameIdGenerator,
+	private val gameStore: GameStore,
+	startingSystemPicker: StartingSystemPicker,
+	dice: Dice
+) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
+	private val openGamesService = OpenGamesService(gameStore)
 	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker, dice)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
@@ -67,11 +75,32 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 		return GameResponseDto(game, session.email)
 	}
 
-	@PostMapping("/games/{id}/join")
-	fun joinGame(@PathVariable id: String, session: Session): GameResponseDto {
-		val player = Player.newcomer(session.email, session.playerName, session.corporationName)
-		val game = gameJoiningService.joinGame(id, player)
+	/** R119: every game still in its lobby, as the caller sees it, the ones they're in or asked to join first. */
+	@GetMapping("/open-games")
+	fun openGames(session: Session): List<OpenGameResponseDto> =
+		openGamesService.openGames(session.email).map { OpenGameResponseDto(it, session.email) }
 
+	/** R120: the caller asks to join; they're in once the creator accepts. */
+	@PostMapping("/games/{id}/join-requests")
+	fun requestToJoin(@PathVariable id: String, session: Session): OpenGameResponseDto {
+		val player = Player.newcomer(session.email, session.playerName, session.corporationName)
+		return OpenGameResponseDto(gameJoiningService.requestToJoin(id, player), session.email)
+	}
+
+	/** R120: the caller no longer asks to join; nothing changes when they hadn't asked. */
+	@DeleteMapping("/games/{id}/join-requests/mine")
+	fun withdrawJoinRequest(@PathVariable id: String, session: Session): OpenGameResponseDto =
+		OpenGameResponseDto(gameJoiningService.withdrawJoinRequest(id, session.email), session.email)
+
+	@PostMapping("/games/{id}/join-requests/{request}/accept")
+	fun acceptJoinRequest(@PathVariable id: String, @PathVariable request: String, session: Session): GameResponseDto {
+		val game = gameJoiningService.acceptJoinRequest(id, session.email, requesterEmail(id, request))
+		return GameResponseDto(game, session.email)
+	}
+
+	@PostMapping("/games/{id}/join-requests/{request}/decline")
+	fun declineJoinRequest(@PathVariable id: String, @PathVariable request: String, session: Session): GameResponseDto {
+		val game = gameJoiningService.declineJoinRequest(id, session.email, requesterEmail(id, request))
 		return GameResponseDto(game, session.email)
 	}
 
@@ -726,5 +755,14 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 		val game = tradingService.tradeNothing(id, session.email)
 
 		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The email of the player whose request to join game [gameId] the id [request] names ([JoinRequestIds]); empty when it
+	 * names no waiting request, which the game then refuses after checking the caller is its creator.
+	 */
+	private fun requesterEmail(gameId: String, request: String): String {
+		val game = gameStore.find(gameId) ?: throw GameNotFoundException()
+		return JoinRequestIds(gameId).emailOf(request, game.joinRequests.map { it.email }).orEmpty()
 	}
 }

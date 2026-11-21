@@ -97,7 +97,8 @@ class WholeGameTest {
 		val host = signIn("whole-host@example.com", "Ada", "Orion Freight")
 		val guest = signIn("whole-guest@example.com", "Grace", "Vega Lines")
 		val gameId = post(host, "/api/games", """{"turns": 3}""").id
-		post(guest, "/api/games/$gameId/join")
+		restTestClient.post().uri("/api/games/$gameId/join-requests").header("Authorization", "Bearer $guest").exchange().expectStatus().isOk
+		post(host, "/api/games/$gameId/join-requests/${JoinRequestIds(gameId).of("whole-guest@example.com")}/accept")
 		val started = post(host, "/api/games/$gameId/start")
 		assertThat(started.players.first().ships.map { it.system }).containsExactly("TAU_CETI", "MU_HERCULIS")
 		val wayfarer = started.players.first().ships.first().name

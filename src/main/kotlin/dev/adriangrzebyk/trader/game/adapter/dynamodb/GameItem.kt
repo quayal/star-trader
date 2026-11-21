@@ -27,6 +27,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 			STATUS to AttributeValue.fromS(game.status.name),
 			CREATOR_EMAIL to AttributeValue.fromS(game.creatorEmail),
 			PLAYERS to AttributeValue.fromL(game.players.map { AttributeValue.fromM(PlayerItem(it).attributes) }),
+			JOIN_REQUESTS to AttributeValue.fromL(game.joinRequests.map { AttributeValue.fromM(PlayerItem(it).attributes) }),
 			// Explicit NULL rather than a missing attribute: "not started" is a value, not an old item.
 			TURN to (game.turn?.let { AttributeValue.fromM(TurnItem(it).attributes) } ?: AttributeValue.fromNul(true)),
 			PRICES to AttributeValue.fromL(
@@ -46,6 +47,9 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 	val version: Long
 		get() = attributes.attribute(VERSION).n().toLong()
 
+	val id: String
+		get() = attributes.attribute(ID).s()
+
 	/** The turns of this game's log that are stored as a [LogTurnItem]; none for a game saved with its log inside the item. */
 	fun logTurns(): List<Int> = attributes[LOG_TURNS]?.l().orEmpty().map { it.n().toInt() }
 
@@ -59,6 +63,8 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		status = GameStatus.valueOf(attributes.attribute(STATUS).s()),
 		creatorEmail = attributes.attribute(CREATOR_EMAIL).s(),
 		players = attributes.attribute(PLAYERS).l().map { PlayerItem(it.m()).toPlayer() },
+		// Absent from items saved before join requests (R120): nobody was asking.
+		joinRequests = attributes[JOIN_REQUESTS]?.l().orEmpty().map { PlayerItem(it.m()).toPlayer() },
 		turn = attributes.attribute(TURN).takeUnless { it.nul() == true }?.let { TurnItem(it.m()).toTurn() },
 		// Absent on games saved before E05-S05, when prices never changed: they're the board's.
 		prices = MarketPrices(
@@ -79,9 +85,10 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		const val ID = "id"
 		const val VERSION = "version"
 		private const val TURNS = "turns"
-		private const val STATUS = "status"
-		private const val CREATOR_EMAIL = "creatorEmail"
+		const val STATUS = "status"
+		const val CREATOR_EMAIL = "creatorEmail"
 		private const val PLAYERS = "players"
+		private const val JOIN_REQUESTS = "joinRequests"
 		private const val TURN = "turn"
 		private const val PRICES = "prices"
 		private const val LOG_TURNS = "logTurns"

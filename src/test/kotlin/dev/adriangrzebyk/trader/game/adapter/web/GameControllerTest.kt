@@ -161,11 +161,24 @@ class GameControllerTest {
 	}
 
 	@Test
-	fun shouldAddTheSignedInPlayerToTheGame() {
-		val game = createdGame(signIn("host@example.com"))
+	fun shouldAddTheSignedInPlayerToTheGameOnceTheCreatorAcceptsTheirRequest() {
+		val hostToken = signIn("host@example.com")
+		val game = createdGame(hostToken)
 		val joinerToken = signIn("guest@example.com", "Grace", "Grace Freight")
 
-		val joined = joinGame(joinerToken, game.id)
+		val asked = requestToJoin(joinerToken, game.id)
+			.expectStatus().isOk
+			.expectBody(OpenGameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(asked).isEqualTo(
+			OpenGameResponseDto(game.id, 20, CreatorResponseDto("Adrian", "Adrian Star Traders"), listOf("Adrian Star Traders"), 1, 6, "ASKED")
+		)
+		pollGame(joinerToken, game.id).expectStatus().isForbidden
+		val requestId = JoinRequestIds(game.id).of("guest@example.com")
+		val seenByHost = pollGame(hostToken, game.id).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(seenByHost.joinRequests).containsExactly(JoinRequestResponseDto(requestId, "Grace", "Grace Freight"))
+
+		val joined = acceptJoinRequest(hostToken, game.id, requestId)
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
@@ -193,8 +206,67 @@ class GameControllerTest {
 				0, 20, 0, 0, emptyList()
 			)
 		)
+		assertThat(joined.joinRequests).isEmpty()
 		assertThat(joined.status).isEqualTo("LOBBY")
-		assertThat(GameResponseDto(gameStore.find(game.id)!!, "guest@example.com")).isEqualTo(joined)
+		pollGame(joinerToken, game.id).expectStatus().isOk
+	}
+
+	@Test
+	fun shouldListOpenGamesWithWhereTheCallerStandsAndNoEmails() {
+		val hostToken = signIn("list-host@example.com", "Ada", "Orion Freight")
+		val viewerToken = signIn("list-viewer@example.com", "Grace", "Vega Lines")
+		val hosted = createdGame(hostToken)
+		val asked = createdGame(signIn("list-other@example.com", "Bo", "Bo Haulage"))
+		requestToJoin(viewerToken, asked.id).expectStatus().isOk
+		val own = createdGame(viewerToken)
+
+		val answer = restTestClient.get().uri("/api/open-games").header("Authorization", "Bearer $viewerToken").exchange()
+			.expectStatus().isOk.expectBody(String::class.java).returnResult().responseBody!!
+
+		assertThat(answer).doesNotContain("@example.com")
+		val rows = restTestClient.get().uri("/api/open-games").header("Authorization", "Bearer $viewerToken").exchange()
+			.expectBody(Array<OpenGameResponseDto>::class.java).returnResult().responseBody!!.toList()
+		assertThat(rows.filter { it.id in listOf(hosted.id, asked.id, own.id) }.map { it.id to it.standing })
+			.containsExactly(own.id to "IN", asked.id to "ASKED", hosted.id to "NONE")
+		assertThat(rows.single { it.id == hosted.id }.creator).isEqualTo(CreatorResponseDto("Ada", "Orion Freight"))
+	}
+
+	@Test
+	fun shouldLetTheCreatorDeclineAndTheRequesterWithdraw() {
+		val hostToken = signIn("decline-host@example.com")
+		val game = createdGame(hostToken)
+		val joinerToken = signIn("decline-guest@example.com", "Grace", "Grace Freight")
+		val requestId = JoinRequestIds(game.id).of("decline-guest@example.com")
+
+		requestToJoin(joinerToken, game.id).expectStatus().isOk
+		restTestClient.post().uri("/api/games/{id}/join-requests/{r}/decline", game.id, requestId)
+			.header("Authorization", "Bearer $hostToken").exchange().expectStatus().isOk
+		assertThat(gameStore.find(game.id)!!.joinRequests).isEmpty()
+
+		requestToJoin(joinerToken, game.id).expectStatus().isOk
+		val withdrawn = restTestClient.delete().uri("/api/games/{id}/join-requests/mine", game.id)
+			.header("Authorization", "Bearer $joinerToken").exchange().expectStatus().isOk
+			.expectBody(OpenGameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(withdrawn.standing).isEqualTo("NONE")
+		assertThat(gameStore.find(game.id)!!.players).hasSize(1)
+	}
+
+	@Test
+	fun shouldLetOnlyTheCreatorAcceptAndRefuseARequestThatIsNoLongerWaiting() {
+		val hostToken = signIn("only-host@example.com")
+		val game = createdGame(hostToken)
+		val guestToken = signIn("only-guest@example.com")
+		joinGame(guestToken, game.id).expectStatus().isOk
+		requestToJoin(signIn("only-asker@example.com"), game.id).expectStatus().isOk
+		val requestId = JoinRequestIds(game.id).of("only-asker@example.com")
+
+		acceptJoinRequest(guestToken, game.id, requestId)
+			.expectStatus().isForbidden
+			.expectBody(String::class.java).isEqualTo("Only the creator can accept or decline a request to join")
+		acceptJoinRequest(hostToken, game.id, "r-unknown")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("That request to join is no longer waiting")
+		assertThat(gameStore.find(game.id)!!.players).hasSize(2)
 	}
 
 	@Test
@@ -247,7 +319,7 @@ class GameControllerTest {
 		// Nothing can start a game through the API until E02-S05, so this one is stored already running.
 		val host = Player.newcomer("started-host@example.com", "Host", "Host Corp")
 		gameStore.create(
-			Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), null, MarketPrices.board(), emptyList(), emptyList())
+			Game("started-game", 20, GameStatus.RUNNING, host.email, listOf(host), emptyList(), null, MarketPrices.board(), emptyList(), emptyList())
 		)
 
 		joinGame(signIn("late@example.com"), "started-game")
@@ -2750,11 +2822,30 @@ class GameControllerTest {
 	private fun createdGame(token: String): GameResponseDto =
 		createGame(token, """{"turns": 20}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
+	/**
+	 * Joins as players do since R120: the caller asks, and when the request is waiting, the creator (signed in by
+	 * [signIn]'s token convention) accepts it, answering with the acceptance; otherwise with the refused request.
+	 */
 	private fun joinGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
-		val request = restTestClient.post().uri("/api/games/{id}/join", gameId)
+		val asked = requestToJoin(token, gameId)
+		val email = token?.removePrefix("token-")
+		val game = gameStore.find(gameId)
+		if (email == null || game == null || !game.hasAskedToJoin(email)) {
+			return asked
+		}
+		asked.expectStatus().isOk
+		return acceptJoinRequest("token-${game.creatorEmail}", gameId, JoinRequestIds(gameId).of(email))
+	}
+
+	private fun requestToJoin(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/join-requests", gameId)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.exchange()
 	}
+
+	private fun acceptJoinRequest(token: String, gameId: String, requestId: String): RestTestClient.ResponseSpec =
+		restTestClient.post().uri("/api/games/{id}/join-requests/{r}/accept", gameId, requestId)
+			.header("Authorization", "Bearer $token").exchange()
 
 	private fun pollGame(token: String?, gameId: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.get().uri("/api/games/{id}", gameId)

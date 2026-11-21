@@ -73,6 +73,8 @@ class GameTest {
 		assertThat(game.hasPlayer("outsider@example.com")).isFalse()
 	}
 
-	private fun gameWith(vararg players: Player) =
-		Game("game-1", 20, GameStatus.LOBBY, players.first().email, players.toList(), null, MarketPrices.board(), emptyList(), emptyList())
+	private fun gameWith(vararg players: Player) = Game(
+		"game-1", 20, GameStatus.LOBBY, players.first().email, players.toList(), emptyList(), null, MarketPrices.board(),
+		emptyList(), emptyList()
+	)
 }
