@@ -157,8 +157,8 @@ class GameSabotageTest {
 
 		assertThat(fixture.playerOf(sabotaged, KIM).reputation.value).isEqualTo(15)
 		assertThat(sabotaged.log.takeLast(2).map { it.text }).containsExactly(
-			"JB (Kessler Cargo): reputation loss 6 → 5",
-			"Kessler Cargo's reputation: −5 for sabotage (rolled 2d6+5: 14) → 15"
+			"Sabotage at Tau Ceti: Vega Lines's ISO factory disabled for 3 turns",
+			"Kessler Cargo's reputation: −6 + JB 1 = −5 for sabotage (rolled 2d6+5: 14) → 15"
 		)
 	}
 }
