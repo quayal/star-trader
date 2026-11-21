@@ -82,8 +82,41 @@ as 4 + 8 and stored by the server as such.
     server marks those log lines with new notice kinds (`NEWS_EVENT`, `OPPORTUNITY_EXPIRED`), which have no system, so
     `Notice.system` is now optional (stored only when set; older items always have one).
 
+16. **An empty bid field bids what it shows** (third round): its placeholder is the placed bid, or 0 before one, and
+    clicking the button with the field empty submits that. So an untouched field bids 0, and it never silently turns a
+    placed bid into 0.
+17. **Compact bid box at the top of the left column** (replaces the placement in 12): the title "Initiative bid" with
+    the bid beside it in the same style, one muted line ("Your initiative is your bid + 2d6." and "Optional." or "You
+    can change it until Bidding closes."), then the field and the button side by side. The "Initiative bid placed" line
+    goes, since the bid shows beside the title.
+18. **Right column order** (replaces the order in 12): the blocking panels (battle, jump, connections), then Your market
+    positions and Your trades, then Place an offer and Your offers this turn.
+
+19. **Goods opportunities say all a player needs** (creator: furs can buy up to 10 units, no cargo space needed): under
+    the title, how many units (1 to 10) at what price and how many the viewer can afford, what each unit takes aboard
+    (no cargo space for furs and drugs, a cargo space for weapons, a passenger seat for slaves), and how they sell (furs
+    at their fixed price in the sale system's Port, illegal goods on its black market at a d6 price). The units field
+    starts at what the viewer can afford. The server sends `maxUnits`, `hold` and `salePrice` with the terms, from
+    `OpportunityTerms.maxUnits()` and `specialGoods()`, so the browser doesn't copy R112's numbers.
+20. **Offers below the jump in Jumps:** while Jumps is on, "Your offers this turn" moves to just below the jump panel,
+    so the player sees where their offers need ships; in other phases it's back with the offer form.
+
+21. **The jump chance counts this turn's news** (and Novak). The chance a ship shows used its crew and modules only,
+    while the roll also added Novak and E1's −4, so under the psionic field the screen promised more than the roll gave.
+    `Game.jumpBonusOf` now gives both the roll and `PlayerView.jumpChances` the same bonus, and the DTO only maps it.
+    This closes the gap the News spec (2026-11-20) listed under its known limitations.
+22. **Event headlines tell a story** (creator: "make the news description what I wrote in the table, or make it even
+    more attractive; the mechanics can be in brackets"). Each of the 14 events reads as a short news item, with what it
+    does in brackets, e.g. E1: "Unknown radiation disrupts the psionic field that guides hyperjumps. … every jump this
+    turn will be much harder to make (jump chance −4 this turn)." The headlines are written fresh (the vault table isn't
+    in the repo) and keep every number the old ones had; the S/D ones say which way demand moves. Games already played
+    keep their old lines in the log.
+
 Verified with JS and Kotlin tests (`shortyBonus`, the Opportunity route and phase mapping, the News cards, the notice
 round trip without a system, the event lines' notice) and a browser walk: the deck columns, the bid box, the page
 moving to the Opportunity tab with its panels in order, the Pirates event's card in News, and the factory dialog with
-0 HT reading `0 units`. Shorty's bonus isn't in the walk: recruiting him is a random draw, so it's covered by the unit
+0 HT reading `0 units`; then the compact bid box (189 px) on top of the left column, an empty field bidding 0, then 7
+re-bid as 7 when left empty; a learned weapons opportunity's form with its facts (furs by unit test: the walk drew
+weapons); and in Jumps the offers right under the jump panel. The E1 jump chance is covered by `GameEventsTest` (5 shown for a
+target of 9 − 4), not the walk, since the event comes up at random. Shorty's bonus isn't in the walk: recruiting him is a random draw, so it's covered by the unit
 test only.

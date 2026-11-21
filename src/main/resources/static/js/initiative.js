@@ -17,9 +17,12 @@ export function overMoneyText(money) {
 	return `You have ${money} HT. Enter ${money} or less.`;
 }
 
-/** S05-1: a whole number of HT from 0 up to [money], or the error to show next to the field (the server's words). */
+/**
+ * S05-1: a whole number of HT from 0 up to [money], or the error to show next to the field (the server's words). An empty
+ * field bids 0, the placeholder it shows (playtest, 2026-11-21).
+ */
 export function validateBid(raw, money) {
-	const text = String(raw ?? '').trim();
+	const text = String(raw ?? '').trim() || '0';
 	if (/^-\d+$/.test(text)) {
 		return { error: BID_NEGATIVE };
 	}

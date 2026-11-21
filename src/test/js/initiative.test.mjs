@@ -33,8 +33,14 @@ describe('validateBid', () => {
 		assert.deepEqual(validateBid('300', 300), { amount: 300 });
 	});
 
-	it('asks for a whole number when empty, fractional or not a number', () => {
-		for (const raw of ['', '  ', '2.5', 'ten', '1e2', null]) {
+	it('bids 0 when the field is left empty, as its placeholder shows (playtest, 2026-11-21)', () => {
+		for (const raw of ['', '  ', null, undefined]) {
+			assert.deepEqual(validateBid(raw, 300), { amount: 0 }, String(raw));
+		}
+	});
+
+	it('asks for a whole number when fractional or not a number', () => {
+		for (const raw of ['2.5', 'ten', '1e2']) {
 			assert.deepEqual(validateBid(raw, 300), { error: BID_WHOLE }, String(raw));
 		}
 	});

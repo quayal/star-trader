@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.agent.Agent
 import dev.adriangrzebyk.trader.game.agent.AgentOffer
 import dev.adriangrzebyk.trader.game.agent.AgentPlace
@@ -22,7 +23,8 @@ import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
  * with the rolls, and [sabotagesSuffered] those on their assets, never saying who ordered them (R101), and [sabotagedWarehouse] the warehouse their sabotage hit while they choose its missing units
  * (R99); [agentOffers] the agent offers they made or were made (R106); [limpyAsk] the good Limpy may let them dictate
  * (R108); [agentPool] how many agents are left to recruit (R103). [tipOffs] are the tip-offs in play, as they may see them
- * (R109–R111), and [landingOdds] each of their ships' chances on its system's Planet this turn (R118).
+ * (R109–R111), and [landingOdds] each of their ships' chances on its system's Planet this turn (R118). [jumpChances] are
+ * each ship's chances to jump to each other system with everything the roll adds (R68, Novak, this turn's news).
  */
 data class PlayerView(
 	val player: Player,
@@ -47,6 +49,7 @@ data class PlayerView(
 	val opportunity: OpportunityView?,
 	val tipOffs: List<TipOffView> = emptyList(),
 	val landingOdds: Map<String, LandingOdds> = emptyMap(),
+	val jumpChances: Map<String, Map<StarSystem, JumpChance>> = emptyMap(),
 	val turnNumber: Int = 0
 )
 

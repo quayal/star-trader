@@ -380,26 +380,29 @@ data class Ship(
 
 	/**
 	 * This ship's chance to jump to [destination] (R68): the route's base chance plus its crew's modifier and its working
-	 * Safe jump module's, if it has one (a damaged one counts as not there, R76). Null for the system it's already at,
-	 * where a move into its Space always succeeds (R69).
+	 * Safe jump module's, if it has one (a damaged one counts as not there, R76), plus [bonus] from outside the ship (Novak
+	 * aboard, this turn's news). Null for the system it's already at, where a move into its Space always succeeds (R69).
 	 */
-	fun jumpChanceTo(destination: StarSystem): JumpChance? = system.baseJumpChanceTo(destination)?.let { base ->
-		JumpChance(base + crewClass.jumpModifier + workingModules().sumOf { it.jumpModifier })
+	fun jumpChanceTo(destination: StarSystem, bonus: Int = 0): JumpChance? = system.baseJumpChanceTo(destination)?.let { base ->
+		JumpChance(base + crewClass.jumpModifier + workingModules().sumOf { it.jumpModifier } + bonus)
 	}
 
-	/** This ship's chance to jump to each other system (R68), in map order: what its player sees before jumping. */
-	fun jumpChances(): Map<StarSystem, JumpChance> =
-		StarSystem.entries.mapNotNull { destination -> jumpChanceTo(destination)?.let { destination to it } }.toMap()
+	/**
+	 * This ship's chance to jump to each other system (R68), in map order, with [bonus] as in [jumpChanceTo]: what its
+	 * player sees before jumping, the same the roll is made against (playtest, 2026-11-21).
+	 */
+	fun jumpChances(bonus: Int = 0): Map<StarSystem, JumpChance> =
+		StarSystem.entries.mapNotNull { destination -> jumpChanceTo(destination, bonus)?.let { destination to it } }.toMap()
 
 	/**
 	 * This ship's chance to jump to [destination] (R68), refused while it's still in the shipyard (R64) or for the system
 	 * it's already at (S02-4).
 	 */
-	fun checkedJumpChanceTo(destination: StarSystem): JumpChance {
+	fun checkedJumpChanceTo(destination: StarSystem, bonus: Int = 0): JumpChance {
 		if (isInShipyard()) {
 			throw InvalidJumpException("$name is still in the shipyard.")
 		}
-		return jumpChanceTo(destination)
+		return jumpChanceTo(destination, bonus)
 			?: throw InvalidJumpException("$name is already at ${destination.displayName}. Pick another destination.")
 	}
 

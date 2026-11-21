@@ -39,4 +39,30 @@ describe('the Opportunities card (R111–R114)', () => {
 		assert.deepEqual(specialSales(game([], ships, [{ ...there[0], location: 'PORT' }])), []);
 		assert.deepEqual(expeditionsDue(game([])).map(e => e.ship), ['Lantern']);
 	});
+
+	it('says all a player needs to take furs: how many, the cost, no cargo space and the sale (playtest, 2026-11-21)', () => {
+		const furs = {
+			slot: 5, learned: true, taken: false, details: 'Opportunity: buy furs in Tau Ceti\'s Port (10 HT) for sale in Gamma Leporis\'s Port (30 HT).',
+			terms: { kind: 'FURS', price: 10, buyAt: 'TAU_CETI', sellAt: 'GAMMA_LEPORIS', hulls: [], modules: [], hullOptional: false, maxUnits: 10, hold: 'NONE', salePrice: 30 },
+		};
+		const rich = { ...game([furs]), you: { ...game([furs]).you, money: 300 } };
+		const [form] = opportunityForms(rich);
+		assert.deepEqual(form.facts, [
+			'Buy 1 to 10 units at 10 HT each: you can afford 10 (100 HT).',
+			'Furs need no cargo space.',
+			'Sell them for 30 HT each in Gamma Leporis\'s Port, on your Opportunity turn there.',
+		]);
+		assert.equal(form.maxUnits, 10);
+		assert.equal(form.defaultUnits, 10);
+		const poor = { ...rich, you: { ...rich.you, money: 45 } };
+		assert.equal(opportunityForms(poor)[0].facts[0], 'Buy 1 to 10 units at 10 HT each: you can afford 4 (40 HT).');
+	});
+
+	it('says what each unit of illegal goods takes aboard, and where it sells', () => {
+		const withTerms = terms => ({ ...weapons, terms: { ...weapons.terms, price: 10, sellAt: 'GAMMA_LEPORIS', maxUnits: 10, ...terms } });
+		const facts = terms => opportunityForms({ ...game([withTerms(terms)]), you: { ...game([]).you, tipOffs: [withTerms(terms)], money: 100 } })[0].facts;
+		assert.equal(facts({ hold: 'CARGO_SPACE' })[1], 'Each unit takes a cargo space.');
+		assert.equal(facts({ hold: 'PASSENGER_SEAT' })[1], 'Each unit takes a passenger seat.');
+		assert.equal(facts({ hold: 'CARGO_SPACE' })[2], 'Sell them on Gamma Leporis\'s black market (on its Planet), at a price rolled on a d6.');
+	});
 });

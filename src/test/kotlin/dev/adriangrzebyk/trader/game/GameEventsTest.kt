@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
 import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import dev.adriangrzebyk.trader.game.news.ActiveTipOff
 import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.NewsEvent
 import dev.adriangrzebyk.trader.game.news.TipOff
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -40,8 +41,8 @@ class GameEventsTest {
 	fun shouldAnnounceTheEventAndCloseANewsWithNothingLeftInPlay() {
 		val game = takingPlace(TipOff.E2)
 
-		assertThat(game.log.map { it.text }).contains("News: Aliens attack the frontier: every price falls by 3.")
-		assertThat(game.log.first { it.text.startsWith("News: Aliens") }.notice?.kind).isEqualTo(NoticeKind.NEWS_EVENT)
+		assertThat(game.log.map { it.text }).contains("News: ${NewsEvent.ALIEN_ATTACK.headline}")
+		assertThat(game.log.first { it.text.startsWith("News: Alien raiders") }.notice?.kind).isEqualTo(NoticeKind.NEWS_EVENT)
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.JUMPS)
 		assertThat(game.news.retired).containsExactly(TipOff.E2)
 		assertThat(game.prices.priceOf(MarketGood(TAU_CETI, Goods.POLY))).isEqualTo(
@@ -58,6 +59,11 @@ class GameEventsTest {
 		val jumped = game.jumpShip(game.turn!!.jumper()!!, player(game, game.turn!!.jumper()!!).ships.first().name, MU_HERCULIS, FakeDice(6))
 		assertThat(game.news.conditions.jumpModifierIn(1)).isEqualTo(-4)
 		assertThat(jumped.log.last().text).contains("failed")
+		// Playtest 2026-11-21: the chance its player sees counts the news too, as the roll does (9 − 4 = 5).
+		val jumper = game.turn!!.jumper()!!
+		val ship = player(game, jumper).ships.first()
+		assertThat(game.viewFor(jumper)!!.jumpChances.getValue(ship.name).getValue(MU_HERCULIS))
+			.isEqualTo(JumpChance(ship.jumpChanceTo(MU_HERCULIS)!!.target - 4))
 	}
 
 	@Test

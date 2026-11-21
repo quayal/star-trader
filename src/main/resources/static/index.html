@@ -112,10 +112,15 @@
 			.deck__map { order: -1; }
 		}
 		/* Playtest 2026-11-21: the bid box stands out and shows the placed bid large. */
-		.bid-current { display: grid; gap: var(--space-hairline); margin-bottom: var(--space-related); }
-		.bid-current p { margin: 0; }
-		.bid-current__value { font-family: var(--font-display); font-size: var(--text-title); font-variant-numeric: tabular-nums; } /* as a panel's title */
-		#bid-panel .price-input { max-width: 160px; font-size: var(--text-value); }
+		.bid-panel { display: grid; gap: var(--space-group); }
+		.bid-panel[hidden] { display: none; } /* after the rule above, which sets display */
+		.bid-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-related); flex-wrap: wrap; }
+		.bid-head h2 { margin: 0; }
+		.bid-head__value { font-family: var(--font-display); font-size: var(--text-title); font-variant-numeric: tabular-nums; } /* as a panel's title */
+		.bid-note, .bid-panel .message { margin: 0; }
+		.bid-panel .message:empty { display: none; }
+		.bid-form { display: flex; gap: var(--space-group); align-items: center; flex-wrap: wrap; max-width: none; }
+		.bid-form .price-input { width: 9ch; font-variant-numeric: tabular-nums; }
 		/* E03-S03: the offer forms on s01 and s02. */
 		.offer-form { max-width: none; gap: var(--space-related); }
 		.offer-form .control { width: 100%; }
@@ -679,11 +684,28 @@
 			<p><span class="badge badge--warn">Waiting</span> <span id="waiting-text"></span></p>
 		</section>
 
-		<!-- s01: the Command deck (playtest, 2026-11-21): fleet, agents, account and the turn order left of the map; what the
-		     player must decide first (battle, jump, connections, bid) then offers, trades and positions right of it. A
-		     panel waiting on the viewer goes to the top of its column (.is-blocking). -->
+		<!-- s01: the Command deck (playtest, 2026-11-21): the initiative bid, fleet, agents, account and the turn order left of
+		     the map; what the player must decide first (battle, jump, connections), then positions, trades and offers right
+		     of it. A panel waiting on the viewer goes to the top of its column (.is-blocking). -->
 		<div class="deck" id="deck-panel" hidden>
 			<div class="deck__side">
+				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. Playtest 2026-11-21:
+				     compact, at the top of the left column, the placed bid beside the title so it's clear one has been made. -->
+				<section class="panel bid-panel" id="bid-panel" aria-labelledby="bid-title" hidden>
+					<div class="bid-head">
+						<h2 id="bid-title" tabindex="-1">Initiative bid</h2>
+						<strong class="bid-head__value" id="bid-current-value" role="status">None yet</strong>
+					</div>
+					<p class="muted bid-note"><span id="bid-hint"></span> <span id="bid-current-note"></span></p>
+					<form class="bid-form" id="bid-form" novalidate>
+						<label class="visually-hidden" for="bid-amount">Bid (HT)</label>
+						<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
+							aria-describedby="bid-hint bid-current-note bid-error">
+						<button class="btn" id="bid-button" type="submit">Place bid</button>
+					</form>
+					<p class="message message--error field-error" id="bid-error"></p>
+					<p class="message" id="bid-message" role="status"></p>
+				</section>
 				<section class="panel" aria-labelledby="fleet-title">
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
@@ -775,26 +797,17 @@
 						<p class="muted" id="placement-note"></p>
 					</form>
 				</section>
-				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. -->
-				<section class="panel" id="bid-panel" aria-labelledby="bid-title" hidden>
-					<h2 id="bid-title" tabindex="-1">Bid for initiative</h2>
-					<!-- Playtest 2026-11-21: the placed bid is shown here, so it's clear one has been made and can change. -->
-					<div class="bid-current">
-						<span class="field-label">Your bid</span>
-						<strong class="bid-current__value" id="bid-current-value" role="status">None yet</strong>
-						<p class="muted" id="bid-current-note"></p>
-					</div>
-					<form class="offer-form" id="bid-form" novalidate>
-						<div>
-							<label class="field-label" for="bid-amount">Bid (HT)</label>
-							<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
-								aria-describedby="bid-hint bid-error">
-							<p class="message muted" id="bid-hint"></p>
-							<p class="message message--error field-error" id="bid-error"></p>
-						</div>
-						<div><button class="btn" id="bid-button" type="submit">Place bid</button></div>
-						<p class="message" id="bid-message" role="status"></p>
-					</form>
+				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
+				<section class="panel" aria-labelledby="deck-positions-title">
+					<h2 id="deck-positions-title">Your market positions</h2>
+					<ul class="corporation__list" id="deck-positions"></ul>
+				</section>
+				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
+				<section class="panel" aria-labelledby="your-trades-title">
+					<h2 id="your-trades-title">Your trades</h2>
+					<ul class="trade-history" id="your-trades"></ul>
+					<p class="muted" id="your-trades-none"></p>
+					<div><button class="quiet-button" id="your-trades-more" type="button" hidden></button></div>
 				</section>
 				<section class="panel" id="deck-offer-panel" aria-labelledby="deck-offer-title" hidden>
 					<h2 id="deck-offer-title">Place an offer</h2>
@@ -805,18 +818,6 @@
 					<ul class="offer-list" id="your-offers"></ul>
 					<p class="message" id="your-offers-message" role="status" tabindex="-1" hidden></p>
 					<p class="muted">Only you can see these until Trading resolves them.</p>
-				</section>
-				<!-- Your trades (creator, 2026-11-18): read from the log's trade records, newest first. -->
-				<section class="panel" aria-labelledby="your-trades-title">
-					<h2 id="your-trades-title">Your trades</h2>
-					<ul class="trade-history" id="your-trades"></ul>
-					<p class="muted" id="your-trades-none"></p>
-					<div><button class="quiet-button" id="your-trades-more" type="button" hidden></button></div>
-				</section>
-				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
-				<section class="panel" aria-labelledby="deck-positions-title">
-					<h2 id="deck-positions-title">Your market positions</h2>
-					<ul class="corporation__list" id="deck-positions"></ul>
 				</section>
 			</div>
 		</div>
@@ -1706,7 +1707,7 @@
 		validateRecruit,
 		waitTurnText,
 	} from './js/opportunity.js';
-	import { BID_CLOSED_TEXT, BID_HINT, bidButtonLabel, bidLine, bidPlacedText, bidStatus, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
+	import { BID_CLOSED_TEXT, BID_HINT, bidButtonLabel, bidLine, bidStatus, initiativeRolls, initiativeText, validateBid } from './js/initiative.js';
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
@@ -2542,6 +2543,7 @@
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
+		placeYourOffers(game);
 		showPanels('deck-panel');
 		if (focusDeckHeading) {
 			focusDeckHeading = false;
@@ -2582,6 +2584,18 @@
 	function levelLabel(level) {
 		const triangle = level.symbol ? [element('span', { class: 'market-level__triangle' }, level.symbol), ' '] : [];
 		return element('span', { class: 'market-level', 'data-level': level.key }, ...triangle, level.label);
+	}
+
+	/**
+	 * Playtest 2026-11-21: in Jumps, "Your offers this turn" sits just below the jump panel, so the player sees where their
+	 * offers need ships; otherwise it's with the offer form. Moved only when its place changes, so focus inside survives.
+	 */
+	function placeYourOffers(game) {
+		const offers = $('your-offers-panel');
+		const anchor = game.turn?.phase === 'JUMPS' ? $('jump-panel') : $('deck-offer-panel');
+		if (anchor.nextElementSibling !== offers) {
+			anchor.after(offers);
+		}
 	}
 
 	function renderDeck(game) {
@@ -3965,6 +3979,7 @@
 			$('bid-current-value').textContent = status.value; // only on a change, so the live region isn't re-announced
 		}
 		$('bid-current-note').textContent = status.note;
+		$('bid-amount').placeholder = String(game.you?.bid ?? 0);
 		const hint = BID_HINT;
 		if ($('bid-hint').textContent !== hint) {
 			$('bid-hint').textContent = hint;
@@ -4916,7 +4931,8 @@
 		event.preventDefault();
 		setBidError('');
 		setBidMessage('', false);
-		const checked = validateBid($('bid-amount').value, lastGame?.you?.money ?? 0);
+		// An empty field bids what its placeholder shows: the placed bid, or 0 before one (playtest, 2026-11-21).
+		const checked = validateBid($('bid-amount').value.trim() || $('bid-amount').placeholder, lastGame?.you?.money ?? 0);
 		if (checked.error) {
 			setBidError(checked.error);
 			$('bid-amount').focus();
@@ -4944,7 +4960,7 @@
 			const game = await response.json();
 			$('bid-amount').value = '';
 			render(game);
-			setBidMessage(bidPlacedText(checked.amount), false);
+			setBidMessage('', false); // the bid shows beside the box's title (playtest, 2026-11-21)
 			$('bid-amount').focus();
 			return;
 		}
@@ -5495,7 +5511,7 @@
 		drawOnce('opportunity-forms', JSON.stringify([forms, myTurn]), () => forms.map(form => {
 			const fields = [];
 			const ship = element('select', { class: 'control', 'aria-label': 'Ship' }, ...shipOptions(form.ships));
-			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: '10', 'aria-label': 'Units (1–10)' });
+			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: String(form.defaultUnits), 'aria-label': `Units (1–${form.maxUnits})` });
 			const name = element('input', { class: 'control', 'aria-label': 'New ship name', placeholder: 'Ship name' });
 			const hull = element('select', { class: 'control', 'aria-label': 'Hull' },
 				...(form.hullOptional ? [element('option', { value: '' }, 'No hull: modules for a ship on the Planet')] : []),
@@ -5521,8 +5537,10 @@
 				modules: boxes.map(b => b.querySelector('input')).filter(input => input.checked).map(input => input.value),
 				crewClass: crew.value,
 			}, 'opportunities-message', 'Taken.'));
+			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
+			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
 			return element('div', { class: 'offer-form' }, element('strong', {}, `#${form.slot}: ${form.title}`),
-				element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
+				...facts, element('span', { class: 'muted' }, form.note), element('div', { class: 'agent-move' }, ...fields, take));
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);

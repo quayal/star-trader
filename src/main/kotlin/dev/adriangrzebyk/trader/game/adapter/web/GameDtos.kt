@@ -637,7 +637,7 @@ data class YouResponseDto(
 	private constructor(view: PlayerView, id: String, player: Player, ids: PlayerIds) : this(
 		id,
 		player.money,
-		player.ships.map { YourShipResponseDto(it, view.landingOdds.getValue(it.name)) },
+		player.ships.map { YourShipResponseDto(it, view.landingOdds.getValue(it.name), view.jumpChances.getValue(it.name)) },
 		view.offers.map { YourOfferResponseDto(it) },
 		view.untradedOffers.map { YourOfferResponseDto(it) },
 		view.bid?.amount,
@@ -699,7 +699,9 @@ data class TipOffResponseDto(
 /**
  * A learned opportunity's terms for the form that takes it (R111–R114): [kind] (ILLEGAL_GOODS, FURS, MILITARY_SHIP,
  * MILITARY_MODULES, DELIVERY, EXPEDITION), where to [buyAt] or pick up, where it [sellAt] or delivers, the [price] per unit,
- * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space].
+ * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space]. For goods,
+ * at most [maxUnits], what each unit takes aboard ([hold]: CARGO_SPACE, PASSENGER_SEAT or NONE) and furs' fixed
+ * [salePrice] (playtest, 2026-11-21: the form says all a player needs to decide).
  */
 data class OpportunityTermsResponseDto(
 	val kind: String,
@@ -713,7 +715,10 @@ data class OpportunityTermsResponseDto(
 	val maxModules: Int?,
 	val hullOptional: Boolean,
 	val space: String?,
-	val minReputation: Int?
+	val minReputation: Int?,
+	val maxUnits: Int?,
+	val hold: String?,
+	val salePrice: Int?
 ) {
 
 	constructor(terms: OpportunityTerms) : this(
@@ -751,7 +756,10 @@ data class OpportunityTermsResponseDto(
 		(terms as? OpportunityTerms.MilitaryShip)?.maxModules ?: (terms as? OpportunityTerms.MilitaryModules)?.modules?.size,
 		(terms as? OpportunityTerms.MilitaryShip)?.hullOptional == true,
 		(terms as? OpportunityTerms.Delivery)?.space?.name,
-		(terms as? OpportunityTerms.Delivery)?.minReputation
+		(terms as? OpportunityTerms.Delivery)?.minReputation,
+		terms.maxUnits(),
+		terms.specialGoods()?.hold?.name,
+		(terms as? OpportunityTerms.Furs)?.salePrice
 	)
 }
 
@@ -1169,8 +1177,8 @@ data class YourShipResponseDto(
 	val contraband: Boolean
 ) {
 
-	/** [odds] are its chances on its system's Planet this turn (R118). */
-	constructor(ship: Ship, odds: LandingOdds) : this(
+	/** [odds] are its chances on its system's Planet this turn (R118), [chances] its jump chances as the roll counts them. */
+	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1183,7 +1191,7 @@ data class YourShipResponseDto(
 		ship.canBeRefitted(),
 		ship.canBeRepaired(),
 		ship.leavesYardOnTurn(),
-		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
+		chances.entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
 		ship.hullDamage,
 		ship.repairCost(),
 		LandingOddsResponseDto(odds),
