@@ -5,6 +5,11 @@ package dev.adriangrzebyk.trader.game.news
  * is retired once it has taken place; the rest go back to the pool (R109). What each does is [dev.adriangrzebyk.trader.game.Game]'s
  * to coordinate across the players and the board.
  */
+/*
+ * An S/D shift's sign (creator, 2026-11-21): a higher S/D means more supply, so prices tend to fall
+ * ([dev.adriangrzebyk.trader.board.SupplyDemand] gives a positive indicator a negative price modifier); a lower one means
+ * more demand. The headlines say which way the market moves.
+ */
 enum class NewsEvent(val headline: String, val oneTimeOnly: Boolean) {
 	PSIONIC_FIELD(
 		"Unknown radiation disrupts the psionic field that guides hyperjumps. Navigators report their instruments spinning: " +
@@ -37,18 +42,18 @@ enum class NewsEvent(val headline: String, val oneTimeOnly: Boolean) {
 		false
 	),
 	CHIPS_BREAKTHROUGH(
-		"Engineers crack a new chip architecture, and every industry in the galaxy wants it (CHIPS demand up: S/D +3 " +
-			"everywhere for the rest of the game).",
+		"A breakthrough in chip fabrication: fully automated foundries come online across the galaxy, and chips are " +
+			"suddenly everywhere (CHIPS supply up, prices tend to fall: S/D +3 everywhere for the rest of the game).",
 		true
 	),
 	SYNTHETIC_FOOD(
-		"Synthetic food takes the galaxy by storm, and its vats need real food to grow (FOOD demand up: S/D +2 everywhere " +
-			"for the rest of the game).",
+		"Synthetic food vats go into mass production. Every colony now grows its own, and the food markets are flooded " +
+			"(FOOD supply up, prices tend to fall: S/D +2 everywhere for the rest of the game).",
 		true
 	),
 	ISO_BREAKTHROUGH(
-		"A new refining process makes isotopes cheap to produce, and the markets fill up (ISO supply up: S/D −3 everywhere " +
-			"for the rest of the game).",
+		"A breakthrough in fusion drives: the new engines run on isotopes, every shipyard and power plant wants them, " +
+			"and the refineries can't keep up (ISO demand up, prices tend to rise: S/D −3 everywhere for the rest of the game).",
 		true
 	),
 	EPIDEMICS(

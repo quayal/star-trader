@@ -112,6 +112,11 @@ as 4 + 8 and stored by the server as such.
     in the repo) and keep every number the old ones had; the S/D ones say which way demand moves. Games already played
     keep their old lines in the log.
 
+23. **Correction to 22, the breakthroughs** (creator): a higher S/D means more **supply** and falling prices
+    (`SupplyDemand` gives a positive indicator a negative price modifier), not more demand. Chips (+3) and synthetic food
+    (+2) now tell of goods flooding the markets; the isotope breakthrough (−3) is a new fusion drive that runs on
+    isotopes, so demand and prices rise. Each says which way prices tend to go.
+
 Verified with JS and Kotlin tests (`shortyBonus`, the Opportunity route and phase mapping, the News cards, the notice
 round trip without a system, the event lines' notice) and a browser walk: the deck columns, the bid box, the page
 moving to the Opportunity tab with its panels in order, the Pirates event's card in News, and the factory dialog with
