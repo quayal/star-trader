@@ -386,5 +386,16 @@ class TurnTest {
 
 		assertThat(turn.untradedOffersOf("ada@example.com", traded)).containsExactly(tauPoly)
 		assertThat(turn.untradedOffersOf("grace@example.com", traded)).isEmpty()
+		// Playtest 2026-11-21: one the counter reached was already put to its player, who answered (trading nothing): no card.
+		assertThat(turn.copy(reachedOffers = listOf(tauPoly)).untradedOffersOf("ada@example.com", traded)).isEmpty()
+	}
+
+	@Test
+	fun shouldRememberAnOfferTheCounterReachedEvenWhenItsPlayerTradedNothing() {
+		val b = Offer("b", StarSystem.GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 2)
+		val started = resolving(shipJumps.copy(offers = listOf(b)).toTrading(), null, FakeDice.twoD6(6))
+
+		assertThat(started.reachedOffers).isEmpty()
+		assertThat(started.recordTrade(0, null).reachedOffers).containsExactly(b)
 	}
 }

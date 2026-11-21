@@ -104,6 +104,7 @@ class TurnItemTest {
 		interestPaid = listOf("grace@example.com"),
 		limpyAsk = "ada@example.com",
 		limpyUsedBy = listOf("grace@example.com"),
+		reachedOffers = listOf(offer),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -334,6 +335,19 @@ class TurnItemTest {
 				"interestPaid" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"limpyUsedBy" to AttributeValue.fromL(emptyList()),
 				"doneNews" to AttributeValue.fromL(emptyList()),
+				"reachedOffers" to AttributeValue.fromL(
+					listOf(
+						AttributeValue.fromM(
+							mapOf(
+								"playerEmail" to AttributeValue.fromS("grace@example.com"),
+								"system" to AttributeValue.fromS("TAU_CETI"),
+								"goods" to AttributeValue.fromS("POLY"),
+								"type" to AttributeValue.fromS("SELL"),
+								"price" to AttributeValue.fromN("12")
+							)
+						)
+					)
+				),
 				"resolution" to AttributeValue.fromM(
 					mapOf(
 						"good" to AttributeValue.fromM(mapOf("system" to AttributeValue.fromS("TAU_CETI"), "goods" to AttributeValue.fromS("POLY"))),

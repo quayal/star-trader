@@ -34,6 +34,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			INTEREST_PAID to strings(turn.interestPaid),
 			LIMPY_USED_BY to strings(turn.limpyUsedBy),
 			DONE_NEWS to strings(turn.doneNews),
+			REACHED_OFFERS to AttributeValue.fromL(turn.reachedOffers.map { AttributeValue.fromM(OfferItem(it).attributes) }),
 			INTERCEPTION_TRIES to AttributeValue.fromL(
 				turn.interceptionTries.map {
 					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromS(it.ship), INTERCEPTOR to AttributeValue.fromS(it.interceptor)))
@@ -106,7 +107,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			limpyAsk = attributes[LIMPY_ASK]?.s(),
 			limpyUsedBy = list(LIMPY_USED_BY),
 			// Absent from items saved before News (R109).
-			doneNews = list(DONE_NEWS)
+			doneNews = list(DONE_NEWS),
+			// Absent from items saved before 2026-11-21: no offer counted as reached, as before.
+			reachedOffers = attributes[REACHED_OFFERS]?.l().orEmpty().map { OfferItem(it.m()).toOffer() }
 		)
 	}
 
@@ -121,6 +124,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val LIMPY_ASK = "limpyAsk"
 		const val LIMPY_USED_BY = "limpyUsedBy"
 		const val DONE_NEWS = "doneNews"
+		const val REACHED_OFFERS = "reachedOffers"
 		const val LEGACY_SHIP_JUMPS = "SHIP_JUMPS"
 		const val NUMBER = "number"
 		const val PHASE = "phase"
