@@ -42,7 +42,7 @@ class BiddingServiceTest {
 			gameStore.find("game-1")?.turn
 		).isEqualTo(
 			Turn.bidding(1).copy(
-				phase = TurnPhase.SHIP_JUMPS,
+				phase = TurnPhase.INITIATIVE,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
@@ -62,7 +62,7 @@ class BiddingServiceTest {
 			gameStore.find("game-1")?.turn
 		).isEqualTo(
 			Turn.bidding(1).copy(
-				phase = TurnPhase.SHIP_JUMPS,
+				phase = TurnPhase.INITIATIVE,
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)

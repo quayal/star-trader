@@ -21,7 +21,7 @@ class GameBuyWarehouseBlocksTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 
-	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..5).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	private fun playerOf(game: Game, email: String): Player = game.players.first { it.email == email }
 

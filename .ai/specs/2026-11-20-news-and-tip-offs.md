@@ -341,3 +341,20 @@ The Initiative split moves R26's picking out of `ShipJumpsService` into an Initi
   black market · **R113** military hulls and modules · **R114** delivery jobs and the expedition · **R115** events.
 - R02 and R06: tip-offs are the secret opportunities and inside info.
 - **D26**: News and tip-offs join the game; the Initiative phase is split out.
+
+## Implementation notes (2026-11-21)
+
+Built on `feat/news-smuggling`, on top of the playtest-feedback branch (#170). Where the build differs from the criteria:
+
+- **A News with no tip-off in play closes at once** into Jumps: there's nothing to read. Test games start with an empty pool
+  (`Game.lobby`'s default); every real game is created with all 40.
+- **Opportunities are taken with one endpoint**, `POST …/opportunity/tip-offs/{slot}/take`, whose body carries what the
+  kind needs; the card on Infrastructure builds it.
+- **Military hulls** may carry civilian modules too; only the military ones count against the card's number.
+- **The expedition:** agents aboard step off at the ship's place before it leaves (the spec had them travel with it), and a
+  player must bring a due expedition back before finishing their Opportunity turn (no automatic return).
+- **E5 (civil war):** factories are paid half of what building them would cost now, since a factory doesn't keep its price.
+- **Confiscated goods** reach their owner only through Fleet and the ledger, not as a separate private notice.
+- **The jump chance** a ship shows doesn't include E1's −4; the map's modifier list says "This turn −4 (news)".
+- **A game saved mid-Ship-jumps** reads as Jumps; one saved while players still picked doesn't ask them again (saved games
+  may lapse, creator).

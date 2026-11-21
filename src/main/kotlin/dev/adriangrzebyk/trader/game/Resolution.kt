@@ -25,7 +25,8 @@ data class Resolution(
 	val trades: List<Trade>,
 	val initiative: List<String>,
 	val wholesalers: List<String>,
-	val wholesales: List<Wholesale>
+	val wholesales: List<Wholesale>,
+	val supplyDemand: Int? = null
 ) {
 
 	/** Whom the resolution waits for to place an offer or pass (R38, D09): the Dictator until they decide, else null. */
@@ -184,7 +185,7 @@ data class Resolution(
 		if (awaitingDictator() != null || startingCounter != null) {
 			return this
 		}
-		return copy(startingCounter = good.supplyDemand() + dice.twoD6())
+		return copy(startingCounter = (supplyDemand ?: good.supplyDemand()) + dice.twoD6())
 	}
 
 	/**
@@ -236,7 +237,8 @@ data class Resolution(
 
 	companion object {
 		/**
-		 * [good] starting to resolve at [startPrice]: of [turnOffers], those for [good] are disclosed (S02-1), and
+		 * [good] starting to resolve at [startPrice], its counter starting from [supplyDemand] (the board's S/D with any event's
+		 * shift, R115): of [turnOffers], those for [good] are disclosed (S02-1), and
 		 * [dictator], if any, is asked before the roll (S02-2, S02-4). [initiative] is the turn's, for ties (R34). Who the
 		 * wholesale step will ask is fixed now, so a position roll during it changes nothing here (E05-S06-5): of [wholesalers],
 		 * those without an offer for it, and the Dictator even if they place one (R37), in [initiative] order (S05-6).
@@ -247,12 +249,13 @@ data class Resolution(
 			turnOffers: List<Offer>,
 			dictator: String?,
 			wholesalers: List<String>,
-			initiative: List<String>
+			initiative: List<String>,
+			supplyDemand: Int = good.supplyDemand()
 		): Resolution {
 			val offers = turnOffers.filter { it.isFor(good) }
 			val asked = (wholesalers.filter { email -> offers.none { it.playerEmail == email } } + listOfNotNull(dictator)).distinct()
 				.sortedBy { email -> initiative.indexOf(email).takeIf { it >= 0 } ?: Int.MAX_VALUE }
-			return Resolution(good, startPrice, offers, dictator, false, null, emptyList(), initiative, asked, emptyList())
+			return Resolution(good, startPrice, offers, dictator, false, null, emptyList(), initiative, asked, emptyList(), supplyDemand)
 		}
 	}
 }

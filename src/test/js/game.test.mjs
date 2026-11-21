@@ -16,6 +16,7 @@ import {
 	assetsLink,
 	corporationsLink,
 	guideLink,
+	newsLink,
 	fleetLink,
 	fleetShipLink,
 	infrastructureLink,
@@ -79,6 +80,7 @@ describe('parseRoute', () => {
 		assert.equal(corporationsLink('a/b'), '#game/a%2Fb/corporations');
 		assert.deepEqual(parseRoute('#game/g-1/corporations/2'), { view: 'unknown', id: 'g-1' });
 		assert.deepEqual(parseRoute(guideLink('a/b')), { view: 'guide', id: 'a/b' });
+		assert.deepEqual(parseRoute(newsLink('g-1')), { view: 'news', id: 'g-1' });
 		assert.equal(guideLink('a/b'), '#game/a%2Fb/guide');
 		assert.deepEqual(parseRoute(assetsLink('a/b')), { view: 'assets', id: 'a/b' });
 		assert.equal(assetsLink('a/b'), '#game/a%2Fb/assets');
@@ -180,7 +182,9 @@ describe('turnText', () => {
 	});
 
 	it('names every phase of a turn', () => {
-		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'SHIP_JUMPS' } }), 'Turn 4 of 20 · Ship-jumps');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'INITIATIVE' } }), 'Turn 4 of 20 · Initiative');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'NEWS' } }), 'Turn 4 of 20 · News');
+		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'JUMPS' } }), 'Turn 4 of 20 · Jumps');
 		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'TRADING' } }), 'Turn 4 of 20 · Trading');
 		assert.equal(turnText({ status: 'RUNNING', turns: 20, turn: { number: 4, phase: 'INVESTMENT' } }), 'Turn 4 of 20 · Investment');
 	});
@@ -203,7 +207,7 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 	const at = (phase, { number = 3, status = 'RUNNING', id = 'g-1' } = {}) => ({ id, status, turn: { number, phase } });
 
 	it('opens the Deck when Ship-jumps starts (S03-1)', () => {
-		assert.equal(screenForPhaseChange(at('BIDDING'), at('SHIP_JUMPS')), 'game');
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('JUMPS')), 'game');
 	});
 
 	it("opens the Deck when Investment closes and the next turn's Bidding starts (S03-2)", () => {
@@ -211,7 +215,7 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 	});
 
 	it('opens Trading, Infrastructure and Game over as before (S03-3)', () => {
-		assert.equal(screenForPhaseChange(at('SHIP_JUMPS'), at('TRADING')), 'trading');
+		assert.equal(screenForPhaseChange(at('JUMPS'), at('TRADING')), 'trading');
 		assert.equal(screenForPhaseChange(at('TRADING'), at('INVESTMENT')), 'infrastructure');
 		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('INVESTMENT', { status: 'FINISHED' })), 'over');
 	});
@@ -236,13 +240,13 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 
 	it("opens nothing for the first state seen, another game's state, or a lobby (S03-5)", () => {
 		assert.equal(screenForPhaseChange(null, at('TRADING')), null);
-		assert.equal(screenForPhaseChange(at('SHIP_JUMPS', { id: 'g-2' }), at('TRADING')), null);
+		assert.equal(screenForPhaseChange(at('JUMPS', { id: 'g-2' }), at('TRADING')), null);
 		assert.equal(screenForPhaseChange({ id: 'g-1', status: 'LOBBY', turn: null }, { id: 'g-1', status: 'LOBBY', turn: null }), null);
 	});
 
 	it('names the Deck heading the phase needs (S03-4)', () => {
 		assert.equal(deckHeadingFor(at('BIDDING')), 'bid-title');
-		assert.equal(deckHeadingFor(at('SHIP_JUMPS')), 'turn-order-title');
+		assert.equal(deckHeadingFor(at('JUMPS')), 'turn-order-title');
 		assert.equal(deckHeadingFor(at('TRADING')), null);
 		assert.equal(deckHeadingFor(at('INVESTMENT', { status: 'FINISHED' })), null);
 	});

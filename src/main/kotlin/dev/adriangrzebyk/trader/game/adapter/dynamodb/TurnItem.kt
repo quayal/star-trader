@@ -33,6 +33,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			AGENT_OFFERS to AttributeValue.fromL(turn.agentOffers.map { AttributeValue.fromM(AgentOfferItem(it).attributes) }),
 			INTEREST_PAID to strings(turn.interestPaid),
 			LIMPY_USED_BY to strings(turn.limpyUsedBy),
+			DONE_NEWS to strings(turn.doneNews),
 			INTERCEPTION_TRIES to AttributeValue.fromL(
 				turn.interceptionTries.map {
 					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromS(it.ship), INTERCEPTOR to AttributeValue.fromS(it.interceptor)))
@@ -49,7 +50,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 	)
 
 	fun toTurn(): Turn {
-		val phase = TurnPhase.valueOf(attributes.attribute(PHASE).s())
+		// Items saved before 2026-11-20 call Jumps "SHIP_JUMPS"; the creator lets saved games lapse, so one saved mid-pick
+		// reads as Jumps and its picks are not asked again.
+		val phase = attributes.attribute(PHASE).s().let { if (it == LEGACY_SHIP_JUMPS) TurnPhase.JUMPS else TurnPhase.valueOf(it) }
 		return Turn(
 			number = attributes.attribute(NUMBER).n().toInt(),
 			phase = phase,
@@ -101,7 +104,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			agentOffers = attributes[AGENT_OFFERS]?.l().orEmpty().map { AgentOfferItem(it.m()).toAgentOffer() },
 			interestPaid = list(INTEREST_PAID),
 			limpyAsk = attributes[LIMPY_ASK]?.s(),
-			limpyUsedBy = list(LIMPY_USED_BY)
+			limpyUsedBy = list(LIMPY_USED_BY),
+			// Absent from items saved before News (R109).
+			doneNews = list(DONE_NEWS)
 		)
 	}
 
@@ -115,6 +120,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val INTEREST_PAID = "interestPaid"
 		const val LIMPY_ASK = "limpyAsk"
 		const val LIMPY_USED_BY = "limpyUsedBy"
+		const val DONE_NEWS = "doneNews"
+		const val LEGACY_SHIP_JUMPS = "SHIP_JUMPS"
 		const val NUMBER = "number"
 		const val PHASE = "phase"
 		const val DONE_BIDDING = "doneBidding"

@@ -72,3 +72,12 @@ val JUMPS_SUCCEED: Dice = FakeDice.everyTwoD6(2)
  * (R82), which [ConnectionsPlaced] places.
  */
 val START_DICE: Dice = FakeDice.everyD3(3)
+
+/**
+ * Dice for the last turn-order pick, which opens News (R109): a test game starts with no tip-offs ([Game.lobby]), so the
+ * News draws nothing and closes at once into Jumps, and no die is rolled.
+ */
+val NO_NEWS: Dice = FakeDice(emptyList())
+
+/** Dice whose every 2d6 is a 12, so every landing on a Planet clears its security (R116): for tests about anything else. */
+val LANDS_SAFELY: Dice = FakeDice.everyTwoD6(12)

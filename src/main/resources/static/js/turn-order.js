@@ -23,7 +23,7 @@ function places(game) {
  * once the order is set (and outside Ship-jumps).
  */
 export function picker(game) {
-	if (game.status !== 'RUNNING' || game.turn?.phase !== 'SHIP_JUMPS' || places(game).length === 0) {
+	if (game.status !== 'RUNNING' || game.turn?.phase !== 'INITIATIVE' || places(game).length === 0) {
 		return null;
 	}
 	return (game.turn.initiative ?? []).find(playerId => !places(game).includes(playerId)) ?? null;

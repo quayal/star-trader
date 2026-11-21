@@ -7,11 +7,11 @@ import { YOUR_DICTATOR_DECISION, YOUR_RESOLVE } from '../../main/resources/stati
 const ME = 'me';
 const VEGA = 'vega';
 
-function game({ id = 'g1', log = ['Game started'], turnOrder = [VEGA, ME], doneJumping = [], phase = 'SHIP_JUMPS' } = {}) {
+function game({ id = 'g1', log = ['Game started'], turnOrder = [VEGA, ME], doneJumping = [], phase = undefined } = {}) {
 	return {
 		id,
 		status: 'RUNNING',
-		turn: { number: 1, phase, initiative: [VEGA, ME], turnOrder, doneJumping, jumpedShips: [] },
+		turn: { number: 1, phase: phase ?? (turnOrder.includes(null) ? 'INITIATIVE' : 'JUMPS'), initiative: [VEGA, ME], turnOrder, doneJumping, jumpedShips: [] },
 		players: [
 			{ id: VEGA, corporationName: 'Vega Lines', ships: [] },
 			{ id: ME, corporationName: 'Orion Freight', ships: [] },

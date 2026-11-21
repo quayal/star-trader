@@ -46,10 +46,10 @@ class GameResponseDtoTest {
 			SystemResponseDto(
 				id = "TAU_CETI",
 				name = "Tau Ceti",
-				portClass = 4,
+				portClass = 3,
 				legalSystem = 2,
-				police = 3,
-				security = 4,
+				police = 5,
+				security = 7,
 				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
 				producibleGoods = listOf("ISO"),
 				// R68: the base chance of a jump from Tau Ceti to each other system.
@@ -117,7 +117,7 @@ class GameResponseDtoTest {
 	}
 
 	/** [started] at the start of Investment, where the host owns an ISO factory and a warehouse already holding 3 ISO at Tau Ceti, where their ship is. */
-	private val investing = (1..3).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }.let { game ->
+	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }.let { game ->
 		game.copy(
 			players = game.players.map {
 				if (it.email == "host@example.com") {

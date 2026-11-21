@@ -19,7 +19,7 @@ const tried = success => ({
 const battle = (kind, round = null) => ({ kind, system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds: ['p1', 'p2'], round, interception: null });
 
 function game(log, extra = {}) {
-	return { id: 'g1', status: 'RUNNING', players, log, turn: { number: 2, phase: 'SHIP_JUMPS' }, ...extra };
+	return { id: 'g1', status: 'RUNNING', players, log, turn: { number: 2, phase: 'JUMPS' }, ...extra };
 }
 
 describe('noticeCards (creator, 2026-11-18)', () => {
@@ -89,7 +89,7 @@ describe('noticeCards (creator, 2026-11-18)', () => {
 
 describe('moveCard', () => {
 	it('asks once per step, keyed by it, and takes the player where it is done', () => {
-		const asked = game([], { turn: { number: 2, phase: 'SHIP_JUMPS', interception: { ship: 'Wayfarer' } }, you: { id: 'p2', interception: { answered: false, ships: ['Meridian'] } } });
+		const asked = game([], { turn: { number: 2, phase: 'JUMPS', interception: { ship: 'Wayfarer' } }, you: { id: 'p2', interception: { answered: false, ships: ['Meridian'] } } });
 
 		assert.deepEqual(moveCard(asked, 'p2'), {
 			key: 'g1/2/intercept/Wayfarer',
@@ -125,7 +125,7 @@ describe('moveCard', () => {
 	});
 
 	it('says only that it is the player\'s turn to jump (creator, 2026-11-20)', () => {
-		const jumping = game([], { turn: { number: 2, phase: 'SHIP_JUMPS', initiative: ['p1'], turnOrder: ['p1'], doneJumping: [] }, you: { id: 'p1' } });
+		const jumping = game([], { turn: { number: 2, phase: 'JUMPS', initiative: ['p1'], turnOrder: ['p1'], doneJumping: [] }, you: { id: 'p1' } });
 
 		assert.equal(moveCard(jumping, 'p1')?.lead, 'It’s your turn to jump ships.');
 	});

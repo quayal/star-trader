@@ -32,6 +32,7 @@ import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLoad
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.SupplyDemandShifts
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.TradeRecord
 import dev.adriangrzebyk.trader.game.Turn
@@ -39,6 +40,11 @@ import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
 import dev.adriangrzebyk.trader.game.battle.BattleSummarySection
 import dev.adriangrzebyk.trader.game.ledger.MoneyMovement
+import dev.adriangrzebyk.trader.game.news.News
+import dev.adriangrzebyk.trader.game.news.OpportunityTerms
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOffView
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
 import java.math.BigDecimal
 
 // BigDecimal, not Int: Jackson would otherwise round 2.5 down to 2 and create a game the player didn't ask for.
@@ -66,7 +72,8 @@ data class GameResponseDto(
 	val logOffset: Int,
 	val board: List<SystemResponseDto>,
 	val result: GameResultResponseDto?,
-	val you: YouResponseDto?
+	val you: YouResponseDto?,
+	val conditions: ConditionsResponseDto?
 ) {
 
 	/**
@@ -85,9 +92,32 @@ data class GameResponseDto(
 		game.turn?.let { TurnResponseDto(it, ids, game.players.flatMap { player -> player.ships }) },
 		game.logAfter(logAfter).map { LogEntryResponseDto(it, ids) },
 		game.log.size - game.logAfter(logAfter).size,
-		StarSystem.entries.map { SystemResponseDto(it, game.prices) },
+		StarSystem.entries.map { SystemResponseDto(it, game.prices, game.supplyDemandShifts) },
 		game.result()?.let { GameResultResponseDto(it, ids) },
-		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) }
+		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) },
+		game.turn?.let { ConditionsResponseDto(game.news, it.number) }
+	)
+}
+
+/**
+ * What this turn's events changed (R115), public: [jumpModifier] on every jump's target (E1), whether [portsClosed] (E10),
+ * the [securityChange] on every Planet and [policeChange] on every system (E3, E10, E12), and whether ships are for sale
+ * ([shipsForSale], E3).
+ */
+data class ConditionsResponseDto(
+	val jumpModifier: Int,
+	val portsClosed: Boolean,
+	val securityChange: Int,
+	val policeChange: Int,
+	val shipsForSale: Boolean
+) {
+
+	constructor(news: News, turn: Int) : this(
+		news.conditions.jumpModifierIn(turn),
+		news.conditions.portsClosedIn(turn),
+		news.conditions.securityChangeIn(turn),
+		news.conditions.policeChangeIn(turn),
+		news.shipsForSaleIn(turn)
 	)
 }
 
@@ -219,24 +249,28 @@ data class SystemResponseDto(
 	val shipyard: Boolean
 ) {
 
-	constructor(system: StarSystem, prices: MarketPrices) : this(
+	constructor(system: StarSystem, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) : this(
 		system.name,
 		system.displayName,
 		system.locations.portClass,
 		system.locations.legalSystem,
 		system.locations.police,
 		system.locations.security,
-		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices) },
+		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices, shifts) },
 		system.producibleGoods.map { it.name }.sorted(),
 		StarSystem.entries.mapNotNull { to -> system.baseJumpChanceTo(to)?.let { to.name to it } }.toMap(),
 		system.hasShipyard()
 	)
 }
 
-/** [price] is this game's (R35); [indicator] is the S/D number, which never changes; the client steps it into a market label (D08). */
+/**
+ * [price] is this game's (R35); [indicator] is the S/D number, the board's with any event's permanent shift (R115); the client
+ * steps it into a market label (D08).
+ */
 data class MarketEntryResponseDto(val goods: String, val price: Int, val indicator: Int) {
 
-	constructor(good: MarketGood, prices: MarketPrices) : this(good.goods.name, prices.priceOf(good), good.supplyDemand())
+	constructor(good: MarketGood, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) :
+		this(good.goods.name, prices.priceOf(good), shifts.indicatorOf(good))
 }
 
 /**
@@ -273,7 +307,8 @@ data class TurnResponseDto(
 	val doneOpportunity: List<String>,
 	val opportunist: String?,
 	val owedChoices: List<String>,
-	val limpyAsk: String?
+	val limpyAsk: String?,
+	val doneNews: List<String>
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -298,7 +333,8 @@ data class TurnResponseDto(
 		ids.ofAll(turn.doneOpportunity),
 		turn.opportunist()?.let { ids.of(it) },
 		ids.ofAll(turn.owedChoices()),
-		turn.limpyAsk?.let { ids.of(it) }
+		turn.limpyAsk?.let { ids.of(it) },
+		ids.ofAll(turn.doneNews)
 	)
 }
 
@@ -588,7 +624,9 @@ data class YouResponseDto(
 	val limpyAsk: MarketGoodResponseDto?,
 	val opportunity: YourOpportunityResponseDto?,
 	val factorySales: List<FactorySaleResponseDto>,
-	val ledger: List<MoneyMovementResponseDto>
+	val ledger: List<MoneyMovementResponseDto>,
+	val tipOffs: List<TipOffResponseDto>,
+	val expeditions: List<YourExpeditionResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -597,7 +635,7 @@ data class YouResponseDto(
 	private constructor(view: PlayerView, id: String, player: Player, ids: PlayerIds) : this(
 		id,
 		player.money,
-		player.ships.map { YourShipResponseDto(it) },
+		player.ships.map { YourShipResponseDto(it, view.landingOdds.getValue(it.name)) },
 		view.offers.map { YourOfferResponseDto(it) },
 		view.untradedOffers.map { YourOfferResponseDto(it) },
 		view.bid?.amount,
@@ -620,9 +658,103 @@ data class YouResponseDto(
 		view.limpyAsk?.let { MarketGoodResponseDto(it) },
 		view.opportunity?.let { YourOpportunityResponseDto(it) },
 		player.factories.map { FactorySaleResponseDto(it, view.prices) },
-		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) }
+		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) },
+		view.tipOffs.map { TipOffResponseDto(it) },
+		player.expeditions.map { YourExpeditionResponseDto(it.ship.name, it.returnTurn, it.isDueIn(view.turnNumber)) }
 	)
 }
+
+/**
+ * A tip-off in play as the viewer may see it (R109–R111): its [slot], [need] ("CRIM 5") and [effectiveTurn] for everyone;
+ * [kind] (OPPORTUNITY or EVENT) and [details] only once learned; [taken] once its opportunity is taken and they may know;
+ * [needRefusal] why their connections can't learn it, or null.
+ */
+data class TipOffResponseDto(
+	val slot: Int,
+	val need: String,
+	val effectiveTurn: Int,
+	val learned: Boolean,
+	val kind: String?,
+	val details: String?,
+	val taken: Boolean,
+	val needRefusal: String?,
+	val terms: OpportunityTermsResponseDto?
+) {
+
+	constructor(view: TipOffView) : this(
+		view.tipOff.slot,
+		view.tipOff.tipOff.need.text(),
+		view.tipOff.effectiveIn(),
+		view.learned,
+		view.known?.kindName(),
+		view.known?.details(),
+		view.takenShown,
+		view.needRefusal,
+		view.known?.opportunity?.let { OpportunityTermsResponseDto(it) }
+	)
+}
+
+/**
+ * A learned opportunity's terms for the form that takes it (R111–R114): [kind] (ILLEGAL_GOODS, FURS, MILITARY_SHIP,
+ * MILITARY_MODULES, DELIVERY, EXPEDITION), where to [buyAt] or pick up, where it [sellAt] or delivers, the [price] per unit,
+ * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space].
+ */
+data class OpportunityTermsResponseDto(
+	val kind: String,
+	val legal: Boolean,
+	val goods: String?,
+	val price: Int?,
+	val buyAt: String?,
+	val sellAt: String?,
+	val hulls: List<String>,
+	val modules: List<String>,
+	val maxModules: Int?,
+	val hullOptional: Boolean,
+	val space: String?,
+	val minReputation: Int?
+) {
+
+	constructor(terms: OpportunityTerms) : this(
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> "ILLEGAL_GOODS"
+			is OpportunityTerms.Furs -> "FURS"
+			is OpportunityTerms.MilitaryShip -> "MILITARY_SHIP"
+			is OpportunityTerms.MilitaryModules -> "MILITARY_MODULES"
+			is OpportunityTerms.Delivery -> "DELIVERY"
+			OpportunityTerms.Expedition -> "EXPEDITION"
+		},
+		terms.legal,
+		(terms as? OpportunityTerms.IllegalGoods)?.goods?.name ?: "FURS".takeIf { terms is OpportunityTerms.Furs },
+		(terms as? OpportunityTerms.IllegalGoods)?.price ?: (terms as? OpportunityTerms.Furs)?.price,
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> terms.buyAt.name
+			is OpportunityTerms.Furs -> terms.buyAt.name
+			is OpportunityTerms.MilitaryShip -> terms.at.name
+			is OpportunityTerms.MilitaryModules -> terms.at.name
+			is OpportunityTerms.Delivery -> terms.from.name
+			OpportunityTerms.Expedition -> null
+		},
+		when (terms) {
+			is OpportunityTerms.IllegalGoods -> terms.sellAt.name
+			is OpportunityTerms.Furs -> terms.sellAt.name
+			is OpportunityTerms.Delivery -> terms.to.name
+			else -> null
+		},
+		(terms as? OpportunityTerms.MilitaryShip)?.hulls.orEmpty().map { it.name },
+		(
+			(terms as? OpportunityTerms.MilitaryModules)?.modules ?: Module.military().takeIf {
+				terms is OpportunityTerms.MilitaryShip
+			}
+			).orEmpty().map { it.name },
+		(terms as? OpportunityTerms.MilitaryShip)?.maxModules ?: (terms as? OpportunityTerms.MilitaryModules)?.modules?.size,
+		(terms as? OpportunityTerms.MilitaryShip)?.hullOptional == true,
+		(terms as? OpportunityTerms.Delivery)?.space?.name,
+		(terms as? OpportunityTerms.Delivery)?.minReputation
+	)
+}
+
+/** One of the viewer's ships away on the expedition (R114): back on [returnTurn]'s Opportunity, [due] once it is. */
+data class YourExpeditionResponseDto(val ship: String, val returnTurn: Int, val due: Boolean)
 
 /** One movement of the viewer's own money (R29, playtest 2026-11-20), newest first in [YouResponseDto.ledger]: green when [credit]. */
 data class MoneyMovementResponseDto(val turn: Int, val reason: String, val amount: Int, val credit: Boolean) {
@@ -1028,10 +1160,15 @@ data class YourShipResponseDto(
 	val leavesYardOnTurn: Int?,
 	val jumpChances: Map<String, JumpChanceResponseDto>,
 	val hullDamage: Int,
-	val repairCost: Int
+	val repairCost: Int,
+	val landing: LandingOddsResponseDto,
+	val specialLots: List<SpecialLotResponseDto>,
+	val deliveryJob: String?,
+	val contraband: Boolean
 ) {
 
-	constructor(ship: Ship) : this(
+	/** [odds] are its chances on its system's Planet this turn (R118). */
+	constructor(ship: Ship, odds: LandingOdds) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1046,7 +1183,37 @@ data class YourShipResponseDto(
 		ship.leavesYardOnTurn(),
 		ship.jumpChances().entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
 		ship.hullDamage,
-		ship.repairCost()
+		ship.repairCost(),
+		LandingOddsResponseDto(odds),
+		ship.specialLots.map { SpecialLotResponseDto(it) },
+		ship.deliveryJob?.opportunity?.description(),
+		ship.isContraband()
+	)
+}
+
+/** A ship's chances on its system's Planet this turn (R118), as whole percentages, with the [security] and its [bonus]. */
+data class LandingOddsResponseDto(val lands: Int, val forced: Int, val seized: Int, val security: Int, val bonus: Int) {
+
+	constructor(odds: LandingOdds) : this(odds.landsPercent(), odds.forcedPercent(), odds.seizedPercent(), odds.security, odds.bonus)
+}
+
+/** Goods bought through an opportunity aboard one of the viewer's ships (R112): what, how many, and where they sell. */
+data class SpecialLotResponseDto(
+	val goods: String,
+	val name: String,
+	val units: Int,
+	val sellAt: String,
+	val sellAtName: String,
+	val illegal: Boolean
+) {
+
+	constructor(lot: SpecialLot) : this(
+		lot.goods.name,
+		lot.goods.displayName,
+		lot.units,
+		lot.sellAt.name,
+		lot.sellAt.displayName,
+		lot.isIllegal()
 	)
 }
 

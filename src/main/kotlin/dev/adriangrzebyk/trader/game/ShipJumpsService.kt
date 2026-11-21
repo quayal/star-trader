@@ -10,7 +10,7 @@ class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice)
 	 * can't both take a place or pick out of turn: the second is checked against the first's saved pick (A04, R26).
 	 */
 	fun pickPlace(gameId: String, callerEmail: String, place: Int?): Game =
-		gameStore.update(gameId) { it.pickTurnOrderPlace(callerEmail, place) }
+		gameStore.update(gameId) { it.pickTurnOrderPlace(callerEmail, place, dice) }
 
 	/**
 	 * [callerEmail] jumps [shipName] to [destination] inside [GameStore.update], so a ship can't jump twice and a jump
@@ -25,7 +25,7 @@ class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice)
 
 	/** [callerEmail] chooses where the ship that just jumped ends up, inside [GameStore.update], so it lands once (A04, R30). */
 	fun land(gameId: String, callerEmail: String, location: ShipLocation?): Game =
-		gameStore.update(gameId) { it.landShip(callerEmail, location) }
+		gameStore.update(gameId) { it.landShip(callerEmail, location, dice) }
 
 	/**
 	 * [callerEmail] decides which one of their ships, [ship], tries to intercept the ship that just arrived (R70), or none,
@@ -44,5 +44,5 @@ class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice)
 
 	/** [callerEmail] places their surviving ships after the battle (R77) inside [GameStore.update], so once (A04). */
 	fun landAfterBattle(gameId: String, callerEmail: String, locations: Map<String, ShipLocation>): Game =
-		gameStore.update(gameId) { it.landAfterBattle(callerEmail, locations) }
+		gameStore.update(gameId) { it.landAfterBattle(callerEmail, locations, dice) }
 }

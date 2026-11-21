@@ -7,7 +7,9 @@
 /** What a player does in each phase, by the phase's name as the server sends it. */
 const PHASE_TEXT = {
 	Bidding: 'Place trade offers (one per good per system) and a secret initiative bid. In turn 1, place your connection points first.',
-	'Ship-jumps': 'Pick your place in the turn order, then jump each ship once, in that order. Ships arriving in Space can be intercepted; then choose Port, Planet or Space.',
+	Initiative: 'Everyone’s bid + 2d6 sets the initiative order; then, in that order, each player picks their place in the turn order.',
+	News: 'Tip-offs that are due take place or expire, and d3 new ones are drawn. Pay 5 HT to learn one your connections reach.',
+	Jumps: 'Jump each ship once, in turn order. Ships arriving in Space can be intercepted; then choose Port, Planet or Space.',
 	Trading: 'Goods resolve one at a time, in the order the first player sets. A winning offer trades; Wholesalers and the Dictator may trade at the new price.',
 	Opportunity: 'In turn order: collect your factories’ output, then sabotage, recruit an agent or offer one for sale. Agents move at any time.',
 	Investment: 'Everyone at once: buy warehouses, factories and ships; refit, repair or sell; raise a connection, buy reputation, take or repay a loan.',
@@ -80,9 +82,10 @@ export function bonusFrom(rules) {
 
 /**
  * The jump modifiers listed in the middle of the Deck's map (playtest, 2026-11-20): `Crew A +5 · B +3 · C +1 · D +0`, the
- * Safe jump module and Novak. Empty until the rules have loaded.
+ * Safe jump module and Novak, and this turn's event modifier from [conditions] (`game.conditions`, R115: E1). Empty until
+ * the rules have loaded.
  */
-export function jumpModifierLines(rules) {
+export function jumpModifierLines(rules, conditions = null) {
 	if (!rules) {
 		return [];
 	}
@@ -90,6 +93,7 @@ export function jumpModifierLines(rules) {
 		`Crew ${rules.crewClasses.map(c => `${c.id} ${signed(c.jumpModifier)}`).join(' · ')}`,
 		`Safe jump ${signed(rules.safeJumpBonus)}`,
 		`Novak ${signed(rules.novakJumpBonus)}`,
+		...(conditions?.jumpModifier ? [`This turn ${signed(conditions.jumpModifier)} (news)`] : []),
 	];
 }
 

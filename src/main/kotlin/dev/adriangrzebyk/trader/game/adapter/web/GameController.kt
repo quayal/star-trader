@@ -13,6 +13,7 @@ import dev.adriangrzebyk.trader.game.GameStartingService
 import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvestmentService
+import dev.adriangrzebyk.trader.game.NewsService
 import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
@@ -48,6 +49,7 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
 	private val opportunityService = OpportunityService(gameStore, dice)
+	private val newsService = NewsService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
 	private val tradingService = TradingService(gameStore, dice)
 
@@ -169,6 +171,55 @@ class GameController(idGenerator: GameIdGenerator, gameStore: GameStore, startin
 
 		return GameResponseDto(game, session.email)
 	}
+
+	/** The player pays 5 HT to learn the tip-off in board [slot] (R110). `400` without the connection or the money; `409` outside News. */
+	@PostMapping("/games/{id}/news/{slot}/learn")
+	fun learnTipOff(@PathVariable id: String, @PathVariable slot: Int, session: Session): GameResponseDto =
+		GameResponseDto(newsService.learn(id, session.email, slot), session.email)
+
+	/** The player takes the opportunity in [slot] (R111–R114) on their Opportunity turn; `400` when the rules refuse it. */
+	@PostMapping("/games/{id}/opportunity/tip-offs/{slot}/take")
+	fun takeOpportunity(
+		@PathVariable id: String,
+		@PathVariable slot: Int,
+		@RequestBody(required = false) request: TakeOpportunityRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(
+		opportunityService.takeOpportunity(id, session.email, slot, (request ?: TakeOpportunityRequestDto()).order()),
+		session.email
+	)
+
+	/** The player brings their expedition ship back to `{ system }`'s Port (R114). */
+	@PostMapping("/games/{id}/opportunity/expeditions/return")
+	fun returnExpedition(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SpecialSaleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SpecialSaleRequestDto()
+		return GameResponseDto(opportunityService.returnExpedition(id, session.email, body.ship, body.system()), session.email)
+	}
+
+	/** The player sells their illegal `{ goods }` on `{ system }`'s black market (R112). */
+	@PostMapping("/games/{id}/opportunity/black-market")
+	fun sellOnBlackMarket(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SpecialSaleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SpecialSaleRequestDto()
+		return GameResponseDto(opportunityService.sellOnBlackMarket(id, session.email, body.system(), body.goods()), session.email)
+	}
+
+	/** The player sells their furs in `{ system }`'s Port (R112). */
+	@PostMapping("/games/{id}/opportunity/furs")
+	fun sellFurs(@PathVariable id: String, @RequestBody(required = false) request: SpecialSaleRequestDto?, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.sellFurs(id, session.email, (request ?: SpecialSaleRequestDto()).system()), session.email)
+
+	/** The player is done with the news (R109); once everyone is, Jumps starts. `409` outside News. */
+	@PostMapping("/games/{id}/news/done")
+	fun finishNews(@PathVariable id: String, session: Session): GameResponseDto =
+		GameResponseDto(newsService.finish(id, session.email), session.email)
 
 	/** The player on their Opportunity turn is done with opportunities (R102); `409` out of turn, before Collect, or with a choice open. */
 	@PostMapping("/games/{id}/opportunity/done")

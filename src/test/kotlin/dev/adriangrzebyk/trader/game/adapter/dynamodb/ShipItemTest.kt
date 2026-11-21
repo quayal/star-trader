@@ -7,6 +7,9 @@ import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOff
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -27,6 +30,14 @@ class ShipItemTest {
 		hullDamage = 1,
 		damagedModules = listOf(Module.CARGO)
 	)
+
+	@Test
+	fun shouldReadBackSpecialLotsAndADeliveryJob() {
+		// R112, R114
+		val carrying = ship.copy(specialLots = listOf(SpecialLot(SpecialGoods.WEAPONS, 4, StarSystem.GAMMA_LEPORIS)), deliveryJob = TipOff.O9)
+
+		assertThat(ShipItem(ShipItem(carrying).attributes).toShip()).isEqualTo(carrying)
+	}
 
 	@Test
 	fun shouldReadBackEveryFieldOfAShip() {
@@ -55,6 +66,7 @@ class ShipItemTest {
 				"crewClass" to AttributeValue.fromS("C"),
 				"hullDamage" to AttributeValue.fromN("1"),
 				"damagedModules" to AttributeValue.fromL(listOf(AttributeValue.fromS("CARGO"))),
+				"specialLots" to AttributeValue.fromL(emptyList()),
 				"boughtOnTurn" to AttributeValue.fromN("4")
 			)
 		)

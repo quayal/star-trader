@@ -7,7 +7,7 @@ const ME = 'me';
 const VEGA = 'vega';
 const TAU_CETI = { id: 'TAU_CETI', name: 'Tau Ceti', portClass: 3, legalSystem: 2, police: 4, security: 1 };
 
-function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'SHIP_JUMPS' } = {}) {
+function game({ landingShip = 'Wayfarer', doneJumping = [], phase = 'JUMPS' } = {}) {
 	return {
 		status: 'RUNNING',
 		turn: { number: 2, phase, initiative: [ME, VEGA], turnOrder: [ME, VEGA], jumpedShips: ['Wayfarer'], doneJumping, landingShip },
@@ -43,10 +43,20 @@ describe('landingHeading', () => {
 describe('landingOptions', () => {
 	it('lists port, planet and space with their R31 statistics, port first', () => {
 		assert.deepEqual(landingOptions(TAU_CETI), [
-			{ value: 'PORT', label: 'Land at the port (class 3, legal system 2)' },
-			{ value: 'PLANET', label: 'Land on the planet (security 1)' },
+			{ value: 'PORT', label: 'Land at the port (class 3, legal system 2)', disabled: false },
+			{ value: 'PLANET', label: 'Land on the planet (security 1)', warning: '' },
 			{ value: 'SPACE', label: 'Stay in space (police 4)' },
 		]);
+	});
+
+	it('shows the Planet’s odds for the ship, warns of contraband and closes the Port during epidemics (R118, E10)', () => {
+		const own = { name: 'Wayfarer', contraband: true, landing: { lands: 72, forced: 11, seized: 17, security: 10, bonus: 5 } };
+		const [port, planet, space] = landingOptions(TAU_CETI, own, { portsClosed: true, policeChange: 1 });
+
+		assert.deepEqual(port, { value: 'PORT', label: 'Land at the port: closed this turn (epidemics)', disabled: true });
+		assert.equal(planet.label, 'Land on the planet: 72% lands · 11% forced into Port · 17% seized (security 10, your +5)');
+		assert.match(planet.warning, /confiscated/);
+		assert.equal(space.label, 'Stay in space (police 5)');
 	});
 });
 

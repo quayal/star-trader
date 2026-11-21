@@ -48,7 +48,7 @@ describe('placing the starting connection points (E12-S01)', () => {
 		assert.equal(pointsToPlace(bidding(5)), 5);
 		assert.equal(isPlacing(bidding(5)), true);
 		assert.equal(isPlacing(bidding(0)), false);
-		assert.equal(isPlacing({ ...bidding(5), turn: { number: 1, phase: 'SHIP_JUMPS' } }), false);
+		assert.equal(isPlacing({ ...bidding(5), turn: { number: 1, phase: 'JUMPS' } }), false);
 	});
 
 	it('reads blank as 0 and refuses anything but a whole number from 0 to 10', () => {

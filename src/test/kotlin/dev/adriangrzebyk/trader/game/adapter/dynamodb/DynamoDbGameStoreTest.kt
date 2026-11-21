@@ -174,7 +174,7 @@ class DynamoDbGameStoreTest {
 
 		// Every signal applied once, the last one closed Bidding, and nothing skipped past Ship-jumps (A04).
 		val closed = store.find("game-1")!!
-		assertThat(closed.turn?.phase).isEqualTo(TurnPhase.SHIP_JUMPS)
+		assertThat(closed.turn?.phase).isEqualTo(TurnPhase.INITIATIVE)
 		assertThat(closed.turn?.doneBidding).isEmpty()
 		assertThat(closed.turn?.initiative).containsExactlyInAnyOrderElementsOf(full.players.map { it.email })
 		assertThat(closed.players.map { it.money }).allMatch { it == Game.STARTING_MONEY }

@@ -54,7 +54,7 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldStoreTheJump() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS))
 
 		val game = service.jump("game-1", "creator@example.com", "Wayfarer", MU_HERCULIS)
 
@@ -64,7 +64,7 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldRefuseAJumpOutOfTurnAndLeaveTheGameAsItWas() {
-		val ordered = shipJumps.pickTurnOrderPlace("creator@example.com", 1)
+		val ordered = shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS)
 		gameStore.create(ordered)
 
 		assertThatThrownBy { service.jump("game-1", "joiner@example.com", "Meridian", TAU_CETI) }.isInstanceOf(NotYourTurnException::class.java)
@@ -73,7 +73,7 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldJumpOnceEvenWhenTheStoreReplaysTheChange() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS))
 		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.jump("game-1", "creator@example.com", "Wayfarer", MU_HERCULIS)
@@ -86,10 +86,10 @@ class ShipJumpsServiceTest {
 	@Test
 	fun shouldStoreTheLanding() {
 		gameStore.create(
-			shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
+			shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 		)
 
-		val game = service.land("game-1", "creator@example.com", ShipLocation.PLANET)
+		val game = ShipJumpsService(gameStore, LANDS_SAFELY).land("game-1", "creator@example.com", ShipLocation.PLANET)
 
 		assertThat(game.players.first().ships.first().location).isEqualTo(ShipLocation.PLANET)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
@@ -98,7 +98,7 @@ class ShipJumpsServiceTest {
 	@Test
 	fun shouldLandOnceEvenWhenTheStoreReplaysTheChange() {
 		gameStore.create(
-			shipJumps.pickTurnOrderPlace("creator@example.com", 1).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
+			shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS).jumpShip("creator@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 		)
 		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
@@ -111,7 +111,7 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldStoreTheEndOfASlot() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS))
 
 		val game = service.finishJumping("game-1", "creator@example.com")
 
@@ -121,7 +121,7 @@ class ShipJumpsServiceTest {
 
 	@Test
 	fun shouldFinishOnceEvenWhenTheStoreReplaysTheChange() {
-		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1))
+		gameStore.create(shipJumps.pickTurnOrderPlace("creator@example.com", 1, NO_NEWS))
 		val replaying = ShipJumpsService(ReplayingGameStore(gameStore), JUMPS_SUCCEED)
 
 		val game = replaying.finishJumping("game-1", "creator@example.com")

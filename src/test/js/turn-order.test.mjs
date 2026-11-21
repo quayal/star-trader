@@ -13,10 +13,10 @@ import {
 
 const ME = 'me';
 
-function game({ phase = 'SHIP_JUMPS', status = 'RUNNING', turnOrder = [null, null, null] } = {}) {
+function game({ phase = undefined, status = 'RUNNING', turnOrder = [null, null, null] } = {}) {
 	return {
 		status,
-		turn: { number: 4, phase, initiative: ['kessler', ME, 'vega'], turnOrder },
+		turn: { number: 4, phase: phase ?? (turnOrder.includes(null) ? 'INITIATIVE' : 'JUMPS'), initiative: ['kessler', ME, 'vega'], turnOrder },
 		players: [
 			{ id: 'vega', corporationName: 'Vega Lines' },
 			{ id: ME, corporationName: 'Orion Freight' },

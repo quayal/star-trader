@@ -33,9 +33,9 @@ class GameMoveCargoTest {
 
 	@Test
 	fun shouldMoveGoodsInEveryPhaseOfARunningGame() {
-		// "at any moment": Bidding, Ship-jumps, Trading and Investment (advancing a phase needs no players' acts)
+		// "at any moment" (advancing a phase needs no players' acts); a News with no tip-offs closes at once (R109)
 		var game = bidding
-		for (phase in TurnPhase.entries) {
+		for (phase in TurnPhase.entries - TurnPhase.NEWS) {
 			assertThat(game.turn!!.phase).isEqualTo(phase)
 
 			val moved = game.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1)
@@ -64,7 +64,7 @@ class GameMoveCargoTest {
 	fun shouldLetGoodsMadeOneTurnBeCarriedAwayTheNext() {
 		// the creator's case: loaded from the warehouse during the jump slot, the ship then jumps with it
 		val jumping = bidding.signalDoneBidding("ada@example.com", FakeDice(2, 1)).signalDoneBidding("grace@example.com", FakeDice(2, 1))
-		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1)
+		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1, NO_NEWS)
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
 
 		val away = adasSlot.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 6)
@@ -79,7 +79,7 @@ class GameMoveCargoTest {
 	fun shouldNotMoveGoodsOntoAShipWaitingToLand() {
 		// a ship that just jumped is in Space until its player lands it (R30)
 		val jumping = bidding.signalDoneBidding("ada@example.com", FakeDice(2, 1)).signalDoneBidding("grace@example.com", FakeDice(2, 1))
-		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1)
+		val ordered = jumping.pickTurnOrderPlace(jumping.turn!!.picker()!!, 1, NO_NEWS)
 		val adasSlot = if (ordered.turn!!.jumper() == "ada@example.com") ordered else ordered.finishJumping("grace@example.com")
 		val jumped = adasSlot.jumpShip("ada@example.com", "Wayfarer", MU_HERCULIS, JUMPS_SUCCEED)
 

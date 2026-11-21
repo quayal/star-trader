@@ -22,7 +22,7 @@ class InvestmentServiceTest {
 		}
 
 	/** [started] taken through Bidding, Ship-jumps and Trading to the start of Investment: advancing a phase needs no players' acts. */
-	private val investing = (1..4).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+	private val investing = (1..5).fold(started) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 	@Test
 	fun shouldStoreTheDoneSignal() {

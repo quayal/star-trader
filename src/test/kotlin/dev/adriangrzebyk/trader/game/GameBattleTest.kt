@@ -40,8 +40,8 @@ class GameBattleTest {
 			START_DICE
 		).let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
-		.pickTurnOrderPlace("kim@example.com", 3)
-		.pickTurnOrderPlace("grace@example.com", 1)
+		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 	// Ada's Wayfarer waits in Space at Tau Ceti, where Grace's Meridian arrives.
 	private val waiting = withShip(jumping, "Wayfarer") { it.copy(location = ShipLocation.SPACE) }
@@ -70,7 +70,7 @@ class GameBattleTest {
 
 	@Test
 	fun shouldRefuseLandingAndJumpingWhileTheInterceptionIsDecided() {
-		assertThatThrownBy { arrived.landShip("grace@example.com", ShipLocation.PORT) }
+		assertThatThrownBy { arrived.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("Waiting for the decision on intercepting Meridian.")
 		assertThatThrownBy { arrived.jumpShip("grace@example.com", "Halcyon", BETA_HYDRI, JUMPS_SUCCEED) }
@@ -97,7 +97,7 @@ class GameBattleTest {
 		assertThat(game.turn!!.interception).isNull()
 		assertThat(game.turn!!.battle).isNull()
 		assertThat(game.log.last()).isEqualTo(LogEntry.event(1, "Nobody tries to intercept Meridian"))
-		assertThat(game.landShip("grace@example.com", ShipLocation.PORT).turn!!.landingShip).isNull()
+		assertThat(game.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY).turn!!.landingShip).isNull()
 	}
 
 	@Test
@@ -162,7 +162,7 @@ class GameBattleTest {
 	fun shouldUseUpTheJumpOfAShipThatTriedToIntercept() {
 		// R72: Wayfarer tried and failed; it can't jump in Ada's slot.
 		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(1, 6))
-			.landShip("grace@example.com", ShipLocation.PORT)
+			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
 			.finishJumping("grace@example.com")
 
 		assertThat(game.turn!!.jumpedShips).contains("Wayfarer")
@@ -321,8 +321,8 @@ class GameBattleTest {
 			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), dice())
 
 		val game = over
-			.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.PORT))
-			.landAfterBattle("grace@example.com", mapOf("Meridian" to ShipLocation.PLANET))
+			.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.PORT), LANDS_SAFELY)
+			.landAfterBattle("grace@example.com", mapOf("Meridian" to ShipLocation.PLANET), LANDS_SAFELY)
 
 		assertThat(game.turn!!.battle).isNull()
 		assertThat(game.turn!!.landingShip).isNull()
@@ -335,7 +335,7 @@ class GameBattleTest {
 
 	@Test
 	fun shouldRefuseLandingBeforeTheBattleIsOver() {
-		assertThatThrownBy { fighting.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.PORT)) }
+		assertThatThrownBy { fighting.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.PORT), LANDS_SAFELY) }
 			.isInstanceOf(InvalidGameOperationException::class.java)
 			.hasMessage("The battle isn't over yet.")
 	}
@@ -438,7 +438,7 @@ class GameBattleTest {
 	fun shouldStartABattleWithNobodyInterceptedWhenAShipStaysInSpaceNextToOthers() {
 		// R80
 		val game = arrived.answerInterception("ada@example.com", null, dice())
-			.landShip("grace@example.com", ShipLocation.SPACE)
+			.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY)
 
 		val battle = game.turn!!.battle!!
 		assertThat(battle.ships).containsExactly(BattleShip("Wayfarer", "ada@example.com"), BattleShip("Meridian", "grace@example.com"))
@@ -449,8 +449,8 @@ class GameBattleTest {
 		val declined = game
 			.giveBattleOrders("ada@example.com", listOf(breakAway("Wayfarer")), dice())
 			.giveBattleOrders("grace@example.com", listOf(breakAway("Meridian")), dice())
-			.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.SPACE))
-			.landAfterBattle("grace@example.com", mapOf("Meridian" to ShipLocation.SPACE))
+			.landAfterBattle("ada@example.com", mapOf("Wayfarer" to ShipLocation.SPACE), LANDS_SAFELY)
+			.landAfterBattle("grace@example.com", mapOf("Meridian" to ShipLocation.SPACE), LANDS_SAFELY)
 		assertThat(declined.turn!!.battle).isNull()
 		assertThat(declined.turn!!.jumper()).isEqualTo("grace@example.com")
 	}
@@ -460,7 +460,7 @@ class GameBattleTest {
 		// R86 (playtest bug, 2026-11-18): Wayfarer tried and failed, Meridian then stayed in Space (R80); the battle has no
 		// interceptions, but Wayfarer's try still makes it the aggressor, so only Ada's shot costs reputation.
 		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(3, 3))
-			.landShip("grace@example.com", ShipLocation.SPACE)
+			.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY)
 			.giveBattleOrders("grace@example.com", listOf(fire("Meridian", "Wayfarer")), dice())
 			.giveBattleOrders("ada@example.com", listOf(fire("Wayfarer", "Meridian")), dice(1, 1, 1, 1))
 
@@ -472,7 +472,7 @@ class GameBattleTest {
 
 	@Test
 	fun shouldStartNoBattleWhenAShipLandsAtThePort() {
-		val game = arrived.answerInterception("ada@example.com", null, dice()).landShip("grace@example.com", ShipLocation.PORT)
+		val game = arrived.answerInterception("ada@example.com", null, dice()).landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
 
 		assertThat(game.turn!!.battle).isNull()
 	}

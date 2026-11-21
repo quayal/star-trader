@@ -3,6 +3,10 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
+import dev.adriangrzebyk.trader.game.news.OpportunityTerms
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOff
 
 /**
  * A player's ship: a [hull] with [modules] (R51, R52). Its name and position are public, like the board; its [cargo]
@@ -10,7 +14,8 @@ import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
  * cargo (E05). Its stats are derived from the hull and modules, never stored (R53). All its crew are of one [crewClass]
  * (R67). A ship bought in Investment ([boughtOnTurn]; null for every other ship) waits in the shipyard until the next
  * turn's Investment (R63). Battle damage (R76) stays until repaired (R79): [hullDamage] hits on the hull, and
- * [damagedModules], fitted modules that took one hit and count as not there (a multiset within [modules]).
+ * [damagedModules], fitted modules that took one hit and count as not there (a multiset within [modules]). [specialLots] are
+ * goods bought through opportunities (R112) and [deliveryJob] the delivery it's carrying (R114), both private like cargo.
  */
 data class Ship(
 	val name: String,
@@ -22,7 +27,9 @@ data class Ship(
 	val crewClass: CrewClass,
 	val boughtOnTurn: Int?,
 	val hullDamage: Int,
-	val damagedModules: List<Module>
+	val damagedModules: List<Module>,
+	val specialLots: List<SpecialLot> = emptyList(),
+	val deliveryJob: TipOff? = null
 ) : CargoHold {
 
 	init {
@@ -174,8 +181,87 @@ data class Ship(
 	/** Each different module fitted and how many of it, in the order they were first fitted (E07-S03-2). */
 	fun fittedModules(): Map<Module, Int> = modules.groupingBy { it }.eachCount()
 
-	/** R42, R54: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
-	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
+	/**
+	 * R42, R54: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. Weapons take one each (R112), and a
+	 * delivery in a Cargo module takes the module's two spaces (R114).
+	 */
+	fun cargoSpacesUsed(): Int =
+		cargo.filterKeys { it.takesCargoSpace }.values.sum() + specialLots.sumOf { it.cargoSpaces() } + deliverySpace(Module.CARGO)
+
+	/** The passenger seats taken (R112, R114): one per slave, and a delivery's whole Passenger module. */
+	fun passengerSeatsUsed(): Int = specialLots.sumOf { it.passengerSeats() } + deliverySpace(Module.PASSENGER)
+
+	/** Free passenger seats (R52). */
+	fun freePassengerSeats(): Int = (passengers() - passengerSeatsUsed()).coerceAtLeast(0)
+
+	/** The spaces of a whole [module] taken by this ship's delivery, if it travels in one (R114). */
+	private fun deliverySpace(module: Module): Int =
+		if ((deliveryJob?.opportunity as? OpportunityTerms.Delivery)?.space == module) module.cargoSpaces + module.passengers else 0
+
+	/** What this ship adds to its landing roll (R116): +2 for an Aerodynamic hull, +3 for a working Battle comm module. */
+	fun landingBonus(): Int =
+		(if (hull.aerodynamic) AERODYNAMIC_LANDING_BONUS else 0) + if (hasWorkingBattleComm()) BATTLE_COMM_LANDING_BONUS else 0
+
+	/** Whether it has a military hull or module (R56): forced into a Port, it's confiscated (R117). */
+	fun isMilitary(): Boolean = hull.military || modules.any { it.military }
+
+	/** Whether it carries anything illegal (R112) or is military (R56): what the landing choice warns about. */
+	fun isContraband(): Boolean = isMilitary() || specialLots.any { it.isIllegal() }
+
+	/**
+	 * This ship with [lot] aboard (R112): weapons need free cargo spaces and slaves free passenger seats; what doesn't fit
+	 * can't be bought, so it's refused.
+	 */
+	fun withSpecialLot(lot: SpecialLot): Ship {
+		if (lot.cargoSpaces() > (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)) {
+			throw InvalidGameOperationException(
+				"$name has room for ${(cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)} units of ${lot.goods.displayName}."
+			)
+		}
+		if (lot.passengerSeats() > freePassengerSeats()) {
+			throw InvalidGameOperationException("$name has ${freePassengerSeats()} free passenger seats for slaves.")
+		}
+		return copy(specialLots = specialLots + lot)
+	}
+
+	/** The units of [goods] bound for [system] aboard (R112): what one sale there sells. */
+	fun specialUnits(goods: SpecialGoods, system: StarSystem): Int = specialLots.filter { it.isFor(goods, system) }.sumOf { it.units }
+
+	/** This ship once its [goods] bound for [system] were sold (R112). */
+	fun withoutSpecial(goods: SpecialGoods, system: StarSystem): Ship = copy(specialLots = specialLots.filterNot { it.isFor(goods, system) })
+
+	/**
+	 * This ship carrying the delivery of [tipOff] (R114) in one whole module of its [space]: refused when it already
+	 * carries one, has no such module, or hasn't the module's room free.
+	 */
+	fun withDelivery(tipOff: TipOff, space: Module): Ship {
+		if (deliveryJob != null) {
+			throw InvalidGameOperationException("$name already carries a delivery.")
+		}
+		val free = if (space == Module.PASSENGER) freePassengerSeats() else (cargoSpaces() - cargoSpacesUsed()).coerceAtLeast(0)
+		if (space !in workingModules() || free < space.cargoSpaces + space.passengers) {
+			throw InvalidGameOperationException("$name needs a whole free ${space.displayName} module for this.")
+		}
+		return copy(deliveryJob = tipOff)
+	}
+
+	/** This ship once its delivery arrived (R114). */
+	fun delivered(): Ship = copy(deliveryJob = null)
+
+	/** This ship with military [added] modules fitted on a Planet through an opportunity (R113), refused when they don't fit. */
+	fun withMilitaryModules(added: List<Module>): Ship {
+		hull.checkFits(modules + added)
+		return copy(modules = modules + added)
+	}
+
+	/** This ship back from the expedition (R114), at [location] in [system]. */
+	fun returnedTo(system: StarSystem, location: ShipLocation): Ship = copy(system = system, location = location)
+
+	/** Whether this ship has no military parts (R56): the expedition takes only a legal ship (R114). */
+	fun isLegal(): Boolean = !isMilitary()
+
+	/** This ship without its illegal goods (R117: confiscated when forced into a Port); its legal cargo stays. */
+	fun withoutIllegalLots(): Ship = copy(specialLots = specialLots.filterNot { it.isIllegal() })
 
 	/** Whether this ship is in port, at whatever system: the only place it loads from or unloads into a warehouse (R58). */
 	fun isInPort(): Boolean = location == ShipLocation.PORT
@@ -252,6 +338,9 @@ data class Ship(
 		}
 		return refitted
 	}
+
+	/** Whether this ship is at [location] of [system]. */
+	fun isAt(system: StarSystem, location: ShipLocation): Boolean = this.system == system && this.location == location
 
 	/** Whether this ship is in port at [system], where it can trade (R23, R42). */
 	fun isInPortAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.PORT
@@ -371,6 +460,10 @@ data class Ship(
 		/** R62: a ship's name is 1 to 20 characters once trimmed. */
 		const val MAX_NAME_LENGTH = 20
 
+		/** R116: what an Aerodynamic hull and a working Battle comm add to a landing roll. */
+		const val AERODYNAMIC_LANDING_BONUS = 2
+		const val BATTLE_COMM_LANDING_BONUS = 3
+
 		/** R71: what a working Battle comm module adds to its ship's interception rolls. */
 		const val BATTLE_COMM_INTERCEPT_BONUS = 1
 
@@ -383,6 +476,21 @@ data class Ship(
 		 * civilian [modules] it can take (R52, R56), crewed at [crewClass]. It waits in the yard (R60, R63). That the name
 		 * is free in the game, and paying [price], are the player's and the game's to check.
 		 */
+		/**
+		 * A military ship bought through an opportunity (R113): named [name], appearing at once on [system]'s Planet with
+		 * [hull] and [modules] and a crew of [crewClass]; refused for a bad name or modules that don't fit.
+		 */
+		fun militaryOnPlanet(name: String?, system: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass): Ship {
+			val trimmed = name?.trim().orEmpty()
+			if (trimmed.length !in 1..MAX_NAME_LENGTH) {
+				throw InvalidGameOperationException("Choose a name of 1 to $MAX_NAME_LENGTH characters.")
+			}
+			if (!NAME_PATTERN.matches(trimmed) || trimmed.none { it.isLetterOrDigit() }) {
+				throw InvalidGameOperationException(NAME_CHARACTERS_MESSAGE)
+			}
+			return Ship(trimmed, system, ShipLocation.PLANET, emptyMap(), hull, modules, crewClass, null, 0, emptyList())
+		}
+
 		fun commission(name: String?, shipyard: StarSystem, hull: Hull, modules: List<Module>, crewClass: CrewClass, turn: Int): Ship {
 			val trimmed = name?.trim().orEmpty()
 			if (trimmed.length !in 1..MAX_NAME_LENGTH) {

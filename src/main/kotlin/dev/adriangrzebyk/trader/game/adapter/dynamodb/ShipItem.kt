@@ -7,6 +7,9 @@ import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOff
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Ship] as the attribute map nested in its player's item (engineering standards §12). */
@@ -22,8 +25,22 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 			MODULES to AttributeValue.fromL(ship.modules.map { AttributeValue.fromS(it.name) }),
 			CREW_CLASS to AttributeValue.fromS(ship.crewClass.name),
 			HULL_DAMAGE to number(ship.hullDamage),
-			DAMAGED_MODULES to AttributeValue.fromL(ship.damagedModules.map { AttributeValue.fromS(it.name) })
-		) + listOfNotNull(ship.boughtOnTurn?.let { BOUGHT_ON_TURN to number(it) })
+			DAMAGED_MODULES to AttributeValue.fromL(ship.damagedModules.map { AttributeValue.fromS(it.name) }),
+			SPECIAL_LOTS to AttributeValue.fromL(
+				ship.specialLots.map {
+					AttributeValue.fromM(
+						mapOf(
+							GOODS to AttributeValue.fromS(it.goods.name),
+							UNITS to number(it.units),
+							SELL_AT to AttributeValue.fromS(it.sellAt.name)
+						)
+					)
+				}
+			)
+		) + listOfNotNull(
+			ship.boughtOnTurn?.let { BOUGHT_ON_TURN to number(it) },
+			ship.deliveryJob?.let { DELIVERY_JOB to AttributeValue.fromS(it.name) }
+		)
 	)
 
 	fun toShip(): Ship = Ship(
@@ -40,7 +57,16 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		boughtOnTurn = attributes[BOUGHT_ON_TURN]?.n()?.toInt(),
 		// Items saved before E10 have no damage: nothing could damage a ship then.
 		hullDamage = attributes[HULL_DAMAGE]?.n()?.toInt() ?: 0,
-		damagedModules = attributes[DAMAGED_MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: emptyList()
+		damagedModules = attributes[DAMAGED_MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: emptyList(),
+		// Items saved before tip-offs (R112, R114) carry neither.
+		specialLots = attributes[SPECIAL_LOTS]?.l().orEmpty().map { lot ->
+			SpecialLot(
+				SpecialGoods.valueOf(lot.m().attribute(GOODS).s()),
+				lot.m().attribute(UNITS).n().toInt(),
+				StarSystem.valueOf(lot.m().attribute(SELL_AT).s())
+			)
+		},
+		deliveryJob = attributes[DELIVERY_JOB]?.s()?.let { TipOff.valueOf(it) }
 	)
 
 	private companion object {
@@ -54,5 +80,10 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		const val BOUGHT_ON_TURN = "boughtOnTurn"
 		const val HULL_DAMAGE = "hullDamage"
 		const val DAMAGED_MODULES = "damagedModules"
+		const val SPECIAL_LOTS = "specialLots"
+		const val GOODS = "goods"
+		const val UNITS = "units"
+		const val SELL_AT = "sellAt"
+		const val DELIVERY_JOB = "deliveryJob"
 	}
 }

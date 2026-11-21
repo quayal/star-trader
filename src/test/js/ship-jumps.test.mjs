@@ -20,11 +20,11 @@ const VEGA = 'vega';
 const KESSLER = 'kessler';
 const SET = [VEGA, ME, KESSLER];
 
-function game({ phase = 'SHIP_JUMPS', status = 'RUNNING', turnOrder = SET, jumpedShips = [], doneJumping = [] } = {}) {
+function game({ phase = undefined, status = 'RUNNING', turnOrder = SET, jumpedShips = [], doneJumping = [] } = {}) {
 	return {
 		status,
 		turns: 20,
-		turn: { number: 4, phase, doneBidding: [], initiative: [KESSLER, ME, VEGA], turnOrder, jumpedShips, doneJumping },
+		turn: { number: 4, phase: phase ?? (turnOrder.includes(null) ? 'INITIATIVE' : 'JUMPS'), doneBidding: [], initiative: [KESSLER, ME, VEGA], turnOrder, jumpedShips, doneJumping },
 		players: [
 			{ id: VEGA, corporationName: 'Vega Lines', ships: [{ name: 'Meridian', system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis' }] },
 			{
@@ -67,7 +67,7 @@ describe('jumpingText', () => {
 	});
 
 	it('joins the top bar once the order is set', () => {
-		assert.equal(phaseText(game(), ME), 'Turn 4 of 20 · Ship-jumps — Vega Lines is jumping');
+		assert.equal(phaseText(game(), ME), 'Turn 4 of 20 · Jumps — Vega Lines is jumping');
 	});
 });
 

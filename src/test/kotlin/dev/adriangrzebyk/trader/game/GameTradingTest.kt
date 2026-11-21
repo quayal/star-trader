@@ -25,7 +25,7 @@ class GameTradingTest {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.advancePhase(FakeDice(1, 2))
-		.pickTurnOrderPlace("grace@example.com", 1)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
 
 	private val trading = shipJumps.finishJumping("grace@example.com").finishJumping("ada@example.com")
 
@@ -104,8 +104,8 @@ class GameTradingTest {
 		.placeOffer("kim@example.com", TAU_CETI, Goods.POLY, OfferType.SELL, 9)
 		// Ada 1, Grace 2, Kim 1, then Ada 1 and Kim 2 on the tie: Grace, Kim, Ada.
 		.advancePhase(FakeDice(1, 2, 1, 1, 2))
-		.pickTurnOrderPlace("grace@example.com", 1)
-		.pickTurnOrderPlace("kim@example.com", 2)
+		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
+		.pickTurnOrderPlace("kim@example.com", 2, NO_NEWS)
 		.finishJumping("grace@example.com")
 		.finishJumping("kim@example.com")
 		.finishJumping("ada@example.com")
@@ -255,8 +255,8 @@ class GameTradingTest {
 			.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
 			.placeInitiativeBid("grace@example.com", 300)
 			.advancePhase(FakeDice(1, 2, 1, 1, 2))
-			.pickTurnOrderPlace("grace@example.com", 1)
-			.pickTurnOrderPlace("kim@example.com", 2)
+			.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
+			.pickTurnOrderPlace("kim@example.com", 2, NO_NEWS)
 			.finishJumping("grace@example.com")
 			.finishJumping("kim@example.com")
 			.finishJumping("ada@example.com")

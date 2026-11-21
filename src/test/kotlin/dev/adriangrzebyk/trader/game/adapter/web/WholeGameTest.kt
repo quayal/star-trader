@@ -157,6 +157,9 @@ class WholeGameTest {
 
 		// Ship-jumps: the ship carries it to Mu Herculis and lands at the Port, where it can trade (R23).
 		post(host, "/api/games/$gameId/ship-jumps/turn-order", """{"place": 1}""")
+		// R109: real games have tip-offs, so both read the news before Jumps
+		post(host, "/api/games/$gameId/news/done")
+		post(guest, "/api/games/$gameId/news/done")
 		post(host, "/api/games/$gameId/ship-jumps/jumps", """{"ship": "$wayfarer", "destination": "MU_HERCULIS"}""")
 		post(host, "/api/games/$gameId/ship-jumps/landing", """{"location": "PORT"}""")
 		post(host, "/api/games/$gameId/ship-jumps/finish")
@@ -197,6 +200,9 @@ class WholeGameTest {
 		val closed = post(host, "/api/games/$gameId/bidding/done")
 		assertThat(closed.turn!!.initiative).containsExactly("p1", "p2")
 		post(host, "/api/games/$gameId/ship-jumps/turn-order", """{"place": 1}""")
+		// R109: real games have tip-offs, so both read the news before Jumps
+		post(host, "/api/games/$gameId/news/done")
+		post(guest, "/api/games/$gameId/news/done")
 		post(host, "/api/games/$gameId/ship-jumps/finish")
 		assertThat(post(guest, "/api/games/$gameId/ship-jumps/finish").turn!!.phase).isEqualTo("TRADING")
 	}

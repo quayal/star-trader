@@ -12,7 +12,7 @@ class TurnTest {
 	/** Enough 2d6 rolls for every good on the board to resolve (R36), all 7. */
 	private fun dice() = FakeDice.twoD6(*IntArray(MarketGood.everyOnBoard().size) { 7 })
 
-	private val shipJumps = Turn.bidding(1).copy(phase = TurnPhase.SHIP_JUMPS, initiative = listOf("a", "b", "c"))
+	private val shipJumps = Turn.bidding(1).copy(phase = TurnPhase.INITIATIVE, initiative = listOf("a", "b", "c"))
 
 	private val opportunity = Turn.bidding(1).copy(phase = TurnPhase.TRADING).endTrading()
 
@@ -22,7 +22,15 @@ class TurnTest {
 	fun shouldListThePhasesInTurnOrder() {
 		// E06-S01-5: the enum's order is the one place the phase list lives
 		assertThat(TurnPhase.entries)
-			.containsExactly(TurnPhase.BIDDING, TurnPhase.SHIP_JUMPS, TurnPhase.TRADING, TurnPhase.OPPORTUNITY, TurnPhase.INVESTMENT)
+			.containsExactly(
+				TurnPhase.BIDDING,
+				TurnPhase.INITIATIVE,
+				TurnPhase.NEWS,
+				TurnPhase.JUMPS,
+				TurnPhase.TRADING,
+				TurnPhase.OPPORTUNITY,
+				TurnPhase.INVESTMENT
+			)
 		assertThat(TurnPhase.TRADING.next()).isEqualTo(TurnPhase.OPPORTUNITY)
 		assertThat(TurnPhase.OPPORTUNITY.next()).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(TurnPhase.INVESTMENT.next()).isNull()
@@ -35,7 +43,7 @@ class TurnTest {
 		val bidding = Turn.bidding(1).copy(offers = listOf(offer))
 
 		assertThat(bidding.publicOffers()).isEmpty()
-		assertThat(bidding.copy(phase = TurnPhase.SHIP_JUMPS).publicOffers()).isEmpty()
+		assertThat(bidding.copy(phase = TurnPhase.JUMPS).publicOffers()).isEmpty()
 		assertThat(bidding.copy(phase = TurnPhase.TRADING).publicOffers()).containsExactly(offer)
 		assertThat(bidding.copy(phase = TurnPhase.INVESTMENT).publicOffers()).containsExactly(offer)
 	}
@@ -104,8 +112,20 @@ class TurnTest {
 	}
 
 	@Test
-	fun shouldRefuseShipJumpsOnceInvestmentHasStarted() {
-		assertThatThrownBy { investment.requireShipJumps() }.isInstanceOf(PhaseClosedException::class.java)
+	fun shouldRefuseJumpsOnceInvestmentHasStartedAndBeforeNewsHasEnded() {
+		assertThatThrownBy { investment.requireJumps() }.isInstanceOf(PhaseClosedException::class.java)
+		assertThatThrownBy { shipJumps.requireJumps() }.hasMessage("Jumps hasn't started.")
+	}
+
+	@Test
+	fun shouldOpenNewsOnceTheTurnOrderIsSetAndJumpsOnceEveryoneIsDoneWithIt() {
+		// R109: Initiative → News → Jumps
+		val news = shipJumps.pickPlace("a", 1).pickPlace("b", 2).toNews()
+
+		assertThat(news.phase).isEqualTo(TurnPhase.NEWS)
+		assertThat(news.signalDoneNews("a").signalDoneNews("a").everyoneDoneWithNews(listOf("a", "b"))).isFalse()
+		assertThat(news.signalDoneNews("a").signalDoneNews("b").everyoneDoneWithNews(listOf("a", "b"))).isTrue()
+		assertThatThrownBy { shipJumps.signalDoneNews("a") }.hasMessage("News hasn't started.")
 	}
 
 	@Test
@@ -147,7 +167,7 @@ class TurnTest {
 	@Test
 	fun shouldMoveToTradingWhenTheLastJumpSlotEnds() {
 		// S02-8
-		val ordered = shipJumps.pickPlace("a", 1).pickPlace("b", 2)
+		val ordered = shipJumps.pickPlace("a", 1).pickPlace("b", 2).toNews().toJumps()
 
 		val turn = ordered.endJumpSlot("a").endJumpSlot("b").endJumpSlot("c")
 
@@ -308,7 +328,7 @@ class TurnTest {
 	fun shouldStartTradingWithNoResolution() {
 		val resolved = resolving(shipJumps.toTrading(), null, dice())
 
-		assertThat(resolved.copy(phase = TurnPhase.SHIP_JUMPS).toTrading().resolution).isNull()
+		assertThat(resolved.copy(phase = TurnPhase.JUMPS).toTrading().resolution).isNull()
 	}
 
 	@Test

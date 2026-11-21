@@ -236,7 +236,7 @@ class GameOfferTest {
 		val trading = bidding.signalDoneBidding(
 			"joiner@example.com",
 			FakeDice(2, 1)
-		).signalDoneBidding("creator@example.com", FakeDice(2, 1)).advancePhase(FakeDice(2, 1))
+		).signalDoneBidding("creator@example.com", FakeDice(2, 1)).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(
 			trading.turn
@@ -247,6 +247,7 @@ class GameOfferTest {
 				phase = TurnPhase.TRADING,
 				tradingQueue = MarketGood.everyOnBoard(),
 				offers = listOf(offer),
+				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),
 				initiativeRolls = listOf(InitiativeRoll("creator@example.com", 0, 0, listOf(2)), InitiativeRoll("joiner@example.com", 0, 0, listOf(1)))
 			)
@@ -257,7 +258,7 @@ class GameOfferTest {
 	fun shouldStartTheNextTurnWithNoOffers() {
 		val bidding = started.placeOffer("joiner@example.com", TAU_CETI, POLY, BUY, 8)
 
-		val nextTurn = (1..5).fold(bidding) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
+		val nextTurn = (1..6).fold(bidding) { game, _ -> game.advancePhase(FakeDice(2, 1)) }
 
 		assertThat(nextTurn.turn).isEqualTo(Turn.bidding(2))
 	}

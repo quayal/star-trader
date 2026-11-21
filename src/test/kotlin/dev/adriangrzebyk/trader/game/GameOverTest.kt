@@ -35,7 +35,7 @@ class GameOverTest {
 	private fun lastGoodLeft(bidding: Game): Game {
 		val closed = bidding.advancePhase(if (bidding.players.size == 3) FakeDice(1, 2, 1, 1, 2) else FakeDice(1, 2))
 		val ordered = closed.turn!!.initiative.dropLast(1).withIndex()
-			.fold(closed) { game, (index, email) -> game.pickTurnOrderPlace(email, index + 1) }
+			.fold(closed) { game, (index, email) -> game.pickTurnOrderPlace(email, index + 1, NO_NEWS) }
 		val trading = ordered.turn!!.initiative.fold(ordered) { game, email -> game.finishJumping(email) }
 		val queue = trading.turn!!.tradingQueue
 		val lastPoly = trading.reorderTradingQueue("grace@example.com", queue.minus(gammaLeporisPoly) + gammaLeporisPoly)

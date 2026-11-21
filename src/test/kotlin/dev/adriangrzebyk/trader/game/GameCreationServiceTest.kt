@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.game.news.News
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -17,7 +18,13 @@ class GameCreationServiceTest {
 		assertThat(
 			game
 		).isEqualTo(
-			Game("game-1", 20, GameStatus.LOBBY, "creator@example.com", listOf(creator), null, MarketPrices.board(), emptyList(), emptyList())
+			Game(
+				"game-1", 20, GameStatus.LOBBY, "creator@example.com",
+				listOf(
+					creator
+				),
+				null, MarketPrices.board(), emptyList(), emptyList(), News.full()
+			)
 		)
 		assertThat(gameStore.find("game-1")).isEqualTo(game)
 	}

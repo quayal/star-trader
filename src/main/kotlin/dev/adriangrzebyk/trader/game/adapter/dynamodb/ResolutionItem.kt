@@ -17,6 +17,8 @@ internal class ResolutionItem(val attributes: Map<String, AttributeValue>) {
 			WHOLESALERS to AttributeValue.fromL(resolution.wholesalers.map { AttributeValue.fromS(it) }),
 			WHOLESALES to AttributeValue.fromL(resolution.wholesales.map { AttributeValue.fromM(WholesaleItem(it).attributes) })
 		) + listOfNotNull(
+			resolution.supplyDemand?.let { SUPPLY_DEMAND to number(it) }
+		) + listOfNotNull(
 			resolution.dictator?.let { DICTATOR to AttributeValue.fromS(it) },
 			resolution.startingCounter?.let { STARTING_COUNTER to number(it) }
 		)
@@ -40,7 +42,9 @@ internal class ResolutionItem(val attributes: Map<String, AttributeValue>) {
 			initiative = attributes[INITIATIVE]?.l()?.map { it.s() } ?: emptyList(),
 			// Absent on resolutions saved before E05-S05, which asked nobody to trade wholesale.
 			wholesalers = attributes[WHOLESALERS]?.l()?.map { it.s() } ?: emptyList(),
-			wholesales = attributes[WHOLESALES]?.l()?.map { WholesaleItem(it.m()).toWholesale() } ?: emptyList()
+			wholesales = attributes[WHOLESALES]?.l()?.map { WholesaleItem(it.m()).toWholesale() } ?: emptyList(),
+			// Absent before S/D shifts (R115): the board's.
+			supplyDemand = attributes[SUPPLY_DEMAND]?.n()?.toInt()
 		)
 	}
 
@@ -55,5 +59,6 @@ internal class ResolutionItem(val attributes: Map<String, AttributeValue>) {
 		const val START_PRICE = "startPrice"
 		const val WHOLESALERS = "wholesalers"
 		const val WHOLESALES = "wholesales"
+		const val SUPPLY_DEMAND = "supplyDemand"
 	}
 }

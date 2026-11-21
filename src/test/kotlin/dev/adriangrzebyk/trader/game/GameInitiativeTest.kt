@@ -191,7 +191,7 @@ class GameInitiativeTest {
 	@Test
 	fun shouldLogALaterTurnsInitiativeUnderThatTurn() {
 		val turnTwo = started.advancePhase(FakeDice(1, 2)).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
-			.advancePhase(FakeDice())
+			.advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		val closed = turnTwo.advancePhase(FakeDice(2, 1))
 
@@ -202,7 +202,7 @@ class GameInitiativeTest {
 	@Test
 	fun shouldKeepTheBidsAndOrderThroughTheTurnAndStartTheNextTurnWithNone() {
 		val shipJumps = started.placeInitiativeBid("joiner@example.com", 40).advancePhase(FakeDice(1, 1))
-		val trading = shipJumps.advancePhase(FakeDice())
+		val trading = shipJumps.advancePhase(FakeDice()).advancePhase(FakeDice())
 		val nextBidding = trading.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 
 		assertThat(trading.turn?.initiative).containsExactly("joiner@example.com", "creator@example.com")
@@ -216,7 +216,7 @@ class GameInitiativeTest {
 			.signalDoneBidding("joiner@example.com", FakeDice())
 			.signalDoneBidding("creator@example.com", FakeDice(1, 1))
 
-		assertThat(game.turn?.phase).isEqualTo(TurnPhase.SHIP_JUMPS)
+		assertThat(game.turn?.phase).isEqualTo(TurnPhase.INITIATIVE)
 		assertThat(game.turn?.initiative).containsExactly("creator@example.com", "joiner@example.com")
 		assertThat(game.players.first { it.email == "creator@example.com" }.money).isEqualTo(270)
 	}

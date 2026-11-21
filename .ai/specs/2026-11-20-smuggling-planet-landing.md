@@ -152,3 +152,12 @@ ships to risk seizure too.
 - **R108:** Badger can join the pool once this ships. Frank can join once the black market (R112) ships.
 - **D27:** smuggling (Planet landing) is part of the game. Police acts only in the Control phase (creator, 2026-11-20), so it
   comes with that phase. Port legal systems come later.
+
+## Implementation notes (2026-11-21)
+
+Built on `feat/news-smuggling`. Where the build differs from the criteria:
+
+- **The odds** show in the landing dialog after a jump, not yet in the battle dialog's placement step (the roll still
+  happens there).
+- **What was confiscated** reaches its owner through Fleet and the ledger only, with no separate private notice.
+- Badger and Frank joined the agents' pool with this change (R108).

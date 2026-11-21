@@ -11,7 +11,7 @@ export const MAX_TURNS = 50;
 export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
-const PHASE_NAMES = { BIDDING: 'Bidding', SHIP_JUMPS: 'Ship-jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
+const PHASE_NAMES = { BIDDING: 'Bidding', INITIATIVE: 'Initiative', NEWS: 'News', JUMPS: 'Jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 
 /**
@@ -60,6 +60,10 @@ export function parseRoute(hash) {
 	const corporations = /^#game\/([^/]+)\/corporations$/.exec(text);
 	if (corporations) {
 		return { view: 'corporations', id: decodeURIComponent(corporations[1]) };
+	}
+	const news = /^#game\/([^/]+)\/news$/.exec(text);
+	if (news) {
+		return { view: 'news', id: decodeURIComponent(news[1]) };
 	}
 	const guide = /^#game\/([^/]+)\/guide$/.exec(text);
 	if (guide) {
@@ -117,6 +121,11 @@ export function assetsLink(id) {
 	return `#game/${encodeURIComponent(id)}/assets`;
 }
 
+/** The News tab of game [id] (R109): the tip-offs in play and this turn's announcements. */
+export function newsLink(id) {
+	return `#game/${encodeURIComponent(id)}/news`;
+}
+
 /** The Guide tab of game [id] (playtest, 2026-11-20): each phase, every agent and the key modifiers. */
 export function guideLink(id) {
 	return `#game/${encodeURIComponent(id)}/guide`;
@@ -148,18 +157,18 @@ export function screenForPhaseChange(previous, game) {
 	if (game.status === 'FINISHED') {
 		return 'over';
 	}
-	return { TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+	return { NEWS: 'news', TRADING: 'trading', OPPORTUNITY: 'infrastructure', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
 }
 
 /**
  * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the bid's in Bidding, the
- * turn order's in Ship-jumps; null in any other phase.
+ * turn order's in Initiative and Jumps; null in any other phase.
  */
 export function deckHeadingFor(game) {
 	if (game.status !== 'RUNNING') {
 		return null;
 	}
-	return { BIDDING: 'bid-title', SHIP_JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
+	return { BIDDING: 'bid-title', INITIATIVE: 'turn-order-title', JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */
@@ -194,7 +203,7 @@ export function lobbyState(game, myId) {
 	};
 }
 
-/** "Turn 4 of 20 · Ship-jumps"; a finished game keeps its last turn and says so instead of a phase. */
+/** "Turn 4 of 20 · Jumps"; a finished game keeps its last turn and says so instead of a phase. */
 export function turnText(game) {
 	const phase = game.status === 'FINISHED' ? 'Game over' : PHASE_NAMES[game.turn.phase] ?? game.turn.phase;
 	return `Turn ${game.turn.number} of ${game.turns} · ${phase}`;

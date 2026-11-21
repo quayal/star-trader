@@ -4,6 +4,7 @@
  * the public list of players' ids who signalled done (D09); nothing private is needed.
  */
 
+import { isNews, waitingForNews } from './news.js';
 import { isBidding, isClosedRefusal } from './offers.js';
 import { turnText } from './game.js';
 import { pickingText } from './turn-order.js';
@@ -42,7 +43,7 @@ export function waitingFor(game, playerId) {
  * waiting for you, Vega Lines" during Investment (E06-S01), else turnText.
  */
 export function phaseText(game, playerId) {
-	const waiting = isBidding(game) ? waitingFor(game, playerId) : waitingForInvesting(game, playerId);
+	const waiting = isBidding(game) ? waitingFor(game, playerId) : isNews(game) ? waitingForNews(game, playerId) : waitingForInvesting(game, playerId);
 	if (waiting.length) {
 		return `${turnText(game)} — waiting for ${waiting.join(', ')}`;
 	}

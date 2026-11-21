@@ -82,7 +82,7 @@ describe('who orders and resolves (R25)', () => {
 	it('is the first in initiative, during Trading only', () => {
 		assert.equal(orderedBy(game()), VEGA);
 		assert.equal(resolver(game()), VEGA);
-		assert.equal(orderedBy(game({ phase: 'SHIP_JUMPS' })), null);
+		assert.equal(orderedBy(game({ phase: 'JUMPS' })), null);
 		assert.equal(orderedBy(game({ status: 'FINISHED' })), null);
 	});
 
@@ -98,8 +98,8 @@ describe('s03 status line', () => {
 	});
 
 	it('says when Trading starts, before the first one (S01-7)', () => {
-		assert.equal(tradingStatus(game({ phase: 'BIDDING' }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
-		assert.equal(tradingStatus(game({ phase: 'SHIP_JUMPS', number: 3 }), ME), 'Trading starts after Ship-jumps. Results will appear here.');
+		assert.equal(tradingStatus(game({ phase: 'BIDDING' }), ME), 'Trading starts after Jumps. Results will appear here.');
+		assert.equal(tradingStatus(game({ phase: 'JUMPS', number: 3 }), ME), 'Trading starts after Jumps. Results will appear here.');
 	});
 
 	it('says every good resolved while players invest (E06-S01)', () => {
@@ -121,7 +121,7 @@ describe('s03 status line', () => {
 describe('the Trading texts', () => {
 	it('counts the resolved goods for the top bar (S01-6)', () => {
 		assert.equal(resolvedText(game({ queue: [POLY], done: [ISO] })), '1 of 2 resolved');
-		assert.equal(resolvedText(game({ phase: 'SHIP_JUMPS' })), '');
+		assert.equal(resolvedText(game({ phase: 'JUMPS' })), '');
 	});
 
 	it('names whom the game waits for (S01-8, D09)', () => {

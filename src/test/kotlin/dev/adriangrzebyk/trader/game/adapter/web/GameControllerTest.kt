@@ -16,6 +16,7 @@ import dev.adriangrzebyk.trader.game.OpportunityPassed
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.game.battle.Battle
@@ -119,7 +120,7 @@ class GameControllerTest {
 			YouResponseDto(
 				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
-				null, emptyList(), 8, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList()
+				null, emptyList(), 10, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList(), emptyList()
 			)
 		)
 	}
@@ -334,7 +335,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null
+				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -554,14 +555,14 @@ class GameControllerTest {
 					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
-				emptyList(), emptyList(), emptyList(), null, emptyList(), null
+				emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)
 
 		signalDone(creatorToken, gameId).expectStatus().isOk
 
 		val polled = pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(polled.turn!!.phase).isEqualTo("SHIP_JUMPS")
+		assertThat(polled.turn!!.phase).isEqualTo("INITIATIVE")
 		assertThat(polled.turn!!.doneBidding).isEmpty()
 		assertThat(polled.turn!!.initiative).containsExactlyInAnyOrder("p1", "p2")
 	}
@@ -882,8 +883,8 @@ class GameControllerTest {
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(picked.turn!!.turnOrder).containsExactly(idOf(gameId, second), idOf(gameId, first))
-		assertThat(picked.turn!!.phase).isEqualTo("SHIP_JUMPS")
-		assertThat(picked.log.map { it.text }.last()).startsWith("Turn order (for this turn): ")
+		assertThat(picked.turn!!.phase).isEqualTo("NEWS")
+		assertThat(picked.log.map { it.text }).anyMatch { it.startsWith("Turn order (for this turn): ") }
 		assertThat(pollGame(joinerToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.turn!!.turnOrder)
 			.containsExactly(idOf(gameId, second), idOf(gameId, first))
 	}
@@ -893,7 +894,7 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame("bad-pick")
 		pickPlace(joinerToken, gameId, """{"place": 1}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+			.expectBody(String::class.java).isEqualTo("Initiative hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
@@ -910,7 +911,7 @@ class GameControllerTest {
 		pickPlace("token-$first", gameId, """{"place": 1}""").expectStatus().isOk
 		pickPlace("token-$second", gameId, """{"place": 2}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("The turn order is already set.")
+			.expectBody(String::class.java).isEqualTo("Initiative has closed")
 	}
 
 	@Test
@@ -945,12 +946,12 @@ class GameControllerTest {
 		finishJumping("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("Choose where ${ship.name} ends up first.")
-		val landed = landShip("token-$first", gameId, """{"location": "PLANET"}""")
+		val landed = landShip("token-$first", gameId, """{"location": "SPACE"}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(landed.players.first { it.id == idOf(gameId, first) }.ships.first().location).isEqualTo("PLANET")
+		assertThat(landed.players.first { it.id == idOf(gameId, first) }.ships.first().location).isEqualTo("SPACE")
 		assertThat(landed.turn!!.landingShip).isNull()
-		assertThat(landed.log.last().text).endsWith("— ${ship.name} lands on the planet (${destination.displayName})")
+		assertThat(landed.log.last().text).endsWith("— ${ship.name} stays in space (${destination.displayName})")
 
 		finishJumping("token-$first", gameId).expectStatus().isOk
 		val trading = finishJumping("token-$second", gameId)
@@ -1000,13 +1001,13 @@ class GameControllerTest {
 		val (creatorToken, joinerToken, gameId) = startedGame("bad-jump")
 		jumpShip(joinerToken, gameId, """{"ship": "Lantern", "destination": "TAU_CETI"}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("Ship-jumps hasn't started.")
+			.expectBody(String::class.java).isEqualTo("Jumps hasn't started.")
 		signalDone(joinerToken, gameId).expectStatus().isOk
 		val closed = signalDone(creatorToken, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val (first, second) = gameStore.find(gameId)!!.turn!!.initiative
 		finishJumping("token-$first", gameId)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
-			.expectBody(String::class.java).isEqualTo("The turn order isn't set yet.")
+			.expectBody(String::class.java).isEqualTo("Jumps hasn't started.")
 		val ordered = pickPlace("token-$first", gameId, """{"place": 1}""").expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val firstName = if (first == "bad-jump-guest@example.com") "Grace Freight" else "Adrian Star Traders"
 		val ship = ordered.players.first { it.id == idOf(gameId, first) }.ships.first()
@@ -1197,10 +1198,10 @@ class GameControllerTest {
 					if (player.email != first) {
 						player
 					} else {
-						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does. The other ships go
-						// elsewhere: a random start could put them at Tau Ceti too, offering more than one destination.
+						// Tau Ceti both makes and trades ISO (R46), as every real factory's system does.
+						// The other ship goes elsewhere: starting systems are random, and it could have started at Tau Ceti too.
 						val atTau = player.ships[0].copy(system = StarSystem.TAU_CETI)
-						val elsewhere = player.ships.drop(1).map { it.copy(system = StarSystem.GAMMA_LEPORIS) }
+						val elsewhere = player.ships.drop(1).map { it.copy(system = StarSystem.MU_HERCULIS) }
 						player.copy(ships = listOf(atTau) + elsewhere, factories = listOf(Factory(StarSystem.TAU_CETI, Goods.ISO, 6, 0)))
 					}
 				}
@@ -2252,11 +2253,11 @@ class GameControllerTest {
 
 		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "SHIPYARD"}]}""").expectStatus().isBadRequest
 		battleLanding("token-$first", gameId, """{"ships": [{"ship": "$ours", "location": "PORT"}]}""").expectStatus().isOk
-		val landed = battleLanding("token-$second", gameId, """{"ships": [{"ship": "$theirs", "location": "PLANET"}]}""")
+		val landed = battleLanding("token-$second", gameId, """{"ships": [{"ship": "$theirs", "location": "SPACE"}]}""")
 			.expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		assertThat(landed.turn!!.battle).isNull()
-		assertThat(landed.players.flatMap { it.ships }.first { it.name == theirs }.location).isEqualTo("PLANET")
+		assertThat(landed.players.flatMap { it.ships }.first { it.name == theirs }.location).isEqualTo("SPACE")
 	}
 
 	@Test
@@ -2711,10 +2712,18 @@ class GameControllerTest {
 		return request.exchange()
 	}
 
+	/**
+	 * Picks a place; once the last pick opens News (R109), every player is marked done with it, so tests about the jumps
+	 * that follow needn't read the news. The response is the pick's own.
+	 */
 	private fun pickPlace(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/ship-jumps/turn-order", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
-		return request.body(body).exchange()
+		val response = request.body(body).exchange()
+		if (gameStore.find(gameId)?.turn?.phase == TurnPhase.NEWS) {
+			gameStore.update(gameId) { game -> game.players.fold(game) { done, player -> done.signalDoneNews(player.email) } }
+		}
+		return response
 	}
 
 	private fun placeBid(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

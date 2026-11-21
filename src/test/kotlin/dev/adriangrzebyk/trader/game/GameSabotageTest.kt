@@ -103,7 +103,7 @@ class GameSabotageTest {
 
 	@Test
 	fun shouldWaitForTheShipsOwnerToPlaceTheHitsBeforeInvestment() {
-		// R99, R102: effect 2 on Meridian in Port at Sigma Draconis (legal system 5: 100 HT)
+		// R99, R102: effect 2 on Meridian in Port at Sigma Draconis (legal system 1 since 2026-11-20: 20 HT)
 		val ship = SabotageTarget.Ship(GRACE, SIGMA_DRACONIS, "Meridian")
 		val sabotaged = game.sabotage(KIM, ship, ADA, FakeDice(8, 2))
 		val everyoneDone = sabotaged.finishOpportunities(KIM).finishOpportunities(ADA)
@@ -115,7 +115,7 @@ class GameSabotageTest {
 
 		assertThat(placed.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(fixture.playerOf(placed, GRACE).ship("Meridian")!!.modules.count { it == Module.CARGO }).isEqualTo(3)
-		assertThat(fixture.playerOf(placed, KIM).money).isEqualTo(200)
+		assertThat(fixture.playerOf(placed, KIM).money).isEqualTo(280)
 	}
 
 	@Test

@@ -59,7 +59,7 @@ describe('bidLine', () => {
 	});
 
 	it('says it was paid once Bidding has closed', () => {
-		assert.equal(bidLine(game({ bid: 40, phase: 'SHIP_JUMPS' })), 'Initiative bid: 40 HT (paid)');
+		assert.equal(bidLine(game({ bid: 40, phase: 'JUMPS' })), 'Initiative bid: 40 HT (paid)');
 	});
 });
 
@@ -79,13 +79,13 @@ describe('bidPlacedText', () => {
 describe('initiativeText', () => {
 	it('names the order by corporation from Ship-jumps on', () => {
 		const order = ['vega', 'me'];
-		assert.equal(initiativeText(game({ phase: 'SHIP_JUMPS', initiative: order })), 'Initiative: Vega Lines → Orion Freight');
+		assert.equal(initiativeText(game({ phase: 'JUMPS', initiative: order })), 'Initiative: Vega Lines → Orion Freight');
 		assert.equal(initiativeText(game({ phase: 'TRADING', initiative: order })), 'Initiative: Vega Lines → Orion Freight');
 	});
 
 	it('is nothing during Bidding or without an order', () => {
 		assert.equal(initiativeText(game()), null);
-		assert.equal(initiativeText(game({ phase: 'SHIP_JUMPS' })), null);
+		assert.equal(initiativeText(game({ phase: 'JUMPS' })), null);
 	});
 });
 
@@ -98,7 +98,7 @@ describe('initiativeRolls (creator, 2026-11-18)', () => {
 	const withWolf = [{ playerId: 'p2', bid: 5, roll: 3, bonus: 4, bonusFrom: 'Wolf', total: 12, tieRolls: [] }];
 
 	it('shows what each player bid and rolled, in initiative order, with any tie rolls', () => {
-		const game = { status: 'RUNNING', players, turn: { phase: 'SHIP_JUMPS', initiative: ['p2', 'p1'], initiativeRolls: rolls } };
+		const game = { status: 'RUNNING', players, turn: { phase: 'JUMPS', initiative: ['p2', 'p1'], initiativeRolls: rolls } };
 
 		assert.deepEqual(initiativeRolls(game), [
 			{ corporation: 'Vega Lines', sum: '40 + 11 = 51', tie: '' },
@@ -107,7 +107,7 @@ describe('initiativeRolls (creator, 2026-11-18)', () => {
 	});
 
 	it("names Wolf's bonus in the sum, which reveals him (R105, playtest 2026-11-20)", () => {
-		const game = { status: 'RUNNING', players, turn: { phase: 'SHIP_JUMPS', initiative: ['p2'], initiativeRolls: withWolf } };
+		const game = { status: 'RUNNING', players, turn: { phase: 'JUMPS', initiative: ['p2'], initiativeRolls: withWolf } };
 
 		assert.deepEqual(initiativeRolls(game), [{ corporation: 'Vega Lines', sum: '5 + 3 + Wolf 4 = 12', tie: '' }]);
 	});
