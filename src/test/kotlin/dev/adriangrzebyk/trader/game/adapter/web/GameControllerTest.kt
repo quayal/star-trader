@@ -532,11 +532,12 @@ class GameControllerTest {
 		val seenByJoiner = pollGame(joinerToken, gameId).expectStatus().isOk
 			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-		assertThat(seenByCreator).doesNotContain("Flute").doesNotContain("Arsenal").doesNotContain("Passenger")
+		val outsideTheCatalogue = withoutCatalogue(seenByCreator, "\"invest\":{", '{', '}')
+		assertThat(outsideTheCatalogue).doesNotContain("Flute").doesNotContain("Arsenal").doesNotContain("Passenger")
 		// the creator's own two ships, and nobody else's
-		assertThat(Regex("\"hull\"").findAll(seenByCreator).count()).isEqualTo(2)
-		assertThat(Regex("\"modules\"").findAll(seenByCreator).count()).isEqualTo(2)
-		assertThat(Regex("\"stats\"").findAll(seenByCreator).count()).isEqualTo(2)
+		assertThat(Regex("\"hull\"").findAll(outsideTheCatalogue).count()).isEqualTo(2)
+		assertThat(Regex("\"modules\"").findAll(outsideTheCatalogue).count()).isEqualTo(2)
+		assertThat(Regex("\"stats\"").findAll(outsideTheCatalogue).count()).isEqualTo(2)
 		val flute = seenByJoiner.you!!.ships.first()
 		assertThat(flute.hull).isEqualTo(HullResponseDto("Flute", military = false, aerodynamic = true))
 		assertThat(flute.modules.map { it.name to it.count }).containsExactly("Arsenal" to 1, "Passenger" to 1)
@@ -694,7 +695,7 @@ class GameControllerTest {
 		).map { it.expectBody(String::class.java).returnResult().responseBody!! }
 
 		seenByCreator.forEach { raw ->
-			assertThat(raw).doesNotContain("\"price\":19").doesNotContain("SELL")
+			assertThat(withoutCatalogue(raw, "\"invest\":{", '{', '}')).doesNotContain("\"price\":19").doesNotContain("SELL")
 			assertThat(Regex("\"offers\"").findAll(raw).count()).isEqualTo(1) // only "you.offers"
 		}
 	}
@@ -2858,4 +2859,26 @@ class GameControllerTest {
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}
+}
+
+/**
+ * [text] without the part that starts at [marker] and ends at its matching [close]: the shop catalogue (`you.invest`),
+ * which lists every hull, module and current price for anyone to plan with (creator, 2026-11-23), so a check that another
+ * player's offer or ship never leaks reads the rest.
+ */
+private fun withoutCatalogue(text: String, marker: String, open: Char, close: Char): String {
+	val start = text.indexOf(marker)
+	if (start < 0) {
+		return text
+	}
+	var depth = 0
+	var index = start + marker.length - 1
+	do {
+		when (text[index]) {
+			open -> depth++
+			close -> depth--
+		}
+		index++
+	} while (depth > 0)
+	return text.removeRange(start, index)
 }

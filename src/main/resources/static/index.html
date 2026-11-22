@@ -965,6 +965,8 @@
 						<output class="slider__value" id="invest-units-value" for="invest-units"></output>
 					</div>
 					<p class="message muted" id="invest-max"></p>
+					<!-- Creator, 2026-11-23: outside Investment the dialog plans; Confirm waits for Investment. -->
+					<p class="message muted" id="invest-wait"></p>
 					<p class="message" id="invest-cost" role="status"></p>
 					<p class="message message--error field-error" id="invest-error" role="alert"></p>
 				</div>
@@ -1049,7 +1051,7 @@
 			<p class="message" id="fleet-message" role="status" tabindex="-1" hidden></p>
 			<div class="fleet__ships" id="fleet-ships"></div>
 			<p class="muted">Only you see what your ships are made of and what they carry.</p>
-			<!-- Why there is no buy form now: output to place first, or not Investment. -->
+			<!-- Why the buy form only plans now: not Investment (creator, 2026-11-23). -->
 			<p class="muted" id="ship-closed"></p>
 			<!-- E09-S06-1 (R61), on Fleet since 2026-11-17 beside the ships the player has: static markup, so the typed name, the picks and the counts survive the poll. -->
 			<section class="panel" id="ship-panel" aria-labelledby="ship-title" hidden>
@@ -1172,6 +1174,7 @@
 						<button class="btn" id="recruit-button" type="submit">Recruit</button>
 						<span class="muted" id="recruit-odds"></span>
 					</div>
+					<p class="muted" id="recruit-wait"></p>
 				</form>
 				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
 			</section>
@@ -1700,7 +1703,7 @@
 		NOT_INVESTING_TEXT,
 		blocksCostText,
 		blocksText,
-		canBuildFactory,
+		canPlanFactory,
 		canBuy,
 		collectDefaults,
 		collectFactories,
@@ -5223,7 +5226,7 @@
 			$('ship-pointer-link').href = fleetLink(game.id);
 			$('corporation-pointer-link').href = corporationsLink(game.id);
 		}
-		const cap = canBuildFactory(game) ? factoryCap(game)?.text ?? '' : '';
+		const cap = canPlanFactory(game) ? factoryCap(game)?.text ?? '' : '';
 		showText('units-cap', cap);
 		$('units-cap').hidden = !cap;
 		const cargoPointer = hasWarehouse(game);
@@ -5343,14 +5346,18 @@
 	function renderOpportunity(game) {
 		const opportunity = isOpportunity(game);
 		const investing = isInvesting(game);
+		// Creator, 2026-11-23: sabotage and recruiting can be planned at any time while the game runs; acting waits for the turn.
+		const running = game.status === 'RUNNING';
 		$('opportunity-panel').hidden = !opportunity;
-		$('sabotage-panel').hidden = !opportunity;
-		$('agents-panel').hidden = !opportunity && (game.you?.agents ?? []).length === 0;
+		$('sabotage-panel').hidden = !running;
+		$('agents-panel').hidden = !running && (game.you?.agents ?? []).length === 0;
 		$('loan-panel').hidden = !opportunity && !investing;
 		if (opportunity) {
 			showText('opportunity-status', opportunityStatusText(game, viewerId));
 			$('opportunity-done-row').hidden = !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
 			renderOwedHits(game);
+		}
+		if (running) {
 			renderSabotage(game);
 		}
 		renderAgents(game, opportunity);
@@ -5422,7 +5429,7 @@
 	$('sabotage-form').addEventListener('submit', (event) => {
 		event.preventDefault();
 		const target = sabotageTargets(lastGame, viewerId).find(entry => entry.value === $('sabotage-target').value);
-		if (!target) {
+		if (!target || !isMyOpportunityTurn(lastGame, viewerId)) {
 			return;
 		}
 		gameAction('sabotage', {
@@ -5501,11 +5508,12 @@
 			}
 			return line;
 		}));
-		$('recruit-form').hidden = !opportunity || Boolean(you.opportunity?.recruited);
+		$('recruit-form').hidden = game.status !== 'RUNNING' || Boolean(you.opportunity?.recruited);
 		showText('agents-pool', `${you.agentPool ?? 0} agents are left to recruit. Pay 10–60 HT; 2d6 × 5 at or below it brings a random one, and you then choose where he starts.`);
 		const amount = validateRecruit($('recruit-amount').value);
 		showText('recruit-odds', amount.error ? '' : `Chance ${recruitOdds(amount.amount)}`);
 		$('recruit-button').disabled = !myTurn || (you.agentPool ?? 0) === 0;
+		showText('recruit-wait', waitTurnText(game, viewerId));
 	}
 
 	/** R106: buy or decline an agent offered to the viewer, from the list or its pop-up. */
@@ -5518,6 +5526,9 @@
 	$('recruit-amount').addEventListener('input', () => renderAgents(lastGame, isOpportunity(lastGame)));
 	$('recruit-form').addEventListener('submit', async (event) => {
 		event.preventDefault();
+		if ($('recruit-button').disabled) {
+			return; // planning out of turn (creator, 2026-11-23): Enter mustn't send it
+		}
 		const amount = validateRecruit($('recruit-amount').value);
 		if (amount.error) {
 			setActionMessage('agents-message', amount.error, true);
@@ -5819,7 +5830,7 @@
 		showText('invest-cost', cost ? `${cost} · you have ${game.you.money} HT` : '');
 	}
 
-	/** Draws the open dialog from [game], and closes it once what it buys can't be bought any more (Investment closed). */
+	/** Draws the open dialog from [game], and closes it once there's nothing to plan (the game ended); Confirm waits for Investment. */
 	function updateInvestDialog(game) {
 		if (!$('invest-dialog').open) {
 			return;
@@ -5838,7 +5849,8 @@
 		const max = investMax(game, text);
 		fitSlider($('invest-units'), max, Number($('invest-units').value));
 		showText('invest-max', investMaxText(investTarget.kind, max));
-		$('invest-button').disabled = submittingInvest || max === 0;
+		showText('invest-wait', text.wait);
+		$('invest-button').disabled = submittingInvest || max === 0 || Boolean(text.wait);
 		updateInvestCost(game, text);
 	}
 
@@ -5877,7 +5889,7 @@
 		const game = lastGame;
 		const target = investTarget;
 		const text = game && investDialogText(game, target);
-		if (!text || submittingInvest) {
+		if (!text || text.wait || submittingInvest) {
 			return;
 		}
 		const amount = $('invest-units').value;
@@ -6001,7 +6013,8 @@
 
 	function updateShipForm(game) {
 		const panel = $('ship-panel');
-		panel.hidden = !canBuy(game);
+		// Creator, 2026-11-23: the form plans at any time while the game runs; only Buy waits for Investment.
+		panel.hidden = game.status !== 'RUNNING' || !shipyardOf(game);
 		if (panel.hidden) {
 			shownShipKey = null;
 			return;
@@ -6047,7 +6060,7 @@
 		}
 		$('ship-suggest').disabled = !canSuggest(shipyard, $('ship-name').value.trim());
 		updateShipSummary(game);
-		$('ship-button').disabled = submittingShip;
+		$('ship-button').disabled = submittingShip || !canBuy(game);
 	}
 
 	$('ship-hull').addEventListener('change', () => {
@@ -6068,7 +6081,7 @@
 		event.preventDefault();
 		const game = lastGame;
 		const shipyard = game && shipyardOf(game);
-		if (!shipyard) {
+		if (!shipyard || !canBuy(game)) {
 			return;
 		}
 		const named = validateShipName(game, $('ship-name').value);
@@ -6101,7 +6114,7 @@
 			response = null;
 		}
 		submittingShip = false;
-		$('ship-button').disabled = false;
+		$('ship-button').disabled = !canBuy(lastGame);
 		if (gameId !== currentGameId) {
 			return;
 		}
