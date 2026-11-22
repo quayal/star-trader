@@ -3,7 +3,6 @@ import { describe, it } from 'node:test';
 
 import {
 	BUY_CLOSED_TEXT,
-	BUY_COLLECT_FIRST_TEXT,
 	LAST_TURN_WARNING,
 	NAME_CHARACTERS_ERROR,
 	NAME_ERROR,
@@ -166,13 +165,7 @@ describe('buyClosedText', () => {
 		assert.equal(buyClosedText({ ...game(), status: 'RUNNING' }), '');
 	});
 
-	it('sends the viewer to collect first when Investment is open but their output is unplaced', () => {
-		const collecting = { ...game(), status: 'RUNNING', you: { ...game().you, invest: null } };
-
-		assert.equal(buyClosedText(collecting), BUY_COLLECT_FIRST_TEXT);
-	});
-
-	it('says when buying opens in any other phase', () => {
+	it('says the form only plans in any other phase, and buying opens in Investment', () => {
 		const trading = { ...game(), status: 'RUNNING', turn: { number: 3, phase: 'TRADING' } };
 
 		assert.equal(buyClosedText(trading), BUY_CLOSED_TEXT);

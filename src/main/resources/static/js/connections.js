@@ -83,7 +83,7 @@ export function canRaise(game) {
 
 /**
  * The factory cap on Infrastructure (E12-S03-8): `{ text, room, refusal }`, the text "Factory units: 5 of 7 (political
- * 3 + business 4)", the units the viewer may still add, and the server's refusal for going over. Null outside Investment.
+ * 3 + business 4)", the units the viewer may still add, and the server's refusal for going over. Null when nothing was sent (the lobby, a finished game).
  */
 export function factoryCap(game) {
 	const invest = game.you?.invest;

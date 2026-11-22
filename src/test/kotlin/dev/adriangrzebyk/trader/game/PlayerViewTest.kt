@@ -109,12 +109,15 @@ class PlayerViewTest {
 	}
 
 	@Test
-	fun shouldOfferTheInvestmentOnlyInInvestment() {
-		// E06-S04, R102: Collect is in Opportunity now, so nothing waits for it
-		assertThat(opportunity.viewFor(ada)!!.investment).isNull()
+	fun shouldOfferTheInvestmentToPlanWhileTheGameRuns() {
+		// E06-S04, creator 2026-11-23: what Investment sells is browsable in every phase; only buying waits for Investment
+		assertThat(opportunity.viewFor(ada)!!.investment).isNotNull()
 		assertThat(investing.viewFor(ada)!!.investment).isNotNull()
 		assertThat(investing.viewFor(grace)!!.investment).isEqualTo(InvestmentView(investing.freeShipNames(), false, false))
-		assertThat(started.viewFor(grace)!!.investment).isNull()
+		assertThat(started.viewFor(grace)!!.investment).isNotNull() // Bidding
+		assertThat(Game.lobby("game-2", 20, Player.newcomer(ada, "Ada", "Orion Freight")).viewFor(ada)!!.investment).isNull()
+		assertThat(opportunity.canInvest(ada)).isFalse()
+		assertThat(investing.canInvest(ada)).isTrue()
 	}
 
 	@Test
