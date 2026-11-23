@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+	moduleMoveActions,
 	BUY_CLOSED_TEXT,
 	BUY_COLLECT_FIRST_TEXT,
 	LAST_TURN_WARNING,
@@ -270,5 +271,22 @@ describe('refitOptions (R65)', () => {
 
 	it('offers nothing away from a shipyard', () => {
 		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }), { add: [], remove: [], crew: [] });
+	});
+});
+
+describe('module moves (R122, R123)', () => {
+	it('turns the server\'s moves into one button each', () => {
+		const ship = { name: 'Wayfarer', moduleMoves: {
+			store: [{ id: 'CARGO', name: 'Cargo' }],
+			fit: [{ id: 'PASSENGER', name: 'Passenger' }],
+			move: [{ module: 'DOGFIGHT', name: 'Dogfight', toShip: 'Lantern' }],
+		} };
+
+		assert.deepEqual(moduleMoveActions(ship), [
+			{ label: 'Store one Cargo in the warehouse', path: 'CARGO/store', body: null, done: 'Stored a Cargo module from Wayfarer in the warehouse.' },
+			{ label: 'Fit a stored Passenger', path: 'stored', body: { module: 'PASSENGER' }, done: 'Fitted a stored Passenger module to Wayfarer.' },
+			{ label: 'Move one Dogfight to Lantern', path: 'DOGFIGHT/move', body: { ship: 'Lantern' }, done: 'Moved a Dogfight module from Wayfarer to Lantern.' },
+		]);
+		assert.deepEqual(moduleMoveActions({ name: 'Corvid' }), []);
 	});
 });

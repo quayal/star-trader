@@ -1606,6 +1606,32 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldStoreAModuleInTheWarehouseAndFitItBackOverHttp() {
+		// R122: the other's first ship is in port at Gamma Leporis; a one-block warehouse there takes a module for 5 spaces.
+		val (_, other, gameId) = investingAtTau("module-store")
+		val atGamma = gameStore.find(gameId)!!.players.first { it.email == other.removePrefix("token-") }.ships.first().name
+		val bought = buyBlocks(other, gameId, """{"system": "GAMMA_LEPORIS", "blocks": 1}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(bought.you!!.ships.single { it.name == atGamma }.moduleMoves.store.map { it.id }).contains("LIGHT_WEAPONS")
+
+		val stored = storeModule(other, gameId, atGamma, "LIGHT_WEAPONS")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val warehouse = stored.you!!.warehouses.single { it.system == "GAMMA_LEPORIS" }
+		assertThat(warehouse.modules).containsExactly(StoredModuleResponseDto("LIGHT_WEAPONS", "Light weapons", 1))
+		assertThat(warehouse.cargoUsed).isEqualTo(5)
+		assertThat(stored.you!!.money).isEqualTo(bought.you!!.money)
+		assertThat(stored.you!!.ships.single { it.name == atGamma }.moduleMoves.fit.map { it.id }).containsExactly("LIGHT_WEAPONS")
+
+		val fitted = fitStoredModule(other, gameId, atGamma, """{"module": "LIGHT_WEAPONS"}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(fitted.you!!.warehouses.single { it.system == "GAMMA_LEPORIS" }.modules).isEmpty()
+		assertThat(fitted.you!!.ships.single { it.name == atGamma }.modules.map { it.id }).contains("LIGHT_WEAPONS")
+		storeModule(other, gameId, atGamma, "WARP").expectStatus().isBadRequest
+		moveModule(other, gameId, atGamma, "LIGHT_WEAPONS", """{"ship": "$atGamma"}""").expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Choose two different ships.")
+	}
+
+	@Test
 	fun shouldBuyReputationOncePerInvestment() {
 		// E13-S03 (R87): 20 HT for 1d6; a second buy in the same Investment is a 409.
 		val (_, other, gameId) = investingAtTau("reputation-buy")
@@ -2112,7 +2138,7 @@ class GameControllerTest {
 
 		assertThat(seenByCreator).doesNotContain("\"ISO\":17").doesNotContain("\"CHIPS\":23")
 		assertThat(seenByJoiner.you!!.warehouses)
-			.containsExactly(YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 2, 20, mapOf("CHIPS" to 23, "ISO" to 17), 17))
+			.containsExactly(YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 2, 20, mapOf("CHIPS" to 23, "ISO" to 17), 17, emptyList()))
 	}
 
 	@Test
@@ -2154,7 +2180,7 @@ class GameControllerTest {
 		assertThat(traded.you!!.money).isEqualTo(245)
 		assertThat(
 			traded.you!!.warehouses
-		).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", "Gamma Leporis", 1, 10, mapOf("POLY" to 5), 5))
+		).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", "Gamma Leporis", 1, 10, mapOf("POLY" to 5), 5, emptyList()))
 		assertThat(
 			traded.log.map {
 				it.text
@@ -2739,6 +2765,26 @@ class GameControllerTest {
 
 	private fun addModule(token: String?, gameId: String, ship: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/modules", gameId, ship)
+			.contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun storeModule(token: String?, gameId: String, ship: String, module: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/modules/{module}/store", gameId, ship, module)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
+	}
+
+	private fun fitStoredModule(token: String?, gameId: String, ship: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/modules/stored", gameId, ship)
+			.contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun moveModule(token: String?, gameId: String, ship: String, module: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/investment/ships/{ship}/modules/{module}/move", gameId, ship, module)
 			.contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()

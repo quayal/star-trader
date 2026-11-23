@@ -542,6 +542,17 @@ data class Game(
 	}
 
 	/**
+	 * [email] completes the delivery aboard their ship [shipName] in its destination Port, on their Opportunity turn (R114,
+	 * R121): paid, and logged publicly with the cargo and the system.
+	 */
+	fun deliver(email: String, shipName: String?): Game {
+		val current = opportunityAfterCollect(email)
+		val player = playerOf(email)
+		val delivered = player.deliver(shipName)
+		return withPlayerChanged(delivered, listOf(player.deliveredLog(checkNotNull(shipName))), current.number)
+	}
+
+	/**
 	 * [email] sells on the black market of [system]'s Planet every unit of illegal [goods] bound there aboard their ships
 	 * on that Planet (R112): one d6 from [dice], +2 with Frank there, capped at 6, read on the creator's table; weapons at
 	 * triple during the civil war (E5). Public without units or price.
@@ -865,6 +876,17 @@ data class Game(
 	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
 	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.removeModule(shipName, module) }
 
+	/** [email] stores one legal [module] of their ship [shipName] in their warehouse at its Port (R122). Private, not logged. */
+	fun storeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.storeModule(shipName, module) }
+
+	/** [email] fits one [module] from their warehouse to their ship [shipName] in that Port (R122). Private, not logged. */
+	fun fitStoredModule(email: String, shipName: String, module: Module): Game =
+		withInvestment(email, null) { it.fitStoredModule(shipName, module) }
+
+	/** [email] moves one military [module] from their ship [fromShip] to [toShip] in the same Port (R123). Private, not logged. */
+	fun moveMilitaryModule(email: String, fromShip: String, toShip: String?, module: Module): Game =
+		withInvestment(email, null) { it.moveMilitaryModule(fromShip, toShip, module) }
+
 	/** [email] replaces the crew of their ship [shipName] with one of [crewClass] (R89): see [Player.replaceCrew]. Private, not logged. */
 	fun replaceCrew(email: String, shipName: String, crewClass: CrewClass): Game =
 		withInvestment(email, null) { it.replaceCrew(shipName, crewClass) }
@@ -931,6 +953,7 @@ data class Game(
 			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) },
 			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },
 			jumpChances = player.ships.associate { it.name to it.jumpChances(jumpBonusOf(player, it)) },
+			moduleMoves = player.ships.associate { it.name to player.moduleMoves(it.name) },
 			turnNumber = turn?.number ?: 0
 		)
 	}
@@ -1549,19 +1572,7 @@ data class Game(
 			return withLandingRolled(email, shipName, dice)
 		}
 		val landed = playerOf(email).landShip(shipName, location)
-		return copy(players = replace(landed)).withLogged(number, listOf(landed.landedLog(shipName))).withDeliveryChecked(email, shipName)
-	}
-
-	/** This game once [email]'s ship [shipName], if it just reached its delivery's Port, delivered it: paid, logged (R114). */
-	private fun withDeliveryChecked(email: String, shipName: String): Game {
-		val player = playerOf(email)
-		val terms = player.ship(shipName)?.deliveryJob?.opportunity as? OpportunityTerms.Delivery ?: return this
-		val delivered = player.delivered(shipName) ?: return this
-		return withPlayerChanged(
-			delivered,
-			listOf("${player.corporationName} delivered ${terms.cargo} to ${terms.to.displayName}"),
-			runningTurn().number
-		)
+		return copy(players = replace(landed)).withLogged(number, listOf(landed.landedLog(shipName)))
 	}
 
 	/** [system]'s Planet security now (R116): the board's, plus any event's change this turn (E10, E12). */

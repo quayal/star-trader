@@ -1147,6 +1147,7 @@
 				<div id="opportunity-forms"></div>
 				<ul class="corporation__list" id="special-sales"></ul>
 				<ul class="corporation__list" id="expeditions-due"></ul>
+				<ul class="corporation__list" id="deliveries-due"></ul>
 				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
 			</section>
 			<!-- R102 (D24): the Opportunity phase, played in turn order. Static markup; lists are redrawn only when what they show changes. -->
@@ -1587,6 +1588,7 @@
 		hullRows,
 		lateBuyWarning,
 		moduleList,
+		moduleMoveActions,
 		refitOptions,
 		canSuggest,
 		saleConfirmText,
@@ -1762,7 +1764,7 @@
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
-	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
+	import { deliveriesDue, expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -2831,6 +2833,9 @@
 			}
 			refit.push(...remove.map(option => element('div', { class: 'fleet-ship__row' },
 				shipButton('quiet-button', `Remove one ${option.name} (+${option.refund} HT)`, () => refitShip(game, own, 'DELETE', option.id, option)))));
+			// R122, R123: modules to and from the warehouse here, and military ones between ships in a lawless Port.
+			refit.push(...moduleMoveActions(own).map(action => element('div', { class: 'fleet-ship__row' },
+				shipButton('quiet-button', action.label, () => moveModule(game, own, action)))));
 			if (crew.length) {
 				// R89: the whole crew replaced by one of another class; the current class is in the ship's stats above.
 				const id = `fleet-crew-${index}`;
@@ -2876,6 +2881,13 @@
 			? `Fitted a ${option.name} module to ${ship.name} for ${option.cost} HT.`
 			: `Removed a ${option.name} module from ${ship.name}; ${option.refund} HT back.`;
 		await fleetAction(game, request, () => done);
+	}
+
+	/** R122, R123: one module stored, fitted from the warehouse or moved to another ship; free, so only Fleet changes. */
+	async function moveModule(game, ship, action) {
+		const url = `/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}/modules/${action.path}`;
+		const request = api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action.body ?? {}) });
+		await fleetAction(game, request, () => action.done);
 	}
 
 	/** S05-1: the sale, confirmed; the line after it says again what went to the warehouse and what was lost (R66). */
@@ -5674,7 +5686,8 @@
 		const forms = opportunityForms(game);
 		const sales = specialSales(game);
 		const due = expeditionsDue(game);
-		$('opportunities-panel').hidden = !opportunity || (forms.length === 0 && sales.length === 0 && due.length === 0);
+		const deliveries = deliveriesDue(game);
+		$('opportunities-panel').hidden = !opportunity || (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0);
 		if ($('opportunities-panel').hidden) {
 			return;
 		}
@@ -5736,6 +5749,11 @@
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
 			button.addEventListener('click', () => gameAction(sale.kind === 'FURS' ? 'opportunity/furs' : 'opportunity/black-market',
 				{ system: sale.system, goods: sale.goods }, 'opportunities-message', 'Sold.'));
+			return element('li', {}, button);
+		}));
+		drawOnce('deliveries-due', JSON.stringify([deliveries, myTurn]), () => deliveries.map(delivery => {
+			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, delivery.label);
+			button.addEventListener('click', () => gameAction('opportunity/deliveries', { ship: delivery.ship }, 'opportunities-message', 'Delivered.'));
 			return element('li', {}, button);
 		}));
 		drawOnce('expeditions-due', JSON.stringify([due, myTurn]), () => due.map(expedition => {

@@ -258,3 +258,32 @@ export function refitOptions(shipyard, ship) {
 		}));
 	return { add, remove, crew };
 }
+
+/**
+ * R122, R123: what the viewer can do with [ship]'s modules where it is, as the server lists it (`moduleMoves`): store a
+ * legal one in the warehouse there, fit one stored there, or move a military one to another of their ships in that Port.
+ * Each is a button: its label, the path under the ship's `modules`, the body and the line shown once it's done.
+ */
+export function moduleMoveActions(ship) {
+	const moves = ship.moduleMoves ?? { store: [], fit: [], move: [] };
+	return [
+		...moves.store.map(module => ({
+			label: `Store one ${module.name} in the warehouse`,
+			path: `${encodeURIComponent(module.id)}/store`,
+			body: null,
+			done: `Stored a ${module.name} module from ${ship.name} in the warehouse.`,
+		})),
+		...moves.fit.map(module => ({
+			label: `Fit a stored ${module.name}`,
+			path: 'stored',
+			body: { module: module.id },
+			done: `Fitted a stored ${module.name} module to ${ship.name}.`,
+		})),
+		...moves.move.map(transfer => ({
+			label: `Move one ${transfer.name} to ${transfer.toShip}`,
+			path: `${encodeURIComponent(transfer.module)}/move`,
+			body: { ship: transfer.toShip },
+			done: `Moved a ${transfer.name} module from ${ship.name} to ${transfer.toShip}.`,
+		})),
+	];
+}
