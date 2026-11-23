@@ -100,6 +100,7 @@ class TurnItemTest {
 			)
 		),
 		recruitedBy = listOf("ada@example.com"),
+		challengedBy = listOf("grace@example.com"),
 		agentOffers = listOf(AgentOffer(2, "ada@example.com", "grace@example.com", Agent.NOVAK, 35)),
 		interestPaid = listOf("grace@example.com"),
 		limpyAsk = "ada@example.com",
@@ -221,6 +222,7 @@ class TurnItemTest {
 					doneOpportunity = emptyList(),
 					sabotages = emptyList(),
 					recruitedBy = emptyList(),
+					challengedBy = emptyList(),
 					agentOffers = emptyList(),
 					interestPaid = emptyList(),
 					limpyAsk = null,
@@ -255,6 +257,7 @@ class TurnItemTest {
 			doneOpportunity = listOf("ada@example.com"),
 			sabotages = emptyList(),
 			recruitedBy = listOf("grace@example.com"),
+			challengedBy = listOf("ada@example.com"),
 			agentOffers = listOf(AgentOffer(1, "ada@example.com", "grace@example.com", Agent.WOLF, 30)),
 			interestPaid = listOf("ada@example.com"),
 			limpyAsk = null,
@@ -319,6 +322,7 @@ class TurnItemTest {
 				"doneOpportunity" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"sabotages" to AttributeValue.fromL(emptyList()),
 				"recruitedBy" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
+				"challengedBy" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"agentOffers" to AttributeValue.fromL(
 					listOf(
 						AttributeValue.fromM(
@@ -535,6 +539,7 @@ class TurnItemTest {
 				doneOpportunity = emptyList(),
 				sabotages = emptyList(),
 				recruitedBy = emptyList(),
+				challengedBy = emptyList(),
 				agentOffers = emptyList(),
 				interestPaid = emptyList(),
 				limpyAsk = null,

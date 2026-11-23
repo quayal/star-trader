@@ -230,4 +230,17 @@ describe('the seizure card (creator, 2026-11-23)', () => {
 		]);
 		assert.ok(titles.every(card => card.tone === 'alert'));
 	});
+	it('gives a challenge a card for both players, worded for each, and a toast for the others (R126)', () => {
+		const lines = ['Orion challenged Vega’s Dictator of CHIPS at Tau Ceti (political 8 vs 4), rolled 2: Vega loses the position', 'Vega’s reputation: −2 …'];
+		const challenge = kind => game(lines.map(text => ({ turn: 2, text, notice: { kind, system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds: ['p1', 'p3'], round: null, interception: null } })));
+		const card = (kind, id) => noticeCards(challenge(kind), 0, id);
+
+		assert.deepEqual(card('CHALLENGE_SUCCEEDED', 'p1').map(c => [c.title, c.tone, c.lines.length]), [['Your challenge succeeded', 'rise', 2]]);
+		assert.deepEqual(card('CHALLENGE_SUCCEEDED', 'p3').map(c => [c.title, c.tone]), [['You lost a market position', 'alert']]);
+		assert.deepEqual(card('CHALLENGE_FAILED', 'p1').map(c => [c.title, c.tone]), [['Your challenge failed', 'alert']]);
+		assert.deepEqual(card('CHALLENGE_FAILED', 'p3').map(c => [c.title, c.tone]), [['You held your market position', 'rise']]);
+		assert.deepEqual(card('CHALLENGE_SUCCEEDED', 'p2'), []);
+		assert.deepEqual(toasts(challenge('CHALLENGE_SUCCEEDED').log, 0, 'p2').shown, lines);
+		assert.deepEqual(toasts(challenge('CHALLENGE_SUCCEEDED').log, 0, 'p1').shown, []);
+	});
 });

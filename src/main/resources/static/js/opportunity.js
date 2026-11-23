@@ -49,7 +49,7 @@ export function opportunityStatusText(game, playerId) {
 		return owed.length ? `Waiting for ${owed.map(id => corporation(game, id)).join(', ')} to place sabotage hits.` : '';
 	}
 	if (game.turn.opportunist === playerId) {
-		return "It's your Opportunity turn: collect first, then sabotage or deal in agents, and say when you're done.";
+		return "It's your Opportunity turn: collect first, then sabotage, challenge a market position or deal in agents, and say when you're done.";
 	}
 	if ((game.turn.doneOpportunity ?? []).includes(playerId)) {
 		return `You're done with opportunities. ${corporation(game, game.turn.opportunist)} is on turn.`;
@@ -132,6 +132,46 @@ export function sabotageModifiers(criminal, target, shorty = 0) {
 export function shortyBonus(game, target, bonus) {
 	const shorty = (game.you?.agents ?? []).find(agent => agent.agent === 'SHORTY');
 	return target && shorty && shorty.placeSystemName === target.systemName ? bonus ?? 0 : 0;
+}
+
+// ── Challenging a market position (R126) ──
+
+const TIER_NAMES = { RETAILER: 'Retailer', WHOLESALER: 'Wholesaler', DICTATOR: 'Dictator' };
+
+/**
+ * Every market position of the other players the viewer could challenge (R126), `{ value, playerId, system, goods,
+ * label }`, `value` naming it in a select.
+ */
+export function challengeTargets(game, playerId) {
+	return game.players.filter(p => p.id !== playerId).flatMap(p => (p.marketPositions ?? []).map(position => ({
+		playerId: p.id,
+		system: position.system,
+		goods: position.goods,
+		value: [p.id, position.system, position.goods].join('|'),
+		label: `${p.corporationName} — ${TIER_NAMES[position.tier] ?? position.tier} of ${position.goods} at ${systemName(game, position.system)}`,
+	})));
+}
+
+/**
+ * The odds of challenging [target] with [kind] (`POLITICAL` or `BUSINESS`), as the server works them out (R126): the
+ * difference of the viewer's level and the target player's, and whether a d6 can win. `{ difference, canSucceed, text }`.
+ */
+export function challengeOdds(game, playerId, target, kind, minDifference = 2) {
+	const level = (id) => game.players.find(p => p.id === id)?.connections?.[kind.toLowerCase()] ?? 0;
+	const mine = level(playerId);
+	const theirs = level(target.playerId);
+	const difference = mine - theirs;
+	const name = kind === 'POLITICAL' ? 'Political' : 'Business';
+	const canSucceed = difference >= minDifference;
+	const wins = difference - 1 === 1 ? '1' : `1–${difference - 1}`;
+	let text = `${name} ${mine} vs ${theirs}: a difference of ${difference} can't win; you need at least ${minDifference}.`;
+	if (canSucceed) {
+		text = difference > 6
+			? `${name} ${mine} vs ${theirs}: any d6 lowers their position a tier and costs them reputation.`
+			: `${name} ${mine} vs ${theirs}: a d6 of ${wins} lowers their position a tier and costs them reputation; `
+				+ `a higher roll costs you its excess over ${difference - 1} (a ${difference + 1} costs 2).`;
+	}
+	return { difference, canSucceed, text };
 }
 
 /** One of the viewer's sabotages as their own result line (R101): the rolls and what came of them. */

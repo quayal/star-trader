@@ -18,6 +18,7 @@ const rules = {
 	shortySabotageBonus: 4,
 	sabotage: [{ from: null, effect: 0, reputationLoss: 0 }, { from: 7, effect: 0, reputationLoss: 10 }, { from: 21, effect: 10, reputationLoss: null }],
 	sabotageBlame: 8,
+	challenge: { fee: 20, targetReputationLoss: 2, minDifference: 2 },
 	reputation: { start: 20, max: 40, recovery: 3, recoveryUpTo: 17, buyCost: 20, bonus: { 25: 5, 27: 10 } },
 	hulls: [
 		{ name: 'Clarinet', price: 160, moduleCapacity: 5, crew: 1, cargoSpaces: 0, weapons: 3, shields: 2, intercept: 2, repairCost: 20, military: false, aerodynamic: false },

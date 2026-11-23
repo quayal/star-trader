@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.AgentOfferView
+import dev.adriangrzebyk.trader.game.ConnectionKind
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.LoanView
 import dev.adriangrzebyk.trader.game.MarketPrices
@@ -138,10 +139,10 @@ data class YourAgentResponseDto(
 	)
 }
 
-/** What the viewer did and may do this Opportunity (R97, R103). */
-data class YourOpportunityResponseDto(val sabotaged: Boolean, val recruited: Boolean, val collected: Boolean) {
+/** What the viewer did and may do this Opportunity (R97, R103, R126). */
+data class YourOpportunityResponseDto(val sabotaged: Boolean, val recruited: Boolean, val challenged: Boolean, val collected: Boolean) {
 
-	constructor(view: OpportunityView) : this(view.sabotaged, view.recruited, view.collected)
+	constructor(view: OpportunityView) : this(view.sabotaged, view.recruited, view.challenged, view.collected)
 }
 
 /**
@@ -315,3 +316,21 @@ data class AgentOfferResponseDto(
 
 /** `{ act }`: act as Dictator through Limpy, or pass (R108). */
 data class LimpyRequestDto(val act: Boolean? = null)
+
+/** `{ targetPlayerId, system, goods, kind }`: challenge a market position of another player with `POLITICAL` or `BUSINESS` connections (R126). */
+data class ChallengeRequestDto(
+	val targetPlayerId: String? = null,
+	val system: String? = null,
+	val goods: String? = null,
+	val kind: String? = null
+) {
+
+	/** The system named, or null when it isn't one. */
+	fun starSystem(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+
+	/** The goods named, or null when they aren't any. */
+	fun tradedGoods(): Goods? = Goods.entries.firstOrNull { it.name == goods }
+
+	/** The connection named, or null when it isn't one. */
+	fun connectionKind(): ConnectionKind? = ConnectionKind.entries.firstOrNull { it.name == kind }
+}
