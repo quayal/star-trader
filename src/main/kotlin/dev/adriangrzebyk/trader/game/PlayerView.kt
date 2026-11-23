@@ -50,6 +50,7 @@ data class PlayerView(
 	val tipOffs: List<TipOffView> = emptyList(),
 	val landingOdds: Map<String, LandingOdds> = emptyMap(),
 	val jumpChances: Map<String, Map<StarSystem, JumpChance>> = emptyMap(),
+	val moduleMoves: Map<String, ModuleMoves> = emptyMap(),
 	val turnNumber: Int = 0
 )
 

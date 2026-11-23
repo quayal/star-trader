@@ -88,12 +88,12 @@
 	/* Typography (R01.2; 12 px floor) */
 	--font-display: 'Orbitron', sans-serif; /* R01.2 — titles, badges, numerals; not body text */
 	--font-body: 'Rajdhani', sans-serif;    /* R01.2 — body and labels */
-	--text-caption: 12px;                   /* R01.2 floor */
-	--text-body: 14px;
-	--text-value: 16px;
-	--text-title: 20px;
-	--text-heading: 24px;
-	--text-display: 32px;
+	--text-caption: 13px;                   /* R01.2 floor; every size +1 px (creator, 2026-11-23) */
+	--text-body: 15px;
+	--text-value: 17px;
+	--text-title: 21px;
+	--text-heading: 25px;
+	--text-display: 33px;
 
 	/* Spacing (scale 4, 8, 12, 16, 24, 32, 48) */
 	--space-hairline: 4px;                  /* pick — tight inline gaps (icon to text, badge padding) */

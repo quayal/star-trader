@@ -11,6 +11,7 @@ import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
 import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.news.SpecialLot
+import dev.adriangrzebyk.trader.game.news.TipOff
 import dev.adriangrzebyk.trader.game.news.TurnConditions
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -147,5 +148,19 @@ class GameSmugglingTest {
 		// security 7 + 1 this turn
 		val held = epidemic.landShip("grace@example.com", ShipLocation.PLANET, FakeDice(8, 2))
 		assertThat(grace(held).ship("Meridian")!!.location).isEqualTo(ShipLocation.SPACE)
+	}
+
+	@Test
+	fun shouldNotDeliverWhenAShipLandsInItsDestinationPort() {
+		// R121: a delivery is completed in the Opportunity phase, not on landing
+		val carrying = withGrace(jumping) { player ->
+			player.copy(ships = player.ships.map { if (it.name == "Meridian") it.withDelivery(TipOff.O9, Module.CARGO) else it })
+		}
+		val arrived = carrying.jumpShip("grace@example.com", "Meridian", EPSILON_ERIDANI, JUMPS_SUCCEED)
+
+		val landed = arrived.landShip("grace@example.com", ShipLocation.PORT, FakeDice())
+
+		assertThat(grace(landed).ship("Meridian")!!.deliveryJob).isEqualTo(TipOff.O9)
+		assertThat(grace(landed).money).isEqualTo(grace(carrying).money)
 	}
 }

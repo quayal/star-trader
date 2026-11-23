@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { expeditionsDue, opportunityForms, specialSales, opportunitiesInAction } from '../../main/resources/static/js/opportunities.js';
+import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, specialSales } from '../../main/resources/static/js/opportunities.js';
 
 const ME = 'me';
 
@@ -121,5 +121,20 @@ describe('opportunities in action (creator, 2026-11-23)', () => {
 			{ ship: 'Corvid', where: 'on the expedition', what: 'Scientific expedition', next: 'Back in turn 7' },
 		]);
 		assert.deepEqual(opportunitiesInAction({ players: [], you: { ships: [] } }), []);
+	});
+});
+
+describe('deliveries due (R121)', () => {
+	it('offers a Deliver button only for ships the server says can deliver', () => {
+		const game = { you: { ships: [
+			{ name: 'Wayfarer', canDeliver: true, deliveryJob: 'transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)' },
+			{ name: 'Lantern', canDeliver: false, deliveryJob: 'transport an envoy and his team from Epsilon Eridani to Mu Herculis (200 HT)' },
+			{ name: 'Corvid', canDeliver: false, deliveryJob: null },
+		] } };
+
+		assert.deepEqual(deliveriesDue(game), [
+			{ ship: 'Wayfarer', label: 'Deliver with Wayfarer: transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)' },
+		]);
+		assert.deepEqual(deliveriesDue({}), []);
 	});
 });

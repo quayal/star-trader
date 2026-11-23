@@ -35,6 +35,10 @@ enum class Hull(
 	/** Whether this hull can be bought at a shipyard (R61): civilian only; a military one comes only through an opportunity (R56). */
 	fun isForSale(): Boolean = !military
 
+	/** Whether [modules] fit this hull (R52): within its capacity, with at most one Safe jump. */
+	fun fits(modules: List<Module>): Boolean =
+		modules.count { it.takesModuleCapacity } <= moduleCapacity && modules.count { it == Module.SAFE_JUMP } <= 1
+
 	/**
 	 * Refuses [modules] this hull can't take (R52): more than [moduleCapacity] of those that take capacity, or a second
 	 * Safe jump, which takes none but a ship has only one of.

@@ -15,7 +15,6 @@ import dev.adriangrzebyk.trader.game.loan.LoanCollection
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import dev.adriangrzebyk.trader.game.loan.SeizedUnits
 import dev.adriangrzebyk.trader.game.news.Expedition
-import dev.adriangrzebyk.trader.game.news.OpportunityTerms
 import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOff
@@ -133,15 +132,21 @@ data class Player(
 		return withShip(ship.withDelivery(tipOff, space))
 	}
 
+	/** The public log line of the delivery aboard their ship [shipName] (R114): "Orion Freight delivered exotic plants to Epsilon Eridani". */
+	fun deliveredLog(shipName: String): String {
+		val terms = ship(shipName)?.deliveryTerms() ?: throw InvalidGameOperationException("$shipName carries no delivery.")
+		return "$corporationName delivered ${terms.cargo} to ${terms.to.displayName}"
+	}
+
 	/**
-	 * This player once their ship [shipName] delivered its job (R114), when it's in the destination Port: paid and its
-	 * reputation raised; null when it carries nothing for here.
+	 * This player once their ship [shipName] delivered its job (R114, R121) in the destination Port: paid and its reputation
+	 * changed. Refused when it carries none or isn't in that Port.
 	 */
-	fun delivered(shipName: String): Player? {
-		val ship = ship(shipName) ?: return null
-		val terms = ship.deliveryJob?.opportunity as? OpportunityTerms.Delivery ?: return null
-		if (!ship.isInPortAt(terms.to)) {
-			return null
+	fun deliver(shipName: String?): Player {
+		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		val terms = ship.deliveryTerms() ?: throw InvalidGameOperationException("${ship.name} carries no delivery.")
+		if (!ship.canDeliver()) {
+			throw InvalidGameOperationException("${ship.name} must be in ${terms.to.displayName}'s Port to deliver.")
 		}
 		return withShip(
 			ship.delivered()
@@ -658,6 +663,71 @@ data class Player(
 			throw InvalidInvestmentException("A class ${crewClass.name} crew for ${ship.name} costs $cost HT; you have $money HT.")
 		}
 		return pay(cost, "Class ${crewClass.name} crew for ${ship.name}").withShip(replaced)
+	}
+
+	/**
+	 * This player after taking one legal [module] off their ship [shipName] in Port and storing it in their warehouse there
+	 * (R122): free, nothing paid back.
+	 */
+	fun storeModule(shipName: String, module: Module): Player {
+		val ship = shipInPort(shipName)
+		val warehouse = warehouseAt(ship.system) ?: throw InvalidInvestmentException("You have no warehouse at ${ship.system.displayName}.")
+		return withWarehouse(warehouse.withModuleStored(module)).withShip(ship.withModuleTakenOff(module))
+	}
+
+	/** This player after fitting one [module] stored in their warehouse to their ship [shipName] in that Port (R122): free. */
+	fun fitStoredModule(shipName: String, module: Module): Player {
+		val ship = shipInPort(shipName)
+		val warehouse = warehouseAt(ship.system) ?: throw InvalidInvestmentException("You have no warehouse at ${ship.system.displayName}.")
+		return withWarehouse(warehouse.withModuleTaken(module)).withShip(ship.withModuleFitted(module))
+	}
+
+	/**
+	 * This player after moving one military [module] from their ship [fromShip] to their ship [toShip], both in Port at a
+	 * system that admits military ships (R123): free, the crew coming along. A legal module goes through a warehouse (R122).
+	 */
+	fun moveMilitaryModule(fromShip: String, toShip: String?, module: Module): Player {
+		val from = shipInPort(fromShip)
+		val to = shipInPort(toShip ?: throw InvalidInvestmentException("Choose the ship it goes to."))
+		when {
+			from.name == to.name -> throw InvalidInvestmentException("Choose two different ships.")
+			from.system != to.system -> throw InvalidInvestmentException("${from.name} and ${to.name} aren't in the same port.")
+			!module.military -> throw InvalidInvestmentException("${module.displayName} is legal: move it through your warehouse.")
+			!from.system.locations.admitsMilitaryShips() -> throw InvalidInvestmentException(
+				"Military modules change ships only in a Port with legal system 1 or 2; ${from.system.displayName}'s is " +
+					"${from.system.locations.legalSystem}."
+			)
+		}
+		return withShip(from.withModuleTakenOff(module)).withShip(to.withModuleFitted(module))
+	}
+
+	/** What their ship [shipName] can do with its modules where it is now (R122, R123); none out of port. */
+	fun moduleMoves(shipName: String): ModuleMoves {
+		val ship = ship(shipName)?.takeIf { it.isInPort() } ?: return ModuleMoves.NONE
+		val warehouse = warehouseAt(ship.system)
+		val canComeOff = ship.modules.distinct().filter { ship.canTakeOff(it) }
+		val storable = if (warehouse?.hasRoomForModule() == true) canComeOff.filterNot { it.military } else emptyList()
+		val stored = warehouse?.modules.orEmpty().distinct().filter { ship.hasRoomFor(it) }
+		val others = if (ship.system.locations.admitsMilitaryShips()) {
+			ships.filter {
+				it.name != ship.name && it.isInPortAt(ship.system)
+			}
+		} else {
+			emptyList()
+		}
+		val transfers = others.flatMap { other ->
+			canComeOff.filter { it.military && other.hasRoomFor(it) }.map { ModuleTransfer(it, other.name) }
+		}
+		return ModuleMoves(storable, stored, transfers)
+	}
+
+	/** Their ship [shipName], once checked that it's theirs and in Port, where modules move (R122, R123). */
+	private fun shipInPort(shipName: String): Ship {
+		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
+		if (!ship.isInPort()) {
+			throw InvalidInvestmentException("${ship.name} must be in port to move modules.")
+		}
+		return ship
 	}
 
 	/** Their ship [shipName], once checked that it's theirs and in port or in the yard, where refits happen (R65). */

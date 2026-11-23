@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { reputationEffect, statusItems } from '../../main/resources/static/js/status.js';
+import { corporationName, reputationEffect, statusItems } from '../../main/resources/static/js/status.js';
 
 const game = (me = {}) => ({
 	you: { id: 'me', money: 240 },
@@ -24,5 +24,15 @@ describe('the status strip (playtest, 2026-11-21)', () => {
 
 	it('is empty before the viewer has loaded', () => {
 		assert.deepEqual(statusItems({ players: [] }, 30), []);
+	});
+});
+
+describe('the corporation in the top bar (creator, 2026-11-23)', () => {
+	it('names the viewer\'s own corporation, and nothing before their data has loaded', () => {
+		const game = { you: { id: 'p2' }, players: [{ id: 'p1', corporationName: 'Orion Freight' }, { id: 'p2', corporationName: 'Vega Lines' }] };
+
+		assert.equal(corporationName(game), 'Vega Lines');
+		assert.equal(corporationName({ players: game.players }), '');
+		assert.equal(corporationName({}), '');
 	});
 });

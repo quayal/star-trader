@@ -67,7 +67,7 @@ sealed interface OpportunityTerms {
 
 	/**
 	 * R114: carry [cargo] from [from]'s Port to [to]'s Port in one whole [space] module, paid [payment] HT and [reputation]
-	 * on arrival; [minReputation] to accept.
+	 * once delivered there in the Opportunity phase (R121); [minReputation] to accept.
 	 */
 	data class Delivery(
 		val cargo: String,

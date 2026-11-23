@@ -20,6 +20,7 @@ import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Module
+import dev.adriangrzebyk.trader.game.ModuleMoves
 import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
@@ -637,7 +638,14 @@ data class YouResponseDto(
 	private constructor(view: PlayerView, id: String, player: Player, ids: PlayerIds) : this(
 		id,
 		player.money,
-		player.ships.map { YourShipResponseDto(it, view.landingOdds.getValue(it.name), view.jumpChances.getValue(it.name)) },
+		player.ships.map {
+			YourShipResponseDto(
+				it,
+				view.landingOdds.getValue(it.name),
+				view.jumpChances.getValue(it.name),
+				view.moduleMoves.getValue(it.name)
+			)
+		},
 		view.offers.map { YourOfferResponseDto(it) },
 		view.untradedOffers.map { YourOfferResponseDto(it) },
 		view.bid?.amount,
@@ -779,7 +787,8 @@ data class YourWarehouseResponseDto(
 	val blocks: Int,
 	val cargoSpaces: Int,
 	val cargo: Map<String, Int>,
-	val cargoUsed: Int
+	val cargoUsed: Int,
+	val modules: List<StoredModuleResponseDto>
 ) {
 
 	constructor(warehouse: Warehouse) : this(
@@ -788,9 +797,42 @@ data class YourWarehouseResponseDto(
 		warehouse.blocks,
 		warehouse.cargoSpaces(),
 		warehouse.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
-		warehouse.cargoSpacesUsed()
+		warehouse.cargoSpacesUsed(),
+		warehouse.storedModules().map { (module, count) -> StoredModuleResponseDto(module, count) }
 	)
 }
+
+/** A module kind stored in a warehouse (R122) and how many of it. */
+data class StoredModuleResponseDto(val id: String, val name: String, val count: Int) {
+
+	constructor(module: Module, count: Int) : this(module.name, module.displayName, count)
+}
+
+/**
+ * What one of the viewer's ships can do with its modules where it is (R122, R123): the modules it can [store] in the
+ * warehouse there, those stored there it can [fit], and the military ones it can [move] to another ship of theirs.
+ */
+data class ModuleMovesResponseDto(
+	val store: List<ModuleNameResponseDto>,
+	val fit: List<ModuleNameResponseDto>,
+	val move: List<ModuleTransferResponseDto>
+) {
+
+	constructor(moves: ModuleMoves) : this(
+		moves.storable.map { ModuleNameResponseDto(it) },
+		moves.stored.map { ModuleNameResponseDto(it) },
+		moves.transfers.map { ModuleTransferResponseDto(it.module.name, it.module.displayName, it.toShip) }
+	)
+}
+
+/** A module's [id] (its `Module` constant) and [name]. */
+data class ModuleNameResponseDto(val id: String, val name: String) {
+
+	constructor(module: Module) : this(module.name, module.displayName)
+}
+
+/** A military module that can move to the ship [toShip] (R123). */
+data class ModuleTransferResponseDto(val module: String, val name: String, val toShip: String)
 
 /**
  * What the viewer may buy in Investment once they have collected (R45, R46, E06-S04, E06-S05); no ship is needed for any of
@@ -1174,11 +1216,16 @@ data class YourShipResponseDto(
 	val landing: LandingOddsResponseDto,
 	val specialLots: List<SpecialLotResponseDto>,
 	val deliveryJob: String?,
-	val contraband: Boolean
+	val contraband: Boolean,
+	val canDeliver: Boolean,
+	val moduleMoves: ModuleMovesResponseDto
 ) {
 
-	/** [odds] are its chances on its system's Planet this turn (R118), [chances] its jump chances as the roll counts them. */
-	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>) : this(
+	/**
+	 * [odds] are its chances on its system's Planet this turn (R118), [chances] its jump chances as the roll counts them,
+	 * [moves] what it can do with its modules where it is (R122, R123).
+	 */
+	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>, moves: ModuleMoves) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1197,7 +1244,9 @@ data class YourShipResponseDto(
 		LandingOddsResponseDto(odds),
 		ship.specialLots.map { SpecialLotResponseDto(it) },
 		ship.deliveryJob?.opportunity?.description(),
-		ship.isContraband()
+		ship.isContraband(),
+		ship.canDeliver(),
+		ModuleMovesResponseDto(moves)
 	)
 }
 
