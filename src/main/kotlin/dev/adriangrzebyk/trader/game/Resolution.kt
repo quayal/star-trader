@@ -88,7 +88,7 @@ data class Resolution(
 		val started = listOfNotNull("$label: $market".takeIf { before?.startingCounter == null }).map { ResolutionLine.event(it) }
 		val traded = trades.drop(before?.trades?.size ?: 0).flatMap { trade ->
 			listOf(ResolutionLine(trade.logText(names), trade.record(), null)) +
-				listOfNotNull(trade.positionLogText(good, names)?.let { ResolutionLine(it, null, trade.marketRise()) })
+				listOfNotNull(trade.positionLogText(good, names)?.let { ResolutionLine(it, null, trade.marketRise(), trade.positionNotice(good)) })
 		}
 		val ended = if (isTradingOver() && before?.isTradingOver() != true) {
 			listOf("${endText()} at $label", checkNotNull(priceText())).map { ResolutionLine.event(it) }

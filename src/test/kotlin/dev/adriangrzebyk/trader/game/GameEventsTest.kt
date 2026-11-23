@@ -107,7 +107,8 @@ class GameEventsTest {
 		val game = takingPlace(TipOff.E12, d6 = listOf(2))
 
 		assertThat(player(game, "grace@example.com").ships.map { it.name }).doesNotContain("Halcyon")
-		assertThat(game.log.map { it.text }).contains("Halcyon (Vega Lines) was lost to the pirates (rolled 2)")
+		assertThat(game.log.first { it.text == "Halcyon (Vega Lines) was lost to the pirates (rolled 2)" }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.LOST_TO_PIRATES, MU_HERCULIS, listOf("grace@example.com")))
 	}
 
 	@Test

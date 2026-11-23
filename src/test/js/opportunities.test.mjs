@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deliveriesDue, expeditionsDue, opportunityForms, specialSales } from '../../main/resources/static/js/opportunities.js';
+import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, specialSales } from '../../main/resources/static/js/opportunities.js';
 
 const ME = 'me';
 
@@ -95,6 +95,32 @@ describe('the Opportunities card (R111–R114)', () => {
 				],
 			},
 		});
+	});
+});
+
+describe('opportunities in action (creator, 2026-11-23)', () => {
+	it('lists goods aboard, deliveries and expeditions with what comes next', () => {
+		const game = {
+			board: [{ id: 'MU_HERCULIS', name: 'Mu Herculis' }, { id: 'TAU_CETI', name: 'Tau Ceti' }],
+			players: [{ id: 'p1', ships: [{ name: 'Wayfarer', system: 'MU_HERCULIS', location: 'PORT' }, { name: 'Lantern', system: 'TAU_CETI', location: 'PLANET' }] }],
+			you: {
+				id: 'p1',
+				ships: [
+					{ name: 'Wayfarer', specialLots: [{ goods: 'FURS', name: 'furs', units: 6, sellAt: 'BETA_HYDRI', sellAtName: 'Beta Hydri', illegal: false }], deliveryJob: null },
+					{ name: 'Lantern', specialLots: [{ goods: 'WEAPONS', name: 'weapons', units: 4, sellAt: 'GAMMA_LEPORIS', sellAtName: 'Gamma Leporis', illegal: true }],
+						deliveryJob: 'transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)' },
+				],
+				expeditions: [{ ship: 'Corvid', returnTurn: 7, due: false }],
+			},
+		};
+
+		assert.deepEqual(opportunitiesInAction(game), [
+			{ ship: 'Wayfarer', where: 'Mu Herculis Port', what: '6 furs', next: 'Sell in Beta Hydri\'s Port' },
+			{ ship: 'Lantern', where: 'Tau Ceti Planet', what: '4 weapons (illegal)', next: 'Sell on Gamma Leporis\'s Planet, on the black market' },
+			{ ship: 'Lantern', where: 'Tau Ceti Planet', what: 'Delivery: transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)', next: 'Deliver in the destination Port' },
+			{ ship: 'Corvid', where: 'on the expedition', what: 'Scientific expedition', next: 'Back in turn 7' },
+		]);
+		assert.deepEqual(opportunitiesInAction({ players: [], you: { ships: [] } }), []);
 	});
 });
 

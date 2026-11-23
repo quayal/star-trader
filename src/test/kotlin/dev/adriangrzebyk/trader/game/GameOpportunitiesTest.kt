@@ -165,6 +165,7 @@ class GameOpportunitiesTest {
 		assertThat(sent.log.map { it.text }).contains("The Bright Reach expedition rolled 3: back in turn 4")
 		val lost = game.takeOpportunity(KIM, 1, TakeOrder(ship = "Bright Reach"), FakeDice(emptyList(), listOf(1)))
 		assertThat(kim(lost).expeditions).isEmpty()
+		assertThat(lost.log.last().notice).isEqualTo(Notice.setback(NoticeKind.EXPEDITION_LOST, TAU_CETI, listOf(KIM)))
 		val back = fixture.with(sent, KIM) { it.copy(expeditions = it.expeditions.map { e -> e.copy(returnTurn = 1) }) }
 		assertThatThrownBy { back.finishOpportunities(KIM) }.hasMessage("Bring your expedition back first: choose the system it returns to.")
 		val returned = back.returnExpedition(KIM, "Bright Reach", BETA_HYDRI, FakeDice(7))

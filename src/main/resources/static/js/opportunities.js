@@ -147,3 +147,39 @@ export function deliveriesDue(game) {
 export function expeditionsDue(game) {
 	return (game.you?.expeditions ?? []).filter(e => e.due);
 }
+
+/**
+ * The viewer's opportunities in action (creator, 2026-11-23), shown on the Opportunity screen in every phase: goods bought
+ * through one and still aboard (R112), delivery jobs under way (R114) and ships away on the expedition (R114), each
+ * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way.
+ */
+export function opportunitiesInAction(game) {
+	const where = Object.fromEntries(positions(game).map(s => [s.name, s]));
+	const at = name => {
+		const place = where[name];
+		return place ? `${systemName(game, place.system)} ${place.location === 'PLANET' ? 'Planet' : place.location === 'SPACE' ? 'Space' : 'Port'}` : '';
+	};
+	const rows = [];
+	for (const ship of game.you?.ships ?? []) {
+		for (const lot of ship.specialLots ?? []) {
+			rows.push({
+				ship: ship.name,
+				where: at(ship.name),
+				what: `${lot.units} ${lot.name}${lot.illegal ? ' (illegal)' : ''}`,
+				next: lot.illegal ? `Sell on ${lot.sellAtName}'s Planet, on the black market` : `Sell in ${lot.sellAtName}'s Port`,
+			});
+		}
+		if (ship.deliveryJob) {
+			rows.push({ ship: ship.name, where: at(ship.name), what: `Delivery: ${ship.deliveryJob}`, next: 'Deliver in the destination Port' });
+		}
+	}
+	for (const expedition of game.you?.expeditions ?? []) {
+		rows.push({
+			ship: expedition.ship,
+			where: 'on the expedition',
+			what: 'Scientific expedition',
+			next: expedition.due ? 'Back this turn: choose its Port' : `Back in turn ${expedition.returnTurn}`,
+		});
+	}
+	return rows;
+}
