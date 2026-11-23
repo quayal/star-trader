@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Warehouse
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
@@ -12,7 +13,8 @@ internal class WarehouseItem(val attributes: Map<String, AttributeValue>) {
 		mapOf(
 			SYSTEM to AttributeValue.fromS(warehouse.system.name),
 			BLOCKS to number(warehouse.blocks),
-			CARGO to AttributeValue.fromM(warehouse.cargo.entries.associate { (goods, units) -> goods.name to number(units) })
+			CARGO to AttributeValue.fromM(warehouse.cargo.entries.associate { (goods, units) -> goods.name to number(units) }),
+			MODULES to AttributeValue.fromL(warehouse.modules.map { AttributeValue.fromS(it.name) })
 		)
 	)
 
@@ -20,12 +22,15 @@ internal class WarehouseItem(val attributes: Map<String, AttributeValue>) {
 		system = StarSystem.valueOf(attributes.attribute(SYSTEM).s()),
 		blocks = attributes.attribute(BLOCKS).n().toInt(),
 		// Items saved before E06-S03 have no cargo; nothing could be stored in a warehouse then (BACKWARD_COMPATIBILITY.md §7).
-		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap()
+		cargo = attributes[CARGO]?.m()?.entries?.associate { (goods, units) -> Goods.valueOf(goods) to units.n().toInt() } ?: emptyMap(),
+		// Items saved before 2026-11-23 have no modules; none could be stored then (R122, BACKWARD_COMPATIBILITY.md §7).
+		modules = attributes[MODULES]?.l()?.map { Module.valueOf(it.s()) } ?: emptyList()
 	)
 
 	private companion object {
 		const val SYSTEM = "system"
 		const val BLOCKS = "blocks"
 		const val CARGO = "cargo"
+		const val MODULES = "modules"
 	}
 }
