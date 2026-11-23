@@ -29,6 +29,10 @@ class OpportunityService(private val gameStore: GameStore, private val dice: Dic
 	/** [callerEmail] completes the delivery aboard their ship [shipName] in its destination Port (R114, R121). */
 	fun deliver(gameId: String, callerEmail: String, shipName: String?): Game = gameStore.update(gameId) { it.deliver(callerEmail, shipName) }
 
+	/** [callerEmail] boards [groups] passenger groups onto their ship [shipName], bound for [to] (R125). */
+	fun takePassengers(gameId: String, callerEmail: String, shipName: String?, to: StarSystem?, groups: Int?): Game =
+		gameStore.update(gameId) { it.takePassengers(callerEmail, shipName, to, groups) }
+
 	/** [callerEmail] sells their illegal [goods] on [system]'s black market (R112). */
 	fun sellOnBlackMarket(gameId: String, callerEmail: String, system: StarSystem?, goods: SpecialGoods?): Game =
 		gameStore.update(gameId) { it.sellOnBlackMarket(callerEmail, system, goods, dice) }

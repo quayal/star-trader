@@ -194,6 +194,16 @@ data class Ship(
 	/** Free passenger seats (R52). */
 	fun freePassengerSeats(): Int = (passengers() - passengerSeatsUsed()).coerceAtLeast(0)
 
+	/**
+	 * How many of [groups] passenger groups bound for [system] this ship delivers (R125) as the next Opportunity opens: all
+	 * of them when it is in that Port, as far as [room] seats go (its working Passenger modules, so a damaged one must be
+	 * repaired by then), and none anywhere else.
+	 */
+	fun passengersDeliveredTo(system: StarSystem, groups: Int, room: Int): Int = if (isInPortAt(system)) minOf(groups, room) else 0
+
+	/** The free passenger seats this ship would have with one [module] fewer (R125): what booked passengers need kept. */
+	fun freeSeatsWithout(module: Module): Int = copy(modules = modules - module).freePassengerSeats()
+
 	/** The spaces of a whole [module] taken by this ship's delivery, if it travels in one (R114). */
 	private fun deliverySpace(module: Module): Int = if (deliveryTerms()?.space == module) module.cargoSpaces + module.passengers else 0
 

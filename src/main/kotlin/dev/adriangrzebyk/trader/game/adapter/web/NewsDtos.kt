@@ -34,6 +34,12 @@ data class TakeOpportunityRequestDto(
 	)
 }
 
+/** Taking passengers (R125): `{ ship, system, groups }`, the destination system and how many groups. */
+data class PassengerRequestDto(val ship: String? = null, val system: String? = null, val groups: Int? = null) {
+
+	fun system(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+}
+
 /** Bringing an expedition back (R114) or selling special goods (R112): `{ ship, system, goods }`. */
 data class SpecialSaleRequestDto(val ship: String? = null, val system: String? = null, val goods: String? = null) {
 

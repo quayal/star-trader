@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Module
+import dev.adriangrzebyk.trader.game.PassengerGroup
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
@@ -83,7 +84,8 @@ class PlayerItemTest {
 			RecruitedAgent(Agent.NOVAK, AgentPosition.Aboard("Wayfarer")),
 			RecruitedAgent(Agent.JB, AgentPosition.OnOwn(StarSystem.TAU_CETI, ShipLocation.PLANET), placeableIn = 3)
 		),
-		ledger = MoneyLedger(4, listOf(MoneyMovement(3, "Sold 6 ISO at Tau Ceti", 72), MoneyMovement(4, "Loan interest", -14)))
+		ledger = MoneyLedger(4, listOf(MoneyMovement(3, "Sold 6 ISO at Tau Ceti", 72), MoneyMovement(4, "Loan interest", -14))),
+		passengerGroups = listOf(PassengerGroup("Meridian", StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, 2))
 	)
 
 	@Test
@@ -122,12 +124,21 @@ class PlayerItemTest {
 			"agents",
 			"ledgerTurn",
 			"ledger",
-			"expeditions"
+			"expeditions",
+			"passengerGroups"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("business").n()).isEqualTo("7")
 		assertThat(attributes.getValue("connectionPoints").n()).isEqualTo("4")
 		assertThat(attributes.getValue("ships").l().map { it.m() }).isEqualTo(player.ships.map { ShipItem(it).attributes })
+	}
+
+	@Test
+	fun shouldReadAPlayerSavedBeforePassengersAsOwingNone() {
+		// R125
+		val attributes = PlayerItem(player).attributes - "passengerGroups"
+
+		assertThat(PlayerItem(attributes).toPlayer().passengerGroups).isEmpty()
 	}
 
 	@Test

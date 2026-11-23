@@ -229,6 +229,17 @@ class GameController(
 		return GameResponseDto(opportunityService.returnExpedition(id, session.email, body.ship, body.system()), session.email)
 	}
 
+	/** The player boards `{ groups }` passenger groups onto `{ ship }`, bound for `{ system }` (R125); `400` when refused. */
+	@PostMapping("/games/{id}/opportunity/passengers")
+	fun takePassengers(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: PassengerRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: PassengerRequestDto()
+		return GameResponseDto(opportunityService.takePassengers(id, session.email, body.ship, body.system(), body.groups), session.email)
+	}
+
 	/** The player sells their illegal `{ goods }` on `{ system }`'s black market (R112). */
 	@PostMapping("/games/{id}/opportunity/black-market")
 	fun sellOnBlackMarket(

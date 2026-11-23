@@ -1169,6 +1169,8 @@
 				<h3 id="opportunities-title">Opportunities</h3>
 				<p class="muted" id="opportunities-note"></p>
 				<div id="opportunity-forms"></div>
+				<!-- R125: passengers, 5 HT a group up front, 10 HT a group if not delivered by the next Opportunity. -->
+				<div id="passenger-forms"></div>
 				<ul class="corporation__list" id="special-sales"></ul>
 				<ul class="corporation__list" id="expeditions-due"></ul>
 				<ul class="corporation__list" id="deliveries-due"></ul>
@@ -1814,7 +1816,7 @@
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { corporationName, statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
-	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, specialSales } from './js/opportunities.js';
+	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -5793,7 +5795,9 @@
 		const sales = specialSales(game);
 		const due = expeditionsDue(game);
 		const deliveries = deliveriesDue(game);
-		$('opportunities-panel').hidden = !opportunity || (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0);
+		const passengers = passengerForms(game);
+		$('opportunities-panel').hidden = !opportunity
+			|| (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0 && passengers.length === 0);
 		if ($('opportunities-panel').hidden) {
 			return;
 		}
@@ -5850,6 +5854,18 @@
 			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
 			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
 				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), element('div', { class: 'agent-move' }, ...fields, take), room);
+		}));
+		drawOnce('passenger-forms', JSON.stringify([passengers, myTurn]), () => passengers.map(form => {
+			const destination = element('select', { class: 'control', 'aria-label': 'Destination' },
+				...form.destinations.map(d => element('option', { value: d.id }, `${d.name} (${d.left} ${d.left === 1 ? 'group' : 'groups'} left)`)));
+			const groups = element('input', { class: 'control price-input', inputmode: 'numeric', value: '1', 'aria-label': `Groups (1–${form.seats})` });
+			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.destinations.length ? {} : { disabled: '' }) }, 'Take passengers');
+			take.addEventListener('click', () => gameAction('opportunity/passengers',
+				{ ship: form.ship, system: destination.value, groups: Number(groups.value) }, 'opportunities-message', 'Passengers aboard.'));
+			return element('div', { class: 'offer-form opportunity-form' },
+				element('p', {}, element('strong', {}, `${form.ship}: passengers from ${form.systemName}`)),
+				element('p', { class: 'muted' }, `${form.seats} free ${form.seats === 1 ? 'seat' : 'seats'}, one per group. 5 HT a group now; Needs reputation 15. 10 HT a group for any group not delivered when the next Opportunity opens (as far as your cash goes): the ship must be in the destination's Port with its Passenger modules repaired. Booked seats can't be given up.`),
+				element('div', { class: 'agent-move' }, destination, groups, take));
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);

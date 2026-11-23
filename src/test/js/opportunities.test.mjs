@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, specialSales } from '../../main/resources/static/js/opportunities.js';
+import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, specialSales } from '../../main/resources/static/js/opportunities.js';
 
 const ME = 'me';
 
@@ -136,5 +136,39 @@ describe('deliveries due (R121)', () => {
 			{ ship: 'Wayfarer', label: 'Deliver with Wayfarer: transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)' },
 		]);
 		assert.deepEqual(deliveriesDue({}), []);
+	});
+});
+
+describe('passengers (R125)', () => {
+	const game = {
+		board: [{ id: 'TAU_CETI', name: 'Tau Ceti' }, { id: 'BETA_HYDRI', name: 'Beta Hydri' }, { id: 'MU_HERCULIS', name: 'Mu Herculis' }],
+		players: [{ id: 'p1', ships: [
+			{ name: 'Wayfarer', system: 'TAU_CETI', location: 'PORT' },
+			{ name: 'Lantern', system: 'TAU_CETI', location: 'PORT' },
+			{ name: 'Corvid', system: 'BETA_HYDRI', location: 'SPACE' },
+		] }],
+		passengerRoutes: [
+			{ from: 'TAU_CETI', to: 'BETA_HYDRI', groups: 7, left: 4 },
+			{ from: 'TAU_CETI', to: 'MU_HERCULIS', groups: 3, left: 0 },
+			{ from: 'BETA_HYDRI', to: 'TAU_CETI', groups: 7, left: 7 },
+		],
+		you: { id: 'p1', ships: [
+			{ name: 'Wayfarer', freeSeats: 3, passengerGroups: [] },
+			{ name: 'Lantern', freeSeats: 0, passengerGroups: [] },
+			{ name: 'Corvid', freeSeats: 2 },
+		], passengerGroups: [{ ship: 'Corvid', to: 'TAU_CETI', toName: 'Tau Ceti', groups: 2 }] },
+	};
+
+	it('offers a form for each ship in a Port with a free seat, with the routes that still have groups', () => {
+		assert.deepEqual(passengerForms(game), [
+			{ ship: 'Wayfarer', system: 'TAU_CETI', systemName: 'Tau Ceti', seats: 3, destinations: [{ id: 'BETA_HYDRI', name: 'Beta Hydri', left: 4 }] },
+		]);
+		assert.deepEqual(passengerForms({ players: [], you: { ships: [] } }), []);
+	});
+
+	it('lists passengers aboard among the opportunities in action, with what is owed if they are not delivered', () => {
+		assert.deepEqual(opportunitiesInAction(game), [
+			{ ship: 'Corvid', where: 'Beta Hydri Space', what: '2 passenger groups for Tau Ceti', next: "The ship must be in Tau Ceti's Port, seats in working order, when the next Opportunity opens, or you pay 20 HT" },
+		]);
 	});
 });

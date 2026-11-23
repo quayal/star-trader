@@ -30,7 +30,8 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * Bidding, then 0. [reputation] is public too (R85). [loan] is their open loan, private like money (R29, R90), or null.
  * [agents] are their special operatives (R103): where they are is public, which they are is theirs alone (R105). [ledger] is
  * their own money history, private like money (R29, playtest 2026-11-20): every change to [money] goes through [pay] or
- * [receive], which record it. [expeditions] are their ships away on the scientific expedition (R114), public.
+ * [receive], which record it. [expeditions] are their ships away on the scientific expedition (R114), public. [passengerGroups] are the passengers they took
+ * this turn and owe delivery of (R125), private.
  */
 data class Player(
 	val email: String,
@@ -47,7 +48,8 @@ data class Player(
 	val loan: Loan?,
 	val agents: List<RecruitedAgent>,
 	val ledger: MoneyLedger = MoneyLedger.START,
-	val expeditions: List<Expedition> = emptyList()
+	val expeditions: List<Expedition> = emptyList(),
+	val passengerGroups: List<PassengerGroup> = emptyList()
 ) {
 
 	init {
@@ -86,6 +88,7 @@ data class Player(
 	fun buySpecial(shipName: String?, lot: SpecialLot, price: Int): Player {
 		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
 		val loaded = ship.withSpecialLot(lot)
+		checkPassengersKeepSeats(loaded)
 		return payFor(lot.units * price, "Bought ${lot.units} ${lot.goods.displayName}").withShip(loaded)
 	}
 
@@ -117,10 +120,79 @@ data class Player(
 	fun fitMilitaryModules(shipName: String?, modules: List<Module>, removed: List<Module> = emptyList()): Player {
 		val ship = ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
 		val fitted = ship.withMilitaryModules(modules, removed)
+		checkPassengersKeepSeats(fitted)
 		val refunded = removed.fold(this) { player, module ->
 			player.receive(module.resaleValue(), "${module.displayName} module removed from ${ship.name}")
 		}
 		return refunded.payFor(modules.sumOf { it.fittingCost(ship.crewClass) }, "Military modules for ${ship.name}").withShip(fitted)
+	}
+
+	/**
+	 * This player after boarding [group] (R125), paid its fare at once: the ship must be theirs, in the origin's Port, with a
+	 * free seat for each group (not counting groups already booked on it).
+	 */
+	fun boardPassengers(group: PassengerGroup): Player {
+		val ship = ship(group.ship) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		if (reputation.value < PassengerGroup.MIN_REPUTATION) {
+			throw InvalidGameOperationException(
+				"Passengers travel only with a corporation of reputation ${PassengerGroup.MIN_REPUTATION} or more; yours is ${reputation.value}."
+			)
+		}
+		if (!ship.isInPortAt(group.from)) {
+			throw InvalidGameOperationException("${ship.name} must be in ${group.from.displayName}'s Port to take passengers.")
+		}
+		if (group.groups > freeSeatsOn(ship)) {
+			throw InvalidGameOperationException("${ship.name} has ${freeSeatsOn(ship)} free passenger seats.")
+		}
+		val booked =
+			passengerGroups.firstOrNull { it.isSameTripAs(group) }?.let { passengerGroups - it + it.plus(group) } ?: (passengerGroups + group)
+		return copy(passengerGroups = booked).receive(group.fare(), "Passengers from ${group.from.displayName} to ${group.to.displayName}")
+	}
+
+	/** The passenger seats of [ship] not yet booked this turn (R125). */
+	fun freeSeatsOn(ship: Ship): Int = (ship.freePassengerSeats() - passengersBookedOn(ship.name)).coerceAtLeast(0)
+
+	/** The passenger groups booked on the ship [shipName] this turn (R125). */
+	private fun passengersBookedOn(shipName: String): Int = passengerGroups.filter { it.ship == shipName }.sumOf { it.groups }
+
+	/**
+	 * Refuses a change that leaves [changed] with fewer free passenger seats than are booked on it (R125): booked passengers are
+	 * never evicted, so slaves, a delivery or taking a Passenger module off wait until they are delivered.
+	 */
+	private fun checkPassengersKeepSeats(changed: Ship) {
+		if (changed.freePassengerSeats() < passengersBookedOn(changed.name)) {
+			throw InvalidGameOperationException("${changed.name} has passengers booked: their seats can't be taken until they are delivered.")
+		}
+	}
+
+	/** The public log line of [group] boarding (R125): "Orion Freight took 2 passenger groups from Beta Hydri to Tau Ceti." */
+	fun boardedLog(group: PassengerGroup): String =
+		"$corporationName took ${group.groups} passenger ${if (group.groups == 1) "group" else "groups"} from ${group.from.displayName} to ${group.to.displayName}."
+
+	/** How many passenger groups this player took this turn on [route] (R125). */
+	fun passengerGroupsOn(route: PassengerRoute): Int = passengerGroups.filter { it.route() == route }.sumOf { it.groups }
+
+	/**
+	 * This player once their passengers were settled as an Opportunity opens (R125). A group is delivered when its ship is in the
+	 * destination's Port with seats left among its working Passenger modules; every other group, for whatever reason (the ship
+	 * was lost, sold or damaged, the jump failed), costs its penalty, as far as the player's cash goes: the rest is forgiven. Nothing goes back to the pool. Each undelivered group
+	 * gets a public line without the amount; delivered ones none.
+	 */
+	fun settlePassengers(): LoggedChange {
+		val room = ships.associate { it.name to it.freePassengerSeats() }.toMutableMap()
+		val undelivered = passengerGroups.map { group ->
+			val delivered = ship(group.ship)?.passengersDeliveredTo(group.to, group.groups, room.getValue(group.ship)) ?: 0
+			room[group.ship] = (room[group.ship] ?: 0) - delivered
+			group.notDelivered(delivered)
+		}.filter { it.groups > 0 }
+		val settled = copy(passengerGroups = emptyList())
+		// A player with no cash left is forgiven the rest (creator, 2026-11-23): money never goes below 0 through the penalty.
+		val charge = minOf(undelivered.sumOf { it.penalty() }, money.coerceAtLeast(0))
+		val charged = if (charge == 0) settled else settled.pay(charge, "Passengers not delivered")
+		val lines = undelivered.map {
+			"$corporationName's ${it.ship} didn't bring ${it.groups} passenger ${if (it.groups == 1) "group" else "groups"} to ${it.to.displayName}."
+		}
+		return LoggedChange(charged, lines)
 	}
 
 	/** This player with their ship [shipName] carrying the delivery of [tipOff] in a whole [space] module (R114); [minReputation] to accept. */
@@ -129,7 +201,9 @@ data class Player(
 		if (reputation.value < minReputation) {
 			throw InvalidGameOperationException("This delivery needs reputation $minReputation; yours is ${reputation.value}.")
 		}
-		return withShip(ship.withDelivery(tipOff, space))
+		val carrying = ship.withDelivery(tipOff, space)
+		checkPassengersKeepSeats(carrying)
+		return withShip(carrying)
 	}
 
 	/** The public log line of the delivery aboard their ship [shipName] (R114): "Orion Freight delivered exotic plants to Epsilon Eridani". */
@@ -648,7 +722,9 @@ data class Player(
 	/** This player after removing one [module] from their ship [shipName] in port or in the yard (R65), paid half its price back. */
 	fun removeModule(shipName: String, module: Module): Player {
 		val ship = shipToRefit(shipName)
-		return receive(module.resaleValue(), "${module.displayName} module removed from ${ship.name}").withShip(ship.withModuleRemoved(module))
+		val removed = ship.withModuleRemoved(module)
+		checkPassengersKeepSeats(removed)
+		return receive(module.resaleValue(), "${module.displayName} module removed from ${ship.name}").withShip(removed)
 	}
 
 	/**
@@ -672,7 +748,9 @@ data class Player(
 	fun storeModule(shipName: String, module: Module): Player {
 		val ship = shipInPort(shipName)
 		val warehouse = warehouseAt(ship.system) ?: throw InvalidInvestmentException("You have no warehouse at ${ship.system.displayName}.")
-		return withWarehouse(warehouse.withModuleStored(module)).withShip(ship.withModuleTakenOff(module))
+		val off = ship.withModuleTakenOff(module)
+		checkPassengersKeepSeats(off)
+		return withWarehouse(warehouse.withModuleStored(module)).withShip(off)
 	}
 
 	/** This player after fitting one [module] stored in their warehouse to their ship [shipName] in that Port (R122): free. */
@@ -698,14 +776,16 @@ data class Player(
 					"${from.system.locations.legalSystem}."
 			)
 		}
-		return withShip(from.withModuleTakenOff(module)).withShip(to.withModuleFitted(module))
+		val off = from.withModuleTakenOff(module)
+		checkPassengersKeepSeats(off)
+		return withShip(off).withShip(to.withModuleFitted(module))
 	}
 
 	/** What their ship [shipName] can do with its modules where it is now (R122, R123); none out of port. */
 	fun moduleMoves(shipName: String): ModuleMoves {
 		val ship = ship(shipName)?.takeIf { it.isInPort() } ?: return ModuleMoves.NONE
 		val warehouse = warehouseAt(ship.system)
-		val canComeOff = ship.modules.distinct().filter { ship.canTakeOff(it) }
+		val canComeOff = ship.modules.distinct().filter { ship.canTakeOff(it) && ship.freeSeatsWithout(it) >= passengersBookedOn(ship.name) }
 		val storable = if (warehouse?.hasRoomForModule() == true) canComeOff.filterNot { it.military } else emptyList()
 		val stored = warehouse?.modules.orEmpty().distinct().filter { ship.hasRoomFor(it) }
 		val others = if (ship.system.locations.admitsMilitaryShips()) {
