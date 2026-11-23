@@ -32,7 +32,8 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 				player.expeditions.map {
 					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromM(ShipItem(it.ship).attributes), RETURN_TURN to number(it.returnTurn)))
 				}
-			)
+			),
+			PASSENGER_GROUPS to AttributeValue.fromL(player.passengerGroups.map { AttributeValue.fromM(PassengerGroupItem(it).attributes) })
 		) + listOfNotNull(player.loan?.let { LOAN to AttributeValue.fromM(LoanItem(it).attributes) })
 	)
 
@@ -65,7 +66,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		// Absent before the expedition (R114): none away.
 		expeditions = attributes[EXPEDITIONS]?.l().orEmpty().map {
 			Expedition(ShipItem(it.m().attribute(SHIP).m()).toShip(), it.m().attribute(RETURN_TURN).n().toInt())
-		}
+		},
+		// Absent before passengers (R125): none owed.
+		passengerGroups = attributes[PASSENGER_GROUPS]?.l().orEmpty().map { PassengerGroupItem(it.m()).toPassengerGroup() }
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -89,6 +92,7 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val LEDGER_TURN = "ledgerTurn"
 		const val LEDGER = "ledger"
 		const val EXPEDITIONS = "expeditions"
+		const val PASSENGER_GROUPS = "passengerGroups"
 		const val SHIP = "ship"
 		const val RETURN_TURN = "returnTurn"
 	}

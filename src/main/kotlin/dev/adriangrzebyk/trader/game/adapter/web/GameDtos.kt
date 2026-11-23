@@ -24,6 +24,8 @@ import dev.adriangrzebyk.trader.game.ModuleMoves
 import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
+import dev.adriangrzebyk.trader.game.PassengerGroup
+import dev.adriangrzebyk.trader.game.PassengerRoute
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PlayerView
 import dev.adriangrzebyk.trader.game.PositionRoll
@@ -75,7 +77,8 @@ data class GameResponseDto(
 	val board: List<SystemResponseDto>,
 	val result: GameResultResponseDto?,
 	val you: YouResponseDto?,
-	val conditions: ConditionsResponseDto?
+	val conditions: ConditionsResponseDto?,
+	val passengerRoutes: List<PassengerRouteResponseDto>
 ) {
 
 	/**
@@ -98,8 +101,21 @@ data class GameResponseDto(
 		StarSystem.entries.map { SystemResponseDto(it, game.prices, game.supplyDemandShifts) },
 		game.result()?.let { GameResultResponseDto(it, ids) },
 		game.viewFor(viewerEmail)?.let { YouResponseDto(it, ids) },
-		game.turn?.let { ConditionsResponseDto(game.news, it.number) }
+		game.turn?.let { ConditionsResponseDto(game.news, it.number) },
+		game.turn?.let { PassengerRoute.all().map { route -> PassengerRouteResponseDto(route, game.passengerGroupsLeft(route)) } }.orEmpty()
 	)
+}
+
+/** A passenger route's groups (R125), public: [groups] on offer each Opportunity and how many are [left] now. */
+data class PassengerRouteResponseDto(val from: String, val to: String, val groups: Int, val left: Int) {
+
+	constructor(route: PassengerRoute, left: Int) : this(route.from.name, route.to.name, route.groups(), left)
+}
+
+/** Passengers the viewer took this turn (R125): [groups] aboard [ship], bound for [to] ([toName]). */
+data class PassengerGroupResponseDto(val ship: String, val to: String, val toName: String, val groups: Int) {
+
+	constructor(group: PassengerGroup) : this(group.ship, group.to.name, group.to.displayName, group.groups)
 }
 
 /**
@@ -629,7 +645,8 @@ data class YouResponseDto(
 	val factorySales: List<FactorySaleResponseDto>,
 	val ledger: List<MoneyMovementResponseDto>,
 	val tipOffs: List<TipOffResponseDto>,
-	val expeditions: List<YourExpeditionResponseDto>
+	val expeditions: List<YourExpeditionResponseDto>,
+	val passengerGroups: List<PassengerGroupResponseDto>
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -643,7 +660,8 @@ data class YouResponseDto(
 				it,
 				view.landingOdds.getValue(it.name),
 				view.jumpChances.getValue(it.name),
-				view.moduleMoves.getValue(it.name)
+				view.moduleMoves.getValue(it.name),
+				player.freeSeatsOn(it)
 			)
 		},
 		view.offers.map { YourOfferResponseDto(it) },
@@ -670,7 +688,8 @@ data class YouResponseDto(
 		player.factories.map { FactorySaleResponseDto(it, view.prices) },
 		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) },
 		view.tipOffs.map { TipOffResponseDto(it) },
-		player.expeditions.map { YourExpeditionResponseDto(it.ship.name, it.returnTurn, it.isDueIn(view.turnNumber)) }
+		player.expeditions.map { YourExpeditionResponseDto(it.ship.name, it.returnTurn, it.isDueIn(view.turnNumber)) },
+		player.passengerGroups.map { PassengerGroupResponseDto(it) }
 	)
 }
 
@@ -1218,14 +1237,15 @@ data class YourShipResponseDto(
 	val deliveryJob: String?,
 	val contraband: Boolean,
 	val canDeliver: Boolean,
-	val moduleMoves: ModuleMovesResponseDto
+	val moduleMoves: ModuleMovesResponseDto,
+	val freeSeats: Int
 ) {
 
 	/**
 	 * [odds] are its chances on its system's Planet this turn (R118), [chances] its jump chances as the roll counts them,
-	 * [moves] what it can do with its modules where it is (R122, R123).
+	 * [moves] what it can do with its modules where it is (R122, R123), and [freeSeats] the passenger seats not booked (R125).
 	 */
-	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>, moves: ModuleMoves) : this(
+	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>, moves: ModuleMoves, freeSeats: Int) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1246,7 +1266,8 @@ data class YourShipResponseDto(
 		ship.deliveryJob?.opportunity?.description(),
 		ship.isContraband(),
 		ship.canDeliver(),
-		ModuleMovesResponseDto(moves)
+		ModuleMovesResponseDto(moves),
+		freeSeats
 	)
 }
 

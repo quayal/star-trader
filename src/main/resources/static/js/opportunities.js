@@ -138,6 +138,22 @@ export function specialSales(game) {
 	return [...sales.values()];
 }
 
+/**
+ * R125: a form for each of the viewer's ships in a Port with a free passenger seat: `{ ship, system, systemName, seats,
+ * destinations: [{ id, name, left }] }`, the routes from that Port with groups left (`game.passengerRoutes`, public).
+ */
+export function passengerForms(game) {
+	const ships = Object.fromEntries((game.you?.ships ?? []).map(s => [s.name, s]));
+	return positions(game).filter(p => p.location === 'PORT' && (ships[p.name]?.freeSeats ?? 0) > 0).map(p => ({
+		ship: p.name,
+		system: p.system,
+		systemName: systemName(game, p.system),
+		seats: ships[p.name].freeSeats,
+		destinations: (game.passengerRoutes ?? []).filter(r => r.from === p.system && r.left > 0)
+			.map(r => ({ id: r.to, name: systemName(game, r.to), left: r.left })),
+	}));
+}
+
 /** R121: the viewer's ships in their delivery's destination Port, each with a Deliver button on their Opportunity turn. */
 export function deliveriesDue(game) {
 	return (game.you?.ships ?? []).filter(ship => ship.canDeliver).map(ship => ({ ship: ship.name, label: `Deliver with ${ship.name}: ${ship.deliveryJob}` }));
@@ -172,6 +188,14 @@ export function opportunitiesInAction(game) {
 		if (ship.deliveryJob) {
 			rows.push({ ship: ship.name, where: at(ship.name), what: `Delivery: ${ship.deliveryJob}`, next: 'Deliver in the destination Port' });
 		}
+	}
+	for (const group of game.you?.passengerGroups ?? []) {
+		rows.push({
+			ship: group.ship,
+			where: at(group.ship) || 'ship lost',
+			what: `${group.groups} passenger ${group.groups === 1 ? 'group' : 'groups'} for ${group.toName}`,
+			next: `The ship must be in ${group.toName}'s Port, seats in working order, when the next Opportunity opens, or you pay ${group.groups * 10} HT`,
+		});
 	}
 	for (const expedition of game.you?.expeditions ?? []) {
 		rows.push({

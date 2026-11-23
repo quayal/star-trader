@@ -186,7 +186,13 @@ data class Game(
 
 	/** [current]'s Trading is over (E05-S07): logged "All goods resolved" in that turn, and Opportunity starts (R44, R102). */
 	private fun endTrading(current: Turn): Game =
-		copy(turn = current.endTrading(), log = log + LogEntry.event(current.number, ALL_GOODS_RESOLVED))
+		copy(turn = current.endTrading(), log = log + LogEntry.event(current.number, ALL_GOODS_RESOLVED)).withPassengersSettled(current.number)
+
+	/** This game once every player's passengers were settled as turn [number]'s Opportunity opens (R125). */
+	private fun withPassengersSettled(number: Int): Game = players.fold(this) { game, player ->
+		val settled = player.settlePassengers()
+		game.withPlayerChanged(settled.player, settled.lines, number)
+	}
 
 	/**
 	 * [current]'s Opportunity is over (R102): Investment starts, and every player's ships bought in an earlier turn leave the
@@ -493,6 +499,33 @@ data class Game(
 		}
 		return withOpportunityTaken(email, tipOff, playerOf(email).fitMilitaryModules(shipName, modules, removed))
 	}
+
+	/**
+	 * [email] boards [groups] passenger groups onto their ship [shipName], in the origin's Port and bound for [to] (R125), on
+	 * their Opportunity turn after Collect: paid the fare at once, public in the log. Refused beyond what is left on the route
+	 * or the ship's free seats.
+	 */
+	fun takePassengers(email: String, shipName: String?, to: StarSystem?, groups: Int?): Game {
+		val current = opportunityAfterCollect(email)
+		val player = playerOf(email)
+		val ship = player.ship(shipName) ?: throw InvalidGameOperationException("Choose one of your ships.")
+		val destination = to ?: throw InvalidGameOperationException("Choose where the passengers go.")
+		if (destination == ship.system) {
+			throw InvalidGameOperationException("Passengers go to another system.")
+		}
+		val count = groups?.takeIf { it >= 1 } ?: throw InvalidGameOperationException("Take at least 1 passenger group.")
+		val route = PassengerRoute(ship.system, destination)
+		if (count > passengerGroupsLeft(route)) {
+			throw InvalidGameOperationException(
+				"Only ${passengerGroupsLeft(route)} passenger groups are left from ${route.from.displayName} to ${destination.displayName}."
+			)
+		}
+		val group = PassengerGroup(ship.name, route.from, route.to, count)
+		return withPlayerChanged(player.boardPassengers(group), listOf(player.boardedLog(group)), current.number)
+	}
+
+	/** How many passenger groups of [route] nobody has taken this Opportunity (R125): public. */
+	fun passengerGroupsLeft(route: PassengerRoute): Int = route.groups() - players.sumOf { it.passengerGroupsOn(route) }
 
 	/** [email] accepts the delivery in [slot] with their ship [shipName] in the pickup Port (R114). */
 	fun acceptDelivery(email: String, slot: Int?, shipName: String?): Game {

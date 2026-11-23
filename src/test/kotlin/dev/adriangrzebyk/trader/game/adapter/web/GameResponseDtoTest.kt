@@ -15,6 +15,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Offer
+import dev.adriangrzebyk.trader.game.PassengerGroup
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
@@ -346,6 +347,23 @@ class GameResponseDtoTest {
 		assertThat(ship.hull).isEqualTo(HullResponseDto("Dagger", military = true, aerodynamic = true))
 		assertThat(ship.modules.single().military).isTrue()
 		assertThat(ship.cargoSpaces).isZero()
+	}
+
+	@Test
+	fun shouldSendEveryRoutesPassengerGroupsToEveryoneButWhatAShipCarriesOnlyToItsOwner() {
+		// R125: how many groups are left is public, what a ship carries is private
+		val host = started.players.first()
+		val boarded = host.copy(passengerGroups = listOf(PassengerGroup("Wayfarer", StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, 2)))
+		val game = started.copy(players = listOf(boarded) + started.players.drop(1))
+
+		val hostView = GameResponseDto(game, "host@example.com")
+		val guestView = GameResponseDto(game, "guest@example.com")
+
+		assertThat(hostView.passengerRoutes).hasSize(30)
+		assertThat(hostView.passengerRoutes).contains(PassengerRouteResponseDto("TAU_CETI", "BETA_HYDRI", 7, 5))
+		assertThat(guestView.passengerRoutes).isEqualTo(hostView.passengerRoutes)
+		assertThat(hostView.you!!.passengerGroups).containsExactly(PassengerGroupResponseDto("Wayfarer", "BETA_HYDRI", "Beta Hydri", 2))
+		assertThat(guestView.you!!.passengerGroups).isEmpty()
 	}
 
 	@Test
