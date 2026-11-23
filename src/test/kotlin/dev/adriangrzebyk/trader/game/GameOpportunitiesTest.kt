@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game
 
 import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
+import dev.adriangrzebyk.trader.board.StarSystem.EPSILON_ERIDANI
 import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
 import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
@@ -179,5 +180,32 @@ class GameOpportunitiesTest {
 			.hasMessage("Bright Reach already carries a delivery.")
 		val carrying = withSeats.withDelivery(TipOff.O22, Module.PASSENGER)
 		assertThat(carrying.freePassengerSeats()).isZero()
+	}
+
+	/** Kim's Bright Reach carrying O9's exotic plants (Gamma Leporis to Epsilon Eridani) at [location] of [system]. */
+	private fun carrying(system: dev.adriangrzebyk.trader.board.StarSystem, location: ShipLocation = ShipLocation.PORT): Game =
+		fixture.with(with(system = system, location = location), KIM) { kim ->
+			kim.copy(ships = kim.ships.map { if (it.name == "Bright Reach") it.withDelivery(TipOff.O9, Module.CARGO) else it })
+		}
+
+	@Test
+	fun shouldDeliverOnTheOpportunityTurnInTheDestinationPort() {
+		// R114, R121: O9 pays 150 HT and +3 reputation
+		val game = carrying(EPSILON_ERIDANI)
+
+		val delivered = game.deliver(KIM, "Bright Reach")
+
+		assertThat(kim(delivered).money).isEqualTo(kim(game).money + 150)
+		assertThat(kim(delivered).reputation.value).isEqualTo(kim(game).reputation.value + 3)
+		assertThat(kim(delivered).ship("Bright Reach")!!.deliveryJob).isNull()
+		assertThat(delivered.log.map { it.text }).contains("Kessler Cargo delivered exotic plants to Epsilon Eridani")
+	}
+
+	@Test
+	fun shouldRefuseToDeliverAwayFromTheDestinationPortOrOutOfTurn() {
+		assertThatThrownBy { carrying(EPSILON_ERIDANI, ShipLocation.SPACE).deliver(KIM, "Bright Reach") }
+			.hasMessage("Bright Reach must be in Epsilon Eridani's Port to deliver.")
+		assertThatThrownBy { with().deliver(KIM, "Bright Reach") }.hasMessage("Bright Reach carries no delivery.")
+		assertThatThrownBy { carrying(EPSILON_ERIDANI).deliver(ADA, "Wayfarer") }.isInstanceOf(NotYourTurnException::class.java)
 	}
 }

@@ -240,6 +240,11 @@ class GameController(
 		return GameResponseDto(opportunityService.sellOnBlackMarket(id, session.email, body.system(), body.goods()), session.email)
 	}
 
+	/** The player completes the delivery aboard `{ ship }` in its destination Port (R114, R121); `400` elsewhere or with none. */
+	@PostMapping("/games/{id}/opportunity/deliveries")
+	fun deliver(@PathVariable id: String, @RequestBody(required = false) request: SpecialSaleRequestDto?, session: Session): GameResponseDto =
+		GameResponseDto(opportunityService.deliver(id, session.email, (request ?: SpecialSaleRequestDto()).ship), session.email)
+
 	/** The player sells their furs in `{ system }`'s Port (R112). */
 	@PostMapping("/games/{id}/opportunity/furs")
 	fun sellFurs(@PathVariable id: String, @RequestBody(required = false) request: SpecialSaleRequestDto?, session: Session): GameResponseDto =
@@ -466,6 +471,47 @@ class GameController(
 	fun removeModule(@PathVariable id: String, @PathVariable ship: String, @PathVariable module: String, session: Session): GameResponseDto {
 		val fitted = moduleNamed(module) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
 		return GameResponseDto(investmentService.removeModule(id, session.email, ship, fitted), session.email)
+	}
+
+	/**
+	 * The player stores one legal module of their ship in Port in their warehouse there (R122), free. `400` for an unknown
+	 * or military module, a ship out of port, no warehouse there or no room in it; `409` outside Investment.
+	 */
+	@PostMapping("/games/{id}/investment/ships/{ship}/modules/{module}/store")
+	fun storeModule(@PathVariable id: String, @PathVariable ship: String, @PathVariable module: String, session: Session): GameResponseDto {
+		val fitted = moduleNamed(module) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.storeModule(id, session.email, ship, fitted), session.email)
+	}
+
+	/**
+	 * The player fits a module stored in their warehouse to their ship in that Port (R122): `{ module }`, free. `400` for an
+	 * unknown module, one not stored there, a ship out of port or without room; `409` outside Investment.
+	 */
+	@PostMapping("/games/{id}/investment/ships/{ship}/modules/stored")
+	fun fitStoredModule(
+		@PathVariable id: String,
+		@PathVariable ship: String,
+		@RequestBody(required = false) request: FitModuleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val module = request?.moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.fitStoredModule(id, session.email, ship, module), session.email)
+	}
+
+	/**
+	 * The player moves one military module from their ship to another of theirs in the same Port, at legal system 1 or 2
+	 * (R123): `{ ship }` names the receiving ship. Free. `400` when the rules refuse it; `409` outside Investment.
+	 */
+	@PostMapping("/games/{id}/investment/ships/{ship}/modules/{module}/move")
+	fun moveMilitaryModule(
+		@PathVariable id: String,
+		@PathVariable ship: String,
+		@PathVariable module: String,
+		@RequestBody(required = false) request: SpecialSaleRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val fitted = moduleNamed(module) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.moveMilitaryModule(id, session.email, ship, request?.ship, fitted), session.email)
 	}
 
 	/**

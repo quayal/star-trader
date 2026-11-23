@@ -195,8 +195,7 @@ data class Ship(
 	fun freePassengerSeats(): Int = (passengers() - passengerSeatsUsed()).coerceAtLeast(0)
 
 	/** The spaces of a whole [module] taken by this ship's delivery, if it travels in one (R114). */
-	private fun deliverySpace(module: Module): Int =
-		if ((deliveryJob?.opportunity as? OpportunityTerms.Delivery)?.space == module) module.cargoSpaces + module.passengers else 0
+	private fun deliverySpace(module: Module): Int = if (deliveryTerms()?.space == module) module.cargoSpaces + module.passengers else 0
 
 	/** What this ship adds to its landing roll (R116): +2 for an Aerodynamic hull, +3 for a working Battle comm module. */
 	fun landingBonus(): Int =
@@ -264,6 +263,53 @@ data class Ship(
 		}
 		return removed.fold(this) { ship, module -> ship.withModuleRemoved(module) }.withFitted(added)
 	}
+
+	/**
+	 * Whether one working [module] can come off to be stored or moved (R122, R123): what's left must still hold the POLY
+	 * and ISO and the passengers aboard.
+	 */
+	fun canTakeOff(module: Module): Boolean = module in workingModules() && copy(modules = modules - module).holdsWhatIsAboard()
+
+	private fun holdsWhatIsAboard(): Boolean = cargoSpaces() >= cargoSpacesUsed() && passengers() >= passengerSeatsUsed()
+
+	/**
+	 * This ship with one working [module] taken off to be stored or moved to another ship (R122, R123): nothing is paid
+	 * back, and its crew goes with it. Refused when it has none, when every one is damaged (repaired first), or when
+	 * what's left couldn't hold the goods or passengers aboard.
+	 */
+	fun withModuleTakenOff(module: Module): Ship {
+		if (module !in modules) {
+			throw InvalidInvestmentException("$name has no ${module.displayName} module.")
+		}
+		if (module !in workingModules()) {
+			throw InvalidInvestmentException("$name's ${module.displayName} module is damaged: repair it first.")
+		}
+		val off = copy(modules = modules - module)
+		if (off.cargoSpaces() < off.cargoSpacesUsed()) {
+			throw InvalidInvestmentException(
+				"$name carries ${cargoSpacesUsed()} units of cargo; without that module it would have only ${off.cargoSpaces()} cargo spaces."
+			)
+		}
+		if (off.passengers() < off.passengerSeatsUsed()) {
+			throw InvalidInvestmentException("$name's passenger seats are taken: without that module it would have too few.")
+		}
+		return off
+	}
+
+	/** Whether the hull has room for one more [module] (R52). */
+	fun hasRoomFor(module: Module): Boolean = hull.fits(modules + module)
+
+	/** This ship with [module] fitted from a warehouse or another ship (R122, R123): free, refused without room (R52). */
+	fun withModuleFitted(module: Module): Ship = withFitted(listOf(module))
+
+	/** The terms of the delivery this ship carries (R114), or null when it carries none. */
+	fun deliveryTerms(): OpportunityTerms.Delivery? = deliveryJob?.opportunity as? OpportunityTerms.Delivery
+
+	/** Where this ship's delivery goes (R114), or null when it carries none. */
+	fun deliveryDestination(): StarSystem? = deliveryTerms()?.to
+
+	/** Whether this ship can complete its delivery now (R121): it's in the destination Port. */
+	fun canDeliver(): Boolean = deliveryDestination()?.let { isInPortAt(it) } ?: false
 
 	/** This ship with [added] modules fitted, refused when they don't fit the hull (R52). */
 	private fun withFitted(added: List<Module>): Ship {
