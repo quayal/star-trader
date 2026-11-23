@@ -5,7 +5,7 @@ import dev.adriangrzebyk.trader.board.StarSystem
 /**
  * What a log line is about, for the pop-up cards (creator, 2026-11-18): an interception try, a moment of a battle, or a sabotage (R101) at
  * [system]; or, with no system and no [players] (everyone), news that took place or an opportunity that expired (playtest,
- * 2026-11-21). [players] are the players involved (the interceptor and the intercepted, or everyone with a ship in the
+ * 2026-11-21); or a roll at [system] that went against [players] ([NoticeKind.SETBACKS], R124). [players] are the players involved (the interceptor and the intercepted, or everyone with a ship in the
  * battle), so the screen can word it for each and leave a battle round to the battle report of those fighting. [round]
  * is set for [NoticeKind.BATTLE_ROUND], [interception] for [NoticeKind.INTERCEPTION]. Public, like the line.
  */
@@ -15,7 +15,19 @@ data class Notice(
 	val players: List<String>,
 	val round: Int?,
 	val interception: InterceptionRoll?
-)
+) {
+
+	companion object {
+		/**
+		 * A roll at [system] that went against [players] (R124, creator 2026-11-23): each of them gets a card of its own,
+		 * everyone else the line as a toast. [kind] is one of [NoticeKind.SETBACKS].
+		 */
+		fun setback(kind: NoticeKind, system: StarSystem, players: List<String>): Notice {
+			require(kind in NoticeKind.SETBACKS) { "$kind isn't a setback." }
+			return Notice(kind, system, players, null, null)
+		}
+	}
+}
 
 /** The moments that get a pop-up card. */
 enum class NoticeKind {
@@ -27,7 +39,19 @@ enum class NoticeKind {
 	SABOTAGE,
 	BATTLE_SUMMARY,
 	NEWS_EVENT,
-	OPPORTUNITY_EXPIRED
+	OPPORTUNITY_EXPIRED,
+	SHIP_SEIZED,
+	LANDING_FORCED,
+	JUMP_FAILED,
+	EXPEDITION_LOST,
+	LOST_TO_PIRATES,
+	NO_PROMOTION,
+	DEMOTED;
+
+	companion object {
+		/** The rolls that went against a player (R124): their card is for them alone. */
+		val SETBACKS = setOf(SHIP_SEIZED, LANDING_FORCED, JUMP_FAILED, EXPEDITION_LOST, LOST_TO_PIRATES, NO_PROMOTION, DEMOTED)
+	}
 }
 
 /**

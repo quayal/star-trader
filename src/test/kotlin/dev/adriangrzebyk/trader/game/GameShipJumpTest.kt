@@ -83,7 +83,14 @@ class GameShipJumpTest {
 		assertThat(game.turn!!.landingShip).isNull()
 		assertThat(game.turn!!.jumper()).isEqualTo("grace@example.com")
 		assertThat(game.log.last())
-			.isEqualTo(LogEntry.event(1, "Jump: Vega Lines — Meridian failed to jump to Sigma Draconis (rolled 10) and stays at Gamma Leporis"))
+			.isEqualTo(
+				LogEntry.notice(
+					1,
+					"Jump: Vega Lines — Meridian failed to jump to Sigma Draconis (rolled 10) and stays at Gamma Leporis",
+					// R124: a roll that went against the player gets them a card
+					Notice.setback(NoticeKind.JUMP_FAILED, GAMMA_LEPORIS, listOf("grace@example.com"))
+				)
+			)
 	}
 
 	@Test

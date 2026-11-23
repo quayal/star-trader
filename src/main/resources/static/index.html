@@ -1143,6 +1143,11 @@
 			</section>
 			<!-- Playtest 2026-11-21: what can be taken first, right after the output to collect. -->
 			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
+			<!-- Creator, 2026-11-23: what the viewer took and is still carrying out, in every phase. -->
+			<section class="panel" id="in-action-panel" aria-labelledby="in-action-title" hidden>
+				<h3 id="in-action-title">Your opportunities in action</h3>
+				<ul class="corporation__list" id="in-action-list"></ul>
+			</section>
 			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
 				<h3 id="opportunities-title">Opportunities</h3>
 				<p class="muted" id="opportunities-note"></p>
@@ -1765,7 +1770,7 @@
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
-	import { expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
+	import { expeditionsDue, opportunityForms, specialSales, opportunitiesInAction } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -4909,7 +4914,7 @@
 		if (length <= toastedFrom.index) {
 			return;
 		}
-		const { shown, more } = toasts(game.log, toastedFrom.index);
+		const { shown, more } = toasts(game.log, toastedFrom.index, viewerId);
 		toastedFrom.index = length;
 		const region = $('toasts');
 		[...shown, ...(more ? [`+${more} more in the Game log`] : [])].forEach((text, index, all) => {
@@ -5362,6 +5367,7 @@
 		}
 		renderAgents(game, opportunity);
 		renderOpportunities(game, opportunity);
+		renderInAction(game, running);
 		renderLoan(game, investing);
 	}
 
@@ -5681,6 +5687,15 @@
 	$('limpy-pass-button').addEventListener('click', () => gameAction('trading/limpy', { act: false }, 'trading-message'));
 
 	// R111–R114: one form per learned, untaken opportunity; the sales of special goods where a ship holds them; expeditions due.
+	/** Creator, 2026-11-23: the viewer's goods, deliveries and expeditions from opportunities, while any is under way. */
+	function renderInAction(game, running) {
+		const rows = running ? opportunitiesInAction(game) : [];
+		$('in-action-panel').hidden = rows.length === 0;
+		drawOnce('in-action-list', JSON.stringify(rows), () => rows.map(row => element('li', {},
+			element('strong', {}, row.ship), row.where ? ` (${row.where})` : '', ` \u2014 ${row.what}. `,
+			element('span', { class: 'muted' }, `Next: ${row.next}.`))));
+	}
+
 	function renderOpportunities(game, opportunity) {
 		const forms = opportunityForms(game);
 		const sales = specialSales(game);

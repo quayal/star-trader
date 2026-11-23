@@ -88,6 +88,28 @@ class GameSmugglingTest {
 	}
 
 	@Test
+	fun shouldPopUpASeizureCardWithItsReputationLoss() {
+		// Creator, 2026-11-23: a ship seized on landing gets a notification, like a sabotage or a destroyed ship
+		val seized = arrived.landShip("grace@example.com", ShipLocation.PLANET, FakeDice(listOf(6, 4), listOf(3)))
+
+		val noticed = seized.log.drop(arrived.log.size).filter { it.notice != null }
+		assertThat(noticed.map { it.notice }).allMatch { it == Notice.setback(NoticeKind.SHIP_SEIZED, TAU_CETI, listOf("grace@example.com")) }
+		assertThat(noticed.map { it.text }.first()).isEqualTo("Meridian (Vega Lines) was seized at Tau Ceti: 6 vs security 7.")
+		assertThat(noticed.map { it.text }.drop(1).single()).contains("reputation")
+	}
+
+	@Test
+	fun shouldPopUpACardWhenTheShipIsForcedIntoThePortButNotWhenItLands() {
+		// R124: anything but landing went against the player, with or without cargo taken
+		val landed = arrived.landShip("grace@example.com", ShipLocation.PLANET, FakeDice(8))
+		val forced = arrived.landShip("grace@example.com", ShipLocation.PLANET, FakeDice(7, 5))
+
+		assertThat(landed.log.drop(arrived.log.size).mapNotNull { it.notice }).isEmpty()
+		assertThat(forced.log.drop(arrived.log.size).mapNotNull { it.notice }).isNotEmpty
+			.allMatch { it == Notice.setback(NoticeKind.LANDING_FORCED, TAU_CETI, listOf("grace@example.com")) }
+	}
+
+	@Test
 	fun shouldConfiscateAMilitaryShipForcedIntoThePort() {
 		val military = withGrace(arrived) { player ->
 			player.copy(ships = player.ships.map { if (it.name == "Meridian") it.copy(hull = Hull.DAGGER, modules = emptyList()) else it })
@@ -102,6 +124,7 @@ class GameSmugglingTest {
 				it.text
 			}
 		).contains("Meridian (Vega Lines) was forced into Tau Ceti's Port: 5 + 2 = 7 vs security 7. The ship was confiscated.")
+		assertThat(forced.log.drop(military.log.size).mapNotNull { it.notice?.kind }).isNotEmpty.allMatch { it == NoticeKind.SHIP_SEIZED }
 	}
 
 	@Test

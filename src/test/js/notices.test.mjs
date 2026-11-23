@@ -190,3 +190,44 @@ describe('News cards (playtest, 2026-11-21)', () => {
 		assert.deepEqual(card.lines, ['Lantern (Orion Freight) was lost to the pirates (rolled 2)']);
 	});
 });
+
+describe('the seizure card (creator, 2026-11-23)', () => {
+	const seized = { kind: 'SHIP_SEIZED', system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds: ['p3'], round: null, interception: null };
+	const log = game([
+		{ turn: 2, text: 'Jump: Vega Lines — Meridian to Tau Ceti' },
+		{ turn: 2, text: 'Meridian (Vega Lines) was seized at Tau Ceti: 6 vs security 7.', notice: seized },
+		{ turn: 2, text: 'Vega Lines’s reputation: −13 for seized by security …', notice: seized },
+	]);
+
+	it('tells the owner their ship was seized, with the roll and the reputation loss in one card', () => {
+		const [card] = noticeCards(log, 0, 'p3');
+
+		assert.equal(card.title, 'Your ship was seized');
+		assert.equal(card.lead, 'Planet security at Tau Ceti confiscated your ship and everything aboard.');
+		assert.equal(card.tone, 'alert');
+		assert.deepEqual(card.lines, ['Meridian (Vega Lines) was seized at Tau Ceti: 6 vs security 7.', 'Vega Lines’s reputation: −13 for seized by security …']);
+		assert.equal(card.end, 3);
+	});
+
+	it('shows everyone else no card, but the lines as toasts (R124)', () => {
+		assert.deepEqual(noticeCards(log, 0, 'p1'), []);
+		assert.deepEqual(toasts(log.log, 0, 'p1').shown, [
+			'Jump: Vega Lines — Meridian to Tau Ceti',
+			'Meridian (Vega Lines) was seized at Tau Ceti: 6 vs security 7.',
+			'Vega Lines’s reputation: −13 for seized by security …',
+		]);
+		assert.deepEqual(toasts(log.log, 0, 'p3').shown, ['Jump: Vega Lines — Meridian to Tau Ceti']);
+	});
+
+	it('gives every other setback its own card, worded for the player it happened to', () => {
+		const setback = (kind, playerIds = ['p3']) => ({ kind, system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds, round: null, interception: null });
+		const titles = ['LANDING_FORCED', 'JUMP_FAILED', 'EXPEDITION_LOST', 'LOST_TO_PIRATES', 'NO_PROMOTION', 'DEMOTED']
+			.map(kind => noticeCards(game([{ turn: 2, text: kind, notice: setback(kind) }]), 0, 'p3')[0]);
+
+		assert.deepEqual(titles.map(card => card.title), [
+			'Your landing failed', 'Your jump failed', 'Your expedition was lost', 'Your ship was lost to pirates',
+			'No market position gained', 'You lost a market position',
+		]);
+		assert.ok(titles.every(card => card.tone === 'alert'));
+	});
+});

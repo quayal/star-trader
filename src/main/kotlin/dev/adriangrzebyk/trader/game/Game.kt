@@ -240,6 +240,10 @@ data class Game(
 	private fun withPlayerChanged(changed: Player, lines: List<String>, number: Int): Game =
 		copy(players = replace(changed), log = log + lines.map { LogEntry.event(number, it) })
 
+	/** As [withPlayerChanged], with each line carrying [notice] so they pop up as one card (R124). */
+	private fun withPlayerNoticed(changed: Player, lines: List<String>, number: Int, notice: Notice): Game =
+		copy(players = replace(changed)).withNoticed(number, lines, notice)
+
 	/** Turn [number]'s Investment closing (R94): every loan at the end of its term is collected, any seizure logged. */
 	private fun withLoansCollected(number: Int): Game = players.filter { it.loan?.fallsDueIn(number) == true }.fold(this) { game, player ->
 		val (collected, collection) = player.collectLoan(prices)
@@ -519,7 +523,8 @@ data class Game(
 		val taken = withOpportunityTaken(email, tipOff, sent)
 		if (roll == 1) {
 			val lost = taken.playerOf(email).abandonExpedition(name)
-			return taken.withPlayerChanged(lost, listOf("The $name expedition rolled 1 and was lost"), number)
+			val notice = Notice.setback(NoticeKind.EXPEDITION_LOST, checkNotNull(player.ship(name)).system, listOf(email))
+			return taken.withPlayerNoticed(lost, listOf("The $name expedition rolled 1 and was lost"), number, notice)
 		}
 		return taken.withLogged(number, listOf("The $name expedition rolled $roll: back in turn ${number + roll}"))
 	}
@@ -1114,6 +1119,10 @@ data class Game(
 	/** This game with [lines] logged as public events of turn [number]. */
 	private fun withLogged(number: Int, lines: List<String>): Game = copy(log = log + lines.map { LogEntry.event(number, it) })
 
+	/** This game with [lines] logged in turn [number], each carrying [notice] so they pop up as one card. */
+	private fun withNoticed(number: Int, lines: List<String>, notice: Notice): Game =
+		copy(log = log + lines.map { LogEntry.notice(number, it, notice) })
+
 	/**
 	 * What [ship] of [player]'s gets on a jump beyond its own crew and modules (R68): Novak aboard (R108) and this turn's
 	 * news (E1). Both the roll and the chance its player sees use it (playtest, 2026-11-21: the chance ignored the news).
@@ -1212,7 +1221,11 @@ data class Game(
 			} else {
 				player.confiscateShip(ship.name) to "${ship.name} (${player.corporationName}) was lost to the pirates (rolled $roll)"
 			}
-			current.withPlayerChanged(changed, listOf(line), number)
+			if (roll > PIRATE_ESCAPE_ABOVE) {
+				current.withPlayerChanged(changed, listOf(line), number)
+			} else {
+				current.withPlayerNoticed(changed, listOf(line), number, Notice.setback(NoticeKind.LOST_TO_PIRATES, system, listOf(owner.email)))
+			}
 		}
 	}
 
@@ -1272,7 +1285,11 @@ data class Game(
 			val recorded = current.recordFailedJump(ship)
 			val failed = copy(
 				turn = recorded,
-				log = log + novakLog + LogEntry.event(current.number, player.failedJumpLog(ship.name, destination, roll))
+				log = log + novakLog + LogEntry.notice(
+					current.number,
+					player.failedJumpLog(ship.name, destination, roll),
+					Notice.setback(NoticeKind.JUMP_FAILED, ship.system, listOf(email))
+				)
 			)
 			return if (recorded.haveAllJumped(player.jumpableShips())) failed.endJumpSlot(email) else failed
 		}
@@ -1601,13 +1618,19 @@ data class Game(
 				val system = ship.system.displayName
 				val where = if (closed) "held in $system's Space (Ports are closed)" else "forced into $system's Port"
 				val taken = if (ship.isMilitary()) "The ship was confiscated." else "Illegal cargo confiscated."
-				copy(players = replace(loss.player)).withLogged(number, listOfNotNull(badger, "$who was $where: ${roll.text()}. $taken") + loss.lines)
+				val kind = if (ship.isMilitary()) NoticeKind.SHIP_SEIZED else NoticeKind.LANDING_FORCED
+				copy(players = replace(loss.player)).withLogged(number, listOfNotNull(badger)).withNoticed(
+					number,
+					listOf("$who was $where: ${roll.text()}. $taken") + loss.lines,
+					Notice.setback(kind, ship.system, listOf(email))
+				)
 			}
 			LandingOutcome.SEIZED -> {
 				val loss = player.confiscateShip(shipName).loseReputation(dice.twoD6() + dice.d6(), "seized by security")
-				copy(players = replace(loss.player)).withLogged(
+				copy(players = replace(loss.player)).withLogged(number, listOfNotNull(badger)).withNoticed(
 					number,
-					listOfNotNull(badger, "$who was seized at ${ship.system.displayName}: ${roll.text()}.") + loss.lines
+					listOf("$who was seized at ${ship.system.displayName}: ${roll.text()}.") + loss.lines,
+					Notice.setback(NoticeKind.SHIP_SEIZED, ship.system, listOf(email))
 				)
 			}
 		}
@@ -1822,7 +1845,8 @@ data class Game(
 	/** The public log of what [resolution] did in turn [turn] since [before] ([Resolution.logSince]), with the reputation each rise moved. */
 	private fun resolutionLog(turn: Int, before: Resolution?, resolution: Resolution): List<LogEntry> =
 		resolution.logSince(before, corporationNames()).flatMap { line ->
-			listOf(LogEntry.trade(turn, line.text, line.trade)) + line.rise?.let { marketRiseLog(it) }.orEmpty().map { LogEntry.event(turn, it) }
+			val entry = LogEntry.trade(turn, line.text, line.trade)
+			listOf(line.notice?.let { entry.noticed(it) } ?: entry) + line.rise?.let { marketRiseLog(it) }.orEmpty().map { LogEntry.event(turn, it) }
 		}
 
 	/** R86 (E13-S02): a position rise is +2 reputation for its trader and −2 for each Dictator it demoted, logged after the roll. */

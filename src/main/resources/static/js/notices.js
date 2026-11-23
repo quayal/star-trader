@@ -16,6 +16,25 @@ export const MAX_TOASTS = 3;
 /** How long a toast stays, in ms. */
 export const TOAST_MS = 6000;
 
+/**
+ * R124 (creator, 2026-11-23): a roll that went against a player gets them a card of its own; everyone else sees the
+ * line as a toast. Each kind's card, worded for the player it happened to.
+ */
+const SETBACKS = {
+	SHIP_SEIZED: where => ({ title: 'Your ship was seized', lead: `Planet security at ${where} confiscated your ship and everything aboard.` }),
+	LANDING_FORCED: where => ({ title: 'Your landing failed', lead: `Planet security at ${where} turned your ship away from the Planet.` }),
+	JUMP_FAILED: () => ({ title: 'Your jump failed', lead: 'Your ship stays where it was; its jump is used for this turn.' }),
+	EXPEDITION_LOST: () => ({ title: 'Your expedition was lost', lead: 'The expedition rolled 1: the ship is gone.' }),
+	LOST_TO_PIRATES: where => ({ title: 'Your ship was lost to pirates', lead: `Pirates at ${where} took your ship and its cargo.` }),
+	NO_PROMOTION: where => ({ title: 'No market position gained', lead: `Your position roll at ${where} rolled too high.` }),
+	DEMOTED: where => ({ title: 'You lost a market position', lead: `Another trader's position roll at ${where} took your Dictator place.` }),
+};
+
+/** Whether [notice] is a setback (R124) that happened to someone other than [myId]: then [myId] gets its line as a toast. */
+function someoneElsesSetback(notice, myId) {
+	return Boolean(notice && SETBACKS[notice.kind] && !notice.playerIds.includes(myId));
+}
+
 function corporation(game, playerId) {
 	return game.players.find(player => player.id === playerId)?.corporationName ?? playerId;
 }
@@ -24,6 +43,9 @@ function corporation(game, playerId) {
 function groupKey(notice, index) {
 	if (notice.kind === 'INTERCEPTION') {
 		return `I/${notice.interception?.interceptorShip}/${notice.interception?.arrivingShip}/${notice.system}`;
+	}
+	if (SETBACKS[notice.kind]) {
+		return `${notice.kind}/${notice.system}`; // the setback with its reputation loss (R124)
 	}
 	if (notice.kind === 'NEWS_EVENT') {
 		return 'NEWS_EVENT'; // an event's announcement with the lines of what it did (playtest, 2026-11-21)
@@ -70,6 +92,9 @@ function newsLead(texts) {
 /** A card's heading and opening line for [notice]; [texts] are its log lines, [entry] the group's first log entry. */
 function cardFor(game, notice, texts, myId, entry) {
 	const where = notice.systemName;
+	if (SETBACKS[notice.kind]) {
+		return { ...SETBACKS[notice.kind](where), tone: 'alert', lines: texts };
+	}
 	switch (notice.kind) {
 	case 'INTERCEPTION': {
 		const card = interceptionCard(game, notice, myId);
@@ -128,6 +153,8 @@ export function noticeCards(game, from, myId) {
 		.filter(group => !(group.notice.kind === 'BATTLE_ROUND' && group.notice.playerIds.includes(myId)))
 		// R101: a sabotage's card is for its target alone; everyone else reads the line in the log.
 		.filter(group => group.notice.kind !== 'SABOTAGE' || group.notice.playerIds.includes(myId))
+		// R124: a setback's card is for the player it happened to; everyone else gets the line as a toast.
+		.filter(group => !someoneElsesSetback(group.notice, myId))
 		.map(group => ({
 			key: `${game.id}/log/${group.start}`,
 			end: group.end,
@@ -203,8 +230,8 @@ export function cardsFrom(remembered, logLength) {
  * The toasts for the log lines from index [from] on that have no card: the newest [MAX_TOASTS], newest last, and how
  * many more there were.
  */
-export function toasts(log, from) {
-	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice).map(entry => entry.text);
+export function toasts(log, from, myId) {
+	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice || someoneElsesSetback(entry.notice, myId)).map(entry => entry.text);
 	return { shown: lines.slice(-MAX_TOASTS), more: Math.max(0, lines.length - MAX_TOASTS) };
 }
 

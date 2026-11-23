@@ -92,6 +92,9 @@ class GamePositionRollTest {
 		)
 		assertThat(kim.reputation.value).isEqualTo(22)
 		assertThat(ada.reputation.value).isEqualTo(18)
+		// R124: the demoted Dictator gets a card; the riser wanted this
+		assertThat(kimPromoted.log.drop(kimsTurnToTrade.log.size).mapNotNull { it.notice })
+			.containsExactly(Notice.setback(NoticeKind.DEMOTED, GAMMA_LEPORIS, listOf("ada@example.com")))
 	}
 
 	@Test
@@ -131,6 +134,9 @@ class GamePositionRollTest {
 
 		assertThat(game.log.map { it.text }).contains("Vega Lines traded 7 u — rolled 9: no change")
 		assertThat(playerIn(game, "grace@example.com").marketPositions).isEmpty()
+		// R124: a roll that rose nothing gets the trader a card
+		assertThat(game.log.first { it.text == "Vega Lines traded 7 u — rolled 9: no change" }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.NO_PROMOTION, GAMMA_LEPORIS, listOf("grace@example.com")))
 	}
 
 	@Test
