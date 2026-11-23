@@ -47,7 +47,20 @@
 		/* .btn sets its own display, so hidden must win explicitly (lessons 2026-10-30). */
 		.topbar__done[hidden], .topbar__done > [hidden] { display: none; }
 		.topbar__done #done-text { color: var(--text-primary); }
-		.status-strip { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--space-group) var(--space-between-groups); margin: 0; font-size: var(--text-value); }
+		/* .topbar p would make it muted; the creator wants it plain to see (2026-11-23). */
+		.topbar .topbar__corporation {
+			margin: 0 0 0 auto;
+			font-family: var(--font-display);
+			font-size: var(--text-display);
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			color: var(--text-primary);
+		}
+		.topbar__corporation[hidden] { display: none; }
+		/* The status strip and the corporation share one line, so the name adds no height (creator, 2026-11-23). */
+		.topbar__row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-related) var(--space-panel); }
+		.topbar__row:not(:has(> :not([hidden]))) { display: none; }
+		.status-strip { display: flex; flex-wrap: wrap; gap: var(--space-group) var(--space-between-groups); margin: 0; font-size: var(--text-value); }
 		.status-strip[hidden] { display: none; }
 		.status-strip > div { display: flex; gap: var(--space-group); align-items: baseline; }
 		.status-strip dt { color: var(--text-muted); }
@@ -285,8 +298,8 @@
 		.map-node:hover circle, .map-node:focus-visible circle { stroke: var(--accent-selected); stroke-width: 3; }
 		.map-node:focus { outline: none; }
 		.map-node text { fill: var(--text-primary); font-family: var(--font-body); }
-		.map-node .map-node__name { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
-		.map-node .map-node__good { font-size: 15px; font-weight: 600; }
+		.map-node .map-node__name { font-family: var(--font-display); font-size: 21px; font-weight: 700; }
+		.map-node .map-node__good { font-size: 16px; font-weight: 600; }
 		.map-node .map-node__ships { fill: var(--text-muted); font-size: 16px; }
 		/* R60: a wrench on a system with a shipyard, in the circle above its goods; the same icon in the map key. */
 		.shipyard-icon { fill: none; stroke: var(--node-shipyard); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -590,8 +603,12 @@
 		<a class="link" id="collect-link" href="/" hidden>Go to Infrastructure</a>
 		<p class="message" id="done-message" role="status" tabindex="-1"></p>
 	</div>
-	<!-- Playtest 2026-11-21: the viewer's money, reputation (with what it does) and connections, on every game screen. -->
-	<dl class="status-strip" id="status-strip" hidden></dl>
+	<div class="topbar__row">
+		<!-- Playtest 2026-11-21: the viewer's money, reputation (with what it does) and connections, on every game screen. -->
+		<dl class="status-strip" id="status-strip" hidden></dl>
+		<!-- Creator, 2026-11-23: the viewer's corporation, big, at the right end, on every game screen. -->
+		<p class="topbar__corporation" id="corporation-name" hidden></p>
+	</div>
 	<!-- E04-S04: other players' progress as polls bring it in, for screen readers (the screen shows it already). -->
 	<p class="visually-hidden" id="progress-announce" role="status"></p>
 </header>
@@ -1765,7 +1782,7 @@
 	import { NO_TRADES_TEXT, shownTrades, yourTrades } from './js/trades.js';
 	import { assetsView } from './js/assets.js';
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
-	import { statusItems } from './js/status.js';
+	import { corporationName, statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
 	import { deliveriesDue, expeditionsDue, opportunityForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
@@ -1834,6 +1851,7 @@
 
 	function setTitle(title, subtitle) {
 		$('status-strip').hidden = true; // shown again by a running game's render
+		$('corporation-name').hidden = true;
 		$('page-title').textContent = title;
 		$('page-subtitle').textContent = subtitle;
 		$('done-bar').hidden = true; // only a running game's top bar shows it (updateDoneBar)
@@ -2665,6 +2683,9 @@
 	function renderStatusStrip(game) {
 		const items = statusItems(game, bonusFrom(rules));
 		$('status-strip').hidden = items.length === 0;
+		const corporation = corporationName(game);
+		$('corporation-name').textContent = corporation;
+		$('corporation-name').hidden = corporation === '';
 		drawOnce('status-strip', JSON.stringify(items), () => items.map(item => element('div', {},
 			element('dt', {}, item.label),
 			element('dd', {}, item.value, ...(item.note ? [' ', element('span', { class: 'status-strip__note' }, `(${item.note})`)] : [])))));
