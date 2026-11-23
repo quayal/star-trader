@@ -8,7 +8,9 @@ import {
 	COLLECT_WHOLE_NUMBER,
 	blocksCostText,
 	blocksText,
-	canBuildFactory,
+	canPlanFactory,
+	canPlan,
+	BUY_IN_INVESTMENT_TEXT,
 	canBuy,
 	collectDefaults,
 	collectFactories,
@@ -412,16 +414,17 @@ describe('building or extending a factory (E06-S05)', () => {
 		you: { money: 300, invest: factories === null ? null : { blockCost: 20, systems: [], factories } },
 	});
 
-	describe('canBuildFactory and investFactories (S05-1, S05-5)', () => {
-		it('is true in Investment with a good to build somewhere', () => {
-			assert.equal(canBuildFactory(withInvest([iso, poly])), true);
+	describe('canPlanFactory and investFactories (S05-1, S05-5)', () => {
+		it('is true with a good to build somewhere, in any phase of a running game (planning, creator 2026-11-23)', () => {
+			assert.equal(canPlanFactory(withInvest([iso, poly])), true);
 			assert.deepEqual(investFactories(withInvest([iso, poly])).map(f => f.goods), ['ISO', 'POLY']);
 		});
 
-		it('is false with nothing to build (ships only at Beta Hydri or Epsilon Eridani), while collecting and outside Investment', () => {
-			assert.equal(canBuildFactory(withInvest([])), false);
-			assert.equal(canBuildFactory(withInvest(null)), false);
-			assert.equal(canBuildFactory(withInvest([iso], { phase: 'TRADING' })), false);
+		it('is false with nothing to build, with nothing sent, and once the game is over', () => {
+			assert.equal(canPlanFactory(withInvest([])), false);
+			assert.equal(canPlanFactory(withInvest(null)), false);
+			assert.equal(canPlanFactory(withInvest([iso], { phase: 'TRADING' })), true);
+			assert.equal(canPlanFactory(withInvest([iso], { status: 'FINISHED' })), false);
 			assert.deepEqual(investFactories(withInvest(null)), []);
 		});
 	});
@@ -549,6 +552,17 @@ describe('investing from the tables (creator, 2026-11-19)', () => {
 		assert.equal(investDialogText(investing(), { kind: 'units', system: 'TAU_CETI', goods: 'ISO' }).title, 'Add ISO units at Tau Ceti');
 		assert.equal(investDialogText(investing(), { kind: 'units', system: 'BETA_HYDRI', goods: 'ISO' }), null);
 		assert.equal(investDialogText(investing({ invest: null }), { kind: 'blocks', system: 'TAU_CETI' }), null);
+	});
+
+	it('plans outside Investment: the rows and the dialog show, and Confirm waits (creator, 2026-11-23)', () => {
+		const opportunity = { ...investing(), turn: { number: 3, phase: 'OPPORTUNITY', doneInvesting: [] } };
+		assert.deepEqual(ownWarehouseRows(opportunity).map(row => row.invest), ['add', 'build', 'build']);
+		assert.equal(systemInvestActions(opportunity, 'TAU_CETI').warehouse, 'add');
+		assert.equal(canBuy(opportunity), false);
+		assert.equal(canPlan(opportunity), true);
+		assert.equal(investDialogText(opportunity, { kind: 'blocks', system: 'TAU_CETI' }).wait, BUY_IN_INVESTMENT_TEXT);
+		assert.equal(investDialogText(investing(), { kind: 'blocks', system: 'TAU_CETI' }).wait, '');
+		assert.equal(canPlan({ ...opportunity, status: 'FINISHED' }), false);
 	});
 
 	it('says the most the viewer can add, or why none', () => {

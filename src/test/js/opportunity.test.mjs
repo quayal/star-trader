@@ -12,6 +12,8 @@ import {
 	loanPreview,
 	openLoanText,
 	opportunityStatusText,
+	PLAN_OPPORTUNITY_TEXT,
+	waitTurnText,
 	publicAgentLines,
 	corporationAgentLines,
 	recruitOdds,
@@ -65,6 +67,21 @@ describe('the Opportunity turn (R102)', () => {
 	it('names who the phase still waits for once everyone is done', () => {
 		assert.equal(opportunityStatusText(game({ opportunist: null, owedChoices: ['p2'] }), ME), 'Waiting for Vega Lines to place sabotage hits.');
 		assert.match(opportunityStatusText(game({ opportunist: null, owedChoices: [ME] }), ME), /^Place the sabotage hits/);
+	});
+});
+
+describe('planning out of turn (creator, 2026-11-23)', () => {
+	it('says what the buttons wait for: the turn in Opportunity, the phase outside it, nothing on the turn', () => {
+		assert.equal(waitTurnText(game({ opportunist: ME }), ME), '');
+		assert.equal(waitTurnText(game(), ME), 'Your turn comes after Vega Lines.');
+		const investing = { ...game(), turn: { number: 2, phase: 'INVESTMENT', doneInvesting: [] } };
+		assert.equal(waitTurnText(investing, ME), PLAN_OPPORTUNITY_TEXT);
+		assert.equal(waitTurnText({ ...investing, status: 'FINISHED' }, ME), '');
+	});
+
+	it('still lists the targets outside Opportunity, so a sabotage can be planned', () => {
+		const trading = { ...game(), turn: { number: 2, phase: 'TRADING' } };
+		assert.equal(sabotageTargets(trading, ME).length, 3);
 	});
 });
 

@@ -57,8 +57,17 @@ export function opportunityStatusText(game, playerId) {
 	return `Your turn comes after ${corporation(game, game.turn.opportunist)}.`;
 }
 
-/** What the sabotage form's submit button waits for out of turn (R102: forms can be filled in, submits wait). */
+/** Outside Opportunity (creator, 2026-11-23): the sabotage and recruit forms are for planning. */
+export const PLAN_OPPORTUNITY_TEXT = 'You act on your Opportunity turn, after Trading. Plan it here now; ships may move and targets change by then.';
+
+/**
+ * What the sabotage and recruit buttons wait for out of turn (R102: forms can be filled in, submits wait; creator,
+ * 2026-11-23: at any time while the game runs).
+ */
 export function waitTurnText(game, playerId) {
+	if (!isOpportunity(game)) {
+		return game.status === 'RUNNING' ? PLAN_OPPORTUNITY_TEXT : '';
+	}
 	return isMyOpportunityTurn(game, playerId) ? '' : opportunityStatusText(game, playerId);
 }
 

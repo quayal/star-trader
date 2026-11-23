@@ -157,14 +157,16 @@ export function validateCollect(factories, values) {
 
 // ── The Infrastructure screen (s10, E06-S08, D12) ──
 
-export const NOT_INVESTING_TEXT = 'Investment opens after Opportunity.';
+export const NOT_INVESTING_TEXT = 'Investment opens after Opportunity. Browse and plan here now; you buy then.';
 /** S08-4: on the Deck and System details, while the viewer still has to place their output. */
 export const COLLECT_ELSEWHERE_TEXT = 'Collect your output first.';
 export const OPPORTUNITY_LINK_TEXT = 'Go to Opportunity';
 /** Infrastructure during Opportunity (playtest, 2026-11-21): the phase is played on its own tab. */
 export const OPPORTUNITY_ELSEWHERE_TEXT = 'It’s Opportunity now: collect, sabotage, agents and opportunities are on the Opportunity tab. Investment comes next.';
-/** The Opportunity tab outside its phase. */
-export const OPPORTUNITY_NOT_YET_TEXT = 'Opportunity comes after Trading. You can move your agents from here at any time.';
+/** The Opportunity tab outside its phase (creator, 2026-11-23: plan here at any time). */
+export const OPPORTUNITY_NOT_YET_TEXT = 'Opportunity comes after Trading. Plan your sabotage and recruiting here now; you act on your Opportunity turn. Agents move at any time.';
+/** The invest dialog outside Investment (creator, 2026-11-23): what it shows is for planning. */
+export const BUY_IN_INVESTMENT_TEXT = 'You can buy this in Investment. Prices and your money may have changed by then.';
 
 /**
  * What the Infrastructure screen is for the viewer: 'collect' or 'opportunity' in Opportunity (R102), 'invest' or 'done'
@@ -194,8 +196,9 @@ export function infrastructureStatusText(game, playerId) {
 
 /**
  * The viewer's own warehouses for the screen (S08-6): where, blocks, "used / spaces", and what is held ("Empty" when
- * nothing). While the viewer may buy (creator, 2026-11-19), each row's `invest` is 'add', and every system where they
- * have none yet follows as a row with `invest` 'build' and `blocks` 0; otherwise `invest` is null and only owned rows show.
+ * nothing). While the viewer may plan (creator, 2026-11-19, 2026-11-23: at any time in a running game), each row's
+ * `invest` is 'add', and every system where they have none yet follows as a row with `invest` 'build' and `blocks` 0;
+ * otherwise `invest` is null and only owned rows show.
  */
 export function ownWarehouseRows(game) {
 	const owned = (game.you?.warehouses ?? []).map(warehouse => {
@@ -207,10 +210,10 @@ export function ownWarehouseRows(game) {
 			cargoUsed: warehouse.cargoUsed,
 			cargoSpaces: warehouse.cargoSpaces,
 			held: held.length ? held.join(', ') : 'Empty',
-			invest: canBuy(game) ? 'add' : null,
+			invest: canPlan(game) ? 'add' : null,
 		};
 	});
-	if (!canBuy(game)) {
+	if (!canPlan(game)) {
 		return owned;
 	}
 	const build = investSystems(game)
@@ -221,12 +224,12 @@ export function ownWarehouseRows(game) {
 
 /**
  * The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by
- * playerId. While the viewer may buy (creator, 2026-11-19), each row's `invest` is 'add', and every good a system can
+ * playerId. While the viewer may plan (creator, 2026-11-19, 2026-11-23), each row's `invest` is 'add', and every good a system can
  * produce where they have no factory follows with `invest` 'build' and `size` 0; otherwise `invest` is null.
  */
 export function ownFactoryRows(game, playerId) {
 	const me = game.players.find(player => player.id === playerId);
-	const buying = canBuildFactory(game);
+	const buying = canPlanFactory(game);
 	const owned = (me?.factories ?? []).map(factory => ({
 		system: factory.system,
 		systemName: game.board.find(system => system.id === factory.system)?.name ?? factory.system,
@@ -247,10 +250,10 @@ export function ownFactoryRows(game, playerId) {
 /**
  * What the viewer may do at one system's Warehouses and Factories tables (creator, 2026-11-19): `{ warehouse, factories }`,
  * `warehouse` being 'add' (they own one here), 'build' (they don't) or null when they can't buy now, and `factories` the
- * goods produced here, each `{ goods, size, invest }` with 'add' or 'build'. Empty outside Investment.
+ * goods produced here, each `{ goods, size, invest }` with 'add' or 'build'. Empty when there is nothing to plan.
  */
 export function systemInvestActions(game, systemId) {
-	if (!canBuy(game)) {
+	if (!canPlan(game)) {
 		return { warehouse: null, factories: [] };
 	}
 	const blocks = investSystems(game).find(entry => entry.system === systemId)?.blocks ?? 0;
@@ -286,9 +289,17 @@ export const BLOCKS_WHOLE_NUMBER = 'Enter a whole number of blocks, 1 or more.';
 /** R45: one block holds as many cargo spaces as a ship (R42). */
 export const CARGO_SPACES_PER_BLOCK = 10;
 
-/** Whether the viewer may buy now (S04-1): in Investment, with nothing left to collect. */
+/** Whether the viewer may buy now (S04-1): in Investment. */
 export function canBuy(game) {
 	return isInvesting(game) && Boolean(game.you?.invest);
+}
+
+/**
+ * Whether the viewer may browse and plan what Investment sells (creator, 2026-11-23): at any time while the game runs,
+ * since the server sends `you.invest` then. Only [canBuy] lets a purchase through.
+ */
+export function canPlan(game) {
+	return game.status === 'RUNNING' && Boolean(game.you?.invest);
 }
 
 /** The systems the viewer may buy warehouse blocks in (S04-1): all six; a ship isn't needed. */
@@ -349,9 +360,9 @@ export function investFactories(game) {
 	return game.you?.invest?.factories ?? [];
 }
 
-/** Whether to show the panel: the viewer may buy and something can be produced (no ship needed, E06-S05). */
-export function canBuildFactory(game) {
-	return canBuy(game) && investFactories(game).length > 0;
+/** Whether to offer factories: the viewer may plan and something can be produced (no ship needed, E06-S05). */
+export function canPlanFactory(game) {
+	return canPlan(game) && investFactories(game).length > 0;
 }
 
 /** What [systemId] can produce, for the Goods dropdown. */
@@ -402,11 +413,12 @@ export function validateUnits(text, factory, money, cap = null) {
 
 /**
  * What the dialog for [target] (`{ kind: 'blocks', system }` or `{ kind: 'units', system, goods }`) shows: `{ title,
- * intro, factory }`, `factory` being the `you.invest.factories` entry for units. Null when the viewer can't buy it now
- * (Investment closed, or the good isn't produced there), so the page closes the dialog.
+ * intro, factory, wait }`, `factory` being the `you.invest.factories` entry for units and `wait` why Confirm waits ('' in
+ * Investment). Null when there's nothing to plan (the game isn't running, or the good isn't produced there), so the page
+ * closes the dialog.
  */
 export function investDialogText(game, target) {
-	if (!canBuy(game) || !target) {
+	if (!canPlan(game) || !target) {
 		return null;
 	}
 	if (target.kind === 'blocks') {
@@ -419,6 +431,7 @@ export function investDialogText(game, target) {
 			title: system.blocks === 0 ? `Build a warehouse at ${system.systemName}` : `Add warehouse blocks at ${system.systemName}`,
 			intro: `You have ${warehouseText(system.blocks)} here. ${blockCost} HT a block, ${CARGO_SPACES_PER_BLOCK} cargo spaces each. New blocks first count next turn.`,
 			factory: null,
+			wait: canBuy(game) ? '' : BUY_IN_INVESTMENT_TEXT,
 		};
 	}
 	const factory = factoriesAt(game, target.system).find(entry => entry.goods === target.goods);
@@ -429,6 +442,7 @@ export function investDialogText(game, target) {
 		title: factory.size === 0 ? `Build a factory for ${factory.goods} at ${factory.systemName}` : `Add ${factory.goods} units at ${factory.systemName}`,
 		intro: `${factory.size === 0 ? 'No factory here yet' : `It makes ${factory.size} a turn`}. ${factory.unitCost} HT a unit (5 × the ${factory.price} HT price + 10).`,
 		factory,
+		wait: canBuy(game) ? '' : BUY_IN_INVESTMENT_TEXT,
 	};
 }
 

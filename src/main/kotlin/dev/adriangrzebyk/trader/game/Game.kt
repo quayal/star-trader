@@ -932,7 +932,7 @@ data class Game(
 				freeShipNames(),
 				turn?.hasRaisedConnection(email) == true,
 				turn?.hasBoughtReputation(email) == true
-			).takeIf { canInvest(email) },
+			).takeIf { isRunning() },
 			interception = turn?.interception?.takeIf { it.asks(email) },
 			battle = turn?.battle?.takeIf { it.involves(email) },
 			battleReport = turn?.battleReport?.reportFor(email),
@@ -965,6 +965,12 @@ data class Game(
 	fun agentPool(): List<Agent> = Agent.entries.filter { agent ->
 		agent.recruitable && agent !in deadAgents && players.none { it.agent(agent) != null }
 	}
+
+	/**
+	 * Whether the game is running (a turn is on): players may then browse and plan what to buy in Investment, whatever the
+	 * phase (creator, 2026-11-23); only buying waits for Investment ([canInvest]).
+	 */
+	private fun isRunning(): Boolean = status == GameStatus.RUNNING && turn != null
 
 	/**
 	 * Whether [email] may buy in this Investment now (R45): the game is running in Investment. Collect is in Opportunity

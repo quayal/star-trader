@@ -150,9 +150,7 @@ class GameResponseDtoTest {
 
 	@Test
 	fun shouldOfferWhatCanBeBoughtOnlyOnceTheViewerHasCollectedAndInEverySystem() {
-		// E06-S04-1, S04-2, R102, creator 2026-11-16: nothing to buy in Opportunity; then all six systems, ships or not
-		assertThat(GameResponseDto(investing, "host@example.com").you!!.invest).isNull()
-
+		// E06-S04-1, S04-2, R102, creator 2026-11-16: all six systems, ships or not
 		val collected = investing.collectOutput("host@example.com", emptyList()).advancePhase(FakeDice())
 		val invest = GameResponseDto(collected, "host@example.com").you!!.invest!!
 
@@ -193,10 +191,11 @@ class GameResponseDtoTest {
 	}
 
 	@Test
-	fun shouldOfferABuyOnlyInInvestment() {
-		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNull()
+	fun shouldOfferWhatInvestmentSellsToPlanInEveryPhase() {
+		// Creator, 2026-11-23: planning at any time; the buy itself still waits for Investment
+		assertThat(GameResponseDto(investing, "guest@example.com").you!!.invest).isNotNull()
 		assertThat(GameResponseDto(investing.advancePhase(FakeDice()), "guest@example.com").you!!.invest).isNotNull()
-		assertThat(GameResponseDto(started, "host@example.com").you!!.invest).isNull()
+		assertThat(GameResponseDto(started, "host@example.com").you!!.invest).isNotNull() // Bidding
 	}
 
 	@Test
@@ -403,7 +402,8 @@ class GameResponseDtoTest {
 		val seenByHost = GameResponseDto(game, "host@example.com")
 
 		assertThat(seenByHost.you!!.offers).containsExactly(YourOfferResponseDto("BETA_HYDRI", "Beta Hydri", "CHIPS", "BUY", 3))
-		assertThat(seenByHost.toString()).doesNotContain("SELL").doesNotContain("price=19")
+		val outsideTheCatalogue = withoutCatalogue(seenByHost.toString(), "invest=InvestResponseDto(", '(', ')')
+		assertThat(outsideTheCatalogue).doesNotContain("SELL").doesNotContain("price=19")
 	}
 
 	@Test
@@ -606,4 +606,26 @@ class GameResponseDtoTest {
 			)
 		)
 	}
+}
+
+/**
+ * [text] without the part that starts at [marker] and ends at its matching [close]: the shop catalogue (`you.invest`),
+ * which lists every hull, module and current price for anyone to plan with (creator, 2026-11-23), so a check that another
+ * player's offer or ship never leaks reads the rest.
+ */
+private fun withoutCatalogue(text: String, marker: String, open: Char, close: Char): String {
+	val start = text.indexOf(marker)
+	if (start < 0) {
+		return text
+	}
+	var depth = 0
+	var index = start + marker.length - 1
+	do {
+		when (text[index]) {
+			open -> depth++
+			close -> depth--
+		}
+		index++
+	} while (depth > 0)
+	return text.removeRange(start, index)
 }
