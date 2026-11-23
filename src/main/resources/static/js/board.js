@@ -235,6 +235,7 @@ export function shipsAt(game, systemId, myId) {
 					label: mine ? `■ ${ship.name}` : `□ ${initials(player.corporationName)}`,
 					corporationName: player.corporationName,
 					location: ship.location,
+					hangar: Boolean(ship.hangar),
 				});
 			}
 		}
@@ -257,6 +258,9 @@ export function mapGood(entry) {
 /** R60: what a shipyard on the map means, in the map key and a system's accessible name. */
 export const SHIPYARD_TEXT = 'Shipyard: build and repair ships here.';
 
+/** R127: what a Parking Hangar on the map means, in the map key and a system's accessible name. */
+export const HANGAR_TEXT = 'Parking Hangar: protects a ship from sabotage.';
+
 /** S02-2: the label and hint are in the accessible name (words, not symbols a screen reader would spell out). */
 export function systemAccessibleName(game, system, myId) {
 	const goods = system.market.map(entry => {
@@ -268,7 +272,8 @@ export function systemAccessibleName(game, system, myId) {
 	const others = ships.length - mine;
 	const jumps = jumpChancesText(game.board ?? [], system);
 	const shipyard = system.shipyard ? ` ${SHIPYARD_TEXT}` : '';
-	return `${system.name}: ${goods}.${shipyard} ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}.${jumps ? ` ${jumps}` : ''} Open system details.`;
+	const hangar = system.hangar ? ` ${HANGAR_TEXT}` : '';
+	return `${system.name}: ${goods}.${shipyard}${hangar} ${mine} of your ships, ${others} ${others === 1 ? 'other ship' : 'other ships'}.${jumps ? ` ${jumps}` : ''} Open system details.`;
 }
 
 /** "POLY 4, ISO 3, CHIPS 12", or "Empty" for a ship carrying nothing. */
@@ -340,9 +345,10 @@ export function locations(game, system, myId) {
 		stats: locationStats(system, location.id, game.conditions),
 		ships: ships.filter(ship => ship.location === location.id).map(ship => ({
 			mine: ship.mine,
-			text: ship.mine
+			// R127: a ship in the Parking Hangar says so, since it can't be sabotaged.
+			text: (ship.mine
 				? `■ ${ship.name} — you · ${yours[ship.name].cargo} · ${yours[ship.name].cargoUsed}`
-				: `□ ${ship.name} — ${ship.corporationName}`,
+				: `□ ${ship.name} — ${ship.corporationName}`) + (ship.hangar ? ' · parked' : ''),
 		})),
 	}));
 }

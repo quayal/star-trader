@@ -640,7 +640,7 @@ data class Game(
 			throw InvalidSabotageException("You can't sabotage your own assets.")
 		}
 		val owner = players.firstOrNull { it.email == target.ownerEmail } ?: throw InvalidSabotageException("Choose another player's asset.")
-		owner.checkSabotageTarget(target)
+		owner.checkSabotageTarget(target, current.number)
 		val blamed = blamedFor(email, owner.email, blamedEmail)
 		val cost = Sabotage.COST_PER_LEGAL_LEVEL * target.system.locations.legalSystem
 		val saboteur = playerOf(email)
@@ -1362,6 +1362,7 @@ data class Game(
 		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		current.refuseWhileAShipWaitsToLand()
+		current.refuseWhileHangarAsked()
 		val player = playerOf(email)
 		val ship = player.ship(shipName)?.takeUnless { current.hasJumped(it) }
 			?: throw InvalidJumpException("Choose one of your ships that hasn't jumped this turn.")
@@ -1654,7 +1655,33 @@ data class Game(
 		if (location == ShipLocation.SPACE && ship != null && players.any { it.email != email && it.shipsInSpaceAt(ship.system).isNotEmpty() }) {
 			return game.withBattleStarted(ship.system, emptyList())
 		}
+		// R127: landing in a Port with a Parking Hangar asks whether to park, when the player can pay for it.
+		if (ship != null && ship.canBeParked() && landed.canAffordHangar()) {
+			return game.withTurn(game.runningTurn().withHangarAsk(HangarAsk(listOf(shipName), false)))
+		}
 		return if (current.haveAllJumped(landed.jumpableShips())) game.endJumpSlot(email) else game
+	}
+
+	/**
+	 * [email] answers the Parking Hangar question of their jump slot (R127): [stay] parks the ship asked about for this turn,
+	 * paying 5 HT (refused without the money), or else leaves it out of the hangar. Either is logged. After the last ship
+	 * the slot goes on, or ends when the question was raised by it ending or every ship has jumped.
+	 */
+	fun answerHangar(email: String, stay: Boolean): Game {
+		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
+		val ask = current.hangarAskNow()
+		val player = playerOf(email)
+		val shipName = ask.ship()
+		val answered = if (stay) player.parkShip(shipName, current.number) else player.leaveHangar(shipName)
+		val wasParked = player.ship(shipName)?.isInHangar() == true
+		// A ship that was never parked and stays out hasn't changed: nothing to log.
+		val lines = listOfNotNull(answered.hangarLog(shipName, stay).takeIf { stay || wasParked })
+		val rest = ask.answered()
+		val game = copy(players = replace(answered), turn = current.withHangarAsk(rest)).withLogged(current.number, lines)
+		if (rest != null) {
+			return game
+		}
+		return if (ask.endsSlot || current.haveAllJumped(answered.jumpableShips())) game.endJumpSlot(email) else game
 	}
 
 	/**
@@ -1727,6 +1754,7 @@ data class Game(
 		val current = turnAwaiting(email, Turn::currentJumper, Turn::jumperWaitingText)
 		current.refuseDuringFight()
 		current.refuseWhileAShipWaitsToLand()
+		current.refuseWhileHangarAsked()
 		return endJumpSlot(email)
 	}
 
@@ -1957,7 +1985,18 @@ data class Game(
 		return current
 	}
 
-	private fun endJumpSlot(email: String): Game = copy(turn = runningTurn().endJumpSlot(email)).withEmptyJumpSlotsSkipped()
+	/**
+	 * This game once [email]'s jump slot ended (S02-6), unless a ship of theirs parked in an earlier turn is still in its
+	 * hangar: then each is asked whether it stays (R127), and the last answer ends the slot.
+	 */
+	private fun endJumpSlot(email: String): Game {
+		val current = runningTurn()
+		val renewals = playerOf(email).hangarRenewalsDue(current.number)
+		if (renewals.isNotEmpty()) {
+			return copy(turn = current.withHangarAsk(HangarAsk(renewals, true)))
+		}
+		return copy(turn = current.endJumpSlot(email)).withEmptyJumpSlotsSkipped()
+	}
 
 	/**
 	 * This game once every jump slot that has nothing to jump has ended (R64): a player whose ships are all in the yard, or

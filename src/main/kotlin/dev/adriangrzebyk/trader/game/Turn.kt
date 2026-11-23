@@ -44,7 +44,8 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn. [doneNews] lists
  * who has signalled done with the news (R109), public like [doneBidding]. [reachedOffers] are the offers the counter
  * reached this Trading, each put to its player, who then traded or chose nothing (playtest, 2026-11-21): public, like the
- * resolution that asked.
+ * resolution that asked. [hangarAsk] is the Parking Hangar question the jumping player has to answer first (R127), public so
+ * everyone sees what the game waits for (D09).
  */
 data class Turn(
 	val number: Int,
@@ -78,7 +79,8 @@ data class Turn(
 	val limpyAsk: String?,
 	val limpyUsedBy: List<String>,
 	val doneNews: List<String> = emptyList(),
-	val reachedOffers: List<Offer> = emptyList()
+	val reachedOffers: List<Offer> = emptyList(),
+	val hangarAsk: HangarAsk? = null
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -292,6 +294,17 @@ data class Turn(
 	fun refuseWhileAShipWaitsToLand() {
 		landingShip?.let { throw InvalidGameOperationException("Choose where $it ends up first.") }
 	}
+
+	/** R127: while a Parking Hangar question is open, the jumping player decides it before anything else in their slot. */
+	fun refuseWhileHangarAsked() {
+		hangarAsk?.let { throw InvalidGameOperationException("Answer the Parking Hangar question for ${it.ship()} first.") }
+	}
+
+	/** The Parking Hangar question now open (R127), refused when there is none. */
+	fun hangarAskNow(): HangarAsk = hangarAsk ?: throw InvalidGameOperationException("No Parking Hangar question is open.")
+
+	/** This turn with [ask] as its Parking Hangar question, or none (R127). */
+	fun withHangarAsk(ask: HangarAsk?): Turn = copy(hangarAsk = ask)
 
 	/** R73: while an interception is being decided or a battle lasts, the jumps wait. */
 	fun refuseDuringFight() {

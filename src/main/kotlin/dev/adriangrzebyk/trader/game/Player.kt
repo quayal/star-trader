@@ -667,6 +667,12 @@ data class Player(
 		"Jump: $corporationName — ${checkNotNull(ship(shipName)).failedJumpLog(destination, roll)}"
 
 	/** The public log line of this player's [shipName] landing where it is now (S03-3, R77). */
+	/** The public log line of [shipName] entering or leaving its Port's Parking Hangar (R127); the fee isn't in it (R29). */
+	fun hangarLog(shipName: String, parked: Boolean): String {
+		val ship = checkNotNull(ship(shipName))
+		return "Parking: $corporationName — $shipName ${if (parked) "is in" else "leaves"} the Parking Hangar (${ship.system.displayName})"
+	}
+
 	fun landedLog(shipName: String): String = "Landing: $corporationName — ${checkNotNull(ship(shipName)).landingLog()}"
 
 	/** The public log line of [blocks] warehouse blocks bought at [system] (R50: without the price). */
@@ -879,6 +885,27 @@ data class Player(
 
 	/** This player's ships that can jump (R64): every one but those still in the shipyard. */
 	fun jumpableShips(): List<Ship> = ships.filterNot { it.isInShipyard() }
+
+	/** Whether this player has the money for a place in a Parking Hangar (R127). */
+	fun canAffordHangar(): Boolean = money >= Ship.HANGAR_FEE
+
+	/**
+	 * The names of this player's ships whose hangar place was paid for before turn [turn] and are still in it (R127): the
+	 * ones asked whether they stay when the player ends their jump slot.
+	 */
+	fun hangarRenewalsDue(turn: Int): List<String> = ships.filter { it.isDueHangarRenewal(turn) }.map { it.name }
+
+	/** This player after their ship [shipName] was parked for turn [turn], paying the fee (R127); refused without the money. */
+	fun parkShip(shipName: String, turn: Int): Player {
+		val ship = checkNotNull(ship(shipName))
+		if (!canAffordHangar()) {
+			throw InvalidHangarException("A place in the Parking Hangar costs ${Ship.HANGAR_FEE} HT; you have $money HT.")
+		}
+		return withShip(ship.parkedOn(turn)).pay(Ship.HANGAR_FEE, "Parking Hangar at ${ship.system.displayName} for $shipName")
+	}
+
+	/** This player after their ship [shipName] left its hangar (R127). */
+	fun leaveHangar(shipName: String): Player = withShip(checkNotNull(ship(shipName)).leftHangar())
 
 	/** This player's ships that leave the yard in turn [turn]'s Investment (R63). */
 	fun shipsLeavingYardIn(turn: Int): List<Ship> = ships.filter { it.leavesYardIn(turn) }
@@ -1247,13 +1274,15 @@ data class Player(
 	}
 
 	/**
-	 * Refuses [target] as a sabotage on this player's assets (R97) unless it names a ship of theirs in Port at its system, or
-	 * their warehouse or factory there.
+	 * Refuses [target] as a sabotage on this player's assets (R97) unless it names a ship of theirs in Port at its system and
+	 * not parked in a hangar in turn [turn] (R127), or their warehouse or factory there.
 	 */
-	fun checkSabotageTarget(target: SabotageTarget) {
+	fun checkSabotageTarget(target: SabotageTarget, turn: Int) {
 		when (target) {
 			is SabotageTarget.Ship -> if (ship(target.name)?.isInPortAt(target.system) != true) {
 				throw InvalidSabotageException("Choose a ship in Port: ships in the yard, on a Planet or in Space can't be sabotaged.")
+			} else if (checkNotNull(ship(target.name)).isParkedOn(turn)) {
+				throw InvalidSabotageException("${target.name} is in the Parking Hangar: it can't be sabotaged.")
 			}
 			is SabotageTarget.Warehouse -> if (warehouseAt(target.system) == null) {
 				throw InvalidSabotageException("$corporationName has no warehouse at ${target.system.displayName}.")

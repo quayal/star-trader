@@ -305,6 +305,11 @@
 		.shipyard-icon { fill: none; stroke: var(--node-shipyard); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 		.shipyard-icon--map { stroke-width: 1.2; }
 		.map-key .shipyard-icon { width: 16px; height: 16px; vertical-align: -3px; }
+		/* R127: a P in a rounded square beside the wrench on a system with a Parking Hangar; the same icon in the map key. */
+		.hangar-icon { fill: none; stroke: var(--node-shipyard); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+		.hangar-icon--map { stroke-width: 1.2; }
+		.hangar-icon text, .map-node .hangar-icon text { fill: var(--node-shipyard); stroke: none; font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+		.map-key .hangar-icon { width: 16px; height: 16px; vertical-align: -3px; }
 		.map-key, .map-legend { margin: var(--space-related) 0 0; font-size: var(--text-body); }
 		.map-legend { color: var(--text-muted); }
 		.fleet-list .muted { font-size: var(--text-body); }
@@ -778,7 +783,7 @@
 			<section class="panel deck__map" aria-labelledby="map-title">
 				<h2 id="map-title">Map</h2>
 				<div id="map"></div>
-				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there. Select a system for its details.</p>
+				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there &middot; <svg class="hangar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="3.5"/><text x="12" y="17.5" text-anchor="middle">P</text></svg> Parking Hangar: protects a ship from sabotage. Select a system for its details.</p>
 				<p class="map-legend" id="map-legend"></p>
 			</section>
 			<div class="deck__side deck__offers">
@@ -866,6 +871,19 @@
 				</fieldset>
 				<p class="message message--error" id="landing-error" role="status"></p>
 				<div><button class="btn" id="landing-button" type="submit"></button></div>
+			</form>
+		</dialog>
+
+		<!-- R127: the Parking Hangar question, static markup shared by every game, filled on render. -->
+		<dialog class="landing" id="hangar-dialog" aria-labelledby="hangar-title" aria-describedby="hangar-text">
+			<form id="hangar-form" novalidate>
+				<h2 id="hangar-title"></h2>
+				<p id="hangar-text"></p>
+				<p class="message message--error" id="hangar-error" role="status"></p>
+				<div class="notice__actions">
+					<button class="btn" id="hangar-yes" type="submit"></button>
+					<button class="quiet-button" id="hangar-no" type="button"></button>
+				</div>
 			</form>
 		</dialog>
 
@@ -1705,6 +1723,15 @@
 		landingHeading,
 		landingOptions,
 	} from './js/landing.js';
+	import {
+		ESCAPE_STAYS,
+		hangarAnsweredText,
+		hangarFor,
+		hangarHeading,
+		hangarNoLabel,
+		hangarQuestion,
+		hangarYesLabel,
+	} from './js/hangar.js';
 	import { progressSnapshot, progressText } from './js/progress.js';
 	import {
 		MARKET_LEVELS,
@@ -2505,6 +2532,7 @@
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
+		updateHangar(game); // likewise (R127), once the landing is done
 		updateFight(game); // likewise: the battle in its own dialog (creator, 2026-11-19), under the report
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
@@ -2679,6 +2707,14 @@
 	const SVG_NS = 'http://www.w3.org/2000/svg';
 	/** R60: a wrench, 24 × 24, stroked (Feather's "tool" icon, MIT). */
 	const SHIPYARD_ICON_PATH = 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z';
+	/** R127: a P on a rounded square, 24 × 24, stroked like the wrench; drawn by [hangarIcon]. */
+	function hangarIcon(attributes) {
+		const icon = svgElement('g', attributes);
+		icon.append(svgElement('rect', { x: 2.5, y: 2.5, width: 19, height: 19, rx: 3.5 }));
+		icon.append(svgElement('text', { x: 12, y: 17.5, 'text-anchor': 'middle' }, 'P'));
+		return icon;
+	}
+
 	/** px a map triangle sits above the baseline, so it centres on the 15 px price digits. */
 	const TRIANGLE_LIFT = 3;
 
@@ -4457,7 +4493,7 @@
 	 */
 	function afterJumpStep(game, announce = '') {
 		render(game);
-		if ($('landing-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
+		if ($('landing-dialog').open || $('hangar-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
 			return; // showModal() has put focus in the dialog (the evaded card comes before the landing); off the Deck there's no form to return to
 		}
 		if (isFighting(game)) {
@@ -4601,7 +4637,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'hangar-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -4796,7 +4832,7 @@
 	function updateBattleReport(game) {
 		const dialog = $('battle-report-dialog');
 		const lines = game.status === 'RUNNING' ? reportLines(game, viewerId) : [];
-		if (!lines.length || $('landing-dialog').open) {
+		if (!lines.length || $('landing-dialog').open || $('hangar-dialog').open) {
 			return;
 		}
 		const unseen = lines.some(line => !seenReportLines.has(line.key));
@@ -4895,7 +4931,7 @@
 			}
 			return;
 		}
-		if (!dialog.open && ($('landing-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
+		if (!dialog.open && ($('landing-dialog').open || $('hangar-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
 			return; // one modal at a time; the landing and the battle report come first
 		}
 		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines, card.sections]));
@@ -4952,6 +4988,7 @@
 		const dismissed = answer === 'all' ? noticeQueue : noticeQueue.slice(0, 1);
 		dismissed.forEach(card => (card.move ? markMoveSeen(card.key) : card.ack ? markAckSeen(card.key) : markCardsSeen(gameId, card.end)));
 		updateLanding(lastGame); // a landing held back for the evaded card opens now, before any further card
+		updateHangar(lastGame); // likewise the hangar question
 		updateFight(lastGame); // likewise the battle dialog, which waits for the cards
 		const go = answer !== 'all' && dismissed[0]?.move ? dismissed[0].link : null;
 		if (go && location.hash !== go) {
@@ -5070,6 +5107,80 @@
 		}
 	}
 
+	let hangarKey = null;
+	let hangarSending = false;
+
+	function closeHangar() {
+		hangarKey = null;
+		if ($('hangar-dialog').open) {
+			$('hangar-dialog').close();
+		}
+	}
+
+	/** R127: open the Parking Hangar question for the ship you landed, or left in the hangar last turn, until you answer it. */
+	function updateHangar(game) {
+		const hangar = game.status === 'RUNNING' && rules ? hangarFor(game, viewerId) : null;
+		if (!hangar || $('landing-dialog').open) {
+			if (!hangar) {
+				closeHangar(); // answered (here or in another tab), or nothing to ask
+			}
+			return;
+		}
+		if (!$('hangar-dialog').open && evasionFirst(noticeCards(game, cardsSeenFrom(game.id, game.log.length), viewerId))) {
+			return; // "You evaded an interception" first, as for the landing
+		}
+		const key = JSON.stringify([game.id, game.turn.number, hangar.ship.name, hangar.renewal]);
+		if (key !== hangarKey) {
+			hangarKey = key;
+			$('hangar-title').textContent = hangarHeading(hangar);
+			$('hangar-text').textContent = hangarQuestion(hangar, rules.hangarFee);
+			$('hangar-yes').textContent = hangarYesLabel(rules.hangarFee);
+			$('hangar-no').textContent = hangarNoLabel(hangar);
+			$('hangar-error').textContent = '';
+		}
+		if (!$('hangar-dialog').open) {
+			$('hangar-dialog').showModal(); // focus moves inside, to the first answer
+		}
+	}
+
+	async function submitHangar(stay) {
+		if (hangarSending) {
+			return;
+		}
+		const gameId = currentGameId;
+		const hangar = hangarFor(lastGame, viewerId);
+		hangarSending = true;
+		$('hangar-yes').disabled = true;
+		$('hangar-no').disabled = true;
+		$('hangar-error').textContent = '';
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/ship-jumps/hangar`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ stay }),
+			});
+		} catch {
+			response = null;
+		}
+		hangarSending = false;
+		$('hangar-yes').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		$('hangar-no').disabled = false;
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response?.ok) {
+			afterJumpStep(await response.json(), hangar ? hangarAnsweredText(hangar.ship.name, hangar.renewal, stay) : '');
+			return;
+		}
+		$('hangar-error').textContent = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // as the landing does: the poll in flight mustn't start a second loop
+			poll(); // the question may already have been answered in another tab; the dialog catches up
+		}
+	}
+
 	async function submitBid(event) {
 		event.preventDefault();
 		setBidError('');
@@ -5151,7 +5262,7 @@
 	$('battle-report-dialog').addEventListener('close', rememberReportLines);
 	// The cards wait while the landing or the battle report is open; once it closes they show, without waiting for a poll
 	// (an unchanged game answers 304 and renders nothing).
-	['battle-report-dialog', 'landing-dialog', 'invest-dialog'].forEach(id => $(id).addEventListener('close', () => {
+	['battle-report-dialog', 'landing-dialog', 'hangar-dialog', 'invest-dialog'].forEach(id => $(id).addEventListener('close', () => {
 		if (lastGame && lastGame.id === currentGameId) {
 			setTimeout(() => {
 				updateFight(lastGame); // the battle dialog waited for it too (creator, 2026-11-19)
@@ -5159,6 +5270,15 @@
 			}); // after the closing dialog has left the top layer
 		}
 	}));
+	$('hangar-form').addEventListener('submit', event => {
+		event.preventDefault();
+		submitHangar(true);
+	});
+	$('hangar-no').addEventListener('click', () => submitHangar(false));
+	$('hangar-dialog').addEventListener('cancel', event => {
+		event.preventDefault(); // stays open until answered, as the landing does
+		submitHangar(ESCAPE_STAYS); // Escape counts as No
+	});
 	$('landing-dialog').addEventListener('cancel', event => {
 		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
 		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)
@@ -6692,11 +6812,16 @@
 				'aria-label': systemAccessibleName(game, system, viewerId),
 			});
 			node.append(svgElement('circle', { cx: x, cy: y, r: NODE_RADIUS }));
+			// R60, R127: the wrench and the P (the key's icons, 24 units, drawn at 22) above the goods, side by side when both
+			// are there; the accessible name says them in words.
+			const iconLeft = system.shipyard && system.hangar ? x - 26 : x - 11;
 			if (system.shipyard) {
-				// R60: the wrench (the key's icon, 24 units, drawn at 22) above the goods; the accessible name says it in words.
-				const icon = svgElement('g', { class: 'shipyard-icon shipyard-icon--map', transform: `translate(${x - 11} ${y - 59}) scale(0.92)` });
+				const icon = svgElement('g', { class: 'shipyard-icon shipyard-icon--map', transform: `translate(${iconLeft} ${y - 59}) scale(0.92)` });
 				icon.append(svgElement('path', { d: SHIPYARD_ICON_PATH }));
 				node.append(icon);
+			}
+			if (system.hangar) {
+				node.append(hangarIcon({ class: 'hangar-icon hangar-icon--map', transform: `translate(${system.shipyard ? x + 4 : x - 11} ${y - 59}) scale(0.92)` }));
 			}
 			const labels = labelsAt[system.id];
 			node.append(svgElement('text', { x, y: labels.name, 'text-anchor': 'middle', class: 'map-node__name' }, system.name));

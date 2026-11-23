@@ -163,6 +163,7 @@ class GameBattleTest {
 		// R72: Wayfarer tried and failed; it can't jump in Ada's slot.
 		val game = arrived.answerInterception("ada@example.com", "Wayfarer", dice(1, 6))
 			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 			.finishJumping("grace@example.com")
 
 		assertThat(game.turn!!.jumpedShips).contains("Wayfarer")

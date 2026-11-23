@@ -238,10 +238,20 @@ data class FactoryResponseDto(val system: String, val goods: String, val size: I
 }
 
 /** Where a ship is, which every player may see; what it carries is only in [YourShipResponseDto]. */
-data class ShipResponseDto(val name: String, val system: String, val systemName: String, val location: String, val agents: Int) {
+data class ShipResponseDto(
+	val name: String,
+	val system: String,
+	val systemName: String,
+	val location: String,
+	val agents: Int,
+	val hangar: Boolean = false
+) {
 
-	/** [agents] is how many agents ride it: public, unlike who they are (R105). */
-	constructor(ship: Ship, agents: Int) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name, agents)
+	/** [agents] is how many agents ride it: public, unlike who they are (R105); [hangar] is whether it's in a Parking Hangar (R127). */
+	constructor(
+		ship: Ship,
+		agents: Int
+	) : this(ship.name, ship.system.name, ship.system.displayName, ship.location.name, agents, ship.isInHangar())
 }
 
 data class MarketPositionResponseDto(val system: String, val goods: String, val tier: String) {
@@ -253,7 +263,8 @@ data class MarketPositionResponseDto(val system: String, val goods: String, val 
  * One system of the board: its R31 location statistics and its market at this game's [MarketPrices] (D07, D08, R35),
  * and the goods a factory here can make, empty where none can (R46, E06-S02-3). [jumpChances] is the base chance of a
  * jump from here to each other system, keyed by `StarSystem` constant (R68): public, the same for everyone, before a
- * ship's crew and Safe jump modifiers. [shipyard] is whether ships can be bought, refitted and repaired here (R60).
+ * ship's crew and Safe jump modifiers. [shipyard] is whether ships can be bought, refitted and repaired here (R60) and
+ * [hangar] whether the Port has a Parking Hangar (R127).
  */
 data class SystemResponseDto(
 	val id: String,
@@ -265,7 +276,8 @@ data class SystemResponseDto(
 	val market: List<MarketEntryResponseDto>,
 	val producibleGoods: List<String>,
 	val jumpChances: Map<String, Int>,
-	val shipyard: Boolean
+	val shipyard: Boolean,
+	val hangar: Boolean = false
 ) {
 
 	constructor(system: StarSystem, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) : this(
@@ -278,7 +290,8 @@ data class SystemResponseDto(
 		system.goods.sortedBy { it.name }.map { MarketEntryResponseDto(MarketGood(system, it), prices, shifts) },
 		system.producibleGoods.map { it.name }.sorted(),
 		StarSystem.entries.mapNotNull { to -> system.baseJumpChanceTo(to)?.let { to.name to it } }.toMap(),
-		system.hasShipyard()
+		system.hasShipyard(),
+		system.hasHangar()
 	)
 }
 
@@ -297,7 +310,7 @@ data class MarketEntryResponseDto(val goods: String, val price: Int, val indicat
  * order once Bidding closes (R27). [turnOrder] is this turn's places, first to last, each a player's id or null while
  * free (R26); empty during Bidding. [jumpedShips] names the ships that jumped this turn and [doneJumping] the players
  * whose jump slot has ended (R26, S02); [landingShip] is the ship whose player still has to choose where it ends up,
- * or null (R30, S03). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
+ * or null (R30, S03), and [hangarShip] the ship whose Parking Hangar question is open (R127). [tradingQueue] is the goods still to resolve in Trading, in the order they will resolve, and
  * [resolvedGoods] the ones resolved so far (R25, R36); both empty before Trading. [resolution] is the good resolving
  * now, or the last one resolved, and null before the first. [doneInvesting] lists who has signalled done during
  * Investment (R44), so everyone sees who the game waits for (D09). [collected] lists the players with factories who have
@@ -314,6 +327,7 @@ data class TurnResponseDto(
 	val jumpedShips: List<String>,
 	val doneJumping: List<String>,
 	val landingShip: String?,
+	val hangarShip: String?,
 	val tradingQueue: List<MarketGoodResponseDto>,
 	val resolvedGoods: List<MarketGoodResponseDto>,
 	val resolution: ResolutionResponseDto?,
@@ -340,6 +354,7 @@ data class TurnResponseDto(
 		turn.jumpedShips,
 		ids.ofAll(turn.doneJumping),
 		turn.landingShip,
+		turn.hangarAsk?.ship(),
 		turn.tradingQueue.map { MarketGoodResponseDto(it) },
 		turn.resolvedGoods.map { MarketGoodResponseDto(it) },
 		turn.resolution?.let { ResolutionResponseDto(it, ids) },
@@ -1203,6 +1218,9 @@ data class JumpShipRequestDto(val ship: String? = null, val destination: String?
 
 	fun destination(): StarSystem? = StarSystem.entries.firstOrNull { it.name == destination }
 }
+
+/** The answer to a Parking Hangar question (R127): whether the ship asked about is in the hangar this turn. */
+data class HangarRequestDto(val stay: Boolean? = null)
 
 /** Where the ship that just jumped ends up; an unknown location reaches the domain's message as a missing one. */
 data class LandShipRequestDto(val location: String? = null) {

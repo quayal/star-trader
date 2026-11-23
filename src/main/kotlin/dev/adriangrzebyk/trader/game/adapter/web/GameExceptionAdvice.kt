@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.InvalidCollectException
 import dev.adriangrzebyk.trader.game.InvalidConnectionsException
 import dev.adriangrzebyk.trader.game.InvalidFittingException
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
+import dev.adriangrzebyk.trader.game.InvalidHangarException
 import dev.adriangrzebyk.trader.game.InvalidInvestmentException
 import dev.adriangrzebyk.trader.game.InvalidJumpException
 import dev.adriangrzebyk.trader.game.InvalidLandingException
@@ -55,6 +56,7 @@ class GameExceptionAdvice {
 		InvalidCollectException::class,
 		InvalidConnectionsException::class,
 		InvalidFittingException::class,
+		InvalidHangarException::class,
 		InvalidInvestmentException::class,
 		InvalidJumpException::class,
 		InvalidLandingException::class,
