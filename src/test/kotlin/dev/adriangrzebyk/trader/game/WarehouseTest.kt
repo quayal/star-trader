@@ -110,4 +110,43 @@ class WarehouseTest {
 		assertThat(stocked.addBlocks(2)).isEqualTo(Warehouse(StarSystem.TAU_CETI, 3, mapOf(Goods.ISO to 3)))
 		assertThat(stocked.addBlocks(2).cargoSpaces()).isEqualTo(30)
 	}
+
+	@Test
+	fun shouldStoreALegalModuleInFiveCargoSpaces() {
+		// R122
+		val stored = warehouse.load(Goods.POLY, 5).withModuleStored(Module.CARGO)
+
+		assertThat(stored.modules).containsExactly(Module.CARGO)
+		assertThat(stored.cargoSpacesUsed()).isEqualTo(10)
+		assertThat(stored.unitsThatFit(Goods.ISO, 3)).isZero()
+		assertThat(stored.hasRoomForModule()).isFalse()
+		assertThatThrownBy { stored.withModuleStored(Module.PASSENGER) }
+			.hasMessage("Your warehouse at Tau Ceti has room for no more modules: one takes 5 cargo spaces.")
+	}
+
+	@Test
+	fun shouldRefuseToStoreAMilitaryModule() {
+		// R122, R112: nothing illegal goes into a warehouse
+		assertThatThrownBy { warehouse.withModuleStored(Module.DOGFIGHT) }
+			.hasMessage("Dogfight is military: it can't be stored in a warehouse.")
+	}
+
+	@Test
+	fun shouldGiveBackAStoredModuleAndRefuseOneItDoesNotHold() {
+		// R122
+		val stored = warehouse.withModuleStored(Module.CARGO).withModuleStored(Module.CARGO)
+
+		assertThat(stored.withModuleTaken(Module.CARGO).modules).containsExactly(Module.CARGO)
+		assertThatThrownBy { stored.withModuleTaken(Module.PASSENGER) }
+			.hasMessage("Your warehouse at Tau Ceti holds no Passenger module.")
+	}
+
+	@Test
+	fun shouldKeepStoredModulesWhenEmptied() {
+		// E12's pirates take goods only (spec 2026-11-23)
+		val looted = warehouse.load(Goods.POLY, 3).withModuleStored(Module.CARGO).emptied()
+
+		assertThat(looted.cargo).isEmpty()
+		assertThat(looted.modules).containsExactly(Module.CARGO)
+	}
 }

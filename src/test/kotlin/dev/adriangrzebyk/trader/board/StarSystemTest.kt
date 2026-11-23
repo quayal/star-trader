@@ -56,4 +56,11 @@ class StarSystemTest {
 			StarSystem.entries.filter { it != from }.forEach { to -> assertThat(from.baseJumpChanceTo(to)).isBetween(2, 12) }
 		}
 	}
+
+	@Test
+	fun shouldAdmitMilitaryShipsOnlyInPortsWithLegalSystemOneOrTwo() {
+		// R56, R123
+		assertThat(StarSystem.entries.filter { it.locations.admitsMilitaryShips() })
+			.containsExactlyInAnyOrder(StarSystem.SIGMA_DRACONIS, StarSystem.MU_HERCULIS, StarSystem.TAU_CETI)
+	}
 }

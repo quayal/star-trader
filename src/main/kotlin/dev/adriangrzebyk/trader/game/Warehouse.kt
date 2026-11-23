@@ -7,9 +7,15 @@ import dev.adriangrzebyk.trader.board.StarSystem
  * A player's warehouse at [system] (R45): at most one per player per system, and its capacity is [blocks] blocks (at
  * least one), each holding as many cargo spaces as a ship (R42). What it holds, [cargo] (units per good), is private to
  * its owner like a ship's (R29); the owner's collected output goes into it (R47). The warehouse itself is public, like
- * the board (R50). It counts as presence for Trading, and loads and unloads like a ship does (R49).
+ * the board (R50). It counts as presence for Trading, and loads and unloads like a ship does (R49). [modules] are legal
+ * modules stored here (R122), [MODULE_CARGO_SPACES] spaces each, private like the cargo.
  */
-data class Warehouse(override val system: StarSystem, val blocks: Int, override val cargo: Map<Goods, Int>) : CargoHold {
+data class Warehouse(
+	override val system: StarSystem,
+	val blocks: Int,
+	override val cargo: Map<Goods, Int>,
+	val modules: List<Module> = emptyList()
+) : CargoHold {
 
 	init {
 		require(blocks >= 1) { "A warehouse has at least one block." }
@@ -18,8 +24,35 @@ data class Warehouse(override val system: StarSystem, val blocks: Int, override 
 	/** The cargo spaces this warehouse holds (R45): [CARGO_SPACES_PER_BLOCK] a block. */
 	fun cargoSpaces(): Int = blocks * CARGO_SPACES_PER_BLOCK
 
-	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. */
-	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum()
+	/** R42: POLY and ISO take one cargo space per unit; CHIPS and FOOD take none. A stored module takes [MODULE_CARGO_SPACES] (R122). */
+	fun cargoSpacesUsed(): Int = cargo.filterKeys { it.takesCargoSpace }.values.sum() + modules.size * MODULE_CARGO_SPACES
+
+	/** Each different module stored here and how many of it, in the order they were first stored (R122). */
+	fun storedModules(): Map<Module, Int> = modules.groupingBy { it }.eachCount()
+
+	/** Whether one more module fits (R122): [MODULE_CARGO_SPACES] free cargo spaces. */
+	fun hasRoomForModule(): Boolean = freeCargoSpaces() >= MODULE_CARGO_SPACES
+
+	/** This warehouse with [module] stored (R122), refused for a military one (R112: nothing illegal here) or without room. */
+	fun withModuleStored(module: Module): Warehouse {
+		if (module.military) {
+			throw InvalidInvestmentException("${module.displayName} is military: it can't be stored in a warehouse.")
+		}
+		if (!hasRoomForModule()) {
+			throw InvalidInvestmentException(
+				"${cargoName()} has room for no more modules: one takes $MODULE_CARGO_SPACES cargo spaces."
+			)
+		}
+		return copy(modules = modules + module)
+	}
+
+	/** This warehouse with one stored [module] taken out to be fitted (R122), refused when it holds none. */
+	fun withModuleTaken(module: Module): Warehouse {
+		if (module !in modules) {
+			throw InvalidInvestmentException("${cargoName()} holds no ${module.displayName} module.")
+		}
+		return copy(modules = modules - module)
+	}
 
 	/** This warehouse with [count] more blocks (R45): what it holds stays. */
 	fun addBlocks(count: Int): Warehouse = copy(blocks = blocks + count)
@@ -63,7 +96,7 @@ data class Warehouse(override val system: StarSystem, val blocks: Int, override 
 		return copy(cargo = if (units > 0) others + (goods to units) else others)
 	}
 
-	/** This warehouse with nothing in it: what the pirates leave (E12). */
+	/** This warehouse with no goods in it: what the pirates leave (E12). Stored modules stay (spec 2026-11-23). */
 	fun emptied(): Warehouse = copy(cargo = emptyMap())
 
 	/** How many units of goods this warehouse holds, all goods together. */
@@ -75,5 +108,8 @@ data class Warehouse(override val system: StarSystem, val blocks: Int, override 
 
 		/** R45: one block holds 10 cargo spaces, as a ship of the legacy fit did (R42). */
 		const val CARGO_SPACES_PER_BLOCK = 10
+
+		/** R122: the cargo spaces one stored module takes. */
+		const val MODULE_CARGO_SPACES = 5
 	}
 }

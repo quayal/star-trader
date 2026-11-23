@@ -138,6 +138,11 @@ export function specialSales(game) {
 	return [...sales.values()];
 }
 
+/** R121: the viewer's ships in their delivery's destination Port, each with a Deliver button on their Opportunity turn. */
+export function deliveriesDue(game) {
+	return (game.you?.ships ?? []).filter(ship => ship.canDeliver).map(ship => ({ ship: ship.name, label: `Deliver with ${ship.name}: ${ship.deliveryJob}` }));
+}
+
 /** The viewer's expeditions back this turn (R114), each to be brought to a Port of their choice. */
 export function expeditionsDue(game) {
 	return (game.you?.expeditions ?? []).filter(e => e.due);

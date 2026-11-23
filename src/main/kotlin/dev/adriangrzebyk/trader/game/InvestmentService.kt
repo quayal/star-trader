@@ -73,6 +73,18 @@ class InvestmentService(private val gameStore: GameStore, private val dice: Dice
 	fun removeModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
 		gameStore.update(gameId) { it.removeModule(callerEmail, shipName, module) }
 
+	/** [callerEmail] stores [module] of their ship [shipName] in their warehouse there inside [GameStore.update] (A04, R122). */
+	fun storeModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
+		gameStore.update(gameId) { it.storeModule(callerEmail, shipName, module) }
+
+	/** [callerEmail] fits a stored [module] to their ship [shipName] inside [GameStore.update] (A04, R122). */
+	fun fitStoredModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
+		gameStore.update(gameId) { it.fitStoredModule(callerEmail, shipName, module) }
+
+	/** [callerEmail] moves military [module] from their ship [fromShip] to [toShip] inside [GameStore.update] (A04, R123). */
+	fun moveMilitaryModule(gameId: String, callerEmail: String, fromShip: String, toShip: String?, module: Module): Game =
+		gameStore.update(gameId) { it.moveMilitaryModule(callerEmail, fromShip, toShip, module) }
+
 	/** [callerEmail] replaces the crew of their ship [shipName] inside [GameStore.update], so a double press pays once (A04, R89). */
 	fun replaceCrew(gameId: String, callerEmail: String, shipName: String, crewClass: CrewClass): Game =
 		gameStore.update(gameId) { it.replaceCrew(callerEmail, shipName, crewClass) }
