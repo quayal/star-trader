@@ -1345,6 +1345,24 @@ data class Player(
 	fun isDictatorOf(system: StarSystem, goods: Goods): Boolean =
 		marketPositions.any { it.system == system && it.goods == goods && it.tier == MarketTier.DICTATOR }
 
+	/** This player's position for [good] at its system, or null when they hold none there (R28, R126). */
+	fun positionAt(good: MarketGood): MarketPosition? = marketPositions.firstOrNull { it.isFor(good) }
+
+	/**
+	 * This player after a challenge took their position for [good] one tier down (R126): Dictator to Wholesaler, Wholesaler to
+	 * Retailer, a Retailer to none.
+	 */
+	fun withPositionLowered(good: MarketGood): Player =
+		copy(marketPositions = marketPositions.mapNotNull { if (it.isFor(good)) it.lowered() else it })
+
+	/** This player after paying [MarketChallenge.FEE] for a challenge (R126); refused without the money. */
+	fun payChallengeFee(): Player {
+		if (money < MarketChallenge.FEE) {
+			throw InvalidChallengeException("Challenging a market position costs ${MarketChallenge.FEE} HT; you have $money HT.")
+		}
+		return pay(MarketChallenge.FEE, "Challenged a market position")
+	}
+
 	/** This player's tier for [good] at its system, or null when they hold none there (R28, R40). */
 	fun tierAt(good: MarketGood): MarketTier? = marketPositions.firstOrNull { it.isFor(good) }?.tier
 

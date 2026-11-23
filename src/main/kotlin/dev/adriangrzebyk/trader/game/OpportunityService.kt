@@ -48,6 +48,10 @@ class OpportunityService(private val gameStore: GameStore, private val dice: Dic
 	fun sabotage(gameId: String, callerEmail: String, target: SabotageTarget, blamedEmail: String?): Game =
 		gameStore.update(gameId) { it.sabotage(callerEmail, target, blamedEmail, dice) }
 
+	/** [callerEmail] challenges [targetEmail]'s position for [goods] at [system] with their [kind] connections (R126). */
+	fun challenge(gameId: String, callerEmail: String, targetEmail: String?, system: StarSystem, goods: Goods, kind: ConnectionKind): Game =
+		gameStore.update(gameId) { it.challengeMarketPosition(callerEmail, targetEmail, system, goods, kind, dice) }
+
 	/** [callerEmail] chooses the units missing from the warehouse their sabotage hit (R99). */
 	fun chooseLosses(gameId: String, callerEmail: String, lots: Map<Goods, Int>): Game =
 		gameStore.update(gameId) { it.chooseSabotageLosses(callerEmail, lots) }

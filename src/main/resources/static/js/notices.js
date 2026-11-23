@@ -17,8 +17,29 @@ export const MAX_TOASTS = 3;
 export const TOAST_MS = 6000;
 
 /**
+ * A challenge of a market position (R126, creator 2026-11-23): both players get a card, worded for the challenger (the first
+ * of the notice's players) or the target, in the tone of what it meant to them.
+ */
+function challengeCard(succeeded) {
+	return (where, notice, myId, game) => {
+		const [challengerId, targetId] = notice.playerIds;
+		const challenger = myId === challengerId;
+		const other = corporation(game, challenger ? targetId : challengerId);
+		if (succeeded) {
+			return challenger
+				? { title: 'Your challenge succeeded', lead: `${other} dropped a tier of their market position at ${where}.`, tone: 'rise' }
+				: { title: 'You lost a market position', lead: `${other} challenged your market position at ${where} and won.`, tone: 'alert' };
+		}
+		return challenger
+			? { title: 'Your challenge failed', lead: `${other} kept their market position at ${where}.`, tone: 'alert' }
+			: { title: 'You held your market position', lead: `${other} challenged your market position at ${where} and failed.`, tone: 'rise' };
+	};
+}
+
+/**
  * R124 (creator, 2026-11-23): a roll that went against a player gets them a card of its own; everyone else sees the
- * line as a toast. Each kind's card, worded for the player it happened to.
+ * line as a toast. Each kind's card, worded for the player it happened to (alert unless it says otherwise), given the
+ * place, the notice, the viewer and the game.
  */
 const SETBACKS = {
 	SHIP_SEIZED: where => ({ title: 'Your ship was seized', lead: `Planet security at ${where} confiscated your ship and everything aboard.` }),
@@ -28,6 +49,8 @@ const SETBACKS = {
 	LOST_TO_PIRATES: where => ({ title: 'Your ship was lost to pirates', lead: `Pirates at ${where} took your ship and its cargo.` }),
 	NO_PROMOTION: where => ({ title: 'No market position gained', lead: `Your position roll at ${where} rolled too high.` }),
 	DEMOTED: where => ({ title: 'You lost a market position', lead: `Another trader's position roll at ${where} took your Dictator place.` }),
+	CHALLENGE_SUCCEEDED: challengeCard(true),
+	CHALLENGE_FAILED: challengeCard(false),
 };
 
 /** Whether [notice] is a setback (R124) that happened to someone other than [myId]: then [myId] gets its line as a toast. */
@@ -93,7 +116,7 @@ function newsLead(texts) {
 function cardFor(game, notice, texts, myId, entry) {
 	const where = notice.systemName;
 	if (SETBACKS[notice.kind]) {
-		return { ...SETBACKS[notice.kind](where), tone: 'alert', lines: texts };
+		return { tone: 'alert', ...SETBACKS[notice.kind](where, notice, myId, game), lines: texts };
 	}
 	switch (notice.kind) {
 	case 'INTERCEPTION': {

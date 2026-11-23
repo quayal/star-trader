@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 
 import dev.adriangrzebyk.trader.game.CrewClass
 import dev.adriangrzebyk.trader.game.Hull
+import dev.adriangrzebyk.trader.game.MarketChallenge
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
@@ -25,6 +26,7 @@ data class RulesResponseDto(
 	val shortySabotageBonus: Int,
 	val sabotage: List<SabotageRowResponseDto>,
 	val sabotageBlame: Int,
+	val challenge: ChallengeRulesResponseDto,
 	val reputation: ReputationRulesResponseDto,
 	val hulls: List<HullRuleResponseDto>,
 	val modules: List<ModuleRuleResponseDto>
@@ -42,6 +44,7 @@ data class RulesResponseDto(
 		Agent.SHORTY_SABOTAGE_BONUS,
 		SabotageTable().rows().map { SabotageRowResponseDto(it) },
 		SabotageTable.BLAME,
+		ChallengeRulesResponseDto(),
 		ReputationRulesResponseDto(),
 		Hull.entries.map { HullRuleResponseDto(it) },
 		Module.entries.map { ModuleRuleResponseDto(it) }
@@ -145,4 +148,10 @@ data class ReputationRulesResponseDto(
 		Reputation.BUY_COST,
 		Reputation.BONUS
 	)
+}
+
+/** Challenging a market position (R126): the fee, what a win costs the target and the least difference that can win. */
+data class ChallengeRulesResponseDto(val fee: Int, val targetReputationLoss: Int, val minDifference: Int) {
+
+	constructor() : this(MarketChallenge.FEE, MarketChallenge.TARGET_REPUTATION_LOSS, MarketChallenge.MIN_DIFFERENCE)
 }

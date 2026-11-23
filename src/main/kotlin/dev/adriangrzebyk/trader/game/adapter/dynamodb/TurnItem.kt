@@ -30,6 +30,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			DONE_OPPORTUNITY to strings(turn.doneOpportunity),
 			SABOTAGES to AttributeValue.fromL(turn.sabotages.map { AttributeValue.fromM(SabotageItem(it).attributes) }),
 			RECRUITED_BY to strings(turn.recruitedBy),
+			CHALLENGED_BY to strings(turn.challengedBy),
 			AGENT_OFFERS to AttributeValue.fromL(turn.agentOffers.map { AttributeValue.fromM(AgentOfferItem(it).attributes) }),
 			INTEREST_PAID to strings(turn.interestPaid),
 			LIMPY_USED_BY to strings(turn.limpyUsedBy),
@@ -102,6 +103,8 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			doneOpportunity = list(DONE_OPPORTUNITY),
 			sabotages = attributes[SABOTAGES]?.l().orEmpty().map { SabotageItem(it.m()).toSabotage() },
 			recruitedBy = list(RECRUITED_BY),
+			// Absent from items saved before challenges (R126).
+			challengedBy = list(CHALLENGED_BY),
 			agentOffers = attributes[AGENT_OFFERS]?.l().orEmpty().map { AgentOfferItem(it.m()).toAgentOffer() },
 			interestPaid = list(INTEREST_PAID),
 			limpyAsk = attributes[LIMPY_ASK]?.s(),
@@ -119,6 +122,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val DONE_OPPORTUNITY = "doneOpportunity"
 		const val SABOTAGES = "sabotages"
 		const val RECRUITED_BY = "recruitedBy"
+		const val CHALLENGED_BY = "challengedBy"
 		const val AGENT_OFFERS = "agentOffers"
 		const val INTEREST_PAID = "interestPaid"
 		const val LIMPY_ASK = "limpyAsk"

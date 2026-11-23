@@ -38,7 +38,7 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * player's bid and 2d6 rolls for initiative, in initiative order, public once Bidding closes and empty before (R27,
  * creator 2026-11-18).
  * [doneOpportunity] lists, in order, the players whose Opportunity turn has ended (R102); the player on turn is the first
- * in the turn order who isn't in it. [sabotages] are this Opportunity's sabotages (R97–R101), [recruitedBy] who recruited
+ * in the turn order who isn't in it. [sabotages] are this Opportunity's sabotages (R97–R101), [recruitedBy] who recruited, [challengedBy] who challenged a market position (R126)
  * (R103) and [agentOffers] the agents offered for sale and not yet answered (R106); all emptied when Trading closes into
  * Opportunity. [interestPaid] lists who paid loan interest this Investment (R92). [limpyAsk] is the player asked whether
  * Limpy lets them act as Dictator of the next good (R108), and [limpyUsedBy] who has used him this turn. [doneNews] lists
@@ -72,6 +72,7 @@ data class Turn(
 	val doneOpportunity: List<String>,
 	val sabotages: List<Sabotage>,
 	val recruitedBy: List<String>,
+	val challengedBy: List<String>,
 	val agentOffers: List<AgentOffer>,
 	val interestPaid: List<String>,
 	val limpyAsk: String?,
@@ -383,6 +384,7 @@ data class Turn(
 		doneOpportunity = emptyList(),
 		sabotages = emptyList(),
 		recruitedBy = emptyList(),
+		challengedBy = emptyList(),
 		agentOffers = emptyList()
 	)
 
@@ -479,6 +481,18 @@ data class Turn(
 			throw InvalidGameOperationException("You've already recruited this Opportunity.")
 		}
 		return copy(recruitedBy = recruitedBy + email)
+	}
+
+	/** Whether [email] has challenged a market position this Opportunity: once per Opportunity (R126). */
+	fun hasChallenged(email: String): Boolean = email in challengedBy
+
+	/** This turn after [email] challenged a market position (R126), refused the second time. */
+	fun challengeRecordedFor(email: String): Turn {
+		requireOpportunity()
+		if (hasChallenged(email)) {
+			throw InvalidGameOperationException("You've already challenged a market position this Opportunity.")
+		}
+		return copy(challengedBy = challengedBy + email)
 	}
 
 	/** This turn with [offer]'s agent offered (R106), replacing an earlier offer of the same agent; [offer]'s id is made here. */
@@ -772,6 +786,7 @@ data class Turn(
 			null,
 			null,
 			null,
+			emptyList(),
 			emptyList(),
 			emptyList(),
 			emptyList(),

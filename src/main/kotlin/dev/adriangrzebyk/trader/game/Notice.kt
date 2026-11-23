@@ -5,9 +5,10 @@ import dev.adriangrzebyk.trader.board.StarSystem
 /**
  * What a log line is about, for the pop-up cards (creator, 2026-11-18): an interception try, a moment of a battle, or a sabotage (R101) at
  * [system]; or, with no system and no [players] (everyone), news that took place or an opportunity that expired (playtest,
- * 2026-11-21); or a roll at [system] that went against [players] ([NoticeKind.SETBACKS], R124). [players] are the players involved (the interceptor and the intercepted, or everyone with a ship in the
- * battle), so the screen can word it for each and leave a battle round to the battle report of those fighting. [round]
- * is set for [NoticeKind.BATTLE_ROUND], [interception] for [NoticeKind.INTERCEPTION]. Public, like the line.
+ * 2026-11-21); or a roll at [system] that went against [players] ([NoticeKind.SETBACKS], R124; a challenge of a market position,
+ * R126, names both its players, the challenger first). [players] are the players involved (the interceptor and the intercepted,
+ * or everyone with a ship in the battle), so the screen can word it for each and leave a battle round to the battle report of those
+ * fighting. [round] is set for [NoticeKind.BATTLE_ROUND], [interception] for [NoticeKind.INTERCEPTION]. Public, like the line.
  */
 data class Notice(
 	val kind: NoticeKind,
@@ -46,11 +47,23 @@ enum class NoticeKind {
 	EXPEDITION_LOST,
 	LOST_TO_PIRATES,
 	NO_PROMOTION,
-	DEMOTED;
+	DEMOTED,
+	CHALLENGE_SUCCEEDED,
+	CHALLENGE_FAILED;
 
 	companion object {
 		/** The rolls that went against a player (R124): their card is for them alone. */
-		val SETBACKS = setOf(SHIP_SEIZED, LANDING_FORCED, JUMP_FAILED, EXPEDITION_LOST, LOST_TO_PIRATES, NO_PROMOTION, DEMOTED)
+		val SETBACKS = setOf(
+			SHIP_SEIZED,
+			LANDING_FORCED,
+			JUMP_FAILED,
+			EXPEDITION_LOST,
+			LOST_TO_PIRATES,
+			NO_PROMOTION,
+			DEMOTED,
+			CHALLENGE_SUCCEEDED,
+			CHALLENGE_FAILED
+		)
 	}
 }
 

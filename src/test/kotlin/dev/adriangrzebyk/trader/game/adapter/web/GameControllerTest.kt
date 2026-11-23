@@ -1436,6 +1436,51 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldChallengeAMarketPositionOnTheOpportunityTurnAndTellBothPlayers() {
+		// R126: the owner (political 8) challenges the other player's (political 4) Dictator position; a d6 below 4 would win
+		val (owner, other, gameId, _) = investingWithAFactory("challenge")
+		val ownerEmail = owner.removePrefix("token-")
+		val otherEmail = other.removePrefix("token-")
+		gameStore.update(gameId) { game ->
+			game.copy(
+				players = game.players.map {
+					when (it.email) {
+						ownerEmail -> it.copy(connections = Connections(8, 0, 0))
+						else -> it.copy(
+							connections = Connections(4, 0, 0),
+							marketPositions = listOf(MarketPosition(StarSystem.MU_HERCULIS, Goods.CHIPS, MarketTier.DICTATOR))
+						)
+					}
+				}
+			)
+		}
+		val body = """{"targetPlayerId": "${idOf(gameId, otherEmail)}", "system": "MU_HERCULIS", "goods": "CHIPS", "kind": "POLITICAL"}"""
+		fun challenge(token: String?, json: String) = restTestClient.post().uri("/api/games/{id}/challenge", gameId)
+			.contentType(MediaType.APPLICATION_JSON).apply { token?.let { header("Authorization", "Bearer $it") } }.body(json).exchange()
+
+		challenge(null, body).expectStatus().isUnauthorized
+		challenge(owner, "{}").expectStatus().isBadRequest.expectBody(String::class.java).isEqualTo("Choose a position to challenge.")
+		val unrolled = "Collect your output first."
+		challenge(owner, body).expectStatus().isEqualTo(HttpStatus.CONFLICT).expectBody(String::class.java).isEqualTo(unrolled)
+		collectOutput(owner, gameId, "{}").expectStatus().isOk
+		challenge(owner, body.replace("POLITICAL", "CRIMINAL")).expectStatus().isBadRequest
+			.expectBody(String::class.java).isEqualTo("Challenge with political or business connections.")
+		challenge(owner, body.replace("CHIPS", "ISO")).expectStatus().isBadRequest
+
+		val challenged = challenge(owner, body).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(challenged.you!!.opportunity!!.challenged).isTrue()
+		assertThat(challenged.log.takeLast(2).map { it.notice!!.kind }).isSubsetOf("CHALLENGE_SUCCEEDED", "CHALLENGE_FAILED")
+		assertThat(challenged.log.takeLast(2).map { it.notice!!.playerIds }.distinct())
+			.containsExactly(listOf(idOf(gameId, ownerEmail), idOf(gameId, otherEmail)))
+		assertThat(
+			pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.opportunity!!.challenged
+		).isFalse()
+		challenge(owner, body).expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You've already challenged a market position this Opportunity.")
+	}
+
+	@Test
 	fun shouldOfferNothingToBuyInOpportunity() {
 		// E06-S04-1, R102: buying happens only in Investment, so no warehouse catches output or cargo in Opportunity
 		val (owner, _, gameId, ship) = investingWithAFactory("blocks-collect-first")

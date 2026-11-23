@@ -1203,6 +1203,29 @@
 				</form>
 				<p class="message" id="agents-message" role="status" tabindex="-1"></p>
 			</section>
+			<!-- R126: challenge another player's market position, once per Opportunity. -->
+			<section class="panel" id="challenge-panel" aria-labelledby="challenge-title" hidden>
+				<h3 id="challenge-title">Challenge a market position</h3>
+				<form class="offer-form" id="challenge-form" novalidate>
+					<div>
+						<label class="field-label" for="challenge-target">Position</label>
+						<select class="control" id="challenge-target"></select>
+					</div>
+					<div>
+						<label class="field-label" for="challenge-kind">Connections</label>
+						<select class="control" id="challenge-kind">
+							<option value="POLITICAL">Political</option>
+							<option value="BUSINESS">Business</option>
+						</select>
+					</div>
+					<p id="challenge-cost"></p>
+					<p class="muted" id="challenge-odds"></p>
+					<div><button class="btn" id="challenge-button" type="submit">Challenge</button></div>
+					<p class="muted" id="challenge-wait"></p>
+				</form>
+				<p class="muted" id="challenge-done" hidden>You have challenged a market position this Opportunity.</p>
+				<p class="message" id="challenge-message" role="status" tabindex="-1"></p>
+			</section>
 			<section class="panel" id="sabotage-panel" aria-labelledby="sabotage-title" hidden>
 				<h3 id="sabotage-title">Sabotage</h3>
 				<ul class="corporation__list" id="sabotage-suffered"></ul>
@@ -1765,6 +1788,8 @@
 		agentStarts,
 		agentWhereText,
 		blameChoices,
+		challengeOdds,
+		challengeTargets,
 		disabledText,
 		isMyOpportunityTurn,
 		isOpportunity,
@@ -5390,6 +5415,7 @@
 		const running = game.status === 'RUNNING';
 		$('opportunity-panel').hidden = !opportunity;
 		$('sabotage-panel').hidden = !running;
+		$('challenge-panel').hidden = !running;
 		$('agents-panel').hidden = !running && (game.you?.agents ?? []).length === 0;
 		$('loan-panel').hidden = !opportunity && !investing;
 		if (opportunity) {
@@ -5398,6 +5424,7 @@
 			renderOwedHits(game);
 		}
 		if (running) {
+			renderChallenge(game);
 			renderSabotage(game);
 		}
 		renderAgents(game, opportunity);
@@ -5434,6 +5461,38 @@
 			return form;
 		}));
 	}
+
+	/** R126: the position to challenge and the connection to fight with, with the odds the server will apply. */
+	function renderChallenge(game) {
+		const done = Boolean(game.you?.opportunity?.challenged);
+		$('challenge-form').hidden = done;
+		$('challenge-done').hidden = !done;
+		const targets = challengeTargets(game, viewerId);
+		fillSelect('challenge-target', targets);
+		const target = targets.find(entry => entry.value === $('challenge-target').value) ?? targets[0];
+		const fee = rules?.challenge?.fee ?? 20;
+		showText('challenge-cost', target ? `Costs ${fee} HT, paid whatever happens.` : 'Nobody else holds a market position.');
+		const odds = target ? challengeOdds(game, viewerId, target, $('challenge-kind').value, rules?.challenge?.minDifference) : null;
+		showText('challenge-odds', odds?.text ?? '');
+		$('challenge-button').disabled = !target || !odds.canSucceed || !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
+		showText('challenge-wait', waitTurnText(game, viewerId));
+	}
+
+	$('challenge-target').addEventListener('change', () => renderChallenge(lastGame));
+	$('challenge-kind').addEventListener('change', () => renderChallenge(lastGame));
+	$('challenge-form').addEventListener('submit', (event) => {
+		event.preventDefault();
+		const target = challengeTargets(lastGame, viewerId).find(entry => entry.value === $('challenge-target').value);
+		if (!target || !isMyOpportunityTurn(lastGame, viewerId)) {
+			return;
+		}
+		gameAction('challenge', {
+			targetPlayerId: target.playerId,
+			system: target.system,
+			goods: target.goods,
+			kind: $('challenge-kind').value,
+		}, 'challenge-message'); // the result is a card and a log line
+	});
 
 	function renderSabotage(game) {
 		const you = game.you ?? {};
