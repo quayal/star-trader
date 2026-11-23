@@ -18,6 +18,11 @@ export function statusItems(game, bonusFrom) {
 	];
 }
 
+/** The viewer's corporation, for the top bar's right end (creator, 2026-11-23), or '' before the viewer's data has loaded. */
+export function corporationName(game) {
+	return game.players?.find(player => player.id === game.you?.id)?.corporationName ?? '';
+}
+
 /** "+3 next turn · +15 HT bonus" (R86, R88), from the server's `reputationRecovery` and `reputationBonus`. */
 export function reputationEffect(player, bonusFrom) {
 	const recovery = player.reputationRecovery > 0 ? `+${player.reputationRecovery} next turn` : '';
