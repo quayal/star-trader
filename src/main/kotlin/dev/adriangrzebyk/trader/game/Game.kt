@@ -636,6 +636,48 @@ data class Game(
 			.withSabotageReputation(rolled)
 	}
 
+	/**
+	 * [email] challenges [targetEmail]'s position for [goods] at [system] on their Opportunity turn (R126), once, with their
+	 * [kind] connections (political or business) against the target's. They pay [MarketChallenge.FEE] up front; a d6 from
+	 * [dice] below the difference lowers the position one tier and takes [MarketChallenge.TARGET_REPUTATION_LOSS] reputation from the
+	 * target, otherwise the challenger loses what the roll missed by. Public lines (the fee isn't, R29) with a card for both.
+	 */
+	fun challengeMarketPosition(
+		email: String,
+		targetEmail: String?,
+		system: StarSystem,
+		goods: Goods,
+		kind: ConnectionKind,
+		dice: Dice
+	): Game {
+		val current = opportunityAfterCollect(email)
+		val challengedTurn = current.challengeRecordedFor(email)
+		val target = players.firstOrNull { it.email == targetEmail && it.email != email }
+			?: throw InvalidChallengeException("Choose another player to challenge.")
+		val good = MarketGood(system, goods)
+		val position = target.positionAt(good)
+			?: throw InvalidChallengeException("${target.corporationName} holds no market position for ${goods.name} at ${system.displayName}.")
+		val challenger = playerOf(email)
+		val challenge = MarketChallenge(kind, challenger.connections, target.connections)
+		challenge.refusal(target.corporationName)?.let { throw InvalidChallengeException(it) }
+		val paid = challenger.payChallengeFee()
+		val roll = dice.d6()
+		val won = challenge.succeeds(roll)
+		val change = if (won) {
+			target.withPositionLowered(good).loseReputation(MarketChallenge.TARGET_REPUTATION_LOSS, "losing a market position to a challenge")
+		} else {
+			paid.loseReputation(challenge.reputationLost(roll), "a failed challenge")
+		}
+		val notice = Notice.setback(if (won) NoticeKind.CHALLENGE_SUCCEEDED else NoticeKind.CHALLENGE_FAILED, system, listOf(email, target.email))
+		val lines = listOf(challenge.logText(challenger.corporationName, target.corporationName, position, roll)) + change.lines
+		val feePaid = replace(paid).map { if (it.email == change.player.email) change.player else it }
+		return copy(
+			players = feePaid,
+			turn = challengedTurn,
+			log = log + lines.map { LogEntry.notice(current.number, it, notice) }
+		)
+	}
+
 	/** Who takes the blame for [saboteur]'s sabotage on [owner]'s asset (R97): [named], or the owner when nobody else is left. */
 	private fun blamedFor(saboteur: String, owner: String, named: String?): String {
 		if (players.size == MIN_PLAYERS_TO_START) {
@@ -953,7 +995,7 @@ data class Game(
 			limpyAsk = turn?.takeIf { it.limpyAsk == email }?.tradingQueue?.firstOrNull(),
 			agentPool = agentPool().size,
 			opportunity = turn?.takeIf { it.phase == TurnPhase.OPPORTUNITY }?.let {
-				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasCollected(email))
+				OpportunityView(it.hasSabotaged(email), it.hasRecruited(email), it.hasChallenged(email), it.hasCollected(email))
 			},
 			tipOffs = news.inPlay.map { TipOffView(it, email, player.connections) },
 			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },

@@ -11,7 +11,7 @@ const PHASE_TEXT = {
 	News: 'Tip-offs that are due take place or expire, and d3 new ones are drawn. Pay 5 HT to learn one your connections reach.',
 	Jumps: 'Jump each ship once, in turn order. Ships arriving in Space can be intercepted; then choose Port, Planet or Space.',
 	Trading: 'Goods resolve one at a time, in the order the first player sets. A winning offer trades; Wholesalers and the Dictator may trade at the new price.',
-	Opportunity: 'In turn order: collect your factories’ output, then sabotage, recruit an agent or offer one for sale. Agents move at any time.',
+	Opportunity: 'In turn order: collect your factories’ output, then sabotage, challenge a market position, recruit an agent or offer one for sale. Agents move at any time.',
 	Investment: 'Everyone at once: buy warehouses, factories and ships; refit, repair or sell; raise a connection, buy reputation, take or repay a loan.',
 };
 
@@ -85,6 +85,16 @@ export function guideSections(rules) {
 						return `${range}: effect ${row.effect}; ${loss}`;
 					}),
 					`Shorty at the target's system ${signed(rules.shortySabotageBonus)} on both rolls`,
+				],
+			},
+			{
+				title: 'Challenge a market position (Opportunity, once)',
+				lines: [
+					`Pay ${rules.challenge.fee} HT, choose another player's position and political or business connections.`,
+					'Difference = your connections − theirs. Roll a d6: below the difference lowers their position one tier and costs them '
+						+ `${rules.challenge.targetReputationLoss} reputation.`,
+					'Equal or above: you lose reputation by how far you missed (difference 4, roll 5: 2).',
+					`A difference below ${rules.challenge.minDifference} can't win and is refused.`,
 				],
 			},
 			{

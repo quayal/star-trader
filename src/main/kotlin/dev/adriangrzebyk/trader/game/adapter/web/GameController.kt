@@ -277,6 +277,28 @@ class GameController(
 		return GameResponseDto(game, session.email)
 	}
 
+	/**
+	 * The player challenges another player's market position on their Opportunity turn (R126): `{ targetPlayerId, system,
+	 * goods, kind }`, `kind` `POLITICAL` or `BUSINESS`. `400` for a target, position or connection the rules refuse, a
+	 * difference that can't win or too little money; `409` out of turn, before Collect, or a second time this Opportunity.
+	 */
+	@PostMapping("/games/{id}/challenge")
+	fun challengeMarketPosition(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: ChallengeRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: ChallengeRequestDto()
+		val ids = PlayerIds(gamePollingService.poll(id, session.email))
+		val system = body.starSystem() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a position to challenge.")
+		val goods = body.tradedGoods() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a position to challenge.")
+		val kind =
+			body.connectionKind() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Challenge with political or business connections.")
+		val game = opportunityService.challenge(id, session.email, ids.emailOf(body.targetPlayerId), system, goods, kind)
+
+		return GameResponseDto(game, session.email)
+	}
+
 	/** The saboteur chooses the units missing from the warehouse they hit (R99): `{ lots: { GOODS: units } }`. */
 	@PostMapping("/games/{id}/sabotage/losses")
 	fun chooseSabotageLosses(

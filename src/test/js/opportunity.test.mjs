@@ -7,6 +7,8 @@ import {
 	agentOfferText,
 	agentStarts,
 	blameChoices,
+	challengeOdds,
+	challengeTargets,
 	disabledText,
 	isMyOpportunityTurn,
 	loanPreview,
@@ -211,5 +213,46 @@ describe('loans (R90–R95)', () => {
 			"You owe 312 HT, 14 HT interest a turn, 1 payment left. This turn's interest (14 HT) is unpaid. Your loan (312 HT) falls due when this Investment closes.");
 		assert.equal(unpaidInterestWarning({ you: { loan: open } }), "Your loan interest (14 HT) is unpaid: −4 reputation, and it's added to your loan.");
 		assert.equal(unpaidInterestWarning({ you: { loan: { ...open, interestPaid: true } } }), '');
+	});
+});
+
+describe('challenging a market position (R126)', () => {
+	const challenge = () => {
+		const g = game({ players: 3 });
+		g.players[0].connections = { political: 8, business: 5, criminal: 0 };
+		g.players[1].connections = { political: 4, business: 5, criminal: 0 };
+		g.players[1].marketPositions = [{ system: 'MU_HERCULIS', goods: 'CHIPS', tier: 'DICTATOR' }, { system: 'TAU_CETI', goods: 'ISO', tier: 'RETAILER' }];
+		g.players[0].marketPositions = [{ system: 'TAU_CETI', goods: 'POLY', tier: 'WHOLESALER' }];
+		g.players[2].marketPositions = [];
+		return g;
+	};
+
+	it("lists the other players' positions, never the viewer's own", () => {
+		const targets = challengeTargets(challenge(), ME);
+
+		assert.deepEqual(targets.map(t => t.label), [
+			'Vega Lines — Dictator of CHIPS at Mu Herculis',
+			'Vega Lines — Retailer of ISO at Tau Ceti',
+		]);
+		assert.deepEqual(targets[0], {
+			playerId: 'p2', system: 'MU_HERCULIS', goods: 'CHIPS', value: 'p2|MU_HERCULIS|CHIPS', label: 'Vega Lines — Dictator of CHIPS at Mu Herculis',
+		});
+	});
+
+	it('works the odds out for the chosen connection', () => {
+		const target = challengeTargets(challenge(), ME)[0];
+
+		assert.deepEqual(challengeOdds(challenge(), ME, target, 'POLITICAL'), {
+			difference: 4,
+			canSucceed: true,
+			text: 'Political 8 vs 4: a d6 of 1–3 lowers their position a tier and costs them reputation; a higher roll costs you its excess over 3 (a 5 costs 2).',
+		});
+		const business = challengeOdds(challenge(), ME, target, 'BUSINESS');
+		assert.equal(business.canSucceed, false);
+		const overwhelming = game({ players: 2 });
+		overwhelming.players[0].connections = { political: 9, business: 0, criminal: 0 };
+		overwhelming.players[1].connections = { political: 2, business: 0, criminal: 0 };
+		assert.equal(challengeOdds(overwhelming, ME, { playerId: 'p2' }, 'POLITICAL').text, 'Political 9 vs 2: any d6 lowers their position a tier and costs them reputation.');
+		assert.equal(business.text, "Business 5 vs 5: a difference of 0 can't win; you need at least 2.");
 	});
 });

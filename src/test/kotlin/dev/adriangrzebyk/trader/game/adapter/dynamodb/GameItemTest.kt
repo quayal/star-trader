@@ -145,6 +145,7 @@ class GameItemTest {
 			doneOpportunity = emptyList(),
 			sabotages = emptyList(),
 			recruitedBy = emptyList(),
+			challengedBy = emptyList(),
 			agentOffers = emptyList(),
 			interestPaid = emptyList(),
 			limpyAsk = null,

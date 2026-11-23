@@ -55,7 +55,7 @@ data class PlayerView(
 )
 
 /** What the viewer has done this Opportunity (R97, R103): each once per Opportunity. Null outside Opportunity. */
-data class OpportunityView(val sabotaged: Boolean, val recruited: Boolean, val collected: Boolean)
+data class OpportunityView(val sabotaged: Boolean, val recruited: Boolean, val challenged: Boolean, val collected: Boolean)
 
 /**
  * The viewer's [loan] (R90–R95) in turn [turn]: open or null, whether this turn's interest is [interestPaid], and their

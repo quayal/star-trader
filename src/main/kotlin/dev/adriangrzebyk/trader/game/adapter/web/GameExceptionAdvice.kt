@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.web
 import dev.adriangrzebyk.trader.game.GameNotFoundException
 import dev.adriangrzebyk.trader.game.InvalidBidException
 import dev.adriangrzebyk.trader.game.InvalidCargoMoveException
+import dev.adriangrzebyk.trader.game.InvalidChallengeException
 import dev.adriangrzebyk.trader.game.InvalidCollectException
 import dev.adriangrzebyk.trader.game.InvalidConnectionsException
 import dev.adriangrzebyk.trader.game.InvalidFittingException
@@ -49,6 +50,7 @@ class GameExceptionAdvice {
 		InvalidSabotageException::class,
 		InvalidBattleException::class,
 		InvalidBidException::class,
+		InvalidChallengeException::class,
 		InvalidCargoMoveException::class,
 		InvalidCollectException::class,
 		InvalidConnectionsException::class,
