@@ -105,6 +105,7 @@ class GameShipJumpTest {
 	fun shouldPassTheSlotOnWhenThePlayersLastJumpFails() {
 		val game = jumping.jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 			.jumpShip("grace@example.com", "Meridian", SIGMA_DRACONIS, FakeDice.twoD6(12))
 
 		assertThat(game.turn!!.doneJumping).containsExactly("grace@example.com")
@@ -123,6 +124,7 @@ class GameShipJumpTest {
 	fun shouldPassTheSlotOnWhenThePlayerJumpsTheirLastShip() {
 		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 			.jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY)
 
@@ -134,6 +136,7 @@ class GameShipJumpTest {
 	fun shouldPassTheSlotOnWhenThePlayerFinishesJumpingAndLeaveTheOtherShipsWhereTheyAre() {
 		val game = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 			.finishJumping("grace@example.com")
 
 		assertThat(game.turn!!.jumper()).isEqualTo("ada@example.com")
@@ -156,7 +159,8 @@ class GameShipJumpTest {
 				"Corvid",
 				TAU_CETI,
 				JUMPS_SUCCEED
-			).landShip("kim@example.com", ShipLocation.PORT, LANDS_SAFELY).finishJumping("kim@example.com")
+			).landShip("kim@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("kim@example.com", false).finishJumping("kim@example.com")
 
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.TRADING)
 		assertThat(game.turn!!.jumper()).isNull()
@@ -167,6 +171,7 @@ class GameShipJumpTest {
 		val game = jumping.finishJumping("grace@example.com").finishJumping("ada@example.com")
 			.jumpShip("kim@example.com", "Corvid", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("kim@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("kim@example.com", false)
 			.jumpShip("kim@example.com", "Bright Reach", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("kim@example.com", ShipLocation.PLANET, LANDS_SAFELY)
 
@@ -177,6 +182,7 @@ class GameShipJumpTest {
 	fun shouldStartTheNextTurnWithNoShipJumpedAndNobodyDone() {
 		val trading = jumping.jumpShip("grace@example.com", "Meridian", TAU_CETI, JUMPS_SUCCEED)
 			.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 			.finishJumping("grace@example.com")
 			.finishJumping("ada@example.com").finishJumping("kim@example.com")
 
@@ -208,6 +214,7 @@ class GameShipJumpTest {
 			TAU_CETI,
 			JUMPS_SUCCEED
 		).landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY)
+			.answerHangar("grace@example.com", false)
 
 		assertThatThrownBy { game.jumpShip("grace@example.com", "Meridian", BETA_HYDRI, JUMPS_SUCCEED) }
 			.isInstanceOf(InvalidJumpException::class.java)

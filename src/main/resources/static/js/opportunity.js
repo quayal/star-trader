@@ -74,12 +74,13 @@ export function waitTurnText(game, playerId) {
 // ── Sabotage (R97–R101) ──
 
 /**
- * Every asset of other players the viewer could sabotage (R97): ships in Port, warehouses, factories. Each is
+ * Every asset of other players the viewer could sabotage (R97): ships in Port (not in a hangar, R127), warehouses, factories. Each is
  * `{ value, label, playerId, kind, system, ship, goods }`, `value` naming it in a select.
  */
 export function sabotageTargets(game, playerId) {
 	return game.players.filter(p => p.id !== playerId).flatMap(p => [
-		...p.ships.filter(s => s.location === 'PORT').map(s => ({
+		// R127: a ship in a Parking Hangar can't be sabotaged, so it isn't offered.
+		...p.ships.filter(s => s.location === 'PORT' && !s.hangar).map(s => ({
 			playerId: p.id, kind: 'SHIP', system: s.system, systemName: s.systemName, ship: s.name, goods: null,
 			label: `${p.corporationName} — ${s.name} in Port at ${s.systemName}`,
 		})),

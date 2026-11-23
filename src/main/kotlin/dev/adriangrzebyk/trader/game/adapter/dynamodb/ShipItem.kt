@@ -39,7 +39,8 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 			)
 		) + listOfNotNull(
 			ship.boughtOnTurn?.let { BOUGHT_ON_TURN to number(it) },
-			ship.deliveryJob?.let { DELIVERY_JOB to AttributeValue.fromS(it.name) }
+			ship.deliveryJob?.let { DELIVERY_JOB to AttributeValue.fromS(it.name) },
+			ship.hangarPaidOnTurn?.let { HANGAR_PAID_ON_TURN to number(it) }
 		)
 	)
 
@@ -66,7 +67,9 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 				StarSystem.valueOf(lot.m().attribute(SELL_AT).s())
 			)
 		},
-		deliveryJob = attributes[DELIVERY_JOB]?.s()?.let { TipOff.valueOf(it) }
+		deliveryJob = attributes[DELIVERY_JOB]?.s()?.let { TipOff.valueOf(it) },
+		// Absent from items saved before the Parking Hangar (R127) and for a ship that isn't in one.
+		hangarPaidOnTurn = attributes[HANGAR_PAID_ON_TURN]?.n()?.toInt()
 	)
 
 	private companion object {
@@ -85,5 +88,6 @@ internal class ShipItem(val attributes: Map<String, AttributeValue>) {
 		const val UNITS = "units"
 		const val SELL_AT = "sellAt"
 		const val DELIVERY_JOB = "deliveryJob"
+		const val HANGAR_PAID_ON_TURN = "hangarPaidOnTurn"
 	}
 }

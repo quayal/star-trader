@@ -77,7 +77,7 @@ class GameLandingTest {
 			"grace@example.com",
 			ShipLocation.PORT,
 			LANDS_SAFELY
-		).jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
+		).answerHangar("grace@example.com", false).jumpShip("grace@example.com", "Halcyon", TAU_CETI, JUMPS_SUCCEED)
 
 		// S03-6: the jump isn't finished until the landing is confirmed.
 		assertThat(lastJumped.turn!!.jumper()).isEqualTo("grace@example.com")

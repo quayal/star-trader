@@ -112,6 +112,14 @@ class ShipItemTest {
 	}
 
 	@Test
+	fun shouldReadBackTheTurnAShipWasParkedFor() {
+		val parked = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).parkedOn(3)
+
+		assertThat(ShipItem(ShipItem(parked).attributes).toShip()).isEqualTo(parked)
+		assertThat(ShipItem(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("hangarPaidOnTurn")
+	}
+
+	@Test
 	fun shouldKeepTheOrderOfItsModules() {
 		val loaded = ShipItem(ShipItem(ship).attributes).toShip()
 

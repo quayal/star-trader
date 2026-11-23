@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.adapter.dynamodb
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.HangarAsk
 import dev.adriangrzebyk.trader.game.InitiativeBid
 import dev.adriangrzebyk.trader.game.InitiativeRoll
 import dev.adriangrzebyk.trader.game.MarketGood
@@ -106,6 +107,7 @@ class TurnItemTest {
 		limpyAsk = "ada@example.com",
 		limpyUsedBy = listOf("grace@example.com"),
 		reachedOffers = listOf(offer),
+		hangarAsk = HangarAsk(listOf("Wayfarer", "Meridian"), true),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -119,6 +121,11 @@ class TurnItemTest {
 			listOf(Wholesale("ada@example.com", OfferType.SELL, 2, 8), Wholesale("kim@example.com", null, 0, 8))
 		)
 	)
+
+	@Test
+	fun shouldReadATurnStoredBeforeTheParkingHangarAsNotAskingAnything() {
+		assertThat(TurnItem(TurnItem(turn).attributes - "hangarAsk").toTurn().hangarAsk).isNull()
+	}
 
 	@Test
 	fun shouldReadBackEveryFieldOfATurn() {
@@ -261,7 +268,8 @@ class TurnItemTest {
 			agentOffers = listOf(AgentOffer(1, "ada@example.com", "grace@example.com", Agent.WOLF, 30)),
 			interestPaid = listOf("ada@example.com"),
 			limpyAsk = null,
-			limpyUsedBy = emptyList()
+			limpyUsedBy = emptyList(),
+			hangarAsk = HangarAsk(listOf("Wayfarer"), false)
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -339,6 +347,9 @@ class TurnItemTest {
 				"interestPaid" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"limpyUsedBy" to AttributeValue.fromL(emptyList()),
 				"doneNews" to AttributeValue.fromL(emptyList()),
+				"hangarAsk" to AttributeValue.fromM(
+					mapOf("ships" to AttributeValue.fromL(listOf(AttributeValue.fromS("Wayfarer"))), "endsSlot" to AttributeValue.fromBool(false))
+				),
 				"reachedOffers" to AttributeValue.fromL(
 					listOf(
 						AttributeValue.fromM(

@@ -691,6 +691,14 @@ class GameController(
 	}
 
 	/**
+	 * The jumping player's answer to the Parking Hangar question (R127): `{ stay }`, true to park the ship asked about (or keep it
+	 * parked) for 5 HT. `400` without the money; `409` when no question is open or it isn't their slot.
+	 */
+	@PostMapping("/games/{id}/ship-jumps/hangar")
+	fun answerHangar(@PathVariable id: String, @RequestBody(required = false) request: HangarRequestDto?, session: Session): GameResponseDto =
+		GameResponseDto(shipJumpsService.answerHangar(id, session.email, request?.stay == true), session.email)
+
+	/**
 	 * The player decides which one of their ships in Space tries to intercept the ship that just arrived (R70, E10-S02):
 	 * `{ ship }`, null or absent for none. `409` when they aren't asked or have decided; `400` for a ship that isn't theirs in Space there.
 	 */

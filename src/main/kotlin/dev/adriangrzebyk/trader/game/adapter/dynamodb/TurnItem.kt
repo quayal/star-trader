@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
+import dev.adriangrzebyk.trader.game.HangarAsk
 import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
@@ -44,6 +45,14 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		) + listOfNotNull(
 			turn.landingShip?.let { LANDING_SHIP to AttributeValue.fromS(it) },
 			turn.limpyAsk?.let { LIMPY_ASK to AttributeValue.fromS(it) },
+			turn.hangarAsk?.let {
+				HANGAR_ASK to AttributeValue.fromM(
+					mapOf(
+						HANGAR_SHIPS to AttributeValue.fromL(it.ships.map { ship -> AttributeValue.fromS(ship) }),
+						HANGAR_ENDS_SLOT to AttributeValue.fromBool(it.endsSlot)
+					)
+				)
+			},
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
 			turn.interception?.let { INTERCEPTION to AttributeValue.fromM(InterceptionItem(it).attributes) },
 			turn.battle?.let { BATTLE to AttributeValue.fromM(BattleItem(it).attributes) },
@@ -112,7 +121,11 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// Absent from items saved before News (R109).
 			doneNews = list(DONE_NEWS),
 			// Absent from items saved before 2026-11-21: no offer counted as reached, as before.
-			reachedOffers = attributes[REACHED_OFFERS]?.l().orEmpty().map { OfferItem(it.m()).toOffer() }
+			reachedOffers = attributes[REACHED_OFFERS]?.l().orEmpty().map { OfferItem(it.m()).toOffer() },
+			// Absent from items saved before the Parking Hangar (R127) and when no question is open.
+			hangarAsk = attributes[HANGAR_ASK]?.m()?.let {
+				HangarAsk(it.attribute(HANGAR_SHIPS).l().map { ship -> ship.s() }, it.attribute(HANGAR_ENDS_SLOT).bool())
+			}
 		)
 	}
 
@@ -129,6 +142,9 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val LIMPY_USED_BY = "limpyUsedBy"
 		const val DONE_NEWS = "doneNews"
 		const val REACHED_OFFERS = "reachedOffers"
+		const val HANGAR_ASK = "hangarAsk"
+		const val HANGAR_SHIPS = "ships"
+		const val HANGAR_ENDS_SLOT = "endsSlot"
 		const val LEGACY_SHIP_JUMPS = "SHIP_JUMPS"
 		const val NUMBER = "number"
 		const val PHASE = "phase"

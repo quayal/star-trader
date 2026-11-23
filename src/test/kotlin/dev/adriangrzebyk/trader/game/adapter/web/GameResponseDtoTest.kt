@@ -62,7 +62,9 @@ class GameResponseDtoTest {
 					"SIGMA_DRACONIS" to 5
 				),
 				// R60: Tau Ceti has a shipyard.
-				shipyard = true
+				shipyard = true,
+				// R127: and a Parking Hangar.
+				hangar = true
 			)
 		)
 	}
@@ -73,6 +75,15 @@ class GameResponseDtoTest {
 		val board = GameResponseDto(started, "host@example.com").board
 
 		assertThat(board.filter { it.shipyard }.map { it.id }).containsExactlyInAnyOrder("BETA_HYDRI", "EPSILON_ERIDANI", "TAU_CETI")
+	}
+
+	// R127: every system but Sigma Draconis and Mu Herculis has a Parking Hangar, and the map shows it.
+	@Test
+	fun shouldSayWhichSystemsHaveAParkingHangar() {
+		val board = GameResponseDto(started, "host@example.com").board
+
+		assertThat(board.filter { it.hangar }.map { it.id })
+			.containsExactlyInAnyOrder("GAMMA_LEPORIS", "BETA_HYDRI", "EPSILON_ERIDANI", "TAU_CETI")
 	}
 
 	@Test

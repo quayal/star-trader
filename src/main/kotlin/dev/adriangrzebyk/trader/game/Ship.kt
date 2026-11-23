@@ -16,6 +16,8 @@ import dev.adriangrzebyk.trader.game.news.TipOff
  * turn's Investment (R63). Battle damage (R76) stays until repaired (R79): [hullDamage] hits on the hull, and
  * [damagedModules], fitted modules that took one hit and count as not there (a multiset within [modules]). [specialLots] are
  * goods bought through opportunities (R112) and [deliveryJob] the delivery it's carrying (R114), both private like cargo.
+ * [hangarPaidOnTurn] is the turn the ship's place in its Port's Parking Hangar was last paid for (R127), or null when it
+ * isn't in one; public, like its position.
  */
 data class Ship(
 	val name: String,
@@ -29,7 +31,8 @@ data class Ship(
 	val hullDamage: Int,
 	val damagedModules: List<Module>,
 	val specialLots: List<SpecialLot> = emptyList(),
-	val deliveryJob: TipOff? = null
+	val deliveryJob: TipOff? = null,
+	val hangarPaidOnTurn: Int? = null
 ) : CargoHold {
 
 	init {
@@ -491,8 +494,31 @@ data class Ship(
 		} else {
 			checkedJumpChanceTo(destination)
 		}
-		return copy(system = destination, location = ShipLocation.SPACE)
+		return copy(system = destination, location = ShipLocation.SPACE, hangarPaidOnTurn = null)
 	}
+
+	/** Whether this ship is in a Parking Hangar (R127): paid for in some turn and still in the Port it was parked in. */
+	fun isInHangar(): Boolean = hangarPaidOnTurn != null && isInPort() && system.hasHangar()
+
+	/** Whether this ship is parked and protected from sabotage in turn [turn] (R127): its place is paid for that turn. */
+	fun isParkedOn(turn: Int): Boolean = isInHangar() && hangarPaidOnTurn == turn
+
+	/** Whether this ship could be asked to park now (R127): in a Port with a hangar, and not already in one. */
+	fun canBeParked(): Boolean = isInPort() && system.hasHangar() && !isInHangar()
+
+	/** Whether this ship's place was paid for in an earlier turn than [turn] and it's still there: its owner is asked to renew it (R127). */
+	fun isDueHangarRenewal(turn: Int): Boolean = isInHangar() && checkNotNull(hangarPaidOnTurn) < turn
+
+	/** This ship parked in its Port's hangar for [turn], refused anywhere else (R127). */
+	fun parkedOn(turn: Int): Ship {
+		if (!isInPort() || !system.hasHangar()) {
+			throw InvalidHangarException("$name isn't in a Port with a Parking Hangar.")
+		}
+		return copy(hangarPaidOnTurn = turn)
+	}
+
+	/** This ship taken out of its hangar (R127). */
+	fun leftHangar(): Ship = copy(hangarPaidOnTurn = null)
 
 	/** This ship after its player chose where in its system it ends up (R30, S03): never the shipyard (R60). */
 	fun landAt(location: ShipLocation): Ship {
@@ -601,6 +627,9 @@ data class Ship(
 		 */
 		val STARTING_HULL = Hull.CLARINET
 		val STARTING_MODULES = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
+
+		/** R127: what a place in a Parking Hangar costs for one turn, in HT. */
+		const val HANGAR_FEE = 5
 
 		/** A starting ship's crew, already paid (R55, R67); also the class of a ship stored before E09. */
 		val STARTING_CREW_CLASS = CrewClass.B

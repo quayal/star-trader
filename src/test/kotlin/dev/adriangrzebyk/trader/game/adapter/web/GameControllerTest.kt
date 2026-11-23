@@ -407,7 +407,7 @@ class GameControllerTest {
 		).isEqualTo(
 			TurnResponseDto(
 				1, "BIDDING",
-				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(),
+				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, null, emptyList(), emptyList(), null, emptyList(), emptyList(),
 				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)
@@ -628,7 +628,7 @@ class GameControllerTest {
 				listOf(
 					"p2"
 				),
-				emptyList(), emptyList(), emptyList(), emptyList(), null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
+				emptyList(), emptyList(), emptyList(), emptyList(), null, null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
 				emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
 			)
 		)

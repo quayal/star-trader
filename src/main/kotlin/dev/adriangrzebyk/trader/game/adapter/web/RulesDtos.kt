@@ -29,7 +29,8 @@ data class RulesResponseDto(
 	val challenge: ChallengeRulesResponseDto,
 	val reputation: ReputationRulesResponseDto,
 	val hulls: List<HullRuleResponseDto>,
-	val modules: List<ModuleRuleResponseDto>
+	val modules: List<ModuleRuleResponseDto>,
+	val hangarFee: Int = Ship.HANGAR_FEE
 ) {
 
 	constructor() : this(

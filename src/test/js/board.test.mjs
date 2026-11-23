@@ -20,6 +20,7 @@ import {
 	STALE_MESSAGE,
 	staleAgeText,
 	staleText,
+	HANGAR_TEXT,
 	SHIPYARD_TEXT,
 	systemAccessibleName,
 	jumpArrows,
@@ -149,6 +150,25 @@ describe('the map', () => {
 	it('says a system has a shipyard (R60)', () => {
 		assert.equal(SHIPYARD_TEXT, 'Shipyard: build and repair ships here.');
 		assert.match(systemAccessibleName(game, { ...tauCeti, shipyard: true }, 'ada'), /price likely to rise\. Shipyard: build and repair ships here\. 1 of your ships/);
+	});
+});
+
+describe('the Parking Hangar (R127)', () => {
+	it('says a system has one in its accessible name, after the shipyard', () => {
+		assert.equal(HANGAR_TEXT, 'Parking Hangar: protects a ship from sabotage.');
+		assert.match(
+			systemAccessibleName(game, { ...tauCeti, shipyard: true, hangar: true }, 'ada'),
+			/Shipyard: build and repair ships here\. Parking Hangar: protects a ship from sabotage\. 1 of your ships/,
+		);
+	});
+
+	it('marks a parked ship in the system details', () => {
+		const parked = { ...game, players: game.players.map(p => ({ ...p, ships: p.ships.map(s => ({ ...s, hangar: s.location === 'PORT' })) })) };
+		const port = locations(parked, tauCeti, 'ada').find(location => location.id === 'PORT');
+
+		assert.ok(port.ships.length > 0);
+		assert.ok(port.ships.every(ship => ship.text.endsWith(' · parked')));
+		assert.ok(locations(game, tauCeti, 'ada').flatMap(location => location.ships).every(ship => !ship.text.includes('parked')));
 	});
 });
 

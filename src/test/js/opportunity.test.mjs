@@ -98,6 +98,13 @@ describe('sabotage (R97)', () => {
 		assert.equal(sabotageTargets(game(), 'p2').length, 0);
 	});
 
+	it('does not offer a ship in a Parking Hangar, which can’t be sabotaged (R127)', () => {
+		const parked = game();
+		parked.players[1].ships[0].hangar = true;
+
+		assert.deepEqual(sabotageTargets(parked, ME).map(t => t.kind), ['WAREHOUSE', 'FACTORY']);
+	});
+
 	it('costs 20 HT a legal level and shows the modifiers', () => {
 		const [ship, warehouse, factory] = sabotageTargets(game(), ME);
 		assert.equal(sabotageCost(game(), ship), 40);

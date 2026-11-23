@@ -27,6 +27,10 @@ class ShipJumpsService(private val gameStore: GameStore, private val dice: Dice)
 	fun land(gameId: String, callerEmail: String, location: ShipLocation?): Game =
 		gameStore.update(gameId) { it.landShip(callerEmail, location, dice) }
 
+	/** [callerEmail] answers the Parking Hangar question of their slot (R127) inside [GameStore.update], so it's answered once (A04). */
+	fun answerHangar(gameId: String, callerEmail: String, stay: Boolean): Game =
+		gameStore.update(gameId) { it.answerHangar(callerEmail, stay) }
+
 	/**
 	 * [callerEmail] decides which one of their ships, [ship], tries to intercept the ship that just arrived (R70), or none,
 	 * inside [GameStore.update], so a decision counts once and the last one rolls the tries once (A04).
