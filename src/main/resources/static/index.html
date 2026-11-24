@@ -393,6 +393,7 @@
 		.fleet-ship .facts { margin: 0; }
 		.fleet-ship__flags { display: flex; flex-wrap: wrap; gap: var(--space-group); align-items: center; }
 		.fleet-ship__cargo { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-panel); }
+		.fleet-ship__agents { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
 		.fleet[hidden] { display: none; }
 		/* Corporations (E11-S01, D20): one panel per corporation; two columns when there's room, one on a phone. */
@@ -2849,7 +2850,8 @@
 			element('strong', {}, ship.name), ' \u2014 ',
 			element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.systemName),
 			` \u00b7 ${ship.location} \u2014 `,
-			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`))));
+			element('span', { class: 'muted' }, `${ship.cargo} \u00b7 ${ship.cargoUsed}`),
+			...(ship.agents.length ? [' \u00b7 ', element('span', {}, `Aboard: ${ship.agents.join(', ')}`)] : []))));
 		renderYourOffers(game);
 		renderYourTrades(game);
 		renderDeckAgents(game);
@@ -3353,6 +3355,11 @@
 				element('p', {}, element('a', { class: 'link', href: systemLink(game.id, ship.systemId) }, ship.where)),
 				element('p', { class: 'fleet-ship__flags' }, element('span', { class: 'muted' }, 'Hull'), element('strong', {}, ship.hull.name), ...flagBadges(ship.hull.flags)),
 				element('dl', { class: 'facts' }, ...ship.stats.map(stat => element('div', {}, element('dt', {}, stat.label), element('dd', {}, crewStatValue(stat))))),
+				// R103: the viewer's own agents riding this ship, named, with what each does.
+				...(ship.agents.length
+					? [element('div', {}, element('span', { class: 'muted' }, 'Agents aboard'),
+						element('ul', { class: 'fleet-ship__agents' }, ...ship.agents.map(agent => element('li', {}, element('strong', {}, agent.name), ` \u2014 ${agent.effect}`))))]
+					: []),
 				...specialCargoLines(game, ship.name),
 				element('div', { class: 'cargo-meter' },
 					element('div', { class: 'cargo-meter__head' },

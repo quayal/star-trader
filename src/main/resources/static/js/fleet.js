@@ -67,6 +67,14 @@ export function moduleRows(modules) {
 }
 
 /**
+ * The viewer's own agents riding [shipName] (R103), from `you.agents`: `{ name, effect }`. Who they are is the viewer's
+ * alone (R105); other players see only how many.
+ */
+export function agentsAboard(game, shipName) {
+	return (game.you?.agents ?? []).filter(agent => agent.ship === shipName).map(agent => ({ name: agent.name, effect: agent.effect }));
+}
+
+/**
  * S03-2 to S03-5: each of [myId]'s ships in [game] as the Fleet tab shows it. Empty for a player with no ships
  * (S03-8), and for anyone whose own ships weren't sent.
  */
@@ -83,6 +91,7 @@ export function fleetShips(game, myId) {
 			hull: { name: own.hull.name, flags: flagLabels(own.hull) },
 			modules: moduleRows(own.modules),
 			stats: statRows(own),
+			agents: agentsAboard(game, ship.name),
 			cargo: {
 				used: own.cargoUsed,
 				spaces: own.cargoSpaces,

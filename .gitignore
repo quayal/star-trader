@@ -65,3 +65,6 @@ hs_err_pid*
 .ai/qa/test-env.env
 
 .ai/cezar/
+
+# Editor swap files
+*.swp
