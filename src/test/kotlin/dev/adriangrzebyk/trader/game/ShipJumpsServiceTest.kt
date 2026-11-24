@@ -17,7 +17,14 @@ class ShipJumpsServiceTest {
 
 	// Ada rolls 2, Grace 1: Ada picks first.
 	private val shipJumps = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("creator@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.advancePhase(FakeDice(2, 1))

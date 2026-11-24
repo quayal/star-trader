@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 // Halcyon is a starting Clarinet (room for 5), its room full.
 class ShipMilitaryModulesTest {
 
-	private val full = Ship.emptyAt("Halcyon", GAMMA_LEPORIS, ShipLocation.PLANET).also { check(it.modulesUsed() == it.moduleCapacity()) }
+	private val full = emptyShip("Halcyon", GAMMA_LEPORIS, ShipLocation.PLANET).also { check(it.modulesUsed() == it.moduleCapacity()) }
 
 	@Test
 	fun shouldFitAModuleWhereOneCameOffToMakeRoom() {

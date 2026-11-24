@@ -18,7 +18,14 @@ class GameMoveCargoTest {
 
 	/** Ada's Wayfarer starts in port at Tau Ceti (R40); she has a one-block warehouse there holding 6 ISO. */
 	private val bidding = withWarehouseFor(
-		lobby.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		lobby.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 	)

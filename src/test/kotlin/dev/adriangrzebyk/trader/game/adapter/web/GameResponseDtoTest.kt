@@ -20,6 +20,7 @@ import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.PositionRoll
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.START_DICE
+import dev.adriangrzebyk.trader.game.StartingShips
 import dev.adriangrzebyk.trader.game.Trade
 import dev.adriangrzebyk.trader.game.Warehouse
 import dev.adriangrzebyk.trader.game.Wholesale
@@ -30,14 +31,14 @@ class GameResponseDtoTest {
 
 	private val started = Game.lobby("game-1", 20, Player.newcomer("host@example.com", "Ada", "Orion Freight"))
 		.addPlayer(Player.newcomer("guest@example.com", "Grace", "Vega Lines"))
-		.start(
-			"host@example.com",
-			FakeStartingSystemPicker(
-				StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
-				StarSystem.GAMMA_LEPORIS to StarSystem.TAU_CETI
-			),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("host@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
+					StarSystem.GAMMA_LEPORIS to StarSystem.TAU_CETI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 
 	@Test
 	fun shouldSendEverySystemWithItsLocationsAndItsMarketInGoodsOrder() {

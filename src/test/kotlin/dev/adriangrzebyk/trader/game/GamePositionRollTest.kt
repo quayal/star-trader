@@ -27,11 +27,15 @@ class GamePositionRollTest {
 	private val trading = Game.lobby("game-1", 3, ada)
 		.addPlayer(grace)
 		.addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, GAMMA_LEPORIS to MU_HERCULIS),
-			START_DICE
-		).let {
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)

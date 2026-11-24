@@ -634,11 +634,11 @@ data class Ship(
 		val LEGACY_MODULES = List(5) { Module.CARGO }
 
 		/**
-		 * The hull and modules of a starting ship (R55): a Clarinet with 4 Cargo, 1 Light weapons and 1 Safe jump module,
-		 * 8 cargo spaces. Safe jump takes no module capacity, so the hull's 5 are used.
+		 * The hull and modules of a starting ship (R132): a Clarinet with 3 Cargo, 1 Light weapons and 1 Passenger module and
+		 * 1 Safe jump, 6 cargo spaces. Safe jump takes no module capacity, so the hull's 5 are used.
 		 */
 		val STARTING_HULL = Hull.CLARINET
-		val STARTING_MODULES = List(4) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.SAFE_JUMP
+		val STARTING_MODULES = List(3) { Module.CARGO } + Module.LIGHT_WEAPONS + Module.PASSENGER + Module.SAFE_JUMP
 
 		/** R127: what a place in a Parking Hangar costs for one turn, in HT. */
 		const val HANGAR_FEE = 5
@@ -646,7 +646,22 @@ data class Ship(
 		/** A starting ship's crew, already paid (R55, R67); also the class of a ship stored before E09. */
 		val STARTING_CREW_CLASS = CrewClass.B
 
-		/** A starting ship carrying nothing (R40, R55: every ship starts empty). */
+		/**
+		 * A player's starting ship (R132), called [name] in the Port of [system]: refused for a name that isn't 1 to
+		 * [MAX_NAME_LENGTH] characters of letters, digits and the few marks a URL path takes (R62).
+		 */
+		fun founded(name: String?, system: StarSystem): Ship {
+			val trimmed = name?.trim().orEmpty()
+			if (trimmed.length !in 1..MAX_NAME_LENGTH) {
+				throw InvalidGameOperationException("Choose a name of 1 to $MAX_NAME_LENGTH characters.")
+			}
+			if (!NAME_PATTERN.matches(trimmed) || trimmed.none { it.isLetterOrDigit() }) {
+				throw InvalidGameOperationException(NAME_CHARACTERS_MESSAGE)
+			}
+			return emptyAt(trimmed, system, ShipLocation.PORT)
+		}
+
+		/** A starting ship carrying nothing (R132: every ship starts empty). */
 		fun emptyAt(name: String, system: StarSystem, location: ShipLocation) =
 			Ship(name, system, location, emptyMap(), STARTING_HULL, STARTING_MODULES, STARTING_CREW_CLASS, null, 0, emptyList())
 	}

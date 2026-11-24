@@ -17,11 +17,15 @@ class GameControlTest {
 
 	// Ada's ships: Tau Ceti (police 5, legal 2) and Beta Hydri; Grace's: Gamma Leporis (police 3, legal 3) and Mu Herculis (police 0).
 	private val investing = Game.lobby("game-1", 20, ada).addPlayer(grace).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to BETA_HYDRI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					TAU_CETI to BETA_HYDRI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 		.let { (1..5).fold(it) { game, _ -> game.advancePhase(FakeDice(2, 1, 3)) } }
 
 	private val adaShip = playerOf(investing, "ada@example.com").ships.first().name
@@ -159,7 +163,7 @@ class GameControlTest {
 	@Test
 	fun shouldRefuseToPutAMilitaryShipInAPortWithLegalSystemThreeOrFour() {
 		// R56: Beta Hydri's legal system is 4
-		val ship = Ship.emptyAt("Test", BETA_HYDRI, ShipLocation.SPACE).copy(modules = listOf(Module.DOGFIGHT))
+		val ship = emptyShip("Test", BETA_HYDRI, ShipLocation.SPACE).copy(modules = listOf(Module.DOGFIGHT))
 
 		assertThat(ship.mayEnterPort()).isFalse()
 		assertThat(ship.copy(system = TAU_CETI).mayEnterPort()).isTrue()

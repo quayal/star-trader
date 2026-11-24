@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test
 // R47, E06-S03: collecting what the player's factories made into their ships in port and their warehouses.
 class PlayerCollectTest {
 
-	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
-	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.PORT)
+	private val wayfarer = emptyShip("Wayfarer", TAU_CETI, ShipLocation.PORT)
+	private val lantern = emptyShip("Lantern", MU_HERCULIS, ShipLocation.PORT)
 	private val isoAtTau = Factory(TAU_CETI, Goods.ISO, 6, 0)
 	private val chipsAtMu = Factory(MU_HERCULIS, Goods.CHIPS, 8, 0)
 	private val tauWarehouse = Warehouse(TAU_CETI, 1, emptyMap())

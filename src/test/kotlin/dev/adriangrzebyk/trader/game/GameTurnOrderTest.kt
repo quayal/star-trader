@@ -19,11 +19,15 @@ class GameTurnOrderTest {
 
 	// Nobody bids; d2 rolls in join order put Kim (2) first, then a tie of Ada and Grace (1) rerolled: Grace 2, Ada 1.
 	private val shipJumps = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 
 	@Test
@@ -76,7 +80,9 @@ class GameTurnOrderTest {
 	@Test
 	fun shouldGiveTheSecondOfTwoPlayersTheOtherPlaceAtOnce() {
 		val two = Game.lobby("game-2", 3, ada).addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			.start("ada@example.com", START_DICE).let {
+				StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 			.advancePhase(FakeDice(2, 1))
@@ -116,7 +122,9 @@ class GameTurnOrderTest {
 	@Test
 	fun shouldRefuseAPickOutsideShipJumps() {
 		val bidding = Game.lobby("game-3", 3, ada).addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			.start("ada@example.com", START_DICE).let {
+				StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 

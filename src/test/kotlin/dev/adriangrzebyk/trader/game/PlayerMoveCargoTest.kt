@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test
 class PlayerMoveCargoTest {
 
 	/** Wayfarer is in port at Tau Ceti with 8 cargo spaces (R55), carrying 3 ISO and 5 CHIPS. */
-	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT).copy(cargo = mapOf(Goods.ISO to 3, Goods.CHIPS to 5))
-	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.PORT)
+	private val wayfarer = emptyShip("Wayfarer", TAU_CETI, ShipLocation.PORT).copy(cargo = mapOf(Goods.ISO to 3, Goods.CHIPS to 5))
+	private val lantern = emptyShip("Lantern", MU_HERCULIS, ShipLocation.PORT)
 
 	/** One block at Tau Ceti: 10 cargo spaces, holding 6 ISO and 2 FOOD. */
 	private val warehouse = Warehouse(TAU_CETI, 1, mapOf(Goods.ISO to 6, Goods.FOOD to 2))
@@ -143,7 +143,7 @@ class PlayerMoveCargoTest {
 	}
 
 	/** Comet is in port at Tau Ceti beside Wayfarer, empty, with 8 cargo spaces. */
-	private val comet = Ship.emptyAt("Comet", TAU_CETI, ShipLocation.PORT)
+	private val comet = emptyShip("Comet", TAU_CETI, ShipLocation.PORT)
 	private val fleet = player.copy(ships = listOf(wayfarer, lantern, comet))
 
 	@Test

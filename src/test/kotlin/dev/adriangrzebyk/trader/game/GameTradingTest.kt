@@ -21,7 +21,9 @@ class GameTradingTest {
 
 	// Initiative Grace, Ada: Ada rolls 1 and Grace 2 on d2, with no bids.
 	private val shipJumps = Game.lobby("game-1", 3, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.advancePhase(FakeDice(1, 2))
@@ -92,11 +94,15 @@ class GameTradingTest {
 	private val withDictator = Game.lobby("game-2", 3, dictatorOfPoly)
 		.addPlayer(grace)
 		.addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS),
-			START_DICE
-		).let {
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					TAU_CETI to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
@@ -245,11 +251,15 @@ class GameTradingTest {
 		val broke = Game.lobby("game-3", 3, dictatorOfPoly)
 			.addPlayer(grace)
 			.addPlayer(kim)
-			.start(
-				"ada@example.com",
-				FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, TAU_CETI to MU_HERCULIS),
-				START_DICE
-			).let {
+			.start("ada@example.com", START_DICE).let {
+				StartingShips(
+					FakeStartingSystemPicker(
+						TAU_CETI to BETA_HYDRI,
+						GAMMA_LEPORIS to MU_HERCULIS,
+						TAU_CETI to MU_HERCULIS
+					)
+				).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 			.placeOffer("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
@@ -397,7 +407,9 @@ class GameTradingTest {
 		// R49: offers don't need a ship at the system; with a warehouse there the offer can be traded when it wins
 		val started = Game.lobby("game-4", 3, ada)
 			.addPlayer(grace)
-			.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			.start("ada@example.com", START_DICE).let {
+				StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 		val stocked = started.copy(

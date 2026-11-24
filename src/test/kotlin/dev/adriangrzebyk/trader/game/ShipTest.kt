@@ -10,7 +10,7 @@ class ShipTest {
 
 	@Test
 	fun shouldUseNoCargoSpaceWhenEmpty() {
-		assertThat(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).cargoSpacesUsed()).isZero()
+		assertThat(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).cargoSpacesUsed()).isZero()
 	}
 
 	@Test
@@ -54,29 +54,29 @@ class ShipTest {
 
 	@Test
 	fun shouldArriveInSpaceAtTheDestinationWhenJumping() {
-		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+		val ship = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 
-		assertThat(ship.jumpTo(StarSystem.MU_HERCULIS)).isEqualTo(Ship.emptyAt("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.SPACE))
+		assertThat(ship.jumpTo(StarSystem.MU_HERCULIS)).isEqualTo(emptyShip("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.SPACE))
 	}
 
 	@Test
 	fun shouldMoveIntoSpaceWhenJumpingToTheSystemItIsAlreadyAt() {
 		// R69 (replaces S02-4)
-		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+		val ship = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 
-		assertThat(ship.jumpTo(StarSystem.TAU_CETI)).isEqualTo(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE))
+		assertThat(ship.jumpTo(StarSystem.TAU_CETI)).isEqualTo(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE))
 	}
 
 	@Test
 	fun shouldStayInItsSystemWhenLanding() {
-		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE)
+		val ship = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE)
 
-		assertThat(ship.landAt(ShipLocation.PLANET)).isEqualTo(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PLANET))
+		assertThat(ship.landAt(ShipLocation.PLANET)).isEqualTo(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PLANET))
 	}
 
 	@Test
 	fun shouldDescribeItsLandingForTheLog() {
-		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+		val ship = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 
 		assertThat(ship.landingLog()).isEqualTo("Wayfarer lands at the port (Tau Ceti)")
 	}
@@ -213,7 +213,7 @@ class ShipTest {
 	@Test
 	fun shouldGroupRepeatedModulesWithACountInTheOrderTheyWereFitted() {
 		// E07-S03-2
-		assertThat(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).fittedModules().toList())
+		assertThat(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).fittedModules().toList())
 			.containsExactly(Module.CARGO to 4, Module.LIGHT_WEAPONS to 1, Module.SAFE_JUMP to 1)
 	}
 
@@ -281,7 +281,7 @@ class ShipTest {
 	// R68: base chance + crew (A +5, B +3, C +1, D +0) + Safe jump (+2).
 	@Test
 	fun shouldAddTheCrewAndSafeJumpModifiersToTheRoutesBaseChance() {
-		val starting = Ship.emptyAt("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT)
+		val starting = emptyShip("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT)
 		val withoutSafeJump = starting.withModuleRemoved(Module.SAFE_JUMP)
 
 		assertThat(starting.jumpChanceTo(StarSystem.BETA_HYDRI)).isEqualTo(JumpChance(7 + 3 + 2))
@@ -293,7 +293,7 @@ class ShipTest {
 
 	@Test
 	fun shouldGiveAChanceForEveryOtherSystemOnly() {
-		val chances = Ship.emptyAt("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT).jumpChances()
+		val chances = emptyShip("Wayfarer", StarSystem.GAMMA_LEPORIS, ShipLocation.PORT).jumpChances()
 
 		assertThat(chances.keys).containsExactlyElementsOf(StarSystem.entries - StarSystem.GAMMA_LEPORIS)
 	}

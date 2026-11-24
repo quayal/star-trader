@@ -836,6 +836,23 @@
 						<p class="muted" id="placement-note"></p>
 					</form>
 				</section>
+				<!-- R132: static markup, so the typed name and focus survive the poll; only in turn 1's Bidding, before the ship exists. -->
+				<section class="panel" id="starting-ship-panel" aria-labelledby="starting-ship-title" hidden>
+					<h2 id="starting-ship-title" tabindex="-1">Name your ship and choose its Port</h2>
+					<p class="muted" id="starting-ship-hint"></p>
+					<form class="offer-form" id="starting-ship-form" novalidate>
+						<div>
+							<label class="field-label" for="starting-ship-name">Ship name</label>
+							<input class="control" id="starting-ship-name" maxlength="20" autocomplete="off" aria-describedby="starting-ship-error">
+						</div>
+						<div>
+							<label class="field-label" for="starting-ship-system">Starts in the Port of</label>
+							<select class="control" id="starting-ship-system" aria-describedby="starting-ship-error"></select>
+						</div>
+						<div><button class="btn" id="starting-ship-button" type="submit"></button></div>
+						<p class="message message--error field-error" id="starting-ship-error" role="alert"></p>
+					</form>
+				</section>
 				<!-- Playtest 2026-11-20: every market position the viewer holds, at a glance. -->
 				<section class="panel" aria-labelledby="deck-positions-title">
 					<h2 id="deck-positions-title">Your market positions</h2>
@@ -1745,6 +1762,14 @@
 		hangarQuestion,
 		hangarYesLabel,
 	} from './js/hangar.js';
+	import {
+		PLACE_SHIP_BUTTON,
+		PLACE_SHIP_HINT,
+		isChoosingShip,
+		portChoices,
+		suggestedName,
+		validateStartingShip,
+	} from './js/starting-ship.js';
 	import {
 		BACKING_NO_LABEL,
 		BACKING_YES_LABEL,
@@ -2703,6 +2728,7 @@
 		}
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		updatePlacementForm(game);
+		updateStartingShipForm(game);
 		updateBidForm(game);
 		updateTurnOrder(game);
 		updateJumpForm(game);
@@ -4084,6 +4110,68 @@
 		$('placement-button').disabled = submittingPlacement;
 		updatePlacementTotal(game);
 	}
+
+	// ── R132: naming the starting ship and choosing its Port in turn 1's Bidding ──
+
+	let shownStartingShipGame = null;
+	let submittingStartingShip = false;
+
+	function updateStartingShipForm(game) {
+		const panel = $('starting-ship-panel');
+		panel.hidden = !isChoosingShip(game);
+		if (panel.hidden) {
+			return;
+		}
+		if (shownStartingShipGame !== game.id) {
+			shownStartingShipGame = game.id;
+			$('starting-ship-name').value = suggestedName(game);
+			$('starting-ship-system').replaceChildren(...portChoices(game).map(port => element('option', { value: port.id }, port.name)));
+			$('starting-ship-error').textContent = '';
+		}
+		$('starting-ship-hint').textContent = PLACE_SHIP_HINT;
+		$('starting-ship-button').textContent = PLACE_SHIP_BUTTON;
+		$('starting-ship-button').disabled = submittingStartingShip;
+	}
+
+	$('starting-ship-name').addEventListener('input', () => {
+		$('starting-ship-error').textContent = '';
+	});
+
+	$('starting-ship-form').addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const checked = validateStartingShip($('starting-ship-name').value, $('starting-ship-system').value);
+		$('starting-ship-error').textContent = checked.error ?? '';
+		if (checked.error) {
+			$('starting-ship-name').focus();
+			return;
+		}
+		const gameId = currentGameId;
+		submittingStartingShip = true;
+		$('starting-ship-button').disabled = true;
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/starting-ship`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(checked.placement),
+			});
+		} catch {
+			response = null;
+		}
+		submittingStartingShip = false;
+		$('starting-ship-button').disabled = false; // static markup shared by every game
+		if (gameId !== currentGameId) {
+			return;
+		}
+		if (response?.ok) {
+			render(await response.json());
+			return;
+		}
+		$('starting-ship-error').textContent = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response && response.status !== 400) {
+			repollNow(); // e.g. they placed it from another tab: the screen catches up
+		}
+	});
 
 	for (const { id } of CONNECTION_KINDS) {
 		$(`placement-${id}`).addEventListener('input', () => {

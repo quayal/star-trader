@@ -1,9 +1,5 @@
 package dev.adriangrzebyk.trader.game
 
-import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
-import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
-import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
-import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -11,8 +7,7 @@ import org.junit.jupiter.api.Test
 class GameStartingServiceTest {
 
 	private val gameStore = FakeGameStore()
-	private val picker = FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)
-	private val service = GameStartingService(gameStore, picker, START_DICE)
+	private val service = GameStartingService(gameStore, START_DICE)
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val lobby = Game.lobby("game-1", 20, creator).addPlayer(joiner)

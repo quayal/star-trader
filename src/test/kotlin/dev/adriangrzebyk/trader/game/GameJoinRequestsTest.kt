@@ -92,7 +92,9 @@ class GameJoinRequestsTest {
 	@Test
 	fun shouldDropWaitingRequestsWhenTheGameStartsAndRefuseNewOnes() {
 		val started = lobby.addPlayer(bo).requestToJoin(ada)
-			.start(creator.email, FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE)
+			.start(creator.email, START_DICE).let {
+				StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+			}
 
 		assertThat(started.joinRequests).isEmpty()
 		assertThatThrownBy { started.requestToJoin(ada) }

@@ -9,22 +9,22 @@ import org.junit.jupiter.api.Test
 
 class PlayerTest {
 
-	private val wayfarer = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
-	private val lantern = Ship.emptyAt("Lantern", StarSystem.BETA_HYDRI, ShipLocation.PORT)
+	private val wayfarer = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+	private val lantern = emptyShip("Lantern", StarSystem.BETA_HYDRI, ShipLocation.PORT)
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern), 0)
 
 	@Test
 	fun shouldMoveOnlyTheShipThatJumped() {
 		val moved = player.jumpShip(wayfarer, StarSystem.MU_HERCULIS)
 
-		assertThat(moved.ships).containsExactly(Ship.emptyAt("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.SPACE), lantern)
+		assertThat(moved.ships).containsExactly(emptyShip("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.SPACE), lantern)
 	}
 
 	@Test
 	fun shouldLandTheNamedShip() {
 		val landed = player.jumpShip(wayfarer, StarSystem.MU_HERCULIS).landShip("Wayfarer", ShipLocation.PLANET)
 
-		assertThat(landed.ship("Wayfarer")).isEqualTo(Ship.emptyAt("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.PLANET))
+		assertThat(landed.ship("Wayfarer")).isEqualTo(emptyShip("Wayfarer", StarSystem.MU_HERCULIS, ShipLocation.PLANET))
 	}
 
 	@Test
@@ -71,8 +71,8 @@ class PlayerTest {
 	}
 
 	@Test
-	fun shouldListStartingPositionsForTheLog() {
-		assertThat(player.startingPositions()).isEqualTo("Orion Freight — Wayfarer at Tau Ceti, Lantern at Beta Hydri")
+	fun shouldNameTheStartingShipForTheLog() {
+		assertThat(player.startingShipLog()).isEqualTo("Orion Freight starts with Wayfarer at Tau Ceti")
 	}
 
 	@Test
@@ -92,7 +92,7 @@ class PlayerTest {
 			ships = listOf(
 				wayfarer.load(Goods.ISO, 3),
 				lantern.load(Goods.ISO, 9),
-				Ship.emptyAt("Meridian", StarSystem.TAU_CETI, ShipLocation.SPACE).load(Goods.ISO, 2)
+				emptyShip("Meridian", StarSystem.TAU_CETI, ShipLocation.SPACE).load(Goods.ISO, 2)
 			)
 		)
 		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
@@ -205,7 +205,7 @@ class PlayerTest {
 	fun shouldRefuseToSellMoreFromAShipThanItHolds() {
 		// S04-3, R10: 5 ISO at Tau Ceti in all, but Wayfarer holds only 2.
 		val trader = player.copy(
-			ships = listOf(wayfarer.load(Goods.ISO, 2), Ship.emptyAt("Meridian", StarSystem.TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3))
+			ships = listOf(wayfarer.load(Goods.ISO, 2), emptyShip("Meridian", StarSystem.TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3))
 		)
 		val sell = Offer("ada@example.com", StarSystem.TAU_CETI, Goods.ISO, OfferType.SELL, 9)
 

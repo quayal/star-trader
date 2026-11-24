@@ -19,11 +19,15 @@ class GameLandingTest {
 
 	// Turn order Grace, Ada, Kim (see GameShipJumpTest); Grace's Meridian is at Gamma Leporis, Halcyon at Mu Herculis.
 	private val jumping = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
 		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)
@@ -53,7 +57,7 @@ class GameLandingTest {
 				shipOf(game, "Meridian")
 			).isEqualTo(
 				Ship(
-					"Meridian", TAU_CETI, location, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS,
+					"Meridian", TAU_CETI, location, emptyMap(), Ship.STARTING_HULL, PLAYTEST_MODULES, Ship.STARTING_CREW_CLASS,
 					null, 0, emptyList()
 				)
 			)

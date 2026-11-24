@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 class ShipBattleTest {
 
 	// A starting ship: Clarinet (weapons 3, shields 2, intercept 2), 4 Cargo, 1 Light weapons 3 (5), 1 Safe jump; class B.
-	private val wayfarer = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE)
+	private val wayfarer = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.SPACE)
 
 	@Test
 	fun shouldFireWithTheHullAndWorkingModules() {

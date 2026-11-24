@@ -178,7 +178,7 @@ class TurnTest {
 
 	@Test
 	fun shouldWaitForTheJumpedShipToLand() {
-		val ship = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+		val ship = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 		val turn = shipJumps.recordJump(ship)
 
 		assertThat(turn.hasJumped(ship)).isTrue()

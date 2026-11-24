@@ -18,7 +18,9 @@ class GameShipyardTest {
 
 	/** Ada's Wayfarer is at Tau Ceti and Lantern at Beta Hydri; Grace's Meridian at Gamma Leporis, Halcyon at Mu Herculis (R40). */
 	private val started = Game.lobby("game-1", 20, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 

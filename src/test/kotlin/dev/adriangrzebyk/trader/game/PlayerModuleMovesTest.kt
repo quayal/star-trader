@@ -14,10 +14,10 @@ import org.junit.jupiter.api.Test
 class PlayerModuleMovesTest {
 
 	private fun at(system: StarSystem): Player {
-		val wayfarer = Ship.emptyAt("Wayfarer", system, ShipLocation.PORT).let {
+		val wayfarer = emptyShip("Wayfarer", system, ShipLocation.PORT).let {
 			it.withModuleTakenOff(Module.CARGO).withModuleFitted(Module.DOGFIGHT)
 		}
-		val lantern = Ship.emptyAt("Lantern", system, ShipLocation.PORT).withModuleTakenOff(Module.CARGO)
+		val lantern = emptyShip("Lantern", system, ShipLocation.PORT).withModuleTakenOff(Module.CARGO)
 		return Player.newcomer("ada@example.com", "Ada", "Orion Freight")
 			.copy(ships = listOf(wayfarer, lantern), warehouses = listOf(Warehouse(system, 1, emptyMap())))
 	}

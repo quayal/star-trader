@@ -21,7 +21,9 @@ class GameEventsTest {
 	private val grace = Player.newcomer("grace@example.com", "Grace", "Vega Lines")
 
 	private val initiative = Game.lobby("game-1", 5, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE)
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS)).placedIn(it)
+		}
 		.let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(2, 1))
 

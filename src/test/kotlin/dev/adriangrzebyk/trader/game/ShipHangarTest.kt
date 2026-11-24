@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 // R127: a ship in a Parking Hangar is protected from sabotage for the turn it is paid for.
 class ShipHangarTest {
 
-	private val inPort = Ship.emptyAt("Meridian", TAU_CETI, ShipLocation.PORT)
+	private val inPort = emptyShip("Meridian", TAU_CETI, ShipLocation.PORT)
 
 	@Test
 	fun shouldHaveAHangarInEverySystemButSigmaAndMu() {
@@ -49,15 +49,15 @@ class ShipHangarTest {
 	fun shouldOnlyBeAskedToParkInAPortWithAHangarAndNotWhileParked() {
 		assertThat(inPort.canBeParked()).isTrue()
 		assertThat(inPort.parkedOn(4).canBeParked()).isFalse()
-		assertThat(Ship.emptyAt("Meridian", MU_HERCULIS, ShipLocation.PORT).canBeParked()).isFalse()
-		assertThat(Ship.emptyAt("Meridian", TAU_CETI, ShipLocation.SPACE).canBeParked()).isFalse()
+		assertThat(emptyShip("Meridian", MU_HERCULIS, ShipLocation.PORT).canBeParked()).isFalse()
+		assertThat(emptyShip("Meridian", TAU_CETI, ShipLocation.SPACE).canBeParked()).isFalse()
 	}
 
 	@Test
 	fun shouldRefuseParkingWhereThereIsNoHangar() {
-		assertThatThrownBy { Ship.emptyAt("Meridian", SIGMA_DRACONIS, ShipLocation.PORT).parkedOn(1) }
+		assertThatThrownBy { emptyShip("Meridian", SIGMA_DRACONIS, ShipLocation.PORT).parkedOn(1) }
 			.isInstanceOf(InvalidHangarException::class.java)
-		assertThatThrownBy { Ship.emptyAt("Meridian", TAU_CETI, ShipLocation.PLANET).parkedOn(1) }
+		assertThatThrownBy { emptyShip("Meridian", TAU_CETI, ShipLocation.PLANET).parkedOn(1) }
 			.isInstanceOf(InvalidHangarException::class.java)
 	}
 
@@ -83,7 +83,7 @@ class ShipHangarTest {
 	@Test
 	fun shouldListTheShipsDueForRenewal() {
 		val grace = Player.newcomer("grace@example.com", "Grace", "Vega Lines")
-			.startWith(100, listOf(inPort, Ship.emptyAt("Halcyon", TAU_CETI, ShipLocation.PORT)), 0)
+			.startWith(100, listOf(inPort, emptyShip("Halcyon", TAU_CETI, ShipLocation.PORT)), 0)
 			.parkShip("Meridian", 2)
 
 		assertThat(grace.hangarRenewalsDue(2)).isEmpty()
