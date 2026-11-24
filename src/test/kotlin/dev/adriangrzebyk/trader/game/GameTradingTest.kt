@@ -211,7 +211,11 @@ class GameTradingTest {
 				"Vega Lines could buy up to 21 u: bought 12 u at 11 HT each, paid 132 HT",
 				TradeRecord("grace@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 12, 11)
 			),
-			LogEntry.event(1, "Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4"),
+			LogEntry.notice(
+				1,
+				"Vega Lines traded 12 u — rolled 7: now Retailer of POLY at Gamma Leporis; business connections rise to 4",
+				Notice.positionGained(GAMMA_LEPORIS, "grace@example.com", emptyList())
+			),
 			LogEntry.event(1, "Vega Lines's reputation: +2 for a market position rise \u2192 22"),
 			LogEntry.event(1, "No one else can trade at Gamma Leporis POLY"),
 			LogEntry.event(1, "POLY price at Gamma Leporis: 2 → 6 HT")

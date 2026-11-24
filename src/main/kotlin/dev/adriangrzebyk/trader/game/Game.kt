@@ -67,6 +67,9 @@ data class Game(
 
 	fun hasPlayer(email: String): Boolean = players.any { it.email == email }
 
+	/** Whether [email] is a player still in the game: not eliminated (R129). */
+	fun isActivePlayer(email: String): Boolean = players.any { it.email == email && !it.eliminated }
+
 	/** R120: [player] asks to join; the creator decides. Only in the lobby, not when full, in the game already, or asked. */
 	fun requestToJoin(player: Player): Game {
 		checkJoinable(player.email)
@@ -1273,7 +1276,13 @@ data class Game(
 		return copy(
 			players = replace(bought),
 			turn = boughtTurn,
-			log = log + LogEntry.event(investing.number, bought.reputationLog(roll, "buying reputation (rolled $roll)"))
+			log = log + LogEntry.event(
+				investing.number,
+				bought.reputationLog(
+					Reputation.growthFromBuying(roll),
+					"buying reputation (rolled $roll${if (roll == Reputation.BUY_NO_GROWTH_ROLL) ", no growth" else ""})"
+				)
+			)
 		)
 	}
 

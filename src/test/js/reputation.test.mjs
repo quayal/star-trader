@@ -25,7 +25,7 @@ describe('reputation (E13)', () => {
 		const offer = reputationPurchase(investing());
 
 		assert.equal(myReputation(investing()), 20);
-		assert.deepEqual(offer, { intro: 'Your reputation is 20 / 40. Once per Investment, buy 1d6 more for 20 HT.', cost: 20, canBuy: true, reason: '' });
+		assert.deepEqual(offer, { intro: 'Your reputation is 20 / 40. Once per Investment, buy 1d6 more for 20 HT; a 6 adds nothing.', cost: 20, canBuy: true, reason: '' });
 	});
 
 	it('says why buying is closed: already bought, at 40, or too little money', () => {

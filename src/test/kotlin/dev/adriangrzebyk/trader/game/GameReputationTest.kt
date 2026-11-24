@@ -87,6 +87,19 @@ class GameReputationTest {
 	}
 
 	@Test
+	fun shouldChargeButAddNothingWhenTheBuyingRollIsASix() {
+		// R134: a 6 buys no growth; the 20 HT are still paid
+		val before = playerOf(investing, "ada@example.com")
+
+		val bought = investing.buyReputation("ada@example.com", FakeDice.d6(6))
+
+		assertThat(playerOf(bought, "ada@example.com").reputation.value).isEqualTo(20)
+		assertThat(playerOf(bought, "ada@example.com").money).isEqualTo(before.money - 20)
+		assertThat(bought.log.last().text).isEqualTo("Orion Freight's reputation: +0 for buying reputation (rolled 6, no growth) → 20")
+		assertThat(Reputation.growthFromBuying(5)).isEqualTo(5)
+	}
+
+	@Test
 	fun shouldBuyReputationOncePerInvestmentForTwentyHt() {
 		// E13-S03
 		val before = playerOf(investing, "ada@example.com")

@@ -1272,6 +1272,26 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldKeepANotepadPerPlayerAndShowItToItsOwnerOnly() {
+		// R135
+		val (creatorToken, joinerToken, gameId) = startedGame("notepad")
+
+		notepad(creatorToken, gameId, "GET").expectStatus().isOk.expectBody(NotepadDto::class.java).isEqualTo(NotepadDto(""))
+		notepad(creatorToken, gameId, "PUT", """{"text": "Turn 4: buy a factory\nTurn 5: jump"}""").expectStatus().isOk
+		notepad(creatorToken, gameId, "GET").expectStatus().isOk.expectBody(NotepadDto::class.java)
+			.isEqualTo(NotepadDto("Turn 4: buy a factory\nTurn 5: jump"))
+		notepad(joinerToken, gameId, "GET").expectStatus().isOk.expectBody(NotepadDto::class.java).isEqualTo(NotepadDto(""))
+		notepad(joinerToken, gameId, "PUT", """{"text": "x"}""").expectStatus().isOk
+		notepad(creatorToken, gameId, "GET").expectBody(NotepadDto::class.java).isEqualTo(NotepadDto("Turn 4: buy a factory\nTurn 5: jump"))
+		notepad(creatorToken, gameId, "PUT", """{"text": "${"x".repeat(5001)}"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("A notepad holds at most 5000 characters.")
+		notepad(null, gameId, "GET").expectStatus().isUnauthorized
+		notepad(signIn("notepad-stranger@example.com"), gameId, "GET").expectStatus().isForbidden
+		notepad(creatorToken, "no-such-game", "GET").expectStatus().isNotFound
+	}
+
+	@Test
 	fun shouldRefuseBackingFromOutsidersOrWhenNoReputationControlWaits() {
 		// R129: only a player asked by an open reputation control may answer
 		val (first, _, gameId) = orderedGame("backing-refused")
@@ -1715,7 +1735,7 @@ class GameControllerTest {
 		val bought = buyReputation(other, gameId).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val mine = bought.players.single { it.id == bought.you!!.id }
 		assertThat(bought.you!!.money).isEqualTo(before - 20)
-		assertThat(mine.reputation).isBetween(21, 26)
+		assertThat(mine.reputation).isBetween(20, 25) // R134: a 6 adds nothing
 		assertThat(bought.you!!.invest!!.boughtReputation).isTrue()
 		assertThat(bought.log.last().text).contains("reputation: +").contains("for buying reputation").doesNotContain("HT")
 
@@ -2908,6 +2928,24 @@ class GameControllerTest {
 	/** Every player, in turn order, done with opportunities after collecting nothing if they have factories (R102). */
 	private fun passOpportunity(gameId: String) {
 		gameStore.update(gameId) { OpportunityPassed(it).byEveryone() }
+	}
+
+	private fun notepad(token: String?, gameId: String, method: String, body: String? = null): RestTestClient.ResponseSpec {
+		val request = if (method ==
+			"PUT"
+		) {
+			restTestClient.put().uri("/api/games/{id}/notepad", gameId)
+		} else {
+			restTestClient.get().uri("/api/games/{id}/notepad", gameId)
+		}
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return if (body ==
+			null
+		) {
+			request.exchange()
+		} else {
+			(request as RestTestClient.RequestBodySpec).contentType(MediaType.APPLICATION_JSON).body(body).exchange()
+		}
 	}
 
 	private fun answerBacking(token: String?, gameId: String): RestTestClient.ResponseSpec {

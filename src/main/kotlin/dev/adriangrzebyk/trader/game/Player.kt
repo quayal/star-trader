@@ -648,8 +648,8 @@ data class Player(
 	}
 
 	/**
-	 * This player after buying reputation in Investment (R87, E13-S03): [Reputation.BUY_COST] HT for [roll] (a d6) more.
-	 * Refused at 40 or with too little money; once per Investment is the turn's to check.
+	 * This player after buying reputation in Investment (R87, E13-S03): [Reputation.BUY_COST] HT for [roll] (a d6) more, a 6
+	 * giving none (R134). Refused at 40 or with too little money; once per Investment is the turn's to check.
 	 */
 	fun buyReputation(roll: Int): Player {
 		if (reputation.isMax()) {
@@ -658,7 +658,7 @@ data class Player(
 		if (money < Reputation.BUY_COST) {
 			throw InvalidInvestmentException("Buying reputation costs ${Reputation.BUY_COST} HT; you have $money HT.")
 		}
-		return copy(reputation = reputation.changedBy(roll)).pay(Reputation.BUY_COST, "Bought reputation")
+		return copy(reputation = reputation.changedBy(Reputation.growthFromBuying(roll))).pay(Reputation.BUY_COST, "Bought reputation")
 	}
 
 	/** What the end of a turn adds to this player's reputation (R86): 3 between 1 and 17, else 0. */
@@ -855,18 +855,13 @@ data class Player(
 	}
 
 	/**
-	 * This player after repairing all the damage on their ship [shipName] at a shipyard (R79), paying [Ship.repairCost];
-	 * refused when it has none or they can't pay.
+	 * This player after repairing the damage on their ship [shipName] that can be repaired where it is (R79, R133): every
+	 * damaged module, and the hull at a shipyard; paying [Ship.repairCostHere]. Refused when it has none or they can't pay.
 	 */
 	fun repairShip(shipName: String): Player {
 		val ship = ship(shipName) ?: throw InvalidInvestmentException("Choose one of your ships.")
-		if (!ship.canBeRepaired()) {
-			throw InvalidInvestmentException(
-				"${ship.name} must be at a shipyard to repair: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
-			)
-		}
 		val repaired = ship.repaired()
-		val cost = ship.repairCost()
+		val cost = ship.repairCostHere()
 		if (cost > money) {
 			throw InvalidInvestmentException("Repairing ${ship.name} costs $cost HT; you have $money HT.")
 		}

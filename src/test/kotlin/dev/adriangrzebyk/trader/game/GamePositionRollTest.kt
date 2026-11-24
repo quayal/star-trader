@@ -96,9 +96,9 @@ class GamePositionRollTest {
 		)
 		assertThat(kim.reputation.value).isEqualTo(22)
 		assertThat(ada.reputation.value).isEqualTo(18)
-		// R124: the demoted Dictator gets a card; the riser wanted this
+		// R124 (creator, 2026-11-24): the riser gets a card, and so does the demoted Dictator, whose is red
 		assertThat(kimPromoted.log.drop(kimsTurnToTrade.log.size).mapNotNull { it.notice })
-			.containsExactly(Notice.setback(NoticeKind.DEMOTED, GAMMA_LEPORIS, listOf("ada@example.com")))
+			.containsExactly(Notice.positionGained(GAMMA_LEPORIS, "kim@example.com", listOf("ada@example.com")))
 	}
 
 	@Test

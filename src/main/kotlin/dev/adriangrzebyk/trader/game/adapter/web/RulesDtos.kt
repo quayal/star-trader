@@ -57,6 +57,7 @@ data class RulesResponseDto(
  * come only through an opportunity (R56).
  */
 data class HullRuleResponseDto(
+	val id: String,
 	val name: String,
 	val price: Int,
 	val moduleCapacity: Int,
@@ -71,6 +72,7 @@ data class HullRuleResponseDto(
 ) {
 
 	constructor(hull: Hull) : this(
+		hull.name,
 		hull.displayName,
 		hull.price,
 		hull.moduleCapacity,
@@ -87,6 +89,7 @@ data class HullRuleResponseDto(
 
 /** Every module (R52) for the Guide's table, with its [rocketWeapons] (the table's bracketed figure) and jump modifier. */
 data class ModuleRuleResponseDto(
+	val id: String,
 	val name: String,
 	val price: Int,
 	val crew: Int,
@@ -100,6 +103,7 @@ data class ModuleRuleResponseDto(
 ) {
 
 	constructor(module: Module) : this(
+		module.name,
 		module.displayName,
 		module.price,
 		module.crew,

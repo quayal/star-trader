@@ -10,7 +10,7 @@ export const MAX_REPUTATION = 40;
 
 /** The button on the viewer's own Corporations card (creator, 2026-11-19): "Buy 1d6 reputation — 20 HT". */
 export function buyLabel(cost) {
-	return `Buy 1d6 reputation — ${cost} HT`;
+	return `Buy 1d6 reputation — ${cost} HT (a 6 adds nothing)`;
 }
 
 export const BOUGHT_TEXT = "You've bought reputation this Investment.";
@@ -35,7 +35,7 @@ export function reputationPurchase(game) {
 	}
 	const cost = game.you.invest.reputationCost ?? 20;
 	const reputation = myReputation(game);
-	const intro = `Your reputation is ${reputation} / ${MAX_REPUTATION}. Once per Investment, buy 1d6 more for ${cost} HT.`;
+	const intro = `Your reputation is ${reputation} / ${MAX_REPUTATION}. Once per Investment, buy 1d6 more for ${cost} HT; a 6 adds nothing.`;
 	if (game.you.invest.boughtReputation) {
 		return { intro, cost, canBuy: false, reason: BOUGHT_TEXT };
 	}

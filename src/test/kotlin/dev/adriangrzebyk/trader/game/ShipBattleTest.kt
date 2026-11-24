@@ -132,14 +132,61 @@ class ShipBattleTest {
 	@Test
 	fun shouldRepairEverythingForTheHullPriceAndEachModule() {
 		// R79: Clarinet 20, Cargo 4, Light weapons 10
-		val damaged = wayfarer.copy(hullDamage = 2, damagedModules = listOf(Module.CARGO, Module.LIGHT_WEAPONS))
+		val atShipyard = wayfarer.copy(system = StarSystem.TAU_CETI, location = ShipLocation.PORT)
+		val damaged = atShipyard.copy(hullDamage = 2, damagedModules = listOf(Module.CARGO, Module.LIGHT_WEAPONS))
 
 		assertThat(damaged.repairCost()).isEqualTo(34)
-		assertThat(damaged.repaired()).isEqualTo(wayfarer)
-		assertThat(wayfarer.copy(damagedModules = listOf(Module.CARGO)).repairCost()).isEqualTo(4)
-		assertThatThrownBy { wayfarer.repaired() }
+		assertThat(damaged.repairCostHere()).isEqualTo(34)
+		assertThat(damaged.repaired()).isEqualTo(atShipyard)
+		assertThat(atShipyard.copy(damagedModules = listOf(Module.CARGO)).repairCost()).isEqualTo(4)
+		assertThatThrownBy { atShipyard.repaired() }
 			.isInstanceOf(InvalidInvestmentException::class.java)
 			.hasMessage("Wayfarer has no damage to repair.")
+	}
+
+	@Test
+	fun shouldRepairModulesAnywhereButTheHullOnlyAtAShipyard() {
+		// R133: Clarinet hull 20, Cargo 4, Light weapons 10; Gamma Leporis has no shipyard
+		val away = wayfarer.copy(
+			system = StarSystem.GAMMA_LEPORIS,
+			location = ShipLocation.PORT,
+			hullDamage = 1,
+			damagedModules = listOf(Module.CARGO)
+		)
+
+		assertThat(away.repairCost()).isEqualTo(24)
+		assertThat(away.repairCostHere()).isEqualTo(4)
+		assertThat(away.canBeRepaired()).isTrue()
+		assertThat(away.hullRepairNote()).isEqualTo("The hull is repaired at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+		assertThat(away.repaired()).isEqualTo(away.copy(damagedModules = emptyList()))
+		val inSpace = away.copy(location = ShipLocation.SPACE)
+		assertThat(inSpace.repaired().damagedModules).isEmpty()
+		assertThat(inSpace.repaired().hullDamage).isEqualTo(1)
+	}
+
+	@Test
+	fun shouldRefuseToRepairOnlyAHullAwayFromAShipyard() {
+		val away = wayfarer.copy(system = StarSystem.GAMMA_LEPORIS, location = ShipLocation.PORT, hullDamage = 1)
+
+		assertThat(away.canBeRepaired()).isFalse()
+		assertThatThrownBy { away.repaired() }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("Wayfarer: The hull is repaired at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+	}
+
+	@Test
+	fun shouldRepairAMilitaryHullOnlyAtTauCetisShipyard() {
+		// R133: Beta Hydri and Epsilon Eridani have shipyards too, but their Ports refuse military ships (R56)
+		val military = wayfarer.copy(hull = Hull.DAGGER, modules = emptyList(), location = ShipLocation.PORT, hullDamage = 1)
+
+		assertThat(military.copy(system = StarSystem.TAU_CETI).canRepairHull()).isTrue()
+		assertThat(military.copy(system = StarSystem.BETA_HYDRI).canRepairHull()).isFalse()
+		assertThat(military.copy(system = StarSystem.EPSILON_ERIDANI).canRepairHull()).isFalse()
+		assertThat(
+			military.copy(system = StarSystem.BETA_HYDRI).hullRepairNote()
+		).isEqualTo("A military hull is repaired only at the Tau Ceti shipyard.")
+		assertThat(military.copy(system = StarSystem.TAU_CETI).hullRepairNote()).isNull()
+		assertThat(military.copy(system = StarSystem.BETA_HYDRI, hull = Hull.CLARINET).canRepairHull()).isTrue()
 	}
 
 	@Test
