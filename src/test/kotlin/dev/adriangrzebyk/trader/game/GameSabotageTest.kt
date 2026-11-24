@@ -47,6 +47,7 @@ class GameSabotageTest {
 			"Kessler Cargo's reputation: −6 for sabotage (rolled 2d6+5: 14) → 14"
 		)
 		assertThat(sabotaged.log.drop(game.log.size).first().notice!!.players).containsExactly(GRACE)
+		assertThat(sabotaged.log.last().notice).isEqualTo(Notice.setback(NoticeKind.SABOTAGE_TRACED, null, listOf(KIM)))
 	}
 
 	@Test
@@ -59,6 +60,7 @@ class GameSabotageTest {
 		assertThat(fixture.playerOf(sabotaged, KIM).reputation.value).isEqualTo(20)
 		assertThat(fixture.playerOf(sabotaged, ADA).reputation.value).isEqualTo(12)
 		assertThat(sabotaged.log.last().text).isEqualTo("Orion Freight's reputation: −8 for being blamed for sabotage → 12")
+		assertThat(sabotaged.log.last().notice).isEqualTo(Notice.setback(NoticeKind.SABOTAGE_BLAMED, null, listOf(ADA)))
 		// Effect 2 + 9 − 2 = 9: no effect, so no sabotage line that would point at anyone.
 		assertThat(sabotaged.log.map { it.text }).noneMatch { it.startsWith("Sabotage at") }
 	}

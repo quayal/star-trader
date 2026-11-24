@@ -563,14 +563,18 @@ data class BattleSummarySectionResponseDto(val title: String, val lines: List<St
 	constructor(section: BattleSummarySection) : this(section.title, section.lines)
 }
 
-/** The interception or battle moment a log entry tells of, for the pop-up cards (creator, 2026-11-18); public, like the line. */
+/**
+ * The interception or battle moment a log entry tells of, for the pop-up cards (creator, 2026-11-18); public, like the line.
+ * [ledgerReason] names the movement in its player's own ledger that holds what a penalty cost them (R136), never the amount.
+ */
 data class NoticeResponseDto(
 	val kind: String,
 	val system: String?,
 	val systemName: String?,
 	val playerIds: List<String>,
 	val round: Int?,
-	val interception: InterceptionRollResponseDto?
+	val interception: InterceptionRollResponseDto?,
+	val ledgerReason: String?
 ) {
 
 	constructor(notice: Notice, ids: PlayerIds) : this(
@@ -579,7 +583,8 @@ data class NoticeResponseDto(
 		notice.system?.displayName,
 		ids.ofAll(notice.players),
 		notice.round,
-		notice.interception?.let { InterceptionRollResponseDto(it, ids) }
+		notice.interception?.let { InterceptionRollResponseDto(it, ids) },
+		notice.kind.ledgerReason
 	)
 }
 

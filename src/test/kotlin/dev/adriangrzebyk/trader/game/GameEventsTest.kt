@@ -51,6 +51,7 @@ class GameEventsTest {
 			initiative.prices.priceOf(MarketGood(TAU_CETI, Goods.POLY)) - 3
 		)
 		assertThat(game.prices.prices.values).allMatch { it in 1..20 }
+		assertThat(game.log.first { it.text.startsWith("News: Alien raiders") }.notice!!.players).isEmpty()
 	}
 
 	@Test
@@ -101,6 +102,8 @@ class GameEventsTest {
 
 		assertThat(player(game, "ada@example.com").reputation.value).isEqualTo(16)
 		assertThat(player(game, "grace@example.com").reputation.value).isEqualTo(11)
+		// R136: the News card names everyone the event left worse off, so theirs is red.
+		assertThat(game.log.first { it.text.startsWith("News: ") }.notice!!.players).containsExactly("ada@example.com", "grace@example.com")
 	}
 
 	@Test
@@ -126,6 +129,7 @@ class GameEventsTest {
 		assertThat(player(game, "grace@example.com").warehouseAt(MU_HERCULIS)!!.holding(Goods.CHIPS)).isZero()
 		val line = game.log.first { it.text == "Pirates at Mu Herculis: Vega Lines's warehouse lost 5 u" }
 		assertThat(line.notice?.kind).isEqualTo(NoticeKind.NEWS_EVENT)
+		assertThat(line.notice!!.players).containsExactly("grace@example.com")
 	}
 
 	@Test

@@ -119,6 +119,10 @@ class GamePassengersTest {
 			"Kessler Cargo's Bright Reach didn't bring 2 passenger groups to Beta Hydri.",
 			"Kessler Cargo's Ghost didn't bring 1 passenger group to Beta Hydri."
 		)
+		// R136: a red card for Kim alone, worded with what it cost them from their own ledger.
+		assertThat(opened.log.filter { it.text.contains("didn't bring") }.map { it.notice })
+			.containsOnly(Notice.setback(NoticeKind.PASSENGERS_UNDELIVERED, null, listOf(KIM)))
+		assertThat(kim(opened).ledger.newestFirst().first().let { it.reason to it.amount }).isEqualTo(Player.PASSENGER_PENALTY_REASON to -40)
 	}
 
 	@Test
