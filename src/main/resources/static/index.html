@@ -429,6 +429,12 @@
 		.assets__summary div { display: grid; gap: var(--space-hairline); }
 		.assets__summary dt { font-size: var(--text-caption); color: var(--text-muted); }
 		.assets__summary dd { margin: 0; font-family: var(--font-display); font-size: var(--text-title); }
+		/* Playtest 2026-11-24: the loan reads as ordinary text (the body font), with the figures that matter in bold. */
+		.loan-box { font-family: var(--font-body); font-size: var(--text-value); }
+		.loan-box > h3 { margin: 0 0 var(--space-related); font-size: var(--text-title); }
+		.loan-box__lines { display: grid; gap: var(--space-hairline); }
+		.loan-box__lines p, .loan-box > p { margin: 0; }
+		.loan-box strong { font-weight: 700; }
 		.assets__group { display: grid; gap: var(--space-related); }
 		.assets__group > h3 { margin: 0; font-size: var(--text-title); }
 		.assets__goods { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
@@ -1048,7 +1054,12 @@
 			<p class="muted">Where your money is. Goods are valued at each good’s mean price across the systems that trade it today, wherever they are; ships at what they would fetch sold.</p>
 			<section class="panel" aria-label="Summary">
 				<dl class="assets__summary" id="assets-summary"></dl>
-				<p id="assets-loan" hidden></p>
+			</section>
+			<!-- Playtest 2026-11-24: an open loan in a box of its own, not a line under the summary (R90–R95). -->
+			<section class="panel loan-box" id="assets-loan-box" aria-labelledby="assets-loan-title" hidden>
+				<h3 id="assets-loan-title">Loan</h3>
+				<div class="loan-box__lines" id="assets-loan-details"></div>
+				<p class="muted" id="assets-loan-note"></p>
 			</section>
 			<section class="assets__group" aria-labelledby="assets-goods-title">
 				<h3 id="assets-goods-title">Goods</h3>
@@ -1762,6 +1773,7 @@
 		hangarQuestion,
 		hangarYesLabel,
 	} from './js/hangar.js';
+	import { loanBox } from './js/loan-box.js';
 	import {
 		PLACE_SHIP_BUTTON,
 		PLACE_SHIP_HINT,
@@ -2877,9 +2889,13 @@
 	function renderAssets(game) {
 		const view = assetsView(game);
 		// R95: an open loan is a liability under money, the borrower's alone.
-		const loan = game.you?.loan?.loan;
-		showText('assets-loan', loan ? `Loan: you owe ${loan.amount} HT (${loan.interest} HT interest a turn, ${loan.turnsLeft} left). It's subtracted from your final money.` : '');
-		$('assets-loan').hidden = !loan;
+		const loan = game.you?.loan;
+		const box = loanBox(loan?.loan, loan, game.turn?.number);
+		$('assets-loan-box').hidden = !box;
+		if (box) {
+			$('assets-loan-details').replaceChildren(...box.lines.map(line => element('p', {}, ...line.map(part => (part.strong ? element('strong', {}, part.text) : part.text)))));
+			showText('assets-loan-note', box.note);
+		}
 		const key = JSON.stringify([game.id, view]);
 		if (view === null || key === shownAssetsKey) {
 			return;

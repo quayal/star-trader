@@ -24,6 +24,9 @@ data class Loan(val amount: Int, val interest: Int, val takenInTurn: Int, val te
 	/** What repaying it all costs (R93): what is owed, plus this turn's interest when it's due and unpaid. */
 	fun repayment(interestUnpaid: Boolean): Int = amount + if (interestUnpaid) interest else 0
 
+	/** The turn whose Investment closing collects what is still owed (R94): [takenInTurn] plus the term. */
+	fun dueTurn(): Int = lastTurn()
+
 	private fun lastTurn(): Int = takenInTurn + term.turns
 
 	companion object {
