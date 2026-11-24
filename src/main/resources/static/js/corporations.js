@@ -5,6 +5,7 @@
  */
 
 import { SHIPYARD, LOCATIONS, TIERS } from './board.js';
+import { eliminatedText } from './control.js';
 import { reputationText } from './reputation.js';
 
 /** What a card shows for a section with nothing in it. */
@@ -58,6 +59,7 @@ export function corporationCards(game, viewerId) {
 				text: ` at ${systemName(factory.system)} — ${factory.size} u per turn` + (factory.disabledTurns ? `, disabled, ${factory.disabledTurns} more ${factory.disabledTurns === 1 ? 'turn' : 'turns'}` : ''),
 			}))
 			.sort((a, b) => a.systemName.localeCompare(b.systemName) || a.goods.localeCompare(b.goods)),
+		eliminated: eliminatedText(player),
 		reputation: reputationText(player.reputation),
 		connections: connectionsText(player.connections),
 		connectionPoints: connectionPointsText(player.connectionPoints),

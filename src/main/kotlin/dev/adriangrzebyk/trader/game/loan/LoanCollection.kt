@@ -16,13 +16,15 @@ data class LoanCollection(val collected: Int, val ships: List<String>, val facto
 	 * The public log line, without amounts (R94): "Vega Lines's loan fell due: Starfarer and 3 u of the ISO factory at
 	 * Tau Ceti seized"; null when cash covered it.
 	 */
-	fun logText(corporation: String): String? {
+	fun logText(corporation: String): String? = seizedText()?.let { "$corporation's loan fell due: $it seized" }
+
+	/** What was taken, as "Starfarer and 3 u of the ISO factory at Tau Ceti"; null when cash covered it (R94, R129). */
+	fun seizedText(): String? {
 		if (!seizedAnything()) {
 			return null
 		}
 		val parts = ships + factoryUnits.map { "${it.units} u of the ${it.goods.name} factory at ${it.system.displayName}" }
-		val list = if (parts.size == 1) parts.single() else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
-		return "$corporation's loan fell due: $list seized"
+		return if (parts.size == 1) parts.single() else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
 	}
 }
 

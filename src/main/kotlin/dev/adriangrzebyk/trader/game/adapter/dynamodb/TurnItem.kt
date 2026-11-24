@@ -5,6 +5,7 @@ import dev.adriangrzebyk.trader.game.MarketGood
 import dev.adriangrzebyk.trader.game.Turn
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
+import dev.adriangrzebyk.trader.game.control.ControlAudit
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /** A [Turn] as the attribute map nested in the game item (engineering standards §12). */
@@ -36,6 +37,7 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			INTEREST_PAID to strings(turn.interestPaid),
 			LIMPY_USED_BY to strings(turn.limpyUsedBy),
 			DONE_NEWS to strings(turn.doneNews),
+			CONTROLLED to strings(turn.controlled),
 			REACHED_OFFERS to AttributeValue.fromL(turn.reachedOffers.map { AttributeValue.fromM(OfferItem(it).attributes) }),
 			INTERCEPTION_TRIES to AttributeValue.fromL(
 				turn.interceptionTries.map {
@@ -51,6 +53,14 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 						HANGAR_SHIPS to AttributeValue.fromL(it.ships.map { ship -> AttributeValue.fromS(ship) }),
 						HANGAR_ENDS_SLOT to AttributeValue.fromBool(it.endsSlot)
 					)
+				)
+			},
+			turn.controlAudit?.let {
+				CONTROL_AUDIT to AttributeValue.fromM(
+					mapOf(
+						CONTROL_SUBJECT to AttributeValue.fromS(it.subject),
+						CONTROL_ASKED to AttributeValue.fromL(it.asked.map { email -> AttributeValue.fromS(email) })
+					) + listOfNotNull(it.backer?.let { backer -> CONTROL_BACKER to AttributeValue.fromS(backer) })
 				)
 			},
 			turn.resolution?.let { RESOLUTION to AttributeValue.fromM(ResolutionItem(it).attributes) },
@@ -125,6 +135,15 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 			// Absent from items saved before the Parking Hangar (R127) and when no question is open.
 			hangarAsk = attributes[HANGAR_ASK]?.m()?.let {
 				HangarAsk(it.attribute(HANGAR_SHIPS).l().map { ship -> ship.s() }, it.attribute(HANGAR_ENDS_SLOT).bool())
+			},
+			// Absent from items saved before Control (R129).
+			controlled = list(CONTROLLED),
+			controlAudit = attributes[CONTROL_AUDIT]?.m()?.let {
+				ControlAudit(
+					it.attribute(CONTROL_SUBJECT).s(),
+					it.attribute(CONTROL_ASKED).l().map { email -> email.s() },
+					it[CONTROL_BACKER]?.s()
+				)
 			}
 		)
 	}
@@ -145,6 +164,11 @@ internal class TurnItem(val attributes: Map<String, AttributeValue>) {
 		const val HANGAR_ASK = "hangarAsk"
 		const val HANGAR_SHIPS = "ships"
 		const val HANGAR_ENDS_SLOT = "endsSlot"
+		const val CONTROLLED = "controlled"
+		const val CONTROL_AUDIT = "controlAudit"
+		const val CONTROL_SUBJECT = "subject"
+		const val CONTROL_ASKED = "asked"
+		const val CONTROL_BACKER = "backer"
 		const val LEGACY_SHIP_JUMPS = "SHIP_JUMPS"
 		const val NUMBER = "number"
 		const val PHASE = "phase"

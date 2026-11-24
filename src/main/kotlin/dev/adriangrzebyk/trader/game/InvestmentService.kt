@@ -11,7 +11,7 @@ class InvestmentService(private val gameStore: GameStore, private val dice: Dice
 	 * moment Investment closes and the turn ends exactly once, and a signal that arrives after the close is refused
 	 * (A04, R44).
 	 */
-	fun signalDone(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.signalDoneInvesting(callerEmail) }
+	fun signalDone(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.signalDoneInvesting(callerEmail, dice) }
 
 	/** [callerEmail] borrows [amount] over [term] inside [GameStore.update], so the cap is checked against the saved game (A04, R90). */
 	fun takeLoan(gameId: String, callerEmail: String, amount: Int?, term: LoanTerm?): Game =

@@ -96,7 +96,10 @@ class GameConnectionsTest {
 	@Test
 	fun shouldLetThemRaiseAgainInTheNextInvestment() {
 		val raised = investing.raiseConnection("ada@example.com", ConnectionKind.POLITICAL)
-		val nextInvestment = raised.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+		val nextInvestment = raised.signalDoneInvesting(
+			"ada@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS)
 			.signalDoneBidding("ada@example.com", FakeDice()).signalDoneBidding("grace@example.com", FakeDice(2, 1))
 			.advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice()).advancePhase(FakeDice())
 

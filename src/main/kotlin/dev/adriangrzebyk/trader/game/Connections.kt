@@ -39,6 +39,23 @@ data class Connections(val political: Int, val business: Int, val criminal: Int)
 	/** These connections after a rise in market position (R83, E12-S02): business one point higher, unchanged at [MAX]. */
 	fun afterMarketRise(): Connections = if (isAtMax(ConnectionKind.BUSINESS)) this else raised(ConnectionKind.BUSINESS)
 
+	/**
+	 * What these political connections take off a reputation control's second roll (R129): 1 from [CONTROL_HELP_FROM] to 8,
+	 * 2 from 9 up (creator's table).
+	 */
+	fun controlReduction(): Int = when {
+		political >= CONTROL_BIG_HELP_FROM -> 2
+		political >= CONTROL_HELP_FROM -> 1
+		else -> 0
+	}
+
+	/** These connections with [political] fewer political points and [others] fewer of each other kind, none below 0 (R129). */
+	fun lowered(political: Int, others: Int): Connections = Connections(
+		(this.political - political).coerceAtLeast(0),
+		(business - others).coerceAtLeast(0),
+		(criminal - others).coerceAtLeast(0)
+	)
+
 	/** The most units of factory a player with these connections may own in total, across all systems and goods (R84). */
 	fun factoryCap(): Int = political + business
 
@@ -48,6 +65,10 @@ data class Connections(val political: Int, val business: Int, val criminal: Int)
 	companion object {
 		/** R81: the highest level of a connection. */
 		const val MAX = 10
+
+		/** R129: the political connections that start lowering a reputation control's second roll, by 1, and by 2. */
+		const val CONTROL_HELP_FROM = 5
+		const val CONTROL_BIG_HELP_FROM = 9
 
 		/** R83: a raise costs the new level × 10 HT. */
 		const val RAISE_COST_PER_LEVEL = 10

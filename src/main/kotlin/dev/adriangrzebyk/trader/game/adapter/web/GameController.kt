@@ -4,6 +4,7 @@ import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.BiddingService
 import dev.adriangrzebyk.trader.game.CargoService
+import dev.adriangrzebyk.trader.game.ControlService
 import dev.adriangrzebyk.trader.game.Dice
 import dev.adriangrzebyk.trader.game.GameCreationService
 import dev.adriangrzebyk.trader.game.GameIdGenerator
@@ -56,6 +57,7 @@ class GameController(
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
+	private val controlService = ControlService(gameStore, dice)
 	private val opportunityService = OpportunityService(gameStore, dice)
 	private val newsService = NewsService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
@@ -689,6 +691,17 @@ class GameController(
 
 		return GameResponseDto(game, session.email)
 	}
+
+	/**
+	 * A player's answer to whether they back the corporation under reputation control (R129): `{ back }`, true to back it. Once
+	 * nobody is left to ask, the second roll is made and Control goes on. `409` when nobody asks them or the answer is closed.
+	 */
+	@PostMapping("/games/{id}/control/backing")
+	fun answerBacking(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: BackingRequestDto?,
+		session: Session
+	): GameResponseDto = GameResponseDto(controlService.answerBacking(id, session.email, request?.back == true), session.email)
 
 	/**
 	 * The jumping player's answer to the Parking Hangar question (R127): `{ stay }`, true to park the ship asked about (or keep it

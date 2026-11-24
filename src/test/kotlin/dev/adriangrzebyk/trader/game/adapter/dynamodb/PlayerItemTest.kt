@@ -85,7 +85,8 @@ class PlayerItemTest {
 			RecruitedAgent(Agent.JB, AgentPosition.OnOwn(StarSystem.TAU_CETI, ShipLocation.PLANET), placeableIn = 3)
 		),
 		ledger = MoneyLedger(4, listOf(MoneyMovement(3, "Sold 6 ISO at Tau Ceti", 72), MoneyMovement(4, "Loan interest", -14))),
-		passengerGroups = listOf(PassengerGroup("Meridian", StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, 2))
+		passengerGroups = listOf(PassengerGroup("Meridian", StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, 2)),
+		eliminated = true
 	)
 
 	@Test
@@ -125,7 +126,8 @@ class PlayerItemTest {
 			"ledgerTurn",
 			"ledger",
 			"expeditions",
-			"passengerGroups"
+			"passengerGroups",
+			"eliminated"
 		)
 		assertThat(attributes.getValue("money").n()).isEqualTo("275")
 		assertThat(attributes.getValue("business").n()).isEqualTo("7")

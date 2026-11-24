@@ -35,7 +35,8 @@ class GameMoveCargoTest {
 	fun shouldMoveGoodsInEveryPhaseOfARunningGame() {
 		// "at any moment" (advancing a phase needs no players' acts); a News with no tip-offs closes at once (R109)
 		var game = bidding
-		for (phase in TurnPhase.entries - TurnPhase.NEWS) {
+		// Control closes the turn at once when nobody is under reputation control, so a game is never left in it here (R128).
+		for (phase in TurnPhase.entries - TurnPhase.NEWS - TurnPhase.CONTROL) {
 			assertThat(game.turn!!.phase).isEqualTo(phase)
 
 			val moved = game.moveCargo("ada@example.com", CargoHolder.Warehouse, CargoHolder.Ship("Wayfarer"), Goods.ISO, 1)

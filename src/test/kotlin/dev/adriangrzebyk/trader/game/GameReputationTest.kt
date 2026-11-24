@@ -32,7 +32,8 @@ class GameReputationTest {
 		}
 	)
 
-	private fun endTurn(game: Game): Game = game.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+	private fun endTurn(game: Game, dice: Dice = NO_CONTROL_ROLLS): Game =
+		game.signalDoneInvesting("ada@example.com", dice).signalDoneInvesting("grace@example.com", dice)
 
 	@Test
 	fun shouldStartEveryoneAtTwenty() {
@@ -40,12 +41,12 @@ class GameReputationTest {
 	}
 
 	@Test
-	fun shouldRecoverFromOneToSeventeenAtTheEndOfATurnButNotFromZero() {
-		// E13-S01-2 (creator, 2026-11-18: a player at 0 has to buy their way back)
-		val next = endTurn(withReputations(investing, ada = 10, grace = 0))
+	fun shouldRecoverFromOneToSeventeenAtTheEndOfATurnButNotAbove() {
+		// E13-S01-2: Reputation's own test covers 0, where a player has to buy their way back (creator, 2026-11-18)
+		val next = endTurn(withReputations(investing, ada = 10, grace = 18))
 
 		assertThat(playerOf(next, "ada@example.com").reputation.value).isEqualTo(13)
-		assertThat(playerOf(next, "grace@example.com").reputation.value).isZero()
+		assertThat(playerOf(next, "grace@example.com").reputation.value).isEqualTo(18)
 		assertThat(next.log.map { it.text }).contains("Orion Freight's reputation: +3 for recovering → 13")
 	}
 
@@ -64,7 +65,7 @@ class GameReputationTest {
 	fun shouldPayTheBonusOnTheLastTurnTooBeforeTheWinnerIsDecided() {
 		// E13-S01-3 (creator, 2026-11-18): the bonus can decide a close game; no recovery after the last turn
 		val last = withReputations(investing(1), ada = 40, grace = 5)
-		val over = endTurn(last)
+		val over = endTurn(last, FakeDice.d6(3))
 
 		assertThat(over.status).isEqualTo(GameStatus.FINISHED)
 		assertThat(playerOf(over, "ada@example.com").money).isEqualTo(playerOf(last, "ada@example.com").money + 40)

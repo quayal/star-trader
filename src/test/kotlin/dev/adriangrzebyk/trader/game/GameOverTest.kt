@@ -55,7 +55,7 @@ class GameOverTest {
 
 	/** [game] once each of [emails] has signalled done investing: the last one ends the turn (R44). */
 	private fun everyoneDoneInvesting(game: Game, vararg emails: String): Game =
-		emails.fold(OpportunityPassed(game).byEveryone()) { investing, email -> investing.signalDoneInvesting(email) }
+		emails.fold(OpportunityPassed(game).byEveryone()) { investing, email -> investing.signalDoneInvesting(email, NO_CONTROL_ROLLS) }
 
 	@Test
 	fun shouldEndTheGameOnceEveryoneIsDoneInvestingAfterTheLastTurnsLastGood() {
@@ -132,7 +132,7 @@ class GameOverTest {
 			{ over.signalDoneBidding("ada@example.com", FakeDice(1)) },
 			{ over.resolveNextGood("grace@example.com", FakeDice.twoD6(7)) },
 			{ over.finishJumping("grace@example.com") },
-			{ over.signalDoneInvesting("ada@example.com") }
+			{ over.signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS) }
 		).forEach { action ->
 			assertThatThrownBy { action() }.isInstanceOf(InvalidGameOperationException::class.java).hasMessage("This game is over")
 		}

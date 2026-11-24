@@ -6,6 +6,7 @@
 
 import { isNews, waitingForNews } from './news.js';
 import { isBidding, isClosedRefusal } from './offers.js';
+import { controlText } from './control.js';
 import { turnText } from './game.js';
 import { pickingText } from './turn-order.js';
 import { jumpingText } from './ship-jumps.js';
@@ -58,7 +59,7 @@ export function phaseText(game, playerId) {
 	if (waiting.length) {
 		return `${turnText(game)} — waiting for ${waiting.join(', ')}`;
 	}
-	const step = pickingText(game, playerId) || jumpingText(game, playerId) || resolvedText(game);
+	const step = pickingText(game, playerId) || jumpingText(game, playerId) || resolvedText(game) || controlText(game);
 	return step ? `${turnText(game)} — ${step}` : turnText(game);
 }
 

@@ -11,7 +11,7 @@ export const MAX_TURNS = 50;
 export const MIN_PLAYERS_TO_START = 2;
 export const POLL_INTERVAL_MS = 2000;
 
-const PHASE_NAMES = { BIDDING: 'Bidding', INITIATIVE: 'Initiative', NEWS: 'News', JUMPS: 'Jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment' };
+const PHASE_NAMES = { BIDDING: 'Bidding', INITIATIVE: 'Initiative', NEWS: 'News', JUMPS: 'Jumps', TRADING: 'Trading', OPPORTUNITY: 'Opportunity', INVESTMENT: 'Investment', CONTROL: 'Control' };
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 
 /**

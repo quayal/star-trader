@@ -29,11 +29,13 @@ class TurnTest {
 				TurnPhase.JUMPS,
 				TurnPhase.TRADING,
 				TurnPhase.OPPORTUNITY,
-				TurnPhase.INVESTMENT
+				TurnPhase.INVESTMENT,
+				TurnPhase.CONTROL
 			)
 		assertThat(TurnPhase.TRADING.next()).isEqualTo(TurnPhase.OPPORTUNITY)
 		assertThat(TurnPhase.OPPORTUNITY.next()).isEqualTo(TurnPhase.INVESTMENT)
-		assertThat(TurnPhase.INVESTMENT.next()).isNull()
+		assertThat(TurnPhase.INVESTMENT.next()).isEqualTo(TurnPhase.CONTROL)
+		assertThat(TurnPhase.CONTROL.next()).isNull()
 	}
 
 	@Test

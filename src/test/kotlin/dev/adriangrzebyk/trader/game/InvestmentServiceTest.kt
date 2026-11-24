@@ -47,19 +47,22 @@ class InvestmentServiceTest {
 	@Test
 	fun shouldEndTheTurnOnceEvenWhenTheStoreReplaysTheChange() {
 		// A real store re-runs the change when another write lands first (GameStore.update); the turn must end only once.
-		val oneDone = investing.signalDoneInvesting("joiner@example.com")
+		val oneDone = investing.signalDoneInvesting("joiner@example.com", NO_CONTROL_ROLLS)
 		gameStore.create(oneDone)
 
 		InvestmentService(ReplayingGameStore(gameStore), FakeDice()).signalDone("game-1", "creator@example.com")
 
 		val stored = gameStore.find("game-1")!!
 		assertThat(stored.turn).isEqualTo(Turn.bidding(2))
-		assertThat(stored.log).isEqualTo(oneDone.signalDoneInvesting("creator@example.com").log)
+		assertThat(stored.log).isEqualTo(oneDone.signalDoneInvesting("creator@example.com", NO_CONTROL_ROLLS).log)
 	}
 
 	@Test
 	fun shouldRefuseALateSignalAndLeaveTheGameAsItWas() {
-		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		val closed = investing.signalDoneInvesting(
+			"joiner@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("creator@example.com", NO_CONTROL_ROLLS)
 		gameStore.create(closed)
 
 		assertThatThrownBy { service.signalDone("game-1", "joiner@example.com") }
@@ -109,7 +112,10 @@ class InvestmentServiceTest {
 
 	@Test
 	fun shouldRefuseBlocksAfterInvestmentClosed() {
-		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		val closed = investing.signalDoneInvesting(
+			"joiner@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("creator@example.com", NO_CONTROL_ROLLS)
 		gameStore.create(closed)
 
 		assertThatThrownBy { service.buyWarehouseBlocks("game-1", "creator@example.com", TAU_CETI, 1) }
@@ -142,7 +148,10 @@ class InvestmentServiceTest {
 
 	@Test
 	fun shouldRefuseFactoryUnitsAfterInvestmentClosed() {
-		val closed = investing.signalDoneInvesting("joiner@example.com").signalDoneInvesting("creator@example.com")
+		val closed = investing.signalDoneInvesting(
+			"joiner@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("creator@example.com", NO_CONTROL_ROLLS)
 		gameStore.create(closed)
 
 		assertThatThrownBy { service.buyFactoryUnits("game-1", "creator@example.com", TAU_CETI, Goods.ISO, 1) }

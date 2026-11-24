@@ -31,6 +31,7 @@ import dev.adriangrzebyk.trader.game.battle.PendingHits
 import dev.adriangrzebyk.trader.game.battle.SalvoOutcome
 import dev.adriangrzebyk.trader.game.battle.SalvoResult
 import dev.adriangrzebyk.trader.game.battle.SalvoRolls
+import dev.adriangrzebyk.trader.game.control.ControlAudit
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 import org.assertj.core.api.Assertions.assertThat
@@ -108,6 +109,8 @@ class TurnItemTest {
 		limpyUsedBy = listOf("grace@example.com"),
 		reachedOffers = listOf(offer),
 		hangarAsk = HangarAsk(listOf("Wayfarer", "Meridian"), true),
+		controlled = listOf("ada@example.com"),
+		controlAudit = ControlAudit("grace@example.com", listOf("ada@example.com", "kim@example.com"), null),
 		resolution = Resolution(
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY),
 			6,
@@ -125,6 +128,14 @@ class TurnItemTest {
 	@Test
 	fun shouldReadATurnStoredBeforeTheParkingHangarAsNotAskingAnything() {
 		assertThat(TurnItem(TurnItem(turn).attributes - "hangarAsk").toTurn().hangarAsk).isNull()
+	}
+
+	@Test
+	fun shouldReadATurnStoredBeforeControlAsNotControllingAnyone() {
+		val old = TurnItem(TurnItem(turn).attributes - "controlAudit" - "controlled").toTurn()
+
+		assertThat(old.controlAudit).isNull()
+		assertThat(old.controlled).isEmpty()
 	}
 
 	@Test
@@ -269,7 +280,9 @@ class TurnItemTest {
 			interestPaid = listOf("ada@example.com"),
 			limpyAsk = null,
 			limpyUsedBy = emptyList(),
-			hangarAsk = HangarAsk(listOf("Wayfarer"), false)
+			hangarAsk = HangarAsk(listOf("Wayfarer"), false),
+			controlled = listOf("grace@example.com"),
+			controlAudit = ControlAudit("grace@example.com", emptyList(), "ada@example.com")
 		)
 
 		assertThat(TurnItem(withOneOfEach).attributes).isEqualTo(
@@ -347,6 +360,14 @@ class TurnItemTest {
 				"interestPaid" to AttributeValue.fromL(listOf(AttributeValue.fromS("ada@example.com"))),
 				"limpyUsedBy" to AttributeValue.fromL(emptyList()),
 				"doneNews" to AttributeValue.fromL(emptyList()),
+				"controlled" to AttributeValue.fromL(listOf(AttributeValue.fromS("grace@example.com"))),
+				"controlAudit" to AttributeValue.fromM(
+					mapOf(
+						"subject" to AttributeValue.fromS("grace@example.com"),
+						"asked" to AttributeValue.fromL(emptyList()),
+						"backer" to AttributeValue.fromS("ada@example.com")
+					)
+				),
 				"hangarAsk" to AttributeValue.fromM(
 					mapOf("ships" to AttributeValue.fromL(listOf(AttributeValue.fromS("Wayfarer"))), "endsSlot" to AttributeValue.fromBool(false))
 				),

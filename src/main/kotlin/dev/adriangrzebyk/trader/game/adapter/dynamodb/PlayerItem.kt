@@ -33,7 +33,8 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 					AttributeValue.fromM(mapOf(SHIP to AttributeValue.fromM(ShipItem(it.ship).attributes), RETURN_TURN to number(it.returnTurn)))
 				}
 			),
-			PASSENGER_GROUPS to AttributeValue.fromL(player.passengerGroups.map { AttributeValue.fromM(PassengerGroupItem(it).attributes) })
+			PASSENGER_GROUPS to AttributeValue.fromL(player.passengerGroups.map { AttributeValue.fromM(PassengerGroupItem(it).attributes) }),
+			ELIMINATED to AttributeValue.fromBool(player.eliminated)
 		) + listOfNotNull(player.loan?.let { LOAN to AttributeValue.fromM(LoanItem(it).attributes) })
 	)
 
@@ -68,7 +69,9 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 			Expedition(ShipItem(it.m().attribute(SHIP).m()).toShip(), it.m().attribute(RETURN_TURN).n().toInt())
 		},
 		// Absent before passengers (R125): none owed.
-		passengerGroups = attributes[PASSENGER_GROUPS]?.l().orEmpty().map { PassengerGroupItem(it.m()).toPassengerGroup() }
+		passengerGroups = attributes[PASSENGER_GROUPS]?.l().orEmpty().map { PassengerGroupItem(it.m()).toPassengerGroup() },
+		// Absent before Control (R129): nobody was eliminated.
+		eliminated = attributes[ELIMINATED]?.bool() ?: false
 	)
 
 	private fun level(name: String): Int = attributes[name]?.n()?.toInt() ?: 0
@@ -93,6 +96,7 @@ internal class PlayerItem(val attributes: Map<String, AttributeValue>) {
 		const val LEDGER = "ledger"
 		const val EXPEDITIONS = "expeditions"
 		const val PASSENGER_GROUPS = "passengerGroups"
+		const val ELIMINATED = "eliminated"
 		const val SHIP = "ship"
 		const val RETURN_TURN = "returnTurn"
 	}

@@ -49,7 +49,8 @@ enum class NoticeKind {
 	NO_PROMOTION,
 	DEMOTED,
 	CHALLENGE_SUCCEEDED,
-	CHALLENGE_FAILED;
+	CHALLENGE_FAILED,
+	POLICE_CONTROL;
 
 	companion object {
 		/** The rolls that went against a player (R124): their card is for them alone. */
@@ -62,7 +63,8 @@ enum class NoticeKind {
 			NO_PROMOTION,
 			DEMOTED,
 			CHALLENGE_SUCCEEDED,
-			CHALLENGE_FAILED
+			CHALLENGE_FAILED,
+			POLICE_CONTROL
 		)
 	}
 }
