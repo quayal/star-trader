@@ -14,6 +14,20 @@ class PlayerTest {
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern), 0)
 
 	@Test
+	fun shouldBeWorseOffForLessOfAnythingItOwnsButNotForMore() {
+		// R136: what a News event took, whatever it was
+		val stocked = player.copy(warehouses = listOf(Warehouse(StarSystem.TAU_CETI, 2, mapOf(Goods.CHIPS to 3))))
+
+		assertThat(stocked.isWorseOffThan(stocked)).isFalse()
+		assertThat(stocked.receive(10, "Civil war compensation").isWorseOffThan(stocked)).isFalse()
+		assertThat(stocked.pay(1, "Special tax").isWorseOffThan(stocked)).isTrue()
+		assertThat(stocked.loseReputation(2, "government screening").player.isWorseOffThan(stocked)).isTrue()
+		assertThat(stocked.confiscateShip("Lantern").isWorseOffThan(stocked)).isTrue()
+		assertThat(stocked.lootWarehouse(StarSystem.TAU_CETI).player.isWorseOffThan(stocked)).isTrue()
+		assertThat(stocked.copy(warehouses = emptyList()).isWorseOffThan(stocked)).isTrue()
+	}
+
+	@Test
 	fun shouldMoveOnlyTheShipThatJumped() {
 		val moved = player.jumpShip(wayfarer, StarSystem.MU_HERCULIS)
 

@@ -245,6 +245,68 @@ describe('the seizure card (creator, 2026-11-23)', () => {
 	});
 });
 
+describe('penalty cards (R136, creator 2026-11-24)', () => {
+	const penalty = (kind, playerIds = ['p3'], ledgerReason = null) => ({ kind, system: null, systemName: null, playerIds, round: null, interception: null, ledgerReason });
+	const undelivered = penalty('PASSENGERS_UNDELIVERED', ['p3'], 'Passengers not delivered');
+	const log = [
+		{ turn: 4, text: 'Vega Lines’s Meridian didn’t bring 2 passenger groups to Tau Ceti.', notice: undelivered },
+		{ turn: 4, text: 'Vega Lines’s Lantern didn’t bring 1 passenger group to Beta Hydri.', notice: undelivered },
+	];
+	const ledger = [
+		{ turn: 4, reason: 'Passengers not delivered', amount: -90, credit: false },
+		{ turn: 3, reason: 'Passengers not delivered', amount: -40, credit: false },
+		{ turn: 4, reason: 'Bought 3 ISO at Tau Ceti', amount: -36, credit: false },
+	];
+
+	it('tells the player their passengers weren’t delivered, in red, with what it cost them from their own ledger', () => {
+		const [card] = noticeCards(game(log, { you: { ledger } }), 0, 'p3');
+
+		assert.equal(card.title, 'Your passengers weren’t delivered');
+		assert.equal(card.tone, 'alert');
+		assert.match(card.lead, / You paid 90 HT\.$/);
+		assert.deepEqual(card.lines, log.map(entry => entry.text));
+	});
+
+	it('leaves the amount out when nothing was paid, and gives everyone else the lines as toasts', () => {
+		assert.doesNotMatch(noticeCards(game(log, { you: { ledger: [] } }), 0, 'p3')[0].lead, /paid/);
+		assert.deepEqual(noticeCards(game(log), 0, 'p1'), []);
+		assert.deepEqual(toasts(log, 0, 'p1').shown, log.map(entry => entry.text));
+	});
+
+	it('gives two players’ penalties logged one after the other a card each', () => {
+		const both = game([
+			{ turn: 4, text: 'Vega Lines’s reputation: −4 for unpaid loan interest', notice: penalty('INTEREST_UNPAID', ['p3']) },
+			{ turn: 4, text: 'Orion Freight’s reputation: −4 for unpaid loan interest', notice: penalty('INTEREST_UNPAID', ['p1']) },
+		]);
+
+		assert.deepEqual(noticeCards(both, 0, 'p3').map(card => card.lines), [['Vega Lines’s reputation: −4 for unpaid loan interest']]);
+		assert.deepEqual(noticeCards(both, 0, 'p1').map(card => card.lines), [['Orion Freight’s reputation: −4 for unpaid loan interest']]);
+	});
+
+	it('words every penalty for its player: red, but green for a control passed', () => {
+		const cards = ['CONTROL_CLEARED', 'CONTROL_FINED', 'ELIMINATED', 'BACKING_LOST', 'INTEREST_UNPAID', 'LOAN_SEIZED', 'SABOTAGE_BLAMED', 'SABOTAGE_TRACED']
+			.map(kind => noticeCards(game([{ turn: 2, text: kind, notice: penalty(kind) }]), 0, 'p3')[0]);
+
+		assert.deepEqual(cards.map(card => [card.title, card.tone]), [
+			['You passed the reputation control', 'rise'],
+			['You were fined', 'alert'],
+			['You’re out of the game', 'alert'],
+			['Your backing cost you', 'alert'],
+			['Your loan interest went unpaid', 'alert'],
+			['Your loan was collected', 'alert'],
+			['You were blamed for sabotage', 'alert'],
+			['Your sabotage was traced', 'alert'],
+		]);
+	});
+
+	it('turns News red for the players the event left worse off, and only for them', () => {
+		const log = [{ turn: 3, text: 'News: Government screening.', notice: penalty('NEWS_EVENT', ['p1']) }];
+
+		assert.deepEqual(noticeCards(game(log), 0, 'p1').map(card => [card.title, card.tone]), [['News — it cost you', 'alert']]);
+		assert.deepEqual(noticeCards(game(log), 0, 'p2').map(card => [card.title, card.tone]), [['News', null]]);
+	});
+});
+
 describe('a gained market position (R43, creator 2026-11-24)', () => {
 	const game = {
 		id: 'g1',

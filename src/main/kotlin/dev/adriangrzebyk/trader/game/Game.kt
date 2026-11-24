@@ -193,7 +193,12 @@ data class Game(
 	/** This game once every player's passengers were settled as turn [number]'s Opportunity opens (R125). */
 	private fun withPassengersSettled(number: Int): Game = players.fold(this) { game, player ->
 		val settled = player.settlePassengers()
-		game.withPlayerChanged(settled.player, settled.lines, number)
+		game.withPlayerNoticed(
+			settled.player,
+			settled.lines,
+			number,
+			Notice.setback(NoticeKind.PASSENGERS_UNDELIVERED, null, listOf(player.email))
+		)
 	}
 
 	/**
@@ -337,14 +342,20 @@ data class Game(
 		val lines =
 			mutableListOf("${subject.corporationName}'s reputation control: d6 ${verdict.text()}, ${result.text(subject.corporationName)}.")
 		collection?.seizedText()?.let { lines += "${subject.corporationName} sold to pay it: $it." }
-		var remaining = replace(controlled)
-		if (result.eliminated && backer != null) {
+		val controlledGame = copy(players = replace(controlled), turn = current.withControlAudit(null))
+			.withNoticed(current.number, lines, Notice.setback(result.noticeKind(), null, listOf(subject.email)))
+		val resolved = if (result.eliminated && backer != null) {
 			val loss = backer.afterBackingLost(result, dice.twoD6())
-			lines += result.backerText(backer.corporationName, subject.corporationName)
-			lines += loss.lines
-			remaining = remaining.map { if (it.email == backer.email) loss.player else it }
+			controlledGame.withPlayerNoticed(
+				loss.player,
+				listOf(result.backerText(backer.corporationName, subject.corporationName)) + loss.lines,
+				current.number,
+				Notice.setback(NoticeKind.BACKING_LOST, null, listOf(backer.email))
+			)
+		} else {
+			controlledGame
 		}
-		return copy(players = remaining, turn = current.withControlAudit(null)).withLogged(current.number, lines).withReputationControlled(dice)
+		return resolved.withReputationControlled(dice)
 	}
 
 	/**
@@ -355,7 +366,12 @@ data class Game(
 		val unpaid = players.filter { it.owesInterestIn(current.number) && !current.hasPaidInterest(it.email) }
 		return unpaid.fold(this) { game, player ->
 			val penalized = player.withUnpaidInterest()
-			game.withPlayerChanged(penalized.player, penalized.lines, current.number)
+			game.withPlayerNoticed(
+				penalized.player,
+				penalized.lines,
+				current.number,
+				Notice.setback(NoticeKind.INTEREST_UNPAID, null, listOf(player.email))
+			)
 		}
 	}
 
@@ -370,7 +386,8 @@ data class Game(
 	/** Turn [number]'s Investment closing (R94): every loan at the end of its term is collected, any seizure logged. */
 	private fun withLoansCollected(number: Int): Game = players.filter { it.loan?.fallsDueIn(number) == true }.fold(this) { game, player ->
 		val (collected, collection) = player.collectLoan(prices)
-		game.withPlayerChanged(collected, listOfNotNull(collection.logText(player.corporationName)), number)
+		val notice = Notice.setback(NoticeKind.LOAN_SEIZED, null, listOf(player.email))
+		game.withPlayerNoticed(collected, listOfNotNull(collection.logText(player.corporationName)), number, notice)
 	}
 
 	/** This game over after turn [number], the log ending with the winner (E05-S08-1, S08-5). */
@@ -865,7 +882,12 @@ data class Game(
 		} else {
 			playerOf(sabotage.saboteurEmail).loseReputation(sabotage.saboteurLoss(), "sabotage (${sabotage.reputationRollText()})")
 		}
-		return copy(players = replace(change.player), log = log + change.lines.map { LogEntry.event(number, it) })
+		return withPlayerNoticed(
+			change.player,
+			change.lines,
+			number,
+			Notice.setback(sabotage.reputationNoticeKind(), null, listOf(change.player.email))
+		)
 	}
 
 	/** [email] chooses the units missing from the warehouse their sabotage hit (R99): [lots], adding up to its effect. */
@@ -1341,10 +1363,17 @@ data class Game(
 		val due = news.dueIn(current.number)
 		val effective = due.fold(copy(turn = current, news = news.afterEffectiveIn(current.number))) { game, tipOff ->
 			val taker = tipOff.takenBy?.let { corporationOf(it) }
-			val notice = tipOff.announcementNotice()
-			val announced = game.withNoticed(current.number, tipOff.announcement(taker), notice)
-			// Playtest 2026-11-21: what the event did (ships lost, reputation, tax) goes in its pop-up too.
-			tipOff.tipOff.event?.let { announced.withEventTakenPlace(it, dice).withNoticeFrom(announced.log.size, notice) } ?: announced
+			val line = tipOff.announcement(taker)
+			val event = tipOff.tipOff.event
+			if (event == null) {
+				game.withNoticed(current.number, line, tipOff.announcementNotice(emptyList()))
+			} else {
+				// Playtest 2026-11-21: what the event did (ships lost, reputation, tax) goes in its pop-up too; R136: the players
+				// it left worse off get that pop-up in red.
+				val announced = game.withLogged(current.number, listOf(line))
+				val happened = announced.withEventTakenPlace(event, dice)
+				happened.withNoticeFrom(announced.log.size - 1, tipOff.announcementNotice(happened.playersWorseOffThan(announced)))
+			}
 		}
 		val opened = effective.withTipOffsDrawn(current.number, dice)
 		return if (opened.news.hasTipOffsInPlay()) opened else opened.openJumps(opened.runningTurn())
@@ -1378,6 +1407,10 @@ data class Game(
 		val newsModifier = news.conditions.jumpModifierIn(turn?.number ?: 0)
 		return player.jumpBonusFor(ship.name) + newsModifier
 	}
+
+	/** The players this game left worse off than [before] did (R136): each one's [Player.isWorseOffThan] their earlier self. */
+	private fun playersWorseOffThan(before: Game): List<String> =
+		players.filter { it.isWorseOffThan(before.playerOf(it.email)) }.map { it.email }
 
 	/** This game with the log's lines from index [from] on that have no pop-up moment given [notice]. */
 	private fun withNoticeFrom(from: Int, notice: Notice): Game = copy(log = log.take(from) + log.drop(from).map { it.noticed(notice) })

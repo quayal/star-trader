@@ -190,7 +190,7 @@ data class Player(
 		val settled = copy(passengerGroups = emptyList())
 		// A player with no cash left is forgiven the rest (creator, 2026-11-23): money never goes below 0 through the penalty.
 		val charge = minOf(undelivered.sumOf { it.penalty() }, money.coerceAtLeast(0))
-		val charged = if (charge == 0) settled else settled.pay(charge, "Passengers not delivered")
+		val charged = if (charge == 0) settled else settled.pay(charge, PASSENGER_PENALTY_REASON)
 		val lines = undelivered.map {
 			"$corporationName's ${it.ship} didn't bring ${it.groups} passenger ${if (it.groups == 1) "group" else "groups"} to ${it.to.displayName}."
 		}
@@ -253,6 +253,21 @@ data class Player(
 
 	/** This player after the money fraud (E4): cash and any open loan halved, rounded down. */
 	fun inflated(): Player = copy(loan = loan?.halved()).pay(money - money / 2, "Money fraud: cash halved")
+
+	/**
+	 * Whether this player has less than they had as [before] (R136): money, reputation, ships, factory units, warehouse blocks or
+	 * goods held in them. What a News event took is judged this way, whatever it was.
+	 */
+	fun isWorseOffThan(before: Player): Boolean = money < before.money ||
+		reputation.value < before.reputation.value ||
+		ships.size < before.ships.size ||
+		factoryUnits() < before.factoryUnits() ||
+		warehouseBlocks() < before.warehouseBlocks() ||
+		warehouseUnits() < before.warehouseUnits()
+
+	private fun warehouseBlocks(): Int = warehouses.sumOf { it.blocks }
+
+	private fun warehouseUnits(): Int = warehouses.sumOf { it.unitsHeld() }
 
 	/** The special tax (E13): 1 HT per warehouse block, 2 HT per factory unit, 5 HT per ship. */
 	fun specialTax(): Int = warehouses.sumOf { it.blocks } * 1 + factoryUnits() * 2 + ships.size * 5
@@ -1053,7 +1068,7 @@ data class Player(
 	 * highest first and only as many as needed. A surplus stays in cash; whatever is still owed is written off.
 	 */
 	fun collectLoan(prices: MarketPrices): Pair<Player, LoanCollection> =
-		withLoan(null).payOffBySelling(openLoan().amount, prices, "Loan collected")
+		withLoan(null).payOffBySelling(openLoan().amount, prices, LOAN_COLLECTED_REASON)
 
 	/**
 	 * This player after paying [amount] HT for [reason] from cash first, then from their ships sold at [Ship.saleValue],
@@ -1105,7 +1120,7 @@ data class Player(
 		if (result.eliminated) {
 			return eliminate() to null
 		}
-		val (fined, collection) = if (result.fine > 0) payOffBySelling(result.fine, prices, "Fine") else this to null
+		val (fined, collection) = if (result.fine > 0) payOffBySelling(result.fine, prices, FINE_REASON) else this to null
 		return fined.withControlRead(result) to collection
 	}
 
@@ -1524,6 +1539,11 @@ data class Player(
 		/** R90: what each ship and each warehouse block adds to the borrowing cap. */
 		const val LOAN_PER_SHIP = 100
 		const val LOAN_PER_BLOCK = 20
+
+		/** The ledger's reasons for the money penalties whose cards show the amount (R29, R136). */
+		const val PASSENGER_PENALTY_REASON = "Passengers not delivered"
+		const val FINE_REASON = "Fine"
+		const val LOAN_COLLECTED_REASON = "Loan collected"
 
 		/** R92: what a turn's unpaid interest costs in reputation. */
 		const val UNPAID_INTEREST_REPUTATION = 4

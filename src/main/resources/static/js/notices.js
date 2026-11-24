@@ -62,7 +62,31 @@ const SETBACKS = {
 	DEMOTED: where => ({ title: 'You lost a market position', lead: `Another trader's position roll at ${where} took your Dictator place.` }),
 	CHALLENGE_SUCCEEDED: challengeCard(true),
 	CHALLENGE_FAILED: challengeCard(false),
+	// R136 (creator, 2026-11-24): every penalty or loss gets its player a red card.
+	PASSENGERS_UNDELIVERED: () => ({ title: 'Your passengers weren’t delivered', lead: 'Passenger groups you took didn’t reach their destination: each costs twice its fare.' }),
+	CONTROL_CLEARED: () => ({ title: 'You passed the reputation control', lead: 'You were deemed innocent: your reputation is now 8.', tone: 'rise' }),
+	CONTROL_FINED: () => ({ title: 'You were fined', lead: 'Your reputation control ended in a fine, paid from your cash and, where it fell short, your assets.' }),
+	ELIMINATED: () => ({ title: 'You’re out of the game', lead: 'Your reputation control eliminated your corporation: everything it owned is gone. You can still follow the game.' }),
+	BACKING_LOST: () => ({ title: 'Your backing cost you', lead: 'The corporation you backed in its reputation control was eliminated: you lose connections and reputation.' }),
+	INTEREST_UNPAID: () => ({ title: 'Your loan interest went unpaid', lead: 'You lose reputation, and the interest is added to what you owe.' }),
+	LOAN_SEIZED: () => ({ title: 'Your loan was collected', lead: 'Your cash didn’t cover the loan that fell due, so your assets were seized to pay it.' }),
+	SABOTAGE_BLAMED: () => ({ title: 'You were blamed for sabotage', lead: 'Another corporation’s sabotage was pinned on you: you lose reputation.' }),
+	SABOTAGE_TRACED: () => ({ title: 'Your sabotage was traced', lead: 'Your sabotage was traced back to you: you lose reputation.' }),
 };
+
+/**
+ * What a penalty took from the viewer (R136), from their own ledger: the movements of [entry]'s turn with [notice]'s ledger
+ * reason, as "You paid 60 HT."; '' when it names none or nothing was paid. The amount is private (R29), so it never is in the log.
+ */
+function paidNote(game, notice, entry) {
+	if (!notice.ledgerReason || !entry) {
+		return '';
+	}
+	const paid = (game.you?.ledger ?? [])
+		.filter(movement => movement.turn === entry.turn && movement.reason === notice.ledgerReason)
+		.reduce((sum, movement) => sum - movement.amount, 0);
+	return paid > 0 ? ` You paid ${paid} HT.` : '';
+}
 
 /** Whether [notice] is a position gained (R43) by someone other than [myId] or a Dictator they replaced: then [myId] gets its line as a toast. */
 function someoneElsesGain(notice, myId) {
@@ -84,10 +108,13 @@ function groupKey(notice, index) {
 		return `I/${notice.interception?.interceptorShip}/${notice.interception?.arrivingShip}/${notice.system}`;
 	}
 	if (SETBACKS[notice.kind]) {
-		return `${notice.kind}/${notice.system}`; // the setback with its reputation loss (R124)
+		// The setback with its reputation loss (R124); another player's, though logged next, is a card of its own.
+		return `${notice.kind}/${notice.system}/${notice.playerIds.join(',')}`;
 	}
 	if (notice.kind === 'NEWS_EVENT') {
-		return 'NEWS_EVENT'; // an event's announcement with the lines of what it did (playtest, 2026-11-21)
+		// An event's announcement with the lines of what it did (playtest, 2026-11-21); another event that hurt other players is
+		// a card of its own, so each card is red for the right players (R136).
+		return `NEWS_EVENT/${notice.playerIds.join(',')}`;
 	}
 	return notice.kind === 'BATTLE_ROUND' ? `R/${notice.system}/${notice.round}` : `${notice.kind}/${index}`;
 }
@@ -132,7 +159,8 @@ function newsLead(texts) {
 function cardFor(game, notice, texts, myId, entry) {
 	const where = notice.systemName;
 	if (SETBACKS[notice.kind]) {
-		return { tone: 'alert', ...SETBACKS[notice.kind](where, notice, myId, game), lines: texts };
+		const card = { tone: 'alert', ...SETBACKS[notice.kind](where, notice, myId, game) };
+		return { ...card, lead: card.lead + paidNote(game, notice, entry), lines: texts };
 	}
 	switch (notice.kind) {
 	case 'POSITION_GAINED':
@@ -157,9 +185,11 @@ function cardFor(game, notice, texts, myId, entry) {
 		return { title: `Battle at ${where} — summary`, lead: '', tone: null, lines: [], sections: entry?.battleSummary ?? [] };
 	case 'SABOTAGE':
 		return { title: `Sabotage at ${where}`, lead: 'One of your assets was sabotaged. See Opportunity.', tone: 'alert', lines: texts };
-	case 'NEWS_EVENT':
-		// Playtest 2026-11-21: what News announced, for everyone to acknowledge.
-		return { title: 'News', lead: newsLead(texts.slice(0, 1)), tone: null, lines: texts.slice(1) };
+	case 'NEWS_EVENT': {
+		// Playtest 2026-11-21: what News announced, for everyone to acknowledge; red for the players it left worse off (R136).
+		const hurt = notice.playerIds.includes(myId);
+		return { title: hurt ? 'News — it cost you' : 'News', lead: newsLead(texts.slice(0, 1)), tone: hurt ? 'alert' : null, lines: texts.slice(1) };
+	}
 	case 'OPPORTUNITY_EXPIRED':
 		return { title: 'An opportunity expired', lead: newsLead(texts), tone: null, lines: [] };
 	default:

@@ -46,7 +46,10 @@ data class ActiveTipOff(val slot: Int, val tipOff: TipOff, val drawnIn: Int, val
 		return "News: the opportunity to ${terms.description()} has expired$taken."
 	}
 
-	/** The pop-up for its [announcement] (playtest, 2026-11-21): for everyone, an event that took place or an expired opportunity. */
-	fun announcementNotice(): Notice =
-		Notice(if (tipOff.event != null) NoticeKind.NEWS_EVENT else NoticeKind.OPPORTUNITY_EXPIRED, null, emptyList(), null, null)
+	/**
+	 * The pop-up for its [announcement] (playtest, 2026-11-21): for everyone, an event that took place or an expired opportunity.
+	 * [hurt] are the players the event left worse off, whose card is red (R136).
+	 */
+	fun announcementNotice(hurt: List<String>): Notice =
+		Notice(if (tipOff.event != null) NoticeKind.NEWS_EVENT else NoticeKind.OPPORTUNITY_EXPIRED, null, hurt, null, null)
 }

@@ -220,6 +220,8 @@ class GameControlTest {
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.BIDDING)
 		assertThat(playerOf(game, "ada@example.com").reputation.value).isEqualTo(11)
 		assertThat(lines(game)).contains("Orion Freight's reputation control: d6 1, Orion Freight was deemed innocent: reputation 8.")
+		assertThat(game.log.single { it.text.contains("deemed innocent") }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.CONTROL_CLEARED, null, listOf("ada@example.com")))
 	}
 
 	@Test
@@ -261,6 +263,8 @@ class GameControlTest {
 		assertThat(after.money).isEqualTo(before - 100)
 		assertThat(after.connections).isEqualTo(Connections(0, 3, 1))
 		assertThat(after.reputation.value).isEqualTo(9)
+		assertThat(game.log.single { it.text.contains("was fined") }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.CONTROL_FINED, null, listOf("ada@example.com")))
 	}
 
 	@Test
@@ -292,6 +296,11 @@ class GameControlTest {
 		assertThat(playerOf(game, "grace@example.com").connections).isEqualTo(Connections(2, 2, 0))
 		assertThat(playerOf(game, "grace@example.com").reputation.value).isEqualTo(12 + 3)
 		assertThat(game.turn!!.phase).isEqualTo(TurnPhase.BIDDING)
+		// R136: a red card each, the one eliminated and the one who backed them.
+		assertThat(game.log.single { it.text.contains("taken over") }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.ELIMINATED, null, listOf("ada@example.com")))
+		assertThat(game.log.filter { it.text.contains("backing") }.map { it.notice })
+			.isNotEmpty.containsOnly(Notice.setback(NoticeKind.BACKING_LOST, null, listOf("grace@example.com")))
 	}
 
 	@Test

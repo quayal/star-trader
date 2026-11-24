@@ -40,6 +40,8 @@ class GameLoanTest {
 
 		assertThat(fixture.playerOf(closed, ADA).loan!!.amount).isEqualTo(314)
 		assertThat(closed.log.map { it.text }).contains("Orion Freight's reputation: −4 for unpaid loan interest → 16")
+		assertThat(closed.log.single { it.text.contains("unpaid loan interest") }.notice)
+			.isEqualTo(Notice.setback(NoticeKind.INTEREST_UNPAID, null, listOf(ADA)))
 	}
 
 	@Test
@@ -62,6 +64,19 @@ class GameLoanTest {
 
 		assertThat(fixture.playerOf(closed, ADA).loan).isNull()
 		assertThat(fixture.playerOf(closed, ADA).money).isEqualTo(300 - 4 * 4)
+	}
+
+	@Test
+	fun shouldSeizeAssetsWhenCashFallsShortAndGiveTheBorrowerACard() {
+		// R94, R136: Ada's cash can't cover the loan, so a ship is seized, and the line is a red card for her alone
+		val turn5 = (2..5).fold(investing.takeLoan(ADA, 100, LoanTerm.FOUR)) { game, _ -> nextInvestment(game).payInterest(ADA) }
+		val broke = fixture.with(turn5, ADA) { it.copy(money = 10) }
+
+		val closed = broke.advancePhase(FakeDice())
+
+		val line = closed.log.single { it.text.startsWith("Orion Freight's loan fell due: ") }
+		assertThat(line.notice).isEqualTo(Notice.setback(NoticeKind.LOAN_SEIZED, null, listOf(ADA)))
+		assertThat(NoticeKind.LOAN_SEIZED.ledgerReason).isEqualTo(Player.LOAN_COLLECTED_REASON)
 	}
 
 	@Test

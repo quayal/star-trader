@@ -3,6 +3,7 @@ package dev.adriangrzebyk.trader.game.sabotage
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.game.CorporationNames
 import dev.adriangrzebyk.trader.game.Dice
+import dev.adriangrzebyk.trader.game.NoticeKind
 
 /**
  * One sabotage ordered in the Opportunity phase (R97–R101, D23): [saboteurEmail] paid [cost] to hit [target], naming
@@ -40,6 +41,9 @@ data class Sabotage(
 
 	/** Whether the innocent player named takes the blame (R100: a reputation roll of 21+). */
 	fun blamesInnocent(): Boolean = reputationTotal()?.let { TABLE.reputationLoss(it) == null } ?: false
+
+	/** The card its reputation loss gets its player (R136): the innocent blamed, or the saboteur traced. */
+	fun reputationNoticeKind(): NoticeKind = if (blamesInnocent()) NoticeKind.SABOTAGE_BLAMED else NoticeKind.SABOTAGE_TRACED
 
 	/** Whether [email] owes the warehouse choice of this sabotage (R99): its saboteur, until they've chosen. */
 	fun awaitsLossChoiceBy(email: String): Boolean = !settled && saboteurEmail == email && target is SabotageTarget.Warehouse

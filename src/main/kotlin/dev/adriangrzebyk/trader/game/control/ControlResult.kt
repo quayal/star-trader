@@ -1,5 +1,7 @@
 package dev.adriangrzebyk.trader.game.control
 
+import dev.adriangrzebyk.trader.game.NoticeKind
+
 /**
  * What a reputation control's second roll came to (R129), the creator's table: the [fine] the player pays (assets sold if
  * they can't), [connectionsLost] from each of their connections, the reputation it [reputationSet] to (null: unchanged), and
@@ -27,6 +29,13 @@ enum class ControlResult(
 		LARGE_FINE -> "$corporation was fined $fine HT: every connection −4"
 		TAKEN_OVER -> "$corporation was taken over by its criminal connections and is out of the game"
 		CLOSED -> "$corporation was closed by the Federation and is out of the game"
+	}
+
+	/** The card its player gets (R136): out of the game, fined, or cleared. */
+	fun noticeKind(): NoticeKind = when {
+		eliminated -> NoticeKind.ELIMINATED
+		fine > 0 -> NoticeKind.CONTROL_FINED
+		else -> NoticeKind.CONTROL_CLEARED
 	}
 
 	/** The public line for [backer], who backed the [corporation] this result eliminated (R129). */
