@@ -34,11 +34,15 @@ class GameBattleTest {
 	// Mu Herculis; Kim's Bright Reach at Sigma Draconis and Corvid at Epsilon Eridani. All starting Clarinets: weapons 6
 	// (rockets 5, from Light weapons only), shields 2, intercept 2, class B. Turn order: Grace, Ada, Kim (see GameShipJumpTest).
 	private val jumping = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
 		.pickTurnOrderPlace("grace@example.com", 1, NO_NEWS)

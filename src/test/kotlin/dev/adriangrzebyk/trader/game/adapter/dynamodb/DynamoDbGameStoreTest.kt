@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.LogEntry
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.START_DICE
+import dev.adriangrzebyk.trader.game.StartingShips
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.adapter.random.RandomDice
 import org.assertj.core.api.Assertions.assertThat
@@ -84,7 +85,9 @@ class DynamoDbGameStoreTest {
 			StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
 			StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS
 		)
-		val started = store.update("game-1") { it.start(creator.email, picker, START_DICE).let { ConnectionsPlaced(it).byEveryone() } }
+		val started = store.update("game-1") {
+			it.start(creator.email, START_DICE).let { StartingShips(picker).placedIn(it) }.let { ConnectionsPlaced(it).byEveryone() }
+		}
 
 		DynamoDbLocal.client().use { freshClient ->
 			val restarted = DynamoDbGameStore(freshClient, tableName).find("game-1")!!
@@ -95,7 +98,7 @@ class DynamoDbGameStoreTest {
 			assertThat(restarted.players.map { it.money }).containsOnly(Game.STARTING_MONEY)
 			assertThat(restarted.players.flatMap { it.ships }.map { it.system })
 				.containsExactly(StarSystem.TAU_CETI, StarSystem.BETA_HYDRI, StarSystem.GAMMA_LEPORIS, StarSystem.MU_HERCULIS)
-			assertThat(restarted.log).hasSize(6)
+			assertThat(restarted.log).hasSize(5)
 			assertThat(restarted.players.map { it.connections.business }).containsOnly(3)
 		}
 	}
@@ -164,7 +167,11 @@ class DynamoDbGameStoreTest {
 	fun shouldCloseBiddingExactlyOnceWhenEveryPlayerSignalsDoneAtOnce() {
 		val full = (2..6).fold(game) { lobby, n -> lobby.addPlayer(Player.newcomer("p$n@example.com", "P$n", "Corp $n")) }
 		val pairs = List(6) { StarSystem.TAU_CETI to StarSystem.BETA_HYDRI }.toTypedArray()
-		store.create(full.start("creator@example.com", FakeStartingSystemPicker(*pairs), START_DICE).let { ConnectionsPlaced(it).byEveryone() })
+		store.create(
+			full.start("creator@example.com", START_DICE).let {
+				StartingShips(FakeStartingSystemPicker(*pairs)).placedIn(it)
+			}.let { ConnectionsPlaced(it).byEveryone() }
+		)
 		val executor = Executors.newFixedThreadPool(6)
 
 		val dice = RandomDice() // Random.Default: the signals roll from several threads
@@ -191,7 +198,9 @@ class DynamoDbGameStoreTest {
 	private fun startedGame(): Game {
 		store.create(game)
 		store.update("game-1") { it.addPlayer(Player.newcomer("joiner@example.com", "Joiner", "Joiner Corp")) }
-		return store.update("game-1") { it.start(creator.email, picker, START_DICE).let { ConnectionsPlaced(it).byEveryone() } }
+		return store.update("game-1") {
+			it.start(creator.email, START_DICE).let { StartingShips(picker).placedIn(it) }.let { ConnectionsPlaced(it).byEveryone() }
+		}
 	}
 
 	private fun storedItem(id: String): Map<String, AttributeValue>? = client.getItem {
@@ -229,7 +238,7 @@ class DynamoDbGameStoreTest {
 		val saved = store.update("game-1") { it.copy(log = started.log + long.drop(started.log.size)) }
 		val next = store.update("game-1") { it.copy(log = it.log + LogEntry.event(50, "Game over: Vega Lines wins with 2,310 HT")) }
 
-		assertThat(saved.log).hasSize(7506)
+		assertThat(saved.log).hasSize(7505)
 		assertThat(store.find("game-1")).isEqualTo(next)
 		assertThat(store.find("game-1")!!.log.last().text).startsWith("Game over")
 		assertThat(GameItem(storedItem("game-1")!!).logTurns()).hasSize(50)

@@ -16,14 +16,29 @@ class GameInitiativeTest {
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val third = Player.newcomer("third@example.com", "Kim", "Kessler Cargo")
 	private val started = Game.lobby("game-1", 2, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("creator@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
-	private val startedWithThree = Game.lobby("game-2", 2, creator).addPlayer(joiner).addPlayer(third).start(
-		"creator@example.com",
-		FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-		START_DICE
-	).let { ConnectionsPlaced(it).byEveryone() }
+	private val startedWithThree = Game.lobby(
+		"game-2",
+		2,
+		creator
+	).addPlayer(joiner).addPlayer(third).start("creator@example.com", START_DICE).let {
+		StartingShips(
+			FakeStartingSystemPicker(
+				TAU_CETI to BETA_HYDRI,
+				GAMMA_LEPORIS to MU_HERCULIS,
+				SIGMA_DRACONIS to EPSILON_ERIDANI
+			)
+		).placedIn(it)
+	}.let { ConnectionsPlaced(it).byEveryone() }
 
 	@Test
 	fun shouldPlaceABidDuringBidding() {

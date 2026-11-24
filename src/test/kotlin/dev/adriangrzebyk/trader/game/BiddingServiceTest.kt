@@ -17,7 +17,14 @@ class BiddingServiceTest {
 	private val creator = Player.newcomer("creator@example.com", "Ada", "Orion Freight")
 	private val joiner = Player.newcomer("joiner@example.com", "Grace", "Vega Lines")
 	private val started = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("creator@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 

@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test
 // R45, E06-S04: buying warehouse blocks at any system, at 20 HT a block, with no ship needed.
 class PlayerBuyWarehouseBlocksTest {
 
-	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
-	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.SPACE)
+	private val wayfarer = emptyShip("Wayfarer", TAU_CETI, ShipLocation.PORT)
+	private val lantern = emptyShip("Lantern", MU_HERCULIS, ShipLocation.SPACE)
 
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern), 0)
 

@@ -17,14 +17,14 @@ class OpenGamesServiceTest {
 		gameStore.create(Game.lobby("b-asked", 20, other).requestToJoin(viewer))
 		gameStore.create(Game.lobby("c-mine", 20, viewer))
 		gameStore.create(
-			Game.lobby("d-started", 20, other).addPlayer(viewer).start(
-				other.email,
-				FakeStartingSystemPicker(
-					StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
-					StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS
-				),
-				START_DICE
-			)
+			Game.lobby("d-started", 20, other).addPlayer(viewer).start(other.email, START_DICE).let {
+				StartingShips(
+					FakeStartingSystemPicker(
+						StarSystem.TAU_CETI to StarSystem.BETA_HYDRI,
+						StarSystem.GAMMA_LEPORIS to StarSystem.MU_HERCULIS
+					)
+				).placedIn(it)
+			}
 		)
 
 		assertThat(service.openGames(viewer.email).map { it.id }).containsExactly("c-mine", "b-asked", "a-other")

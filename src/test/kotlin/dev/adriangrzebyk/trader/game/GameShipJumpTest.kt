@@ -20,11 +20,15 @@ class GameShipJumpTest {
 	// Ships: Ada's Wayfarer at Tau Ceti and Lantern at Beta Hydri; Grace's Meridian at Gamma Leporis and Halcyon at
 	// Mu Herculis; Kim's Bright Reach at Sigma Draconis and Corvid at Epsilon Eridani.
 	private val started = Game.lobby("game-1", 3, ada).addPlayer(grace).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 
 	// Initiative Kim, Grace, Ada (see GameTurnOrderTest); Kim takes 3rd, Grace 1st, Ada gets 2nd.
 	private val picking = started.advancePhase(FakeDice(1, 1, 2, 1, 2))
@@ -50,7 +54,7 @@ class GameShipJumpTest {
 			shipOf(game, "Meridian")
 		).isEqualTo(
 			Ship(
-				"Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.STARTING_HULL, Ship.STARTING_MODULES, Ship.STARTING_CREW_CLASS,
+				"Meridian", TAU_CETI, ShipLocation.SPACE, emptyMap(), Ship.STARTING_HULL, PLAYTEST_MODULES, Ship.STARTING_CREW_CLASS,
 				null, 0, emptyList()
 			)
 		)

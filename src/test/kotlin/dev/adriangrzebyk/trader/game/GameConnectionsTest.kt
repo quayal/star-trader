@@ -16,7 +16,14 @@ class GameConnectionsTest {
 
 	/** Ada rolls 2 (5 points), Grace 1 (4 points). */
 	private val started = Game.lobby("game-1", 20, ada).addPlayer(grace)
-		.start("ada@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), FakeDice.d3(2, 1))
+		.start("ada@example.com", FakeDice.d3(2, 1)).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}
 
 	private val placed = started.placeConnections("ada@example.com", 2, 3, 0).placeConnections("grace@example.com", 0, 0, 4)
 

@@ -572,6 +572,21 @@ data class Player(
 		return copy(connections = Connections.placed(political, business, criminal, connectionPoints), connectionPoints = 0)
 	}
 
+	/** Refuses this player's done signal in turn 1 while they have no ship yet: they choose its name and Port (R132). */
+	fun requireStartingShip() {
+		if (ships.isEmpty()) {
+			throw InvalidGameOperationException("Choose your ship's name and Port first.")
+		}
+	}
+
+	/** This player with [ship] as their starting ship (R132): refused when they already have a ship. */
+	fun withStartingShip(ship: Ship): Player {
+		if (ships.isNotEmpty()) {
+			throw InvalidGameOperationException("You've already placed your ship.")
+		}
+		return copy(ships = listOf(ship))
+	}
+
 	/** Refuses this player's done signal while they still have starting points to place (R82, E12-S01-3). */
 	fun requireConnectionsPlaced() {
 		if (connectionPoints > 0) {
@@ -1377,8 +1392,8 @@ data class Player(
 	fun startWith(money: Int, ships: List<Ship>, connectionPoints: Int): Player =
 		copy(money = money, ships = ships, connectionPoints = connectionPoints)
 
-	/** Where this player's ships start, for the public log: "Corp — Wayfarer at Tau Ceti, Lantern at Mu Herculis". */
-	fun startingPositions(): String = "$corporationName — " + ships.joinToString(", ") { it.position() }
+	/** The public log line of this player's starting ship (R132): "Vega Lines starts with Wayfarer at Tau Ceti". */
+	fun startingShipLog(): String = "$corporationName starts with ${ships.first().position()}"
 
 	/** Whether this player has a ship called [name], ignoring case: ship names are unique in a game that way (R62). */
 	fun hasShipNamed(name: String): Boolean = ships.any { it.name.equals(name, ignoreCase = true) }

@@ -32,7 +32,15 @@ class PlayerViewTest {
 	private val started = Game.lobby("game-1", 20, Player.newcomer(ada, "Ada", "Orion Freight"))
 		.addPlayer(Player.newcomer(grace, "Grace", "Vega Lines"))
 		.addPlayer(Player.newcomer(kim, "Kim", "Kessler Cargo"))
-		.start(ada, FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI), START_DICE)
+		.start(ada, START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}
 		.let { ConnectionsPlaced(it).byEveryone() }
 
 	private fun withTurn(change: (Turn) -> Turn): Game = started.copy(turn = change(started.turn!!))

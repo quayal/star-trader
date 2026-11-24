@@ -20,7 +20,6 @@ import dev.adriangrzebyk.trader.game.OpenGamesService
 import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.ShipJumpsService
-import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.game.TradingService
 import dev.adriangrzebyk.trader.login.Session
 import org.springframework.http.HttpStatus
@@ -42,18 +41,13 @@ import org.springframework.web.server.ResponseStatusException
  */
 @RestController
 @RequestMapping("/api")
-class GameController(
-	idGenerator: GameIdGenerator,
-	private val gameStore: GameStore,
-	startingSystemPicker: StartingSystemPicker,
-	dice: Dice
-) {
+class GameController(idGenerator: GameIdGenerator, private val gameStore: GameStore, dice: Dice) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
 	private val gamePollingService = GamePollingService(gameStore)
 	private val openGamesService = OpenGamesService(gameStore)
-	private val gameStartingService = GameStartingService(gameStore, startingSystemPicker, dice)
+	private val gameStartingService = GameStartingService(gameStore, dice)
 	private val biddingService = BiddingService(gameStore, dice)
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
@@ -122,6 +116,21 @@ class GameController(
 		val game = gameStartingService.startGame(id, session.email)
 
 		return GameResponseDto(game, session.email)
+	}
+
+	/**
+	 * The player names their starting ship and chooses its Port in turn 1's Bidding (R132): `{ name, system }`. `400` for a bad
+	 * name or one in use; `409` outside turn 1's Bidding or once placed; `403`, `404` and `401` as for the other actions.
+	 */
+	@PostMapping("/games/{id}/starting-ship")
+	fun placeStartingShip(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: StartingShipRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val placement = request ?: StartingShipRequestDto()
+
+		return GameResponseDto(biddingService.placeStartingShip(id, session.email, placement.name, placement.system()), session.email)
 	}
 
 	/**

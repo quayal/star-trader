@@ -22,11 +22,15 @@ class GameOverTest {
 
 	private fun started(turns: Int, vararg others: Player): Game = others
 		.fold(Game.lobby("game-1", turns, ada)) { game, player -> game.addPlayer(player) }
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to TAU_CETI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to TAU_CETI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 
 	/**
 	 * [bidding] taken to Trading with Grace first in initiative (d2: Grace rolls 2, the others 1, then Kim beats Ada) and

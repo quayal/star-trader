@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 // Clarinet (4 Cargo, Light weapons, Safe jump), its room full.
 class ShipModuleMovesTest {
 
-	private val full = Ship.emptyAt("Halcyon", MU_HERCULIS, ShipLocation.PORT)
+	private val full = emptyShip("Halcyon", MU_HERCULIS, ShipLocation.PORT)
 
 	@Test
 	fun shouldTakeOffAWorkingModuleWithNothingPaid() {

@@ -25,11 +25,15 @@ class GameHangarTest {
 
 	// As GameLandingTest: Grace jumps first; Meridian is at Gamma Leporis, Halcyon at Mu Herculis.
 	private val jumping = Game.lobby("game-1", 3, ada).addPlayer(graceAsPlayer).addPlayer(kim)
-		.start(
-			"ada@example.com",
-			FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI),
-			START_DICE
-		).let { ConnectionsPlaced(it).byEveryone() }
+		.start("ada@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI
+				)
+			).placedIn(it)
+		}.let { ConnectionsPlaced(it).byEveryone() }
 		.advancePhase(FakeDice(1, 1, 2, 1, 2))
 		.pickTurnOrderPlace("kim@example.com", 3, NO_NEWS)
 		.pickTurnOrderPlace(grace, 1, NO_NEWS)

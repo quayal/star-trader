@@ -1,8 +1,6 @@
 package dev.adriangrzebyk.trader.game.adapter.web
 
-import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.game.Dice
-import dev.adriangrzebyk.trader.game.StartingSystemPicker
 import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
@@ -19,7 +17,6 @@ import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.test.context.DynamicPropertyRegistrar
 import org.springframework.test.web.servlet.client.RestTestClient
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * One whole game over HTTP, start to Game over, with every phase of every turn: the smoke test that the pieces work
@@ -75,21 +72,6 @@ class WholeGameTest {
 
 			override fun oneOf(faces: Int): Int = 1
 		}
-
-		/** The host starts at Tau Ceti and Mu Herculis, the guest at Gamma Leporis and Beta Hydri. */
-		@Bean
-		@Primary
-		fun fixedStart(): StartingSystemPicker = object : StartingSystemPicker {
-			private val picks = AtomicInteger()
-
-			override fun pickTwoDifferentSystems(): Pair<StarSystem, StarSystem> = if (picks.getAndIncrement() % 2 ==
-				0
-			) {
-				StarSystem.TAU_CETI to StarSystem.MU_HERCULIS
-			} else {
-				StarSystem.GAMMA_LEPORIS to StarSystem.BETA_HYDRI
-			}
-		}
 	}
 
 	@Test
@@ -100,8 +82,12 @@ class WholeGameTest {
 		restTestClient.post().uri("/api/games/$gameId/join-requests").header("Authorization", "Bearer $guest").exchange().expectStatus().isOk
 		post(host, "/api/games/$gameId/join-requests/${JoinRequestIds(gameId).of("whole-guest@example.com")}/accept")
 		val started = post(host, "/api/games/$gameId/start")
-		assertThat(started.players.first().ships.map { it.system }).containsExactly("TAU_CETI", "MU_HERCULIS")
-		val wayfarer = started.players.first().ships.first().name
+		// R132: each player names their ship and chooses its Port in turn 1's Bidding
+		assertThat(started.players.flatMap { it.ships }).isEmpty()
+		post(guest, "/api/games/$gameId/starting-ship", """{"name": "Meridian", "system": "GAMMA_LEPORIS"}""")
+		val founded = post(host, "/api/games/$gameId/starting-ship", """{"name": "Wayfarer", "system": "TAU_CETI"}""")
+		assertThat(founded.players.first().ships.map { it.system }).containsExactly("TAU_CETI")
+		val wayfarer = "Wayfarer"
 		// R82: every d3 is a 1 here, so 4 points each; political 2 + business 2 allow 4 units of factory (R84)
 		assertThat(started.players.map { it.connectionPoints }).containsOnly(4)
 		post(guest, "/api/games/$gameId/connections/placement", """{"political": 0, "business": 0, "criminal": 4}""")
@@ -162,8 +148,8 @@ class WholeGameTest {
 		post(host, "/api/games/$gameId/news/done")
 		post(guest, "/api/games/$gameId/news/done")
 		post(host, "/api/games/$gameId/ship-jumps/jumps", """{"ship": "$wayfarer", "destination": "MU_HERCULIS"}""")
+		// the host's only ship has jumped and landed, which ends their slot (S02-6)
 		post(host, "/api/games/$gameId/ship-jumps/landing", """{"location": "PORT"}""")
-		post(host, "/api/games/$gameId/ship-jumps/finish")
 		val trading = post(guest, "/api/games/$gameId/ship-jumps/finish")
 		assertThat(trading.turn!!.phase).isEqualTo("TRADING")
 		val moneyBefore = poll(host, gameId).you!!.money

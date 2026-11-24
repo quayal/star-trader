@@ -17,7 +17,15 @@ class OpportunityGame {
 	val started: Game = Game.lobby("game-1", 20, Player.newcomer(ADA, "Ada", "Orion Freight"))
 		.addPlayer(Player.newcomer(GRACE, "Grace", "Vega Lines"))
 		.addPlayer(Player.newcomer(KIM, "Kim", "Kessler Cargo"))
-		.start(ADA, FakeStartingSystemPicker(GAMMA_LEPORIS to MU_HERCULIS, SIGMA_DRACONIS to EPSILON_ERIDANI, TAU_CETI to BETA_HYDRI), START_DICE)
+		.start(ADA, START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					GAMMA_LEPORIS to MU_HERCULIS,
+					SIGMA_DRACONIS to EPSILON_ERIDANI,
+					TAU_CETI to BETA_HYDRI
+				)
+			).placedIn(it)
+		}
 		.let { ConnectionsPlaced(it).byEveryone() }
 
 	/** [started] in turn 1's Trading. */

@@ -22,7 +22,7 @@ class PlayerLoanTest {
 	/** 300 HT, two starting ships (sale value 26 HT each: half of the Clarinet's 40 + 4 Cargo, Light weapons, Safe jump). */
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(
 		300,
-		listOf(Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT), Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.PORT)),
+		listOf(emptyShip("Wayfarer", TAU_CETI, ShipLocation.PORT), emptyShip("Lantern", MU_HERCULIS, ShipLocation.PORT)),
 		0
 	)
 

@@ -36,6 +36,13 @@ class BiddingService(private val gameStore: GameStore, private val dice: Dice) {
 		gameStore.update(gameId) { it.placeConnections(callerEmail, political, business, criminal) }
 
 	/**
+	 * Places [callerEmail]'s starting ship inside [GameStore.update] (R132), so a double press places one and a placement that
+	 * arrives as Bidding closes is either in or refused.
+	 */
+	fun placeStartingShip(gameId: String, callerEmail: String, name: String?, system: StarSystem?): Game =
+		gameStore.update(gameId) { it.placeStartingShip(callerEmail, name, system) }
+
+	/**
 	 * Places or changes [callerEmail]'s secret initiative bid inside [GameStore.update], so a bid that arrives as the
 	 * last "done" closes Bidding is either counted in the close or refused after it, never lost silently (A04).
 	 */

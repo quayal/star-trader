@@ -131,11 +131,11 @@ data class Game(
 	fun logAfter(count: Int): List<LogEntry> = if (count in 0..log.size) log.drop(count) else log
 
 	/**
-	 * Closes joining and sets every player up (R40, R41): 300 HT and two empty ships at the Ports of two
-	 * different systems from [picker], and 3 + d3 connection points from [dice] to place in turn 1's Bidding (R82), each
-	 * roll logged; then turn 1 Bidding. Only the creator may start, once, with 2+ players.
+	 * Closes joining and sets every player up (R40, R41, R132): 300 HT and 3 + d3 connection points from [dice] to place
+	 * in turn 1's Bidding (R82), each roll logged, and a ship they name and place there too ([placeStartingShip]); then turn 1
+	 * Bidding. Only the creator may start, once, with 2+ players.
 	 */
-	fun start(callerEmail: String, picker: StartingSystemPicker, dice: Dice): Game {
+	fun start(callerEmail: String, dice: Dice): Game {
 		if (callerEmail != creatorEmail) {
 			throw NotTheCreatorException()
 		}
@@ -146,14 +146,9 @@ data class Game(
 			throw InvalidGameOperationException("At least $MIN_PLAYERS_TO_START players are needed to start")
 		}
 
-		val setUp = players.mapIndexed { index, player ->
-			val (first, second) = picker.pickTwoDifferentSystems()
-			val ships = listOf(
-				Ship.emptyAt(Ship.NAMES[index * 2], first, ShipLocation.PORT),
-				Ship.emptyAt(Ship.NAMES[index * 2 + 1], second, ShipLocation.PORT)
-			)
+		val setUp = players.map { player ->
 			val roll = dice.d3()
-			player.startWith(STARTING_MONEY, ships, Connections.BASE_STARTING_POINTS + roll) to roll
+			player.startWith(STARTING_MONEY, emptyList(), Connections.BASE_STARTING_POINTS + roll) to roll
 		}
 		return copy(
 			status = GameStatus.RUNNING,
@@ -161,7 +156,6 @@ data class Game(
 			joinRequests = emptyList(), // R120: joining closes at the start
 			turn = Turn.bidding(1),
 			log = log + LogEntry.event(1, "Game started: ${setUp.size} players, $turns turns") +
-				LogEntry.event(1, "Starting positions: " + setUp.joinToString("; ") { it.first.startingPositions() }) +
 				setUp.map { (player, roll) -> LogEntry.event(1, player.connectionPointsRolledLog(roll)) }
 		)
 	}
@@ -1203,11 +1197,14 @@ data class Game(
 
 	/**
 	 * Records that [email] is done bidding (R17), once they have placed their starting connection points (R82,
-	 * E12-S01-3). Bidding closes the moment the last player signals done (D09), rolling
+	 * E12-S01-3) and, in turn 1, their ship (R132). Bidding closes the moment the last player signals done (D09), rolling
 	 * the initiative order with [dice]; a signal after that is refused (A04).
 	 */
 	fun signalDoneBidding(email: String, dice: Dice): Game {
 		playerOf(email).requireConnectionsPlaced()
+		if (runningTurn().number == 1) {
+			playerOf(email).requireStartingShip()
+		}
 		val signalled = copy(turn = runningTurn().signalDoneBidding(email))
 		return if (signalled.runningTurn().everyoneDoneBidding(activePlayers().map { it.email })) signalled.advancePhase(dice) else signalled
 	}
@@ -1223,6 +1220,28 @@ data class Game(
 		current.requireBidding()
 		val placed = player.placeConnections(political, business, criminal)
 		return copy(players = replace(placed), log = log + LogEntry.event(current.number, placed.connectionsPlacedLog()))
+	}
+
+	/**
+	 * [email] names their starting ship and chooses the Port it starts in (R132), once, in turn 1's Bidding: the Clarinet of
+	 * [Ship.STARTING_MODULES] with its crew paid. The name can't be one another ship has (R62); the placement is public.
+	 */
+	fun placeStartingShip(email: String, name: String?, system: StarSystem?): Game {
+		val player = playerOf(email)
+		val current = runningTurn()
+		current.requireBidding()
+		if (current.number != 1) {
+			throw InvalidGameOperationException("Your starting ship is placed in the first turn.")
+		}
+		if (system == null) {
+			throw InvalidGameOperationException("Choose the system whose Port your ship starts in.")
+		}
+		val ship = Ship.founded(name, system)
+		if (isShipNameTaken(ship.name)) {
+			throw InvalidGameOperationException("There's already a ship called ${ship.name} in this game.")
+		}
+		val placed = player.withStartingShip(ship)
+		return copy(players = replace(placed), log = log + LogEntry.event(current.number, placed.startingShipLog()))
 	}
 
 	/**

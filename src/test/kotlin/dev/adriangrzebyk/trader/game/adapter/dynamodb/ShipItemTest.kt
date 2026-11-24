@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.Hull
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
+import dev.adriangrzebyk.trader.game.emptyShip
 import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOff
@@ -46,7 +47,7 @@ class ShipItemTest {
 
 	@Test
 	fun shouldReadBackAnEmptyShip() {
-		val empty = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
+		val empty = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 
 		assertThat(ShipItem(ShipItem(empty).attributes).toShip()).isEqualTo(empty)
 	}
@@ -108,15 +109,15 @@ class ShipItemTest {
 
 	@Test
 	fun shouldNotStoreAPurchaseTurnForAShipThatWasNeverBought() {
-		assertThat(ShipItem(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("boughtOnTurn")
+		assertThat(ShipItem(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("boughtOnTurn")
 	}
 
 	@Test
 	fun shouldReadBackTheTurnAShipWasParkedFor() {
-		val parked = Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).parkedOn(3)
+		val parked = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).parkedOn(3)
 
 		assertThat(ShipItem(ShipItem(parked).attributes).toShip()).isEqualTo(parked)
-		assertThat(ShipItem(Ship.emptyAt("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("hangarPaidOnTurn")
+		assertThat(ShipItem(emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)).attributes).doesNotContainKey("hangarPaidOnTurn")
 	}
 
 	@Test

@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test
 // R46, E06-S05: building or extending a factory at any system that can produce the good, with no ship needed.
 class PlayerBuyFactoryUnitsTest {
 
-	private val wayfarer = Ship.emptyAt("Wayfarer", TAU_CETI, ShipLocation.PORT)
-	private val lantern = Ship.emptyAt("Lantern", MU_HERCULIS, ShipLocation.SPACE)
-	private val drifter = Ship.emptyAt("Drifter", BETA_HYDRI, ShipLocation.PORT)
+	private val wayfarer = emptyShip("Wayfarer", TAU_CETI, ShipLocation.PORT)
+	private val lantern = emptyShip("Lantern", MU_HERCULIS, ShipLocation.SPACE)
+	private val drifter = emptyShip("Drifter", BETA_HYDRI, ShipLocation.PORT)
 
 	private val prices = MarketPrices.board()
 		.withPrice(MarketGood(TAU_CETI, Goods.ISO), 12)

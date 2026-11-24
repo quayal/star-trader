@@ -14,7 +14,7 @@ class PlayerSabotageTest {
 
 	private val grace = Player.newcomer(GRACE, "Grace", "Vega Lines").startWith(
 		300,
-		listOf(Ship.emptyAt("Meridian", TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3)),
+		listOf(emptyShip("Meridian", TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3)),
 		0
 	).copy(
 		factories = listOf(Factory(TAU_CETI, Goods.ISO, 2, 1)),

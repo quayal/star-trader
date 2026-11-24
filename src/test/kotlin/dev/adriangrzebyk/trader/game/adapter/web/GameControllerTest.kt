@@ -13,6 +13,7 @@ import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.MarketTier
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.OpportunityPassed
+import dev.adriangrzebyk.trader.game.PLAYTEST_MODULES
 import dev.adriangrzebyk.trader.game.Player
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.ShipLocation
@@ -22,6 +23,7 @@ import dev.adriangrzebyk.trader.game.adapter.dynamodb.DynamoDbLocal
 import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleShip
+import dev.adriangrzebyk.trader.game.emptyShip
 import dev.adriangrzebyk.trader.login.Session
 import dev.adriangrzebyk.trader.login.SessionStore
 import dev.adriangrzebyk.trader.login.adapter.dynamodb.sessionItemId
@@ -414,7 +416,7 @@ class GameControllerTest {
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
-		assertThat(started.you!!.ships).hasSize(2).allMatch { it.cargo.isEmpty() && it.cargoUsed == 0 && it.cargoSpaces == 8 }
+		assertThat(started.you!!.ships).isEmpty() // R132: they name and place their ship in turn 1's Bidding
 		assertThat(started.board.map { it.id }).containsExactlyInAnyOrder(
 			"GAMMA_LEPORIS",
 			"TAU_CETI",
@@ -423,10 +425,7 @@ class GameControllerTest {
 			"MU_HERCULIS",
 			"SIGMA_DRACONIS"
 		)
-		assertThat(started.players).allSatisfy { player ->
-			assertThat(player.ships).hasSize(2).allMatch { it.location == "PORT" }
-			assertThat(player.ships.map { it.system }).doesNotHaveDuplicates()
-		}
+		assertThat(started.players).allSatisfy { player -> assertThat(player.ships).isEmpty() }
 		assertThat(started.log.first()).isEqualTo(LogEntryResponseDto(1, "Game started: 2 players, 20 turns", null, null, null))
 		joinGame(signIn("start-late@example.com"), game.id)
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
@@ -467,6 +466,20 @@ class GameControllerTest {
 		placement(creatorToken, game.id, """{"political": 2, "business": ${points - 2}, "criminal": 0}""")
 			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
 			.expectBody(String::class.java).isEqualTo("You have already placed your connection points.")
+		signalDone(creatorToken, game.id)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("Choose your ship's name and Port first.")
+		placeStartingShip(creatorToken, game.id, """{"name": "Nimbus", "system": "MU_HERCULIS"}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!.let { founded ->
+			assertThat(founded.players.first().ships.single().system).isEqualTo("MU_HERCULIS")
+			assertThat(founded.you!!.ships.single().cargoSpaces).isEqualTo(6)
+			assertThat(founded.log.last().text).isEqualTo("Adrian Star Traders starts with Nimbus at Mu Herculis")
+		}
+		placeStartingShip(creatorToken, game.id, """{"name": "Other", "system": "TAU_CETI"}""")
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("You've already placed your ship.")
+		placeStartingShip(null, game.id, "{}").expectStatus().isUnauthorized
+		placeStartingShip(signIn("connections-stranger2@example.com"), game.id, "{}").expectStatus().isForbidden
 		signalDone(creatorToken, game.id).expectStatus().isOk
 		placement(null, game.id, "{}").expectStatus().isUnauthorized
 		placement(signIn("connections-stranger@example.com"), game.id, "{}").expectStatus().isForbidden
@@ -893,8 +906,8 @@ class GameControllerTest {
 			raw
 		).contains("\"log\":[{\"turn\":1,\"text\":\"Game started: 2 players, 20 turns\",\"trade\":null,\"notice\":null,\"battleSummary\":null}")
 		assertThat(log.map { it.turn }).containsOnly(1)
-		// 2 at the start, a roll and a placement for each player (R82), and the initiative line
-		assertThat(log.map { it.text }).hasSize(7).noneMatch { text ->
+		// 1 at the start, a roll, a connection placement and a starting ship for each player (R82, R132), and the initiative line
+		assertThat(log.map { it.text }).hasSize(8).noneMatch { text ->
 			listOf("17", "277", "HT", "POLY", "SELL").any { it in text }
 		}
 		assertThat(log.last().text).contains("Grace Freight 23 + ")
@@ -2615,7 +2628,7 @@ class GameControllerTest {
 					) {
 						player
 					} else {
-						player.copy(ships = player.ships + Ship.emptyAt("Comet", StarSystem.TAU_CETI, ShipLocation.PORT))
+						player.copy(ships = player.ships + emptyShip("Comet", StarSystem.TAU_CETI, ShipLocation.PORT))
 					}
 				}
 			)
@@ -2707,16 +2720,16 @@ class GameControllerTest {
 		// the 2-second poll mustn't carry the whole log every time
 		val (creator, _, gameId) = startedGame("log-after")
 		val whole = pollGame(creator, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		assertThat(whole.log).hasSize(6)
+		assertThat(whole.log).hasSize(7)
 		assertThat(whole.logOffset).isZero()
 
 		val newer = pollLogAfter(creator, gameId, "1").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
-		val none = pollLogAfter(creator, gameId, "6").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		val none = pollLogAfter(creator, gameId, "7").expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
 		assertThat(newer.log).isEqualTo(whole.log.drop(1))
 		assertThat(newer.logOffset).isEqualTo(1)
 		assertThat(none.log).isEmpty()
-		assertThat(none.logOffset).isEqualTo(6)
+		assertThat(none.logOffset).isEqualTo(7)
 		assertThat(newer.copy(log = whole.log, logOffset = 0)).isEqualTo(whole)
 	}
 
@@ -2724,10 +2737,10 @@ class GameControllerTest {
 	fun shouldSendTheWholeLogToAPollThatIsOutOfStep() {
 		val (creator, _, gameId) = startedGame("log-out-of-step")
 
-		for (count in listOf("7", "-1")) {
+		for (count in listOf("8", "-1")) {
 			val game = pollLogAfter(creator, gameId, count).expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 
-			assertThat(game.log).hasSize(6)
+			assertThat(game.log).hasSize(7)
 			assertThat(game.logOffset).isZero()
 		}
 		pollLogAfter(creator, gameId, "many").expectStatus().isBadRequest
@@ -2761,13 +2774,36 @@ class GameControllerTest {
 	}
 
 	/**
-	 * The caller places their 4 to 6 starting points (R82) as political 3 and the rest business, so turn 1's Bidding can
-	 * close; their factory cap is then their points (R84).
+	 * The caller places their 4 to 6 starting points (R82) as political 3 and the rest business, and their starting ship (R132)
+	 * in Tau Ceti's Port under the first free suggested name, so turn 1's Bidding can close; their factory cap is then their
+	 * points (R84). A second ship is added in Beta Hydri's Port.
 	 */
 	private fun placeConnections(token: String, gameId: String) {
 		val game = pollGame(token, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!
 		val points = game.players.single { it.id == game.you!!.id }.connectionPoints
 		placement(token, gameId, """{"political": 3, "business": ${points - 3}, "criminal": 0}""").expectStatus().isOk
+		val (name, second) = game.you!!.invest!!.shipyard.freeNames
+		placeStartingShip(token, gameId, """{"name": "$name", "system": "TAU_CETI"}""").expectStatus().isOk
+		// Most tests were written for the playtest's two ships with 8 cargo spaces each: the real one is swapped for them here.
+		val index = game.players.indexOfFirst { it.id == game.you!!.id }
+		gameStore.update(gameId) { stored ->
+			stored.copy(
+				players = stored.players.mapIndexed { place, player ->
+					if (place != index) {
+						player
+					} else {
+						val first = player.ships.single()
+						player.copy(ships = listOf(first.copy(modules = PLAYTEST_MODULES), emptyShip(second, StarSystem.BETA_HYDRI, ShipLocation.PORT)))
+					}
+				}
+			)
+		}
+	}
+
+	private fun placeStartingShip(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/starting-ship", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
 	}
 
 	private fun placement(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {

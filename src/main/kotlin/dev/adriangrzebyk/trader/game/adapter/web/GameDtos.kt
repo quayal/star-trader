@@ -1231,6 +1231,13 @@ data class BackingRequestDto(val back: Boolean? = null)
 /** The answer to a Parking Hangar question (R127): whether the ship asked about is in the hangar this turn. */
 data class HangarRequestDto(val stay: Boolean? = null)
 
+/** The name and Port of a player's starting ship (R132), chosen in turn 1's Bidding. */
+data class StartingShipRequestDto(val name: String? = null, val system: String? = null) {
+
+	/** The system the Port is in, or null for a name that is no system, so the domain refuses it as a missing choice. */
+	fun system(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+}
+
 /** Where the ship that just jumped ends up; an unknown location reaches the domain's message as a missing one. */
 data class LandShipRequestDto(val location: String? = null) {
 

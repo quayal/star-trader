@@ -19,7 +19,14 @@ class TradingServiceTest {
 
 	// Ada rolls 2, Grace 1: Ada is first in initiative and picks first.
 	private val trading = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-		.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+		.start("creator@example.com", START_DICE).let {
+			StartingShips(
+				FakeStartingSystemPicker(
+					TAU_CETI to BETA_HYDRI,
+					GAMMA_LEPORIS to MU_HERCULIS
+				)
+			).placedIn(it)
+		}.let {
 			ConnectionsPlaced(it).byEveryone()
 		}
 		.advancePhase(FakeDice(2, 1))
@@ -103,7 +110,14 @@ class TradingServiceTest {
 		// E05-S04, A04: Grace's buy at 11 for Gamma Leporis POLY (no Dictator) is the first good; counter 1 + 7 = 8, so up
 		// to 26 u. A second press finds no trade waiting.
 		val withOffer = Game.lobby("game-1", 20, creator).addPlayer(joiner)
-			.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			.start("creator@example.com", START_DICE).let {
+				StartingShips(
+					FakeStartingSystemPicker(
+						TAU_CETI to BETA_HYDRI,
+						GAMMA_LEPORIS to MU_HERCULIS
+					)
+				).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 			.placeOffer("joiner@example.com", GAMMA_LEPORIS, Goods.POLY, OfferType.BUY, 11)
@@ -129,7 +143,14 @@ class TradingServiceTest {
 		// so the price moves and she's asked. A second press finds nobody asked.
 		val wholesaler = joiner.copy(marketPositions = listOf(MarketPosition(GAMMA_LEPORIS, Goods.POLY, MarketTier.WHOLESALER)))
 		val withWholesaler = Game.lobby("game-1", 20, creator).addPlayer(wholesaler)
-			.start("creator@example.com", FakeStartingSystemPicker(TAU_CETI to BETA_HYDRI, GAMMA_LEPORIS to MU_HERCULIS), START_DICE).let {
+			.start("creator@example.com", START_DICE).let {
+				StartingShips(
+					FakeStartingSystemPicker(
+						TAU_CETI to BETA_HYDRI,
+						GAMMA_LEPORIS to MU_HERCULIS
+					)
+				).placedIn(it)
+			}.let {
 				ConnectionsPlaced(it).byEveryone()
 			}
 			.advancePhase(FakeDice(2, 1))
