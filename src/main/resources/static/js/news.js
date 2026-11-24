@@ -24,7 +24,7 @@ export function waitingForNews(game, playerId) {
 }
 
 /**
- * One row per tip-off in play: `{ slot, effectiveTurn, title: 'Tip-off #3', need: 'CRIM 5', details, taken, learn: {
+ * One row per tip-off in play: `{ slot, effectiveTurn, title: 'Tip-off #3', need: 'CRIM 5', details, facts, taken, learn: {
  * enabled, reason } }`. Learning is offered only in News and only for what isn't learned yet; the reason says why
  * the button is disabled: the connection (in the server's words), or that it opens in News.
  */
@@ -38,6 +38,8 @@ export function tipOffRows(game) {
 			effectiveTurn: tipOff.effectiveTurn,
 			need: tipOff.need,
 			details: tipOff.learned ? tipOff.details : null,
+			// Creator, 2026-11-25: a learned opportunity says everything it involves, so the player can decide.
+			facts: tipOff.learned ? tipOff.terms?.facts ?? [] : [],
 			taken: tipOff.taken ? 'Already taken.' : '',
 			learn: learnable ? { enabled: reason === '', reason, label: `Learn (${LEARN_COST} HT)` } : null,
 		};
