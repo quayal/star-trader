@@ -59,14 +59,18 @@ data class LoanTermResponseDto(val turns: Int, val divisor: Int) {
 	constructor(term: LoanTerm) : this(term.turns, term.divisor)
 }
 
-/** An open loan: what is still owed, the fixed interest, its term, the turns of interest left, and what repaying costs now. */
+/**
+ * An open loan: what is still owed, the fixed interest, its term, the turns of interest left, what repaying costs now, and the
+ * turn ([dueTurn]) whose Investment closing collects it (R94).
+ */
 data class OpenLoanResponseDto(
 	val amount: Int,
 	val interest: Int,
 	val term: Int,
 	val turnsLeft: Int,
 	val fallsDue: Boolean,
-	val repayment: Int
+	val repayment: Int,
+	val dueTurn: Int
 ) {
 
 	constructor(loan: Loan, turn: Int, interestPaid: Boolean) : this(
@@ -75,7 +79,8 @@ data class OpenLoanResponseDto(
 		loan.term.turns,
 		loan.turnsLeft(turn),
 		loan.fallsDueIn(turn),
-		loan.repayment(loan.isInterestDue(turn) && !interestPaid)
+		loan.repayment(loan.isInterestDue(turn) && !interestPaid),
+		loan.dueTurn()
 	)
 }
 

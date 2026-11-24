@@ -152,12 +152,37 @@ data class Ship(
 	/** What repairing all this ship's damage costs (R79): the hull's repair price if it's hit, plus each damaged module's. */
 	fun repairCost(): Int = (if (hullDamage > 0) hull.repairCost else 0) + damagedModules.sumOf { it.repairCost() }
 
-	/** This ship with all its damage repaired (R79), refused when it has none. */
+	/**
+	 * Whether the hull can be repaired where this ship is (R133): only in a shipyard, and a military hull only in Tau Ceti's.
+	 * Damaged modules need no shipyard.
+	 */
+	fun canRepairHull(): Boolean {
+		val atShipyard = isInShipyard() || (isInPort() && system.hasShipyard())
+		return atShipyard && (!hull.military || system.repairsMilitaryHulls())
+	}
+
+	/** What repairing this ship's damage costs where it is (R133): each damaged module's, and the hull's only where it can be repaired. */
+	fun repairCostHere(): Int = damagedModules.sumOf { it.repairCost() } + if (hullDamage > 0 && canRepairHull()) hull.repairCost else 0
+
+	/** Why the hull stays damaged where this ship is (R133), or null when it isn't damaged or can be repaired here. */
+	fun hullRepairNote(): String? = when {
+		hullDamage == 0 || canRepairHull() -> null
+		hull.military -> "A military hull is repaired only at the Tau Ceti shipyard."
+		else -> "The hull is repaired at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
+	}
+
+	/**
+	 * This ship with the damage repaired that can be where it is (R133): every damaged module, and the hull where
+	 * [canRepairHull]. Refused when there is nothing to repair here.
+	 */
 	fun repaired(): Ship {
 		if (!isDamaged()) {
 			throw InvalidInvestmentException("$name has no damage to repair.")
 		}
-		return copy(hullDamage = 0, damagedModules = emptyList())
+		if (repairCostHere() == 0) {
+			throw InvalidInvestmentException("$name: ${hullRepairNote()}")
+		}
+		return copy(hullDamage = if (canRepairHull()) 0 else hullDamage, damagedModules = emptyList())
 	}
 
 	/** R53: the crew the hull and every module need. */
@@ -354,8 +379,8 @@ data class Ship(
 	/** Whether this ship can be refitted (R65): in the yard, or in Port at any system (creator, 2026-11-17: not only at shipyards). */
 	fun canBeRefitted(): Boolean = isInShipyard() || isInPort()
 
-	/** Whether this ship can be repaired (R79): in the yard, or in Port at a system with a shipyard. */
-	fun canBeRepaired(): Boolean = isInShipyard() || (isInPort() && system.hasShipyard())
+	/** Whether anything of this ship can be repaired where it is (R79, R133). */
+	fun canBeRepaired(): Boolean = isDamaged() && repairCostHere() > 0
 
 	/** The turn whose Investment this ship leaves the yard in (R63): the one after it was bought; null once it's out. */
 	fun leavesYardOnTurn(): Int? = boughtOnTurn?.takeIf { isInShipyard() }?.plus(1)

@@ -14,7 +14,6 @@ export const SECOND_LAST_TURN_WARNING = 'This ship would leave the yard only in 
 export const BUY_BUTTON = 'Buy ship';
 export const BUY_CLOSED_TEXT = 'Plan a ship here at any time; you can buy it during Investment.';
 export const REFIT_NOTE = 'Fit or remove modules in port, or while the ship is still in the yard.';
-export const REPAIR_NOTE = 'Repair at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.';
 
 /** The goods in the server's order, which a sold ship's cargo goes into the warehouse in (R66, `Goods` order). */
 const GOODS_ORDER = ['CHIPS', 'FOOD', 'ISO', 'POLY'];

@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.adapter.dynamodb
 
 import dev.adriangrzebyk.trader.game.GameStore
+import dev.adriangrzebyk.trader.game.NotepadStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -54,6 +55,9 @@ class DynamoDbConfiguration(
 		}
 		return DynamoDbGameStore(dynamoDbClient, tableName)
 	}
+
+	@Bean
+	fun notepadStore(dynamoDbClient: DynamoDbClient): NotepadStore = DynamoDbNotepadStore(dynamoDbClient, tableName)
 
 	companion object {
 		private val API_CALL_TIMEOUT = Duration.ofSeconds(10)

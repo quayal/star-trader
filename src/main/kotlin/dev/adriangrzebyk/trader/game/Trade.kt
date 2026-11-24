@@ -31,15 +31,14 @@ data class Trade(val offer: Offer, val marketMax: Int, val units: Int, val posit
 	fun marketRise(): MarketRise? = positionRoll?.takeIf { it.rose() }?.let { MarketRise(offer.playerEmail, it.demoted) }
 
 	/**
-	 * The card this trade's position roll at [good] makes (R124): the trader's, when it rose nothing; the Dictators', when
-	 * it replaced them; none when it made no roll, or rose with nobody demoted.
+	 * The card this trade's position roll at [good] makes (R124): the trader's, in red, when it rose nothing; or, when it rose,
+	 * the trader's in green and the demoted Dictators' in red; none when it made no roll.
 	 */
 	fun positionNotice(good: MarketGood): Notice? {
 		val roll = positionRoll ?: return null
 		return when {
 			!roll.rose() -> Notice.setback(NoticeKind.NO_PROMOTION, good.system, listOf(offer.playerEmail))
-			roll.demoted.isNotEmpty() -> Notice.setback(NoticeKind.DEMOTED, good.system, roll.demoted)
-			else -> null
+			else -> Notice.positionGained(good.system, offer.playerEmail, roll.demoted)
 		}
 	}
 

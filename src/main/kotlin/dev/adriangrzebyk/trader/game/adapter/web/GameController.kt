@@ -16,6 +16,8 @@ import dev.adriangrzebyk.trader.game.GameStore
 import dev.adriangrzebyk.trader.game.InvalidGameOperationException
 import dev.adriangrzebyk.trader.game.InvestmentService
 import dev.adriangrzebyk.trader.game.NewsService
+import dev.adriangrzebyk.trader.game.NotepadService
+import dev.adriangrzebyk.trader.game.NotepadStore
 import dev.adriangrzebyk.trader.game.OpenGamesService
 import dev.adriangrzebyk.trader.game.OpportunityService
 import dev.adriangrzebyk.trader.game.Player
@@ -41,7 +43,7 @@ import org.springframework.web.server.ResponseStatusException
  */
 @RestController
 @RequestMapping("/api")
-class GameController(idGenerator: GameIdGenerator, private val gameStore: GameStore, dice: Dice) {
+class GameController(idGenerator: GameIdGenerator, private val gameStore: GameStore, notepadStore: NotepadStore, dice: Dice) {
 
 	private val gameCreationService = GameCreationService(idGenerator, gameStore)
 	private val gameJoiningService = GameJoiningService(gameStore)
@@ -52,6 +54,7 @@ class GameController(idGenerator: GameIdGenerator, private val gameStore: GameSt
 	private val cargoService = CargoService(gameStore)
 	private val investmentService = InvestmentService(gameStore, dice)
 	private val controlService = ControlService(gameStore, dice)
+	private val notepadService = NotepadService(gameStore, notepadStore)
 	private val opportunityService = OpportunityService(gameStore, dice)
 	private val newsService = NewsService(gameStore)
 	private val shipJumpsService = ShipJumpsService(gameStore, dice)
@@ -700,6 +703,15 @@ class GameController(idGenerator: GameIdGenerator, private val gameStore: GameSt
 
 		return GameResponseDto(game, session.email)
 	}
+
+	/** The caller's notepad (R135): `{ text }`, empty when they never wrote one. `403` for anyone but a player of the game. */
+	@GetMapping("/games/{id}/notepad")
+	fun notepad(@PathVariable id: String, session: Session): NotepadDto = NotepadDto(notepadService.read(id, session.email))
+
+	/** Saves the caller's notepad (R135): `{ text }`, at most 5,000 characters, replacing the last. `409` for more, or once eliminated. */
+	@PutMapping("/games/{id}/notepad")
+	fun saveNotepad(@PathVariable id: String, @RequestBody(required = false) request: NotepadDto?, session: Session): NotepadDto =
+		NotepadDto(notepadService.write(id, session.email, request?.text))
 
 	/**
 	 * A player's answer to whether they back the corporation under reputation control (R129): `{ back }`, true to back it. Once

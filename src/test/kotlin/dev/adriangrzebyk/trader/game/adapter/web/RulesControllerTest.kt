@@ -36,9 +36,11 @@ class RulesControllerTest {
 		assertThat(rules.reputation.bonus[27]).isEqualTo(10)
 		assertThat(rules.sabotage.first().from).isNull()
 		// Playtest 2026-11-21: every hull and module, so players can plan a ship outside Investment.
-		val clarinet = HullRuleResponseDto("Clarinet", 160, 5, 1, 0, 3, 2, 2, 20, military = false, aerodynamic = false)
-		val safeJump = ModuleRuleResponseDto("Safe jump", 10, 0, 0, 0, 0, 0, military = false, takesModuleCapacity = false, jumpModifier = 2)
-		val arsenal = ModuleRuleResponseDto("Arsenal", 100, 1, 7, 14, 0, 0, military = true, takesModuleCapacity = true, jumpModifier = 0)
+		val clarinet = HullRuleResponseDto("CLARINET", "Clarinet", 160, 5, 1, 0, 3, 2, 2, 20, military = false, aerodynamic = false)
+		val safeJump =
+			ModuleRuleResponseDto("SAFE_JUMP", "Safe jump", 10, 0, 0, 0, 0, 0, military = false, takesModuleCapacity = false, jumpModifier = 2)
+		val arsenal =
+			ModuleRuleResponseDto("ARSENAL", "Arsenal", 100, 1, 7, 14, 0, 0, military = true, takesModuleCapacity = true, jumpModifier = 0)
 		assertThat(rules.hulls).hasSize(13).contains(clarinet)
 		assertThat(rules.modules).contains(safeJump, arsenal)
 	}

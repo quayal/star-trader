@@ -21,6 +21,7 @@ import dev.adriangrzebyk.trader.game.MarketPosition
 import dev.adriangrzebyk.trader.game.MarketPrices
 import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.ModuleMoves
+import dev.adriangrzebyk.trader.game.Notepad
 import dev.adriangrzebyk.trader.game.Notice
 import dev.adriangrzebyk.trader.game.Offer
 import dev.adriangrzebyk.trader.game.OutputPlacement
@@ -1225,6 +1226,12 @@ data class JumpShipRequestDto(val ship: String? = null, val destination: String?
 	fun destination(): StarSystem? = StarSystem.entries.firstOrNull { it.name == destination }
 }
 
+/** A player's notepad (R135), sent to its owner alone and saved as they type. */
+data class NotepadDto(val text: String = "") {
+
+	constructor(notepad: Notepad) : this(notepad.text)
+}
+
 /** The answer to whether to back the corporation under reputation control (R129): true to back it. */
 data class BackingRequestDto(val back: Boolean? = null)
 
@@ -1266,6 +1273,7 @@ data class YourShipResponseDto(
 	val jumpChances: Map<String, JumpChanceResponseDto>,
 	val hullDamage: Int,
 	val repairCost: Int,
+	val hullRepairNote: String?,
 	val landing: LandingOddsResponseDto,
 	val specialLots: List<SpecialLotResponseDto>,
 	val deliveryJob: String?,
@@ -1295,7 +1303,8 @@ data class YourShipResponseDto(
 		ship.leavesYardOnTurn(),
 		chances.entries.associate { (system, chance) -> system.name to JumpChanceResponseDto(chance) },
 		ship.hullDamage,
-		ship.repairCost(),
+		ship.repairCostHere(),
+		ship.hullRepairNote(),
 		LandingOddsResponseDto(odds),
 		ship.specialLots.map { SpecialLotResponseDto(it) },
 		ship.deliveryJob?.opportunity?.description(),

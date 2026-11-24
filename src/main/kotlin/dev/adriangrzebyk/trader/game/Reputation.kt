@@ -46,6 +46,12 @@ data class Reputation(val value: Int) {
 		/** R129: a reputation up to here is examined in the Control phase. */
 		const val CONTROL_UP_TO = 5
 
+		/** R134: what buying with a d6 [roll] adds: the roll, but nothing for a 6. */
+		fun growthFromBuying(roll: Int): Int = if (roll == BUY_NO_GROWTH_ROLL) 0 else roll
+
+		/** R134: the roll that buys no growth. */
+		const val BUY_NO_GROWTH_ROLL = 6
+
 		/** R87: what buying 1d6 of reputation costs, once per Investment. */
 		const val BUY_COST = 20
 

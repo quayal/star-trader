@@ -103,7 +103,7 @@ export function guideSections(rules) {
 				lines: [
 					`Starts at ${reputation.start}, from 0 to ${reputation.max}.`,
 					`End of each turn: ${signed(reputation.recovery)} from 1 to ${reputation.recoveryUpTo}.`,
-					`Buy 1d6 for ${reputation.buyCost} HT once per Investment.`,
+					`Buy 1d6 for ${reputation.buyCost} HT once per Investment; a 6 adds nothing.`,
 					`Bonus at the end of each turn: ${bonus}.`,
 				],
 			},

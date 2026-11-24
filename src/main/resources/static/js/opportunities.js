@@ -62,6 +62,51 @@ function defaultUnits(game, terms) {
 }
 
 /**
+ * What taking [form] costs with what the viewer has picked, [choice] (`{ units, hull, crew, ship, modules, removed }`: ids as
+ * the form's controls hold them), worked out live as for a ship bought in a shipyard (R61): `{ total, refund, affordable, text }`,
+ * where [affordable] counts the refund of modules taken off (the server pays it back first). Null when nothing is priced yet: a
+ * free opportunity, or a choice still incomplete. [rules] is GET /api/rules, for the hulls', modules' and crews' prices (R113).
+ */
+export function opportunityCost(game, rules, form, choice) {
+	const money = game.you?.money ?? 0;
+	const priced = (total, refund, text) => ({ total, refund, affordable: total - refund <= money, text: refund ? `${text}, ${refund} HT back` : text });
+	const moduleOf = id => rules?.modules?.find(module => module.id === id);
+	const crewPrice = id => rules?.crewClasses?.find(crew => crew.id === id)?.pricePerCrew;
+	if (form.kind === 'ILLEGAL_GOODS' || form.kind === 'FURS') {
+		const units = Number(choice.units);
+		return Number.isInteger(units) && units >= 1 ? priced(units * form.price, 0, `${units} × ${form.price} = ${units * form.price} HT`) : null;
+	}
+	if (form.kind !== 'MILITARY_SHIP' && form.kind !== 'MILITARY_MODULES') {
+		return null;
+	}
+	const chosen = (choice.modules ?? []).map(moduleOf);
+	if (chosen.includes(undefined)) {
+		return null;
+	}
+	if (form.kind === 'MILITARY_SHIP' && choice.hull) {
+		const hull = rules?.hulls?.find(entry => entry.id === choice.hull);
+		const perCrew = crewPrice(choice.crew);
+		if (!hull || perCrew === undefined) {
+			return null;
+		}
+		const modules = chosen.reduce((sum, module) => sum + module.price, 0);
+		const crewCount = hull.crew + chosen.reduce((sum, module) => sum + module.crew, 0);
+		const total = hull.price + modules + crewCount * perCrew;
+		return priced(total, 0, `Hull ${hull.price} + modules ${modules} + crew ${crewCount} × ${perCrew} = ${total} HT`);
+	}
+	// Modules alone, on a ship of the viewer's on the Planet: each costs its price and its crew at that ship's class (R113).
+	const own = (game.you?.ships ?? []).find(ship => ship.name === choice.ship);
+	const perCrew = own && crewPrice(own.crewClass);
+	if (perCrew === undefined || chosen.length === 0) {
+		return null;
+	}
+	const modules = chosen.reduce((sum, module) => sum + module.price, 0);
+	const crew = chosen.reduce((sum, module) => sum + module.crew, 0) * perCrew;
+	const refund = (choice.removed ?? []).map(moduleOf).filter(Boolean).reduce((sum, module) => sum + Math.floor(module.price / 2), 0);
+	return priced(modules + crew, refund, `Modules ${modules} + crew ${crew} = ${modules + crew} HT`);
+}
+
+/**
  * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, maxUnits, facts, hulls, modules,
  * maxModules, crewClasses, hullOptional, room, note, takeable }`; [room] is each ship's room for modules alone ([roomOf]). [ships] are those that can take it now; an empty list says why in [note].
  */
@@ -75,7 +120,7 @@ function opportunityFormsWithoutTakeable(game) {
 		const terms = tipOff.terms;
 		const at = systemName(game, terms.buyAt);
 		const base = {
-			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0,
+			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
 			facts: goodsFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
 			room: {},
 		};

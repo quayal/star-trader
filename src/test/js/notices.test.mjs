@@ -244,3 +244,27 @@ describe('the seizure card (creator, 2026-11-23)', () => {
 		assert.deepEqual(toasts(challenge('CHALLENGE_SUCCEEDED').log, 0, 'p1').shown, []);
 	});
 });
+
+describe('a gained market position (R43, creator 2026-11-24)', () => {
+	const game = {
+		id: 'g1',
+		players: [{ id: 'p1', corporationName: 'Vega Lines' }, { id: 'p2', corporationName: 'Orion Freight' }, { id: 'p3', corporationName: 'Kessler' }],
+		log: [{ turn: 3, text: 'Vega Lines traded 7 u — rolled 5: now Dictator of ISO at Tau Ceti; Orion Freight is demoted to Wholesaler', notice: { kind: 'POSITION_GAINED', system: 'TAU_CETI', systemName: 'Tau Ceti', playerIds: ['p1', 'p2'], round: null, interception: null } }],
+	};
+
+	it('gives the trader a green card', () => {
+		const [card] = noticeCards(game, 0, 'p1');
+
+		assert.equal(card.title, 'You gained a market position');
+		assert.equal(card.tone, 'rise');
+		assert.deepEqual(card.lines, [game.log[0].text]);
+	});
+
+	it('gives the demoted Dictator a red one, and nobody else a card', () => {
+		const [card] = noticeCards(game, 0, 'p2');
+
+		assert.equal(card.title, 'You lost a market position');
+		assert.equal(card.tone, 'alert');
+		assert.deepEqual(noticeCards(game, 0, 'p3'), []);
+	});
+});

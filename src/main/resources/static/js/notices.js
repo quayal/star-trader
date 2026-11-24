@@ -37,6 +37,16 @@ function challengeCard(succeeded) {
 }
 
 /**
+ * A position roll that rose its trader a tier (R43, creator 2026-11-24): the trader's card is green, and the Dictators it
+ * replaced get a red one. The notice's first player is the trader, the rest the demoted.
+ */
+function positionGainedCard(where, notice, myId) {
+	return notice.playerIds[0] === myId
+		? { title: 'You gained a market position', lead: `Your position roll at ${where} moved you up a tier.`, tone: 'rise' }
+		: { title: 'You lost a market position', lead: `Another trader's position roll at ${where} took your Dictator place.`, tone: 'alert' };
+}
+
+/**
  * R124 (creator, 2026-11-23): a roll that went against a player gets them a card of its own; everyone else sees the
  * line as a toast. Each kind's card, worded for the player it happened to (alert unless it says otherwise), given the
  * place, the notice, the viewer and the game.
@@ -53,6 +63,11 @@ const SETBACKS = {
 	CHALLENGE_SUCCEEDED: challengeCard(true),
 	CHALLENGE_FAILED: challengeCard(false),
 };
+
+/** Whether [notice] is a position gained (R43) by someone other than [myId] or a Dictator they replaced: then [myId] gets its line as a toast. */
+function someoneElsesGain(notice, myId) {
+	return Boolean(notice && notice.kind === 'POSITION_GAINED' && !notice.playerIds.includes(myId));
+}
 
 /** Whether [notice] is a setback (R124) that happened to someone other than [myId]: then [myId] gets its line as a toast. */
 function someoneElsesSetback(notice, myId) {
@@ -120,6 +135,8 @@ function cardFor(game, notice, texts, myId, entry) {
 		return { tone: 'alert', ...SETBACKS[notice.kind](where, notice, myId, game), lines: texts };
 	}
 	switch (notice.kind) {
+	case 'POSITION_GAINED':
+		return { ...positionGainedCard(where, notice, myId), lines: texts };
 	case 'INTERCEPTION': {
 		const card = interceptionCard(game, notice, myId);
 		return { ...card, lines: [`Rolls: ${notice.interception.interceptorRoll} vs ${notice.interception.arrivingRoll}`, ...texts.slice(1)] };
@@ -179,6 +196,8 @@ export function noticeCards(game, from, myId) {
 		.filter(group => group.notice.kind !== 'SABOTAGE' || group.notice.playerIds.includes(myId))
 		// R124: a setback's card is for the player it happened to; everyone else gets the line as a toast.
 		.filter(group => !someoneElsesSetback(group.notice, myId))
+		// A gained position's card is for the trader and the Dictators it replaced; everyone else reads the line in the log.
+		.filter(group => group.notice.kind !== 'POSITION_GAINED' || group.notice.playerIds.includes(myId))
 		.map(group => ({
 			key: `${game.id}/log/${group.start}`,
 			end: group.end,
@@ -255,7 +274,7 @@ export function cardsFrom(remembered, logLength) {
  * many more there were.
  */
 export function toasts(log, from, myId) {
-	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice || someoneElsesSetback(entry.notice, myId)).map(entry => entry.text);
+	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice || someoneElsesSetback(entry.notice, myId) || someoneElsesGain(entry.notice, myId)).map(entry => entry.text);
 	return { shown: lines.slice(-MAX_TOASTS), more: Math.max(0, lines.length - MAX_TOASTS) };
 }
 

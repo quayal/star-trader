@@ -59,6 +59,9 @@ enum class StarSystem(
 	/** Whether this system has a shipyard (R60): Beta Hydri, Epsilon Eridani and Tau Ceti. */
 	fun hasShipyard(): Boolean = this == BETA_HYDRI || this == EPSILON_ERIDANI || this == TAU_CETI
 
+	/** Whether this system's shipyard repairs a military hull (R133): only Tau Ceti's, where military ships may enter (R56). */
+	fun repairsMilitaryHulls(): Boolean = this == TAU_CETI
+
 	/** Whether this system's Port has a Parking Hangar (R127): every system but Sigma Draconis and Mu Herculis. */
 	fun hasHangar(): Boolean = this != SIGMA_DRACONIS && this != MU_HERCULIS
 

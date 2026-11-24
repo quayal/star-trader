@@ -121,6 +121,7 @@
 			align-items: start;
 		}
 		.deck__side { display: grid; gap: var(--space-panel); }
+		.deck__center { display: grid; gap: var(--space-panel); min-width: 0; align-content: start; }
 		.deck__side > .is-blocking { order: -1; } /* playtest 2026-11-21: what must be decided first is on top */
 		@media (max-width: 1200px) {
 			.deck { grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr); }
@@ -128,7 +129,7 @@
 		}
 		@media (max-width: 900px) {
 			.deck { grid-template-columns: minmax(0, 1fr); }
-			.deck__map { order: -1; }
+			.deck__center { order: -1; }
 		}
 		/* Playtest 2026-11-21: the bid box stands out and shows the placed bid large. */
 		.bid-panel { display: grid; gap: var(--space-group); }
@@ -418,6 +419,18 @@
 		.recruit-row .price-input { width: 7ch; }
 		.agent-actions { display: flex; gap: var(--space-group); flex-wrap: wrap; align-items: center; margin-top: var(--space-hairline); }
 		.opportunity-form p { margin: 0; }
+		/* Playtest 2026-11-24: an opportunity's fields in labelled groups: ship, where, modules, then Take on its own row. */
+		.opportunity-form { display: grid; padding: var(--space-related); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-control); }
+		.opportunity-form > .opportunity-group + .opportunity-group { margin-top: var(--space-hairline); }
+		.opportunity-group { display: grid; gap: var(--space-group); padding-top: var(--space-group); border-top: var(--border-width) solid var(--border-subtle); }
+		.opportunity-group__title { font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+		.opportunity-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-related); align-items: end; }
+		.opportunity-field { display: grid; gap: var(--space-hairline); }
+		.opportunity-field > span { font-size: var(--text-body); color: var(--text-primary); font-weight: 600; }
+		.opportunity-modules { display: flex; flex-wrap: wrap; gap: var(--space-group); }
+		.opportunity-modules .choice { min-width: 110px; }
+		.opportunity-take { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-related); flex-wrap: wrap; }
+		.opportunity-cost { margin: 0; text-align: right; }
 		.corporation__section { display: grid; gap: var(--space-hairline); }
 		.corporation__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		/* Assets (creator, 2026-11-18): where the player's money sits, laid out like Corporations. */
@@ -429,6 +442,13 @@
 		.assets__summary div { display: grid; gap: var(--space-hairline); }
 		.assets__summary dt { font-size: var(--text-caption); color: var(--text-muted); }
 		.assets__summary dd { margin: 0; font-family: var(--font-display); font-size: var(--text-title); }
+		/* Playtest 2026-11-24: the loan reads as ordinary text (the body font), with the figures that matter in bold. */
+		.loan-box { font-family: var(--font-body); font-size: var(--text-value); }
+		.loan-box > h3 { margin: 0 0 var(--space-related); font-size: var(--text-title); }
+		.loan-box__lines { display: grid; gap: var(--space-hairline); }
+		.loan-box__lines p, .loan-box > p { margin: 0; }
+		.loan-box strong { font-weight: 700; }
+		.notepad__text { width: 100%; resize: vertical; font-family: var(--font-body); font-size: var(--text-value); line-height: 1.4; }
 		.assets__group { display: grid; gap: var(--space-related); }
 		.assets__group > h3 { margin: 0; font-size: var(--text-title); }
 		.assets__goods { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
@@ -780,12 +800,22 @@
 					<p class="message" id="jump-message" role="status" tabindex="-1"></p>
 				</section>
 			</div>
-			<section class="panel deck__map" aria-labelledby="map-title">
-				<h2 id="map-title">Map</h2>
-				<div id="map"></div>
-				<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there &middot; <svg class="hangar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="3.5"/><text x="12" y="17.5" text-anchor="middle">P</text></svg> Parking Hangar: protects a ship from sabotage. Select a system for its details.</p>
-				<p class="map-legend" id="map-legend"></p>
-			</section>
+			<div class="deck__center">
+				<section class="panel" aria-labelledby="map-title">
+					<h2 id="map-title">Map</h2>
+					<div id="map"></div>
+					<p class="muted map-key">&#9632; your ship (name) &middot; &#9633; another player's ship (corporation initials) &middot; <svg class="shipyard-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> shipyard: build and repair ships there &middot; <svg class="hangar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="3.5"/><text x="12" y="17.5" text-anchor="middle">P</text></svg> Parking Hangar: protects a ship from sabotage. Select a system for its details.</p>
+					<p class="map-legend" id="map-legend"></p>
+				</section>
+				<!-- R135 (creator, 2026-11-24): a notepad only its owner sees, saved as they type, directly below the map. -->
+				<section class="panel" id="notepad-panel" aria-labelledby="notepad-title">
+					<h2 id="notepad-title">Notes</h2>
+					<p class="muted" id="notepad-hint"></p>
+					<label class="field-label" for="notepad-text">Your notes</label>
+					<textarea class="control notepad__text" id="notepad-text" rows="8" maxlength="5000" aria-describedby="notepad-status" disabled></textarea>
+					<p class="muted" id="notepad-status" role="status"></p>
+				</section>
+			</div>
 			<div class="deck__side deck__offers">
 				<!-- E10: an interception or battle under way; the battle itself is in its own dialog (creator, 2026-11-19). -->
 				<section class="panel fight-panel" id="fight-panel" aria-labelledby="fight-summary-title" hidden>
@@ -1048,7 +1078,12 @@
 			<p class="muted">Where your money is. Goods are valued at each good’s mean price across the systems that trade it today, wherever they are; ships at what they would fetch sold.</p>
 			<section class="panel" aria-label="Summary">
 				<dl class="assets__summary" id="assets-summary"></dl>
-				<p id="assets-loan" hidden></p>
+			</section>
+			<!-- Playtest 2026-11-24: an open loan in a box of its own, not a line under the summary (R90–R95). -->
+			<section class="panel loan-box" id="assets-loan-box" aria-labelledby="assets-loan-title" hidden>
+				<h3 id="assets-loan-title">Loan</h3>
+				<div class="loan-box__lines" id="assets-loan-details"></div>
+				<p class="muted" id="assets-loan-note"></p>
 			</section>
 			<section class="assets__group" aria-labelledby="assets-goods-title">
 				<h3 id="assets-goods-title">Goods</h3>
@@ -1194,6 +1229,15 @@
 		<div class="infrastructure" id="opportunity-screen" hidden>
 			<h2 class="system__title" id="opportunity-title" tabindex="-1">Opportunity</h2>
 			<p class="message" id="opportunity-screen-status" role="status"></p>
+			<!-- R102 (D24): the Opportunity phase, played in turn order; at the top of the screen since 2026-11-24 (creator). Static markup; lists are redrawn only when what they show changes. -->
+			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-turn-title" hidden>
+				<h2 id="opportunity-turn-title">Whose turn</h2>
+				<p id="opportunity-status" role="status" tabindex="-1"></p>
+				<div id="opportunity-done-row" hidden><button class="btn" id="opportunity-done-button" type="button">I'm done with opportunities</button></div>
+				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
+				<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
+				<div id="owed-hits"></div>
+			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
 				<h2 id="collect-title" tabindex="-1">Collect your output</h2>
@@ -1223,15 +1267,6 @@
 				<ul class="corporation__list" id="expeditions-due"></ul>
 				<ul class="corporation__list" id="deliveries-due"></ul>
 				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
-			</section>
-			<!-- R102 (D24): the Opportunity phase, played in turn order. Static markup; lists are redrawn only when what they show changes. -->
-			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-turn-title" hidden>
-				<h2 id="opportunity-turn-title">Whose turn</h2>
-				<p id="opportunity-status" role="status" tabindex="-1"></p>
-				<div id="opportunity-done-row" hidden><button class="btn" id="opportunity-done-button" type="button">I'm done with opportunities</button></div>
-				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
-				<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
-				<div id="owed-hits"></div>
 			</section>
 			<section class="panel" id="agents-panel" aria-labelledby="agents-title" hidden>
 				<h3 id="agents-title">Agents</h3>
@@ -1680,7 +1715,6 @@
 	import {
 		BUY_BUTTON,
 		REFIT_NOTE,
-		REPAIR_NOTE,
 		HULL_COLUMNS,
 		fitCheck,
 		hullRows,
@@ -1762,6 +1796,8 @@
 		hangarQuestion,
 		hangarYesLabel,
 	} from './js/hangar.js';
+	import { loanBox } from './js/loan-box.js';
+	import { NOTEPAD_HINT, SAVE_DELAY_MS, canEditNotepad, charactersLeftText, notepadStatus } from './js/notepad.js';
 	import {
 		PLACE_SHIP_BUTTON,
 		PLACE_SHIP_HINT,
@@ -1889,7 +1925,7 @@
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { corporationName, statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
-	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, specialSales } from './js/opportunities.js';
+	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityCost, opportunityForms, passengerForms, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -2819,7 +2855,99 @@
 		renderDeckAgents(game);
 		renderDeckPositions(game);
 		renderAccount(game);
+		updateNotepad(game);
 	}
+
+	// ── R135: the notepad, loaded once per game and saved as the player types ──
+
+	let notepadGameId = null; // the game whose notes are in the box
+	let notepadSaveTimer = null;
+	let notepadSaving = false;
+	let notepadSavedText = '';
+
+	function setNotepadStatus(state) {
+		const left = charactersLeftText($('notepad-text').value.length);
+		$('notepad-status').textContent = [notepadStatus(state), left].filter(Boolean).join(' · ');
+	}
+
+	async function updateNotepad(game) {
+		$('notepad-hint').textContent = NOTEPAD_HINT;
+		if (notepadGameId === game.id && !$('notepad-text').disabled && !canEditNotepad(game)) {
+			$('notepad-text').disabled = true; // eliminated since it loaded
+			setNotepadStatus('readonly');
+		}
+		if (!game.you || notepadGameId === game.id) {
+			return;
+		}
+		notepadGameId = game.id;
+		clearTimeout(notepadSaveTimer);
+		const box = $('notepad-text');
+		box.value = '';
+		box.disabled = true;
+		setNotepadStatus('loading');
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(game.id)}/notepad`);
+		} catch {
+			response = null;
+		}
+		if (notepadGameId !== game.id) {
+			return; // the player moved to another game meanwhile
+		}
+		if (!response?.ok) {
+			notepadGameId = null; // try again on the next poll
+			return;
+		}
+		notepadSavedText = (await response.json()).text;
+		box.value = notepadSavedText;
+		box.disabled = !canEditNotepad(game);
+		setNotepadStatus(box.disabled ? 'readonly' : 'saved');
+	}
+
+	/** Saves what is in the box now; if more was typed while it saved, saves again. */
+	async function saveNotepad() {
+		const gameId = notepadGameId;
+		const text = $('notepad-text').value;
+		if (!gameId || notepadSaving || text === notepadSavedText) {
+			return;
+		}
+		notepadSaving = true;
+		setNotepadStatus('saving');
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/notepad`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text }),
+			});
+		} catch {
+			response = null;
+		}
+		notepadSaving = false;
+		if (gameId !== notepadGameId) {
+			return;
+		}
+		if (response?.ok) {
+			notepadSavedText = text;
+			setNotepadStatus($('notepad-text').value === text ? 'saved' : 'dirty');
+		} else {
+			setNotepadStatus('failed');
+		}
+		if ($('notepad-text').value !== notepadSavedText) {
+			clearTimeout(notepadSaveTimer);
+			notepadSaveTimer = setTimeout(saveNotepad, SAVE_DELAY_MS);
+		}
+	}
+
+	$('notepad-text').addEventListener('input', () => {
+		setNotepadStatus('dirty');
+		clearTimeout(notepadSaveTimer);
+		notepadSaveTimer = setTimeout(saveNotepad, SAVE_DELAY_MS);
+	});
+	$('notepad-text').addEventListener('blur', () => {
+		clearTimeout(notepadSaveTimer);
+		saveNotepad(); // leaving the box saves at once
+	});
 
 	// R104 (playtest, 2026-11-20): the viewer's agents and where they are, movable from the Deck at any time.
 	function renderDeckAgents(game) {
@@ -2877,9 +3005,13 @@
 	function renderAssets(game) {
 		const view = assetsView(game);
 		// R95: an open loan is a liability under money, the borrower's alone.
-		const loan = game.you?.loan?.loan;
-		showText('assets-loan', loan ? `Loan: you owe ${loan.amount} HT (${loan.interest} HT interest a turn, ${loan.turnsLeft} left). It's subtracted from your final money.` : '');
-		$('assets-loan').hidden = !loan;
+		const loan = game.you?.loan;
+		const box = loanBox(loan?.loan, loan, game.turn?.number);
+		$('assets-loan-box').hidden = !box;
+		if (box) {
+			$('assets-loan-details').replaceChildren(...box.lines.map(line => element('p', {}, ...line.map(part => (part.strong ? element('strong', {}, part.text) : part.text)))));
+			showText('assets-loan-note', box.note);
+		}
 		const key = JSON.stringify([game.id, view]);
 		if (view === null || key === shownAssetsKey) {
 			return;
@@ -2950,12 +3082,13 @@
 			}));
 		const { add, remove, crew } = refitOptions(shipyard, own);
 		const refit = [];
-		if (own.repairCost > 0) {
-			// R79: one action repairs the hull and every damaged module, only at a shipyard.
-			refit.push(own.canRepair
-				? element('div', { class: 'fleet-ship__row' },
-					shipButton('quiet-button', `Repair all damage (${own.repairCost} HT)`, () => repairShip(game, own)))
-				: element('p', { class: 'muted' }, REPAIR_NOTE));
+		// R79, R133: one action repairs every damaged module anywhere, and the hull only where it can be (a shipyard; a military hull, Tau Ceti's).
+		if (own.canRepair) {
+			refit.push(element('div', { class: 'fleet-ship__row' },
+				shipButton('quiet-button', `${own.hullRepairNote ? 'Repair modules' : 'Repair all damage'} (${own.repairCost} HT)`, () => repairShip(game, own))));
+		}
+		if (own.hullRepairNote) {
+			refit.push(element('p', { class: 'muted' }, own.hullRepairNote));
 		}
 		if (!own.canRefit) {
 			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
@@ -6113,7 +6246,6 @@
 		showText('opportunities-note', myTurn ? 'Take what you learned in News; the first taker gets it.' : 'You can act on your Opportunity turn.');
 		const shipOptions = names => names.map(name => element('option', { value: name }, name));
 		drawOnce('opportunity-forms', JSON.stringify([forms, myTurn]), () => forms.map(form => {
-			const fields = [];
 			const ship = element('select', { class: 'control', 'aria-label': 'Ship' }, ...shipOptions(form.ships));
 			const units = element('input', { class: 'control price-input', inputmode: 'numeric', value: String(form.defaultUnits), 'aria-label': `Units (1–${form.maxUnits})` });
 			const name = element('input', { class: 'control', 'aria-label': 'New ship name', placeholder: 'Ship name' });
@@ -6122,16 +6254,26 @@
 				...form.hulls.map(h => element('option', { value: h.id }, h.name)));
 			const crew = element('select', { class: 'control', 'aria-label': 'Crew class' }, ...['A', 'B', 'C', 'D'].map(c => element('option', { value: c, ...(c === 'B' ? { selected: '' } : {}) }, `Crew ${c}`)));
 			const boxes = form.modules.map(m => element('label', { class: 'choice' }, element('input', { type: 'checkbox', value: m.id }), m.name));
+			// Playtest 2026-11-24: labelled groups instead of one crowded row: the ship (hull, name, crew), what is fitted, then Take.
+			const field = (label, control) => element('label', { class: 'opportunity-field' }, element('span', {}, label), control);
+			const group = (title, ...children) => element('div', { class: 'opportunity-group' }, element('p', { class: 'opportunity-group__title' }, title), ...children);
+			const groups = [];
 			if (form.kind === 'MILITARY_SHIP') {
-				fields.push(hull, name, crew);
+				groups.push(group('Ship', element('div', { class: 'opportunity-fields' }, field('Hull', hull), field('Name', name), field('Crew', crew))));
 			}
+			const placement = [];
 			if (form.ships.length && form.kind !== 'MILITARY_SHIP' || form.hullOptional) {
-				fields.push(ship);
+				placement.push(field(form.kind === 'MILITARY_SHIP' ? 'Or fit the modules to' : 'Ship', ship));
 			}
 			if (form.units) {
-				fields.push(units);
+				placement.push(field(`Units (1–${form.maxUnits})`, units));
 			}
-			fields.push(...boxes);
+			if (placement.length) {
+				groups.push(group(form.kind === 'MILITARY_SHIP' ? 'Without a hull' : 'Where', element('div', { class: 'opportunity-fields' }, ...placement)));
+			}
+			if (boxes.length) {
+				groups.push(group(form.maxModules ? `Modules (up to ${form.maxModules})` : 'Modules', element('div', { class: 'opportunity-modules' }, ...boxes)));
+			}
 			// Creator, 2026-11-21: modules alone on a full ship: the chosen ship's room, and what could come off to make it.
 			const room = element('div', { class: 'opportunity-room' });
 			const removeBoxes = () => [...room.querySelectorAll('input')];
@@ -6148,7 +6290,30 @@
 			ship.addEventListener('change', showRoom);
 			hull.addEventListener('change', showRoom);
 			showRoom();
-			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.takeable ? {} : { disabled: '' }) }, 'Take');
+			const take = element('button', { class: 'btn', type: 'button' }, 'Take');
+			// Playtest 2026-11-24: the cost follows the choices live, as for a ship bought in a shipyard, and Take is inactive (not
+			// refused afterwards) when the viewer can't pay it.
+			const cost = element('p', { class: 'opportunity-cost muted', role: 'status' });
+			const choice = () => ({
+				units: units.value,
+				hull: hull.value || null,
+				crew: crew.value,
+				ship: ship.value || null,
+				modules: boxes.map(b => b.querySelector('input')).filter(input => input.checked).map(input => input.value),
+				removed: removeBoxes().filter(input => input.checked).map(input => input.value),
+			});
+			const refreshCost = () => {
+				const current = opportunityCost(lastGame, rules, form, choice());
+				const short = current && !current.affordable;
+				cost.hidden = !current;
+				cost.textContent = current ? `${current.text} · you have ${lastGame.you.money} HT` : '';
+				cost.className = `opportunity-cost ${short ? 'tone tone--alert' : 'muted'}`;
+				const blocked = !(myTurn && form.takeable) || short;
+				take.disabled = blocked;
+				take.title = short ? `Not enough HT: you have ${lastGame.you.money}.` : '';
+			};
+			[ship, units, hull, crew, ...boxes.map(b => b.querySelector('input')), room].forEach(control => control.addEventListener('input', refreshCost));
+			[ship, hull, crew, room].forEach(control => control.addEventListener('change', refreshCost));
 			take.addEventListener('click', () => gameAction(`opportunity/tip-offs/${form.slot}/take`, {
 				ship: ship.value || null,
 				units: Number(units.value),
@@ -6160,8 +6325,10 @@
 			}, 'opportunities-message', 'Taken.'));
 			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
 			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
+			refreshCost();
 			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
-				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), element('div', { class: 'agent-move' }, ...fields, take), room);
+				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), ...groups, room,
+				element('div', { class: 'opportunity-take' }, cost, take));
 		}));
 		drawOnce('passenger-forms', JSON.stringify([passengers, myTurn]), () => passengers.map(form => {
 			const destination = element('select', { class: 'control', 'aria-label': 'Destination' },

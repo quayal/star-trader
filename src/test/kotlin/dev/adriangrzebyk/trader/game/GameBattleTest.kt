@@ -404,7 +404,7 @@ class GameBattleTest {
 
 	@Test
 	fun shouldRefuseARepairAwayFromAShipyard() {
-		// R79: repair stays at a shipyard, though refits happen in any port (R65).
+		// R79, R133: a hull is repaired only at a shipyard, though refits happen in any port (R65); modules are repaired anywhere.
 		val investing =
 			withShip(afterBattleInvesting, "Wayfarer") {
 				it.copy(system = GAMMA_LEPORIS, location = ShipLocation.PORT, hullDamage = 1)
@@ -412,7 +412,7 @@ class GameBattleTest {
 
 		assertThatThrownBy { investing.repairShip("ada@example.com", "Wayfarer") }
 			.isInstanceOf(InvalidInvestmentException::class.java)
-			.hasMessage("Wayfarer must be at a shipyard to repair: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
+			.hasMessage("Wayfarer: The hull is repaired at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti.")
 	}
 
 	@Test
