@@ -214,6 +214,12 @@ data class Ship(
 	fun landingBonus(): Int =
 		(if (hull.aerodynamic) AERODYNAMIC_LANDING_BONUS else 0) + if (hasWorkingBattleComm()) BATTLE_COMM_LANDING_BONUS else 0
 
+	/** What it adds to its roll when police controls Space (R128): a working Battle comm module's +2. */
+	fun policeBonus(): Int = if (hasWorkingBattleComm()) BATTLE_COMM_POLICE_BONUS else 0
+
+	/** Whether the Port of its system admits it (R56): not with a military part where the legal system is 3 or 4. */
+	fun mayEnterPort(): Boolean = !isMilitary() || system.locations.admitsMilitaryShips()
+
 	/** Whether it has a military hull or module (R56): forced into a Port, it's confiscated (R117). */
 	fun isMilitary(): Boolean = hull.military || modules.any { it.military }
 
@@ -528,6 +534,9 @@ data class Ship(
 		return copy(location = location)
 	}
 
+	/** Whether this ship is in Space, anywhere: where police controls it (R128). */
+	fun isInSpace(): Boolean = location == ShipLocation.SPACE
+
 	/** Whether this ship is in Space at [system] (R70, R73): where it can intercept and fight. */
 	fun isInSpaceAt(system: StarSystem): Boolean = this.system == system && location == ShipLocation.SPACE
 
@@ -565,6 +574,9 @@ data class Ship(
 		/** R116: what an Aerodynamic hull and a working Battle comm add to a landing roll. */
 		const val AERODYNAMIC_LANDING_BONUS = 2
 		const val BATTLE_COMM_LANDING_BONUS = 3
+
+		/** R128: a working Battle comm module adds this to the roll against police. */
+		const val BATTLE_COMM_POLICE_BONUS = 2
 
 		/** R71: what a working Battle comm module adds to its ship's interception rolls. */
 		const val BATTLE_COMM_INTERCEPT_BONUS = 1

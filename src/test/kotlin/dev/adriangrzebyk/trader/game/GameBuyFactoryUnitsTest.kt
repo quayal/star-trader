@@ -73,7 +73,7 @@ class GameBuyFactoryUnitsTest {
 		assertThat(playerOf(game, "ada@example.com").factories).containsExactly(Factory(TAU_CETI, Goods.ISO, 6, 0))
 		assertThat(playerOf(game, "ada@example.com").ship("Wayfarer")!!.holding(Goods.ISO)).isZero()
 		assertThat(game.turn!!.isCollecting("ada@example.com")).isFalse()
-		assertThat(game.signalDoneInvesting("ada@example.com").turn!!.doneInvesting).containsExactly("ada@example.com")
+		assertThat(game.signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS).turn!!.doneInvesting).containsExactly("ada@example.com")
 	}
 
 	@Test
@@ -85,7 +85,7 @@ class GameBuyFactoryUnitsTest {
 
 	@Test
 	fun shouldLetAPlayerBuyAfterSignallingDoneBecauseDoneIsAReadinessFlag() {
-		val game = investing.signalDoneInvesting("ada@example.com").buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1)
+		val game = investing.signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS).buyFactoryUnits("ada@example.com", TAU_CETI, Goods.ISO, 1)
 
 		assertThat(playerOf(game, "ada@example.com").factories).hasSize(1)
 		assertThat(game.turn!!.doneInvesting).containsExactly("ada@example.com")

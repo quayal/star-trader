@@ -118,5 +118,32 @@ class GameLandingTest {
 			.isInstanceOf(NotAGameMemberException::class.java)
 	}
 
+	@Test
+	fun shouldRefuseAMilitaryShipThePortOfALegalSystemThreeOrFour() {
+		// R56: Beta Hydri's legal system is 4; its Planet and Space stay open to the ship
+		val military = jumping.copy(
+			players = jumping.players.map { player ->
+				player.copy(
+					ships = player.ships.map {
+						if (it.name ==
+							"Meridian"
+						) {
+							it.copy(modules = listOf(Module.DOGFIGHT) + it.modules.drop(1))
+						} else {
+							it
+						}
+					}
+				)
+			}
+		).jumpShip("grace@example.com", "Meridian", BETA_HYDRI, JUMPS_SUCCEED)
+
+		assertThatThrownBy { military.landShip("grace@example.com", ShipLocation.PORT, LANDS_SAFELY) }
+			.isInstanceOf(InvalidLandingException::class.java)
+			.hasMessageContaining("Port refuses it")
+		assertThat(
+			shipOf(military.landShip("grace@example.com", ShipLocation.SPACE, LANDS_SAFELY), "Meridian").location
+		).isEqualTo(ShipLocation.SPACE)
+	}
+
 	private fun shipOf(game: Game, name: String): Ship = game.players.flatMap { it.ships }.first { it.name == name }
 }

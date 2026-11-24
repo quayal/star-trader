@@ -9,6 +9,7 @@ import dev.adriangrzebyk.trader.game.agent.AgentPlace
 import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
+import dev.adriangrzebyk.trader.game.control.ControlResult
 import dev.adriangrzebyk.trader.game.ledger.MoneyLedger
 import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.loan.LoanCollection
@@ -49,7 +50,8 @@ data class Player(
 	val agents: List<RecruitedAgent>,
 	val ledger: MoneyLedger = MoneyLedger.START,
 	val expeditions: List<Expedition> = emptyList(),
-	val passengerGroups: List<PassengerGroup> = emptyList()
+	val passengerGroups: List<PassengerGroup> = emptyList(),
+	val eliminated: Boolean = false
 ) {
 
 	init {
@@ -1040,13 +1042,21 @@ data class Player(
 	 * ships sold at [Ship.saleValue], highest first, then from factory units at [Factory.salePricePerUnit] ([prices]),
 	 * highest first and only as many as needed. A surplus stays in cash; whatever is still owed is written off.
 	 */
-	fun collectLoan(prices: MarketPrices): Pair<Player, LoanCollection> {
-		var owed = openLoan().amount
-		var player = withLoan(null)
+	fun collectLoan(prices: MarketPrices): Pair<Player, LoanCollection> =
+		withLoan(null).payOffBySelling(openLoan().amount, prices, "Loan collected")
+
+	/**
+	 * This player after paying [amount] HT for [reason] from cash first, then from their ships sold at [Ship.saleValue],
+	 * highest first, then from factory units at [Factory.salePricePerUnit] ([prices]), highest first and only as many as
+	 * needed (R94, R129). A surplus stays in cash; whatever is still owed is written off.
+	 */
+	private fun payOffBySelling(amount: Int, prices: MarketPrices, reason: String): Pair<Player, LoanCollection> {
+		var owed = amount
+		var player = this
 		var collected = 0
 		fun settle() {
 			val paid = minOf(player.money, owed)
-			player = player.pay(paid, "Loan collected")
+			player = player.pay(paid, reason)
 			owed -= paid
 			collected += paid
 		}
@@ -1069,6 +1079,56 @@ data class Player(
 		}
 		return player to LoanCollection(collected, seizedShips, seizedUnits, owed)
 	}
+
+	/** The ships of this player in Space, anywhere: the ones police controls (R128). */
+	fun shipsInSpace(): List<Ship> = ships.filter { it.isInSpace() }
+
+	/** What [shipName] adds to its roll when police controls Space (R128): a working Battle comm module's +2. */
+	fun policeBonusFor(shipName: String): Int = checkNotNull(ship(shipName)).policeBonus()
+
+	/**
+	 * This player after a reputation control read [result] (R129): the fine paid, from assets sold when cash falls short
+	 * (what that took is the second part, null without a fine), every connection lowered and the reputation set, as the creator's
+	 * table says. An eliminated result is [eliminate]; nothing else is paid then.
+	 */
+	fun afterControl(result: ControlResult, prices: MarketPrices): Pair<Player, LoanCollection?> {
+		if (result.eliminated) {
+			return eliminate() to null
+		}
+		val (fined, collection) = if (result.fine > 0) payOffBySelling(result.fine, prices, "Fine") else this to null
+		return fined.withControlRead(result) to collection
+	}
+
+	/** This player with every connection lowered and the reputation set as [result] says (R129). */
+	private fun withControlRead(result: ControlResult): Player = copy(
+		connections = connections.lowered(result.connectionsLost, result.connectionsLost),
+		reputation = result.reputationSet?.let { Reputation(it) } ?: reputation
+	)
+
+	/**
+	 * This player after backing one whom a reputation control eliminated (R129): [result] takes political and other
+	 * connections, and [repLoss] (2d6) reputation, the line telling it.
+	 */
+	fun afterBackingLost(result: ControlResult, repLoss: Int): LoggedChange =
+		copy(connections = connections.lowered(result.backerPoliticalLost, result.backerOthersLost))
+			.loseReputation(repLoss, "backing an eliminated corporation")
+
+	/**
+	 * This player out of the game (R129): every ship, factory, warehouse, market position, agent, expedition, passenger, the
+	 * loan and the money gone. Their reputation and connections stay, for the Corporations tab to show; the game skips them.
+	 */
+	fun eliminate(): Player = copy(
+		money = 0,
+		ships = emptyList(),
+		marketPositions = emptyList(),
+		warehouses = emptyList(),
+		factories = emptyList(),
+		loan = null,
+		agents = emptyList(),
+		expeditions = emptyList(),
+		passengerGroups = emptyList(),
+		eliminated = true
+	)
 
 	/** This player's money for the final result (R95): cash less what an open loan still owes; it can be negative. */
 	fun finalMoney(): Int = money - (loan?.amount ?: 0)

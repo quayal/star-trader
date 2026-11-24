@@ -103,7 +103,7 @@ class GameTurnEngineTest {
 			Turn.bidding(
 				2
 			).copy(
-				phase = TurnPhase.INVESTMENT,
+				phase = TurnPhase.CONTROL,
 				tradingQueue = MarketGood.everyOnBoard(),
 				turnOrderPicks = listOf(TurnOrderPick("creator@example.com", 1), TurnOrderPick("joiner@example.com", 2)),
 				initiative = listOf("creator@example.com", "joiner@example.com"),

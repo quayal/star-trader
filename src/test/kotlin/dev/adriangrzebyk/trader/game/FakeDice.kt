@@ -81,3 +81,9 @@ val NO_NEWS: Dice = FakeDice(emptyList())
 
 /** Dice whose every 2d6 is a 12, so every landing on a Planet clears its security (R116): for tests about anything else. */
 val LANDS_SAFELY: Dice = FakeDice.everyTwoD6(12)
+
+/**
+ * Dice for closing Investment into Control (R128) in a test game where no ship is in Space and nobody's reputation is 5 or
+ * below: nothing is rolled, and a roll a test didn't expect fails it.
+ */
+val NO_CONTROL_ROLLS: Dice = FakeDice(emptyList())

@@ -23,6 +23,12 @@ data class Reputation(val value: Int) {
 	/** The money bonus this reputation pays at the end of a turn (R88): the creator's table from [BONUS_FROM] up, 0 below. */
 	fun bonus(): Int = BONUS[value] ?: 0
 
+	/** Whether this reputation is low enough for the Control phase to examine it (R129): [CONTROL_UP_TO] or below. */
+	fun isUnderControl(): Boolean = value <= CONTROL_UP_TO
+
+	/** Whether a d6 [roll] fails the first test of a reputation control (R129): higher than the reputation. */
+	fun failsControl(roll: Int): Boolean = roll > value
+
 	/** Whether this reputation is at [MAX], where buying more is refused (R87). */
 	fun isMax(): Boolean = value == MAX
 
@@ -36,6 +42,9 @@ data class Reputation(val value: Int) {
 		/** R86: the end-of-turn recovery, for a reputation from 1 up to [RECOVERY_UP_TO]. */
 		const val RECOVERY = 3
 		const val RECOVERY_UP_TO = 17
+
+		/** R129: a reputation up to here is examined in the Control phase. */
+		const val CONTROL_UP_TO = 5
 
 		/** R87: what buying 1d6 of reputation costs, once per Investment. */
 		const val BUY_COST = 20

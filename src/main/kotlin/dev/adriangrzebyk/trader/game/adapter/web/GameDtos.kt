@@ -177,7 +177,8 @@ data class PlayerResponseDto(
 	val reputation: Int,
 	val reputationRecovery: Int,
 	val reputationBonus: Int,
-	val agentsOnOwn: List<AgentCountResponseDto>
+	val agentsOnOwn: List<AgentCountResponseDto>,
+	val eliminated: Boolean
 ) {
 
 	constructor(player: Player, ids: PlayerIds) : this(
@@ -193,7 +194,8 @@ data class PlayerResponseDto(
 		player.reputation.value,
 		player.reputationRecovery(),
 		player.reputationBonus(),
-		player.agentsOnOwn().map { AgentCountResponseDto(it) }
+		player.agentsOnOwn().map { AgentCountResponseDto(it) },
+		player.eliminated
 	)
 }
 
@@ -341,7 +343,8 @@ data class TurnResponseDto(
 	val opportunist: String?,
 	val owedChoices: List<String>,
 	val limpyAsk: String?,
-	val doneNews: List<String>
+	val doneNews: List<String>,
+	val controlSubject: String?
 ) {
 
 	/** [ships] are every ship in the game, for a battle's ships' details (R78). */
@@ -368,7 +371,8 @@ data class TurnResponseDto(
 		turn.opportunist()?.let { ids.of(it) },
 		ids.ofAll(turn.owedChoices()),
 		turn.limpyAsk?.let { ids.of(it) },
-		ids.ofAll(turn.doneNews)
+		ids.ofAll(turn.doneNews),
+		turn.controlAudit?.let { ids.of(it.subject) }
 	)
 }
 
@@ -661,7 +665,8 @@ data class YouResponseDto(
 	val ledger: List<MoneyMovementResponseDto>,
 	val tipOffs: List<TipOffResponseDto>,
 	val expeditions: List<YourExpeditionResponseDto>,
-	val passengerGroups: List<PassengerGroupResponseDto>
+	val passengerGroups: List<PassengerGroupResponseDto>,
+	val backingAsk: String?
 ) {
 
 	/** Maps [view], which [Game.viewFor] already limited to what its player may see (R17, R29); [ids] name the players. */
@@ -704,7 +709,8 @@ data class YouResponseDto(
 		player.ledger.newestFirst().map { MoneyMovementResponseDto(it) },
 		view.tipOffs.map { TipOffResponseDto(it) },
 		player.expeditions.map { YourExpeditionResponseDto(it.ship.name, it.returnTurn, it.isDueIn(view.turnNumber)) },
-		player.passengerGroups.map { PassengerGroupResponseDto(it) }
+		player.passengerGroups.map { PassengerGroupResponseDto(it) },
+		view.backingAsk?.let { ids.of(it.subject) }
 	)
 }
 
@@ -1219,6 +1225,9 @@ data class JumpShipRequestDto(val ship: String? = null, val destination: String?
 	fun destination(): StarSystem? = StarSystem.entries.firstOrNull { it.name == destination }
 }
 
+/** The answer to whether to back the corporation under reputation control (R129): true to back it. */
+data class BackingRequestDto(val back: Boolean? = null)
+
 /** The answer to a Parking Hangar question (R127): whether the ship asked about is in the hangar this turn. */
 data class HangarRequestDto(val stay: Boolean? = null)
 
@@ -1256,7 +1265,8 @@ data class YourShipResponseDto(
 	val contraband: Boolean,
 	val canDeliver: Boolean,
 	val moduleMoves: ModuleMovesResponseDto,
-	val freeSeats: Int
+	val freeSeats: Int,
+	val portRefused: Boolean
 ) {
 
 	/**
@@ -1285,7 +1295,8 @@ data class YourShipResponseDto(
 		ship.isContraband(),
 		ship.canDeliver(),
 		ModuleMovesResponseDto(moves),
-		freeSeats
+		freeSeats,
+		!ship.mayEnterPort()
 	)
 }
 

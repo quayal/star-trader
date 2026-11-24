@@ -16,6 +16,9 @@ import dev.adriangrzebyk.trader.game.battle.Interception
 import dev.adriangrzebyk.trader.game.battle.InterceptionAnswer
 import dev.adriangrzebyk.trader.game.battle.InvalidBattleException
 import dev.adriangrzebyk.trader.game.battle.Salvo
+import dev.adriangrzebyk.trader.game.control.ControlAudit
+import dev.adriangrzebyk.trader.game.control.ControlVerdict
+import dev.adriangrzebyk.trader.game.control.PoliceRoll
 import dev.adriangrzebyk.trader.game.loan.LoanTerm
 import dev.adriangrzebyk.trader.game.news.ActiveTipOff
 import dev.adriangrzebyk.trader.game.news.Expedition
@@ -164,10 +167,11 @@ data class Game(
 	}
 
 	/**
-	 * Moves to the next phase (R44): Bidding → Initiative → News → Jumps → Trading → Opportunity → Investment → the next
-	 * turn's Bidding. Leaving Initiative fills the free places in initiative order and opens News with [dice]. Closing
+	 * Moves to the next phase (R44): Bidding → Initiative → News → Jumps → Trading → Opportunity → Investment → Control → the
+	 * next turn's Bidding. Leaving Initiative fills the free places in initiative order and opens News with [dice]. Closing
 	 * Bidding charges the bids and rolls the initiative order with [dice] (R27); leaving Trading starts Investment
-	 * ([endTrading]) and leaving Investment ends the turn ([endTurn]). No
+	 * ([endTrading]), leaving Investment opens Control with [dice] ([endInvestment]) and Control ends the turn ([endTurn]),
+	 * at once when no reputation control waits for a backer. No
 	 * clock calls this (D09): a phase ends only when its players are through, and the caller runs it inside
 	 * [GameStore.update] so it happens once.
 	 */
@@ -180,7 +184,8 @@ data class Game(
 			TurnPhase.JUMPS -> copy(turn = current.toTrading())
 			TurnPhase.TRADING -> endTrading(current)
 			TurnPhase.OPPORTUNITY -> openInvestment(current)
-			TurnPhase.INVESTMENT -> endTurn(current)
+			TurnPhase.INVESTMENT -> endInvestment(current, dice)
+			TurnPhase.CONTROL -> endTurn(current)
 		}
 	}
 
@@ -216,18 +221,133 @@ data class Game(
 	}
 
 	/**
-	 * Ends [current], whose Investment is over (R44, E06-S01-2). After the last
-	 * turn the creator chose (R39, R41) the game is over, keeps its last turn, and the log ends with the winner
-	 * (E05-S08-1, S08-5); otherwise the next turn starts with
+	 * [current]'s Investment is over (R44, E06-S01-2): loan interest and loans fall due (R92, R94), then Control opens (R128)
+	 * with police in Space ([withShipsPoliceControlled]) and the reputation controls ([withReputationControlled]), which
+	 * ends the turn ([endTurn]) unless a control waits for a backer.
+	 */
+	private fun endInvestment(current: Turn, dice: Dice): Game {
+		val settled = withUnpaidInterestPenalized(current).withLoansCollected(current.number)
+		return settled.withTurn(settled.runningTurn().toControl()).withShipsPoliceControlled(dice).withReputationControlled(dice)
+	}
+
+	/**
+	 * Ends [current], whose Control is over (R44, R128): recovery (R86) and the reputation bonus (R88) close it. After the last
+	 * turn the creator chose (R39, R41), or once one corporation is left, the game is over, keeps its last turn, and the log
+	 * ends with the winner (E05-S08-1, S08-5); otherwise the next turn starts with
 	 * Bidding, with no offers, so offers that didn't trade expire (S07-2, proposed), and its first log line starts a new
 	 * group in the log (S07-3). This is the one place a turn ends and the next starts: anything that takes effect "from
 	 * the next turn" (E05-S06's position changes, R43) applies here, before the next turn's Bidding.
 	 */
 	private fun endTurn(current: Turn): Game {
-		val last = current.number >= turns
-		val loans = withUnpaidInterestPenalized(current).withLoansCollected(current.number)
-		val settled = (if (last) loans else loans.withReputationRecovered(current.number)).withReputationBonusPaid(current.number)
+		val last = current.number >= turns || activePlayers().size <= 1
+		val settled = (if (last) this else withReputationRecovered(current.number)).withReputationBonusPaid(current.number)
 		return if (last) settled.finished(current.number) else settled.withNextTurn(current)
+	}
+
+	/** The players still in the game (R129): not eliminated. */
+	private fun activePlayers(): List<Player> = players.filterNot { it.eliminated }
+
+	/**
+	 * Control's first step (R128): every ship in Space, whoever owns it, rolls 2d6 (+2 with a working Battle comm module)
+	 * against its system's police. Equal or lower, it's caught: forced into the Port, or onto the Planet when it has a military
+	 * part and the Port refuses it (R56), and its owner loses 2d6 reputation (R86). A ship that evaded isn't logged.
+	 */
+	private fun withShipsPoliceControlled(dice: Dice): Game = activePlayers().fold(this) { game, player ->
+		player.shipsInSpace().fold(game) { controlled, ship -> controlled.withPoliceRolled(player.email, ship.name, dice) }
+	}
+
+	/** [system]'s police now (R128): the board's, plus any event's change this turn (E3, E10, E12). */
+	private fun policeAt(system: StarSystem): Int = system.locations.police + news.conditions.policeChangeIn(turn?.number ?: 0)
+
+	/** [email]'s ship [shipName] in Space rolls against police (R128); see [withShipsPoliceControlled]. */
+	private fun withPoliceRolled(email: String, shipName: String, dice: Dice): Game {
+		val number = runningTurn().number
+		val player = playerOf(email)
+		val ship = checkNotNull(player.ship(shipName))
+		val roll = PoliceRoll(dice.twoD6(), player.policeBonusFor(shipName), policeAt(ship.system))
+		if (roll.evaded()) {
+			return this
+		}
+		val toPlanet = !ship.mayEnterPort()
+		val closed = news.conditions.portsClosedIn(number)
+		val loss = player.loseReputation(dice.twoD6(), "caught by police in Space")
+		val system = ship.system.displayName
+		val where = when {
+			toPlanet -> "it must land on the Planet"
+			closed -> "held in Space (Ports are closed)"
+			else -> "forced into the Port"
+		}
+		val caughtPlayer = if (toPlanet || closed) loss.player else loss.player.landShip(shipName, ShipLocation.PORT)
+		val caught = copy(players = replace(caughtPlayer)).withNoticed(
+			number,
+			listOf("$shipName (${player.corporationName}) was caught by police at $system: ${roll.text()}, $where.") + loss.lines,
+			Notice.setback(NoticeKind.POLICE_CONTROL, ship.system, listOf(email))
+		)
+		return if (toPlanet) caught.withLandingRolled(email, shipName, dice) else caught
+	}
+
+	/**
+	 * Control's second step (R129): each player whose reputation is 5 or below, in join order and once, rolls a d6. Higher than
+	 * their reputation, the other players are asked whether to back them and Control waits ([answerBacking]); otherwise they pass.
+	 * With nobody left to examine, Control ends the turn ([endTurn]).
+	 */
+	private fun withReputationControlled(dice: Dice): Game {
+		val current = runningTurn()
+		val subject = activePlayers().firstOrNull { it.reputation.isUnderControl() && !current.hasBeenControlled(it.email) }
+			?: return endTurn(current)
+		val roll = dice.d6()
+		val line = "${subject.corporationName}'s reputation control (${subject.reputation.value}): d6 $roll"
+		if (!subject.reputation.failsControl(roll)) {
+			val cleared = copy(turn = current.withControlled(subject.email, null)).withLogged(current.number, listOf("$line, nothing found."))
+			return cleared.withReputationControlled(dice)
+		}
+		val audit = ControlAudit(subject.email, activePlayers().map { it.email }.filter { it != subject.email }, null)
+		val told = "$line, under investigation: another corporation may back them."
+		val asked = copy(turn = current.withControlled(subject.email, audit)).withLogged(current.number, listOf(told))
+		return if (audit.isDecided()) asked.withControlResolved(audit, dice) else asked
+	}
+
+	/**
+	 * [email] answers whether to back the corporation under reputation control (R129): backing makes them its backer, logged, and
+	 * nobody else is asked; declining isn't logged. Once nobody is left to ask, the second roll is made ([withControlResolved])
+	 * and Control goes on to the next reputation.
+	 */
+	fun answerBacking(email: String, back: Boolean, dice: Dice): Game {
+		playerOf(email)
+		val current = runningTurn()
+		val audit = current.controlAuditNow()
+		if (!audit.asks(email)) {
+			throw InvalidGameOperationException("You aren't asked to back anyone.")
+		}
+		val answered = audit.answered(email, back)
+		val logged = listOfNotNull("${corporationOf(email)} backs ${corporationOf(audit.subject)}.".takeIf { back })
+		val game = copy(turn = current.withControlAudit(answered)).withLogged(current.number, logged)
+		return if (answered.isDecided()) game.withControlResolved(answered, dice) else game
+	}
+
+	/**
+	 * [audit]'s second roll (R129): a d6 less the political connections of the controlled corporation and of its backer, read on
+	 * the creator's table. A fine is paid from cash, then assets sold, and takes connections and sets reputation; an elimination
+	 * takes the corporation out of the game and costs its backer connections and 2d6 reputation. Public, but for what was sold.
+	 */
+	private fun withControlResolved(audit: ControlAudit, dice: Dice): Game {
+		val current = runningTurn()
+		val subject = playerOf(audit.subject)
+		val backer = audit.backer?.let { playerOf(it) }
+		val verdict = ControlVerdict(dice.d6(), subject.connections.controlReduction() + (backer?.connections?.controlReduction() ?: 0))
+		val result = verdict.result()
+		val (controlled, collection) = subject.afterControl(result, prices)
+		val lines =
+			mutableListOf("${subject.corporationName}'s reputation control: d6 ${verdict.text()}, ${result.text(subject.corporationName)}.")
+		collection?.seizedText()?.let { lines += "${subject.corporationName} sold to pay it: $it." }
+		var remaining = replace(controlled)
+		if (result.eliminated && backer != null) {
+			val loss = backer.afterBackingLost(result, dice.twoD6())
+			lines += result.backerText(backer.corporationName, subject.corporationName)
+			lines += loss.lines
+			remaining = remaining.map { if (it.email == backer.email) loss.player else it }
+		}
+		return copy(players = remaining, turn = current.withControlAudit(null)).withLogged(current.number, lines).withReputationControlled(dice)
 	}
 
 	/**
@@ -273,7 +393,7 @@ data class Game(
 
 	/** Turn [number]'s end (R86, E13-S01-2): every player whose reputation is from 1 to 17 recovers 3, each logged. */
 	private fun withReputationRecovered(number: Int): Game {
-		val recovering = players.filter { it.reputationRecovery() > 0 }
+		val recovering = activePlayers().filter { it.reputationRecovery() > 0 }
 		val recovered = recovering.map { it.withReputationChanged(it.reputationRecovery()) to it.reputationRecovery() }
 		return copy(
 			players = players.map { player -> recovered.firstOrNull { it.first.email == player.email }?.first ?: player },
@@ -286,12 +406,12 @@ data class Game(
 	 * included, before the winner is decided. One public line names who was paid; the amounts are private (R29).
 	 */
 	private fun withReputationBonusPaid(number: Int): Game {
-		val paid = players.filter { it.reputationBonus() > 0 }
+		val paid = activePlayers().filter { it.reputationBonus() > 0 }
 		if (paid.isEmpty()) {
 			return this
 		}
 		return copy(
-			players = players.map { it.receive(it.reputationBonus(), "Reputation bonus") },
+			players = players.map { if (it.eliminated) it else it.receive(it.reputationBonus(), "Reputation bonus") },
 			log = log + LogEntry.event(number, "Reputation bonus: ${paid.joinToString(", ") { it.corporationName }}")
 		)
 	}
@@ -301,23 +421,23 @@ data class Game(
 	 * with the same money keep the order they joined in. Each player's money is private (R29) until the game is over, so only
 	 * a finished game's view may show it (E05-S08-3).
 	 */
-	fun standings(): List<Player> = players.sortedByDescending { it.finalMoney() }
+	fun standings(): List<Player> = activePlayers().sortedByDescending { it.finalMoney() } + players.filter { it.eliminated }
 
 	/** The players with the most final money (R39, R95); several when they tie, and they share the win (E05-S08-4, proposed). */
-	fun winners(): List<Player> = players.filter { it.finalMoney() == players.maxOf { player -> player.finalMoney() } }
+	fun winners(): List<Player> = activePlayers().filter { it.finalMoney() == activePlayers().maxOf { player -> player.finalMoney() } }
 
 	/** The result once the game is over (E05-S08-2, R39: then everyone's money is public), and null until then (R29). */
 	fun result(): GameResult? = if (status == GameStatus.FINISHED) GameResult(standings(), winners()) else null
 
 	/**
 	 * Records that [email] is done investing (R44, E06-S01-2). Investment closes the moment the last player signals done
-	 * (D09), which ends the turn ([endTurn]); a signal after that is refused (A04).
+	 * (D09), which opens Control with [dice] ([endInvestment]); a signal after that is refused (A04).
 	 */
-	fun signalDoneInvesting(email: String): Game {
+	fun signalDoneInvesting(email: String, dice: Dice): Game {
 		playerOf(email)
 		val signalled = copy(turn = investing().signalDoneInvesting(email))
 		val current = signalled.runningTurn()
-		return if (current.everyoneDoneInvesting(players.map { it.email })) signalled.endTurn(current) else signalled
+		return if (current.everyoneDoneInvesting(activePlayers().map { it.email })) signalled.endInvestment(current, dice) else signalled
 	}
 
 	/**
@@ -1034,7 +1154,8 @@ data class Game(
 			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },
 			jumpChances = player.ships.associate { it.name to it.jumpChances(jumpBonusOf(player, it)) },
 			moduleMoves = player.ships.associate { it.name to player.moduleMoves(it.name) },
-			turnNumber = turn?.number ?: 0
+			turnNumber = turn?.number ?: 0,
+			backingAsk = turn?.controlAudit?.takeIf { it.asks(email) }
 		)
 	}
 
@@ -1088,7 +1209,7 @@ data class Game(
 	fun signalDoneBidding(email: String, dice: Dice): Game {
 		playerOf(email).requireConnectionsPlaced()
 		val signalled = copy(turn = runningTurn().signalDoneBidding(email))
-		return if (signalled.runningTurn().everyoneDoneBidding(players.map { it.email })) signalled.advancePhase(dice) else signalled
+		return if (signalled.runningTurn().everyoneDoneBidding(activePlayers().map { it.email })) signalled.advancePhase(dice) else signalled
 	}
 
 	/**
@@ -1349,7 +1470,7 @@ data class Game(
 		playerOf(email)
 		val signalled = runningTurn().signalDoneNews(email)
 		val game = copy(turn = signalled)
-		return if (signalled.everyoneDoneWithNews(players.map { it.email })) game.openJumps(signalled) else game
+		return if (signalled.everyoneDoneWithNews(activePlayers().map { it.email })) game.openJumps(signalled) else game
 	}
 
 	/**
@@ -1693,6 +1814,12 @@ data class Game(
 		if (location == ShipLocation.PORT && news.conditions.portsClosedIn(number)) {
 			throw InvalidLandingException("Ports are closed this turn (epidemics): choose the Planet or Space.")
 		}
+		val ship = checkNotNull(playerOf(email).ship(shipName))
+		if (location == ShipLocation.PORT && !ship.mayEnterPort()) {
+			throw InvalidLandingException(
+				"$shipName has a military part: ${ship.system.displayName}'s Port refuses it (legal system 3 or 4). Choose the Planet or Space."
+			)
+		}
 		if (location == ShipLocation.PLANET) {
 			return withLandingRolled(email, shipName, dice)
 		}
@@ -2021,11 +2148,11 @@ data class Game(
 	 * rolls: " (tie rolled again: Vega Lines 9, Orion Freight 4)".
 	 */
 	private fun closeBidding(current: Turn, dice: Dice): Game {
-		val bonuses = players.associate { it.email to it.initiativeBonus() }.filterValues { it > 0 }
-		val closed = current.closeBidding(players.map { it.email }, bonuses, dice)
+		val bonuses = activePlayers().associate { it.email to it.initiativeBonus() }.filterValues { it > 0 }
+		val closed = current.closeBidding(activePlayers().map { it.email }, bonuses, dice)
 		val wolf = bonuses.keys.map { Agent.WOLF.actedLog(corporationOf(it), ": +${Agent.WOLF_INITIATIVE_BONUS} initiative") }
 		return copy(
-			players = players.map { it.pay(current.bidAmountOf(it.email), "Initiative bid") },
+			players = players.map { if (it.eliminated) it else it.pay(current.bidAmountOf(it.email), "Initiative bid") },
 			turn = closed,
 			log = log + (wolf + closed.initiativeLog(corporationNames())).map { LogEntry.event(current.number, it) }
 		)

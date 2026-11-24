@@ -44,6 +44,7 @@ function challengeCard(succeeded) {
 const SETBACKS = {
 	SHIP_SEIZED: where => ({ title: 'Your ship was seized', lead: `Planet security at ${where} confiscated your ship and everything aboard.` }),
 	LANDING_FORCED: where => ({ title: 'Your landing failed', lead: `Planet security at ${where} turned your ship away from the Planet.` }),
+	POLICE_CONTROL: where => ({ title: 'Police caught your ship', lead: `Police in Space at ${where} stopped your ship; you lose reputation.` }),
 	JUMP_FAILED: () => ({ title: 'Your jump failed', lead: 'Your ship stays where it was; its jump is used for this turn.' }),
 	EXPEDITION_LOST: () => ({ title: 'Your expedition was lost', lead: 'The expedition rolled 1: the ship is gone.' }),
 	LOST_TO_PIRATES: where => ({ title: 'Your ship was lost to pirates', lead: `Pirates at ${where} took your ship and its cargo.` }),

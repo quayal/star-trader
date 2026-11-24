@@ -39,12 +39,17 @@ export function landingHeading(landing) {
  */
 export function landingOptions(system, own = null, conditions = null) {
 	const closed = Boolean(conditions?.portsClosed);
+	const refused = Boolean(own?.portRefused);
 	const odds = own?.landing;
 	const planet = odds
 		? `Land on the planet: ${odds.lands}% lands · ${odds.forced}% forced into Port · ${odds.seized}% seized (security ${odds.security}, your +${odds.bonus})`
 		: `Land on the planet (security ${system.security})`;
 	return [
-		{ value: 'PORT', label: closed ? 'Land at the port: closed this turn (epidemics)' : `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})`, disabled: closed },
+		{
+			value: 'PORT',
+			label: closed ? 'Land at the port: closed this turn (epidemics)' : refused ? `Land at the port: refused, military parts aboard (legal system ${system.legalSystem})` : `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})`,
+			disabled: closed || refused,
+		},
 		{ value: 'PLANET', label: planet, warning: own?.contraband ? 'Illegal goods or military parts aboard: if security stops you, they’re confiscated.' : '' },
 		{ value: 'SPACE', label: `Stay in space (police ${system.police + (conditions?.policeChange ?? 0)})` },
 	];

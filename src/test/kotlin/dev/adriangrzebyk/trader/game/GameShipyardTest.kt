@@ -164,7 +164,10 @@ class GameShipyardTest {
 	@Test
 	fun shouldStayInTheYardForTheWholeNextTurnAndLeaveItInItsInvestment() {
 		val bought = buySpiral(investing)
-		val turn2Bidding = bought.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+		val turn2Bidding = bought.signalDoneInvesting(
+			"ada@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS)
 
 		assertThat(shipOf(turn2Bidding, "Spiral").location).isEqualTo(ShipLocation.SHIPYARD)
 		val turn2Investment = toInvestment(turn2Bidding)
@@ -177,7 +180,7 @@ class GameShipyardTest {
 	fun shouldStayInTheYardThroughOpportunitySoItNeverTakesThatOutput() {
 		// R63, R102: output (Opportunity) comes before the ship leaves the yard (when Investment opens).
 		val bought = buySpiral(withFactoryFor(investing, "ada@example.com"))
-		val turn2 = bought.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com")
+		val turn2 = bought.signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS).signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS)
 		val opportunity = (1..4).fold(turn2) { current, _ -> current.advancePhase(FakeDice(2, 1)) }
 
 		assertThat(opportunity.turn!!.phase).isEqualTo(TurnPhase.OPPORTUNITY)
@@ -211,7 +214,10 @@ class GameShipyardTest {
 	fun shouldEndTheJumpSlotAtOnceOfAPlayerWithNothingToJump() {
 		// R64: Ada sold both her ships, so turn 2 doesn't wait for her.
 		val sold = investing.sellShip("ada@example.com", "Wayfarer").sellShip("ada@example.com", "Lantern")
-		val jumps = sold.signalDoneInvesting("ada@example.com").signalDoneInvesting("grace@example.com").advancePhase(FakeDice(2, 1))
+		val jumps = sold.signalDoneInvesting(
+			"ada@example.com",
+			NO_CONTROL_ROLLS
+		).signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS).advancePhase(FakeDice(2, 1))
 		val first = jumps.turn!!.initiative.first()
 		val ordered = jumps.pickTurnOrderPlace(first, 1, NO_NEWS)
 

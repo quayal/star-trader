@@ -50,7 +50,8 @@ class GameTurnEndTest {
 		withOneGoodLeft(trading(turns)).resolveNextGood("grace@example.com", FakeDice.twoD6(2))
 
 	/** [game] once Grace and Ada have both signalled done investing: the last signal ends the turn (R44). */
-	private fun afterInvesting(game: Game): Game = game.signalDoneInvesting("grace@example.com").signalDoneInvesting("ada@example.com")
+	private fun afterInvesting(game: Game): Game =
+		game.signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS).signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS)
 
 	/** Turn 1's Trading, finished: Grace's last trade has resolved the last good, and Opportunity has started (R102). */
 	private fun opportunity(turns: Int): Game =
@@ -87,7 +88,7 @@ class GameTurnEndTest {
 	@Test
 	fun shouldWaitInInvestmentUntilEveryoneIsDone() {
 		// E06-S01-2, D09
-		val oneDone = investing(3).signalDoneInvesting("grace@example.com")
+		val oneDone = investing(3).signalDoneInvesting("grace@example.com", NO_CONTROL_ROLLS)
 
 		assertThat(oneDone.turn!!.phase).isEqualTo(TurnPhase.INVESTMENT)
 		assertThat(oneDone.turn!!.doneInvesting).containsExactly("grace@example.com")

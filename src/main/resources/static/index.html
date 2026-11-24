@@ -887,6 +887,19 @@
 			</form>
 		</dialog>
 
+		<!-- R129: the reputation control question, static markup shared by every game, filled on render. -->
+		<dialog class="landing" id="backing-dialog" aria-labelledby="backing-title" aria-describedby="backing-text">
+			<form id="backing-form" novalidate>
+				<h2 id="backing-title"></h2>
+				<p id="backing-text"></p>
+				<p class="message message--error" id="backing-error" role="status"></p>
+				<div class="notice__actions">
+					<button class="btn" id="backing-yes" type="submit"></button>
+					<button class="quiet-button" id="backing-no" type="button"></button>
+				</div>
+			</form>
+		</dialog>
+
 		<!-- E10, creator 2026-11-19: the whole interception or battle in its own dialog, for complete focus. Static markup;
 		     its form is rebuilt only when what it asks changes. It opens itself for a player with a step to take. -->
 		<dialog class="battle" id="fight-dialog" aria-labelledby="fight-title">
@@ -1732,6 +1745,14 @@
 		hangarQuestion,
 		hangarYesLabel,
 	} from './js/hangar.js';
+	import {
+		BACKING_NO_LABEL,
+		BACKING_YES_LABEL,
+		ESCAPE_BACKS,
+		backingFor,
+		backingHeading,
+		backingQuestion,
+	} from './js/control.js';
 	import { progressSnapshot, progressText } from './js/progress.js';
 	import {
 		MARKET_LEVELS,
@@ -2533,6 +2554,7 @@
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
 		updateHangar(game); // likewise (R127), once the landing is done
+		updateBacking(game); // and the reputation control question (R129)
 		updateFight(game); // likewise: the battle in its own dialog (creator, 2026-11-19), under the report
 		updateBattleReport(game); // likewise, until the viewer dismisses what the last battle round did
 		updateNotices(game); // interception and battle cards, your move, and toasts (creator, 2026-11-18)
@@ -3127,6 +3149,7 @@
 		$('corporations-cards').replaceChildren(...cards.map(card => element('section', { class: 'panel corporation', 'aria-labelledby': `corporation-${card.id}` },
 			element('h3', { id: `corporation-${card.id}` }, card.corporationName, ...(card.you ? [element('span', { class: 'muted' }, ' (you)')] : [])),
 			element('p', { class: 'muted' }, card.playerName),
+			...(card.eliminated ? [element('p', { class: 'message message--error', role: 'status' }, card.eliminated)] : []),
 			section(card, 'reputation', 'Reputation', [card.reputation, element('span', { class: 'muted' },
 				reputationNote(game.players.find(player => player.id === card.id) ?? {}, bonusFrom(rules)))], card.you ? reputationActions : []),
 			section(card, 'connections', 'Connections', [card.connections, card.connectionPoints].filter(Boolean), card.you ? raiseActions : []),
@@ -4493,7 +4516,7 @@
 	 */
 	function afterJumpStep(game, announce = '') {
 		render(game);
-		if ($('landing-dialog').open || $('hangar-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
+		if ($('landing-dialog').open || $('hangar-dialog').open || $('backing-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
 			return; // showModal() has put focus in the dialog (the evaded card comes before the landing); off the Deck there's no form to return to
 		}
 		if (isFighting(game)) {
@@ -4637,7 +4660,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'hangar-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'hangar-dialog', 'backing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -4832,7 +4855,7 @@
 	function updateBattleReport(game) {
 		const dialog = $('battle-report-dialog');
 		const lines = game.status === 'RUNNING' ? reportLines(game, viewerId) : [];
-		if (!lines.length || $('landing-dialog').open || $('hangar-dialog').open) {
+		if (!lines.length || $('landing-dialog').open || $('hangar-dialog').open || $('backing-dialog').open) {
 			return;
 		}
 		const unseen = lines.some(line => !seenReportLines.has(line.key));
@@ -4931,7 +4954,7 @@
 			}
 			return;
 		}
-		if (!dialog.open && ($('landing-dialog').open || $('hangar-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
+		if (!dialog.open && ($('landing-dialog').open || $('hangar-dialog').open || $('backing-dialog').open || $('battle-report-dialog').open || $('invest-dialog').open)) {
 			return; // one modal at a time; the landing and the battle report come first
 		}
 		const key = JSON.stringify(queue.map(card => [card.key, card.end, card.lead, card.lines, card.sections]));
@@ -5181,6 +5204,74 @@
 		}
 	}
 
+	let backingKey = null;
+	let backingSending = false;
+
+	function closeBacking() {
+		backingKey = null;
+		if ($('backing-dialog').open) {
+			$('backing-dialog').close();
+		}
+	}
+
+	/** R129: open the question whether to back the corporation under reputation control, until the viewer answers it. */
+	function updateBacking(game) {
+		const backing = game.status === 'RUNNING' ? backingFor(game) : null;
+		if (!backing) {
+			closeBacking(); // answered (here or in another tab), or nobody asks
+			return;
+		}
+		const key = JSON.stringify([game.id, game.turn.number, backing.subject.id]);
+		if (key !== backingKey) {
+			backingKey = key;
+			$('backing-title').textContent = backingHeading(backing);
+			$('backing-text').textContent = backingQuestion(backing);
+			$('backing-yes').textContent = BACKING_YES_LABEL;
+			$('backing-no').textContent = BACKING_NO_LABEL;
+			$('backing-error').textContent = '';
+		}
+		if (!$('backing-dialog').open) {
+			$('backing-dialog').showModal(); // focus moves inside, to the first answer
+		}
+	}
+
+	async function submitBacking(back) {
+		if (backingSending) {
+			return;
+		}
+		const gameId = currentGameId;
+		backingSending = true;
+		$('backing-yes').disabled = true;
+		$('backing-no').disabled = true;
+		$('backing-error').textContent = '';
+		let response;
+		try {
+			response = await api(`/api/games/${encodeURIComponent(gameId)}/control/backing`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ back }),
+			});
+		} catch {
+			response = null;
+		}
+		backingSending = false;
+		$('backing-yes').disabled = false; // static markup shared by every game, so re-enabled even if the player left
+		$('backing-no').disabled = false;
+		if (gameId !== currentGameId) {
+			return; // the player has left this game
+		}
+		if (response?.ok) {
+			render(await response.json());
+			return;
+		}
+		$('backing-error').textContent = response ? await errorText(response, UNREACHABLE) : UNREACHABLE;
+		if (response) {
+			clearTimeout(pollTimer);
+			pollGeneration += 1; // the question may already have been answered in another tab; the dialog catches up
+			poll();
+		}
+	}
+
 	async function submitBid(event) {
 		event.preventDefault();
 		setBidError('');
@@ -5262,7 +5353,7 @@
 	$('battle-report-dialog').addEventListener('close', rememberReportLines);
 	// The cards wait while the landing or the battle report is open; once it closes they show, without waiting for a poll
 	// (an unchanged game answers 304 and renders nothing).
-	['battle-report-dialog', 'landing-dialog', 'hangar-dialog', 'invest-dialog'].forEach(id => $(id).addEventListener('close', () => {
+	['battle-report-dialog', 'landing-dialog', 'hangar-dialog', 'backing-dialog', 'invest-dialog'].forEach(id => $(id).addEventListener('close', () => {
 		if (lastGame && lastGame.id === currentGameId) {
 			setTimeout(() => {
 				updateFight(lastGame); // the battle dialog waited for it too (creator, 2026-11-19)
@@ -5275,6 +5366,15 @@
 		submitHangar(true);
 	});
 	$('hangar-no').addEventListener('click', () => submitHangar(false));
+	$('backing-form').addEventListener('submit', event => {
+		event.preventDefault();
+		submitBacking(true);
+	});
+	$('backing-no').addEventListener('click', () => submitBacking(false));
+	$('backing-dialog').addEventListener('cancel', event => {
+		event.preventDefault(); // stays open until answered, as the hangar question does
+		submitBacking(ESCAPE_BACKS);
+	});
 	$('hangar-dialog').addEventListener('cancel', event => {
 		event.preventDefault(); // stays open until answered, as the landing does
 		submitHangar(ESCAPE_STAYS); // Escape counts as No

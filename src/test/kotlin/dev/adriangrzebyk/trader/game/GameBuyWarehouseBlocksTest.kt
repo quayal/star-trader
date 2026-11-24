@@ -64,7 +64,7 @@ class GameBuyWarehouseBlocksTest {
 	@Test
 	fun shouldLetAPlayerBuyAfterSignallingDoneBecauseDoneIsAReadinessFlag() {
 		// D09: Investment closes when everyone is done, so a player who is done may still invest until then
-		val done = investing.signalDoneInvesting("ada@example.com")
+		val done = investing.signalDoneInvesting("ada@example.com", NO_CONTROL_ROLLS)
 		val game = done.buyWarehouseBlocks("ada@example.com", TAU_CETI, 1)
 
 		assertThat(playerOf(game, "ada@example.com").warehouseAt(TAU_CETI)).isNotNull()

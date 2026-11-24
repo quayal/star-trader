@@ -109,7 +109,8 @@ class GameControllerTest {
 				20,
 				0,
 				0,
-				emptyList()
+				emptyList(),
+				false
 			)
 		)
 		assertThat(GameResponseDto(gameStore.find(game.id)!!, "creator@example.com")).isEqualTo(game)
@@ -121,7 +122,7 @@ class GameControllerTest {
 				"p1", 0, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null, null, null, null,
 				AssetsResponseDto(0, 0, 0, emptyList(), emptyList(), emptyList()),
 				null, emptyList(), 10, emptyList(), emptyList(), null, emptyList(), null, null, emptyList(), emptyList(), emptyList(), emptyList(),
-				emptyList()
+				emptyList(), null
 			)
 		)
 	}
@@ -195,7 +196,8 @@ class GameControllerTest {
 				20,
 				0,
 				0,
-				emptyList()
+				emptyList(),
+				false
 			),
 			PlayerResponseDto(
 				"p2", "Grace", "Grace Freight", emptyList(), emptyList(), emptyList(), emptyList(),
@@ -204,7 +206,7 @@ class GameControllerTest {
 					0,
 					0
 				),
-				0, 20, 0, 0, emptyList()
+				0, 20, 0, 0, emptyList(), false
 			)
 		)
 		assertThat(joined.joinRequests).isEmpty()
@@ -408,7 +410,7 @@ class GameControllerTest {
 			TurnResponseDto(
 				1, "BIDDING",
 				emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null, null, emptyList(), emptyList(), null, emptyList(), emptyList(),
-				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
+				null, null, emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList(), null
 			)
 		)
 		assertThat(started.you!!.money).isEqualTo(300)
@@ -629,7 +631,7 @@ class GameControllerTest {
 					"p2"
 				),
 				emptyList(), emptyList(), emptyList(), emptyList(), null, null, emptyList(), emptyList(), null, emptyList(), emptyList(), null, null,
-				emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList()
+				emptyList(), emptyList(), emptyList(), null, emptyList(), null, emptyList(), null
 			)
 		)
 
@@ -1254,6 +1256,19 @@ class GameControllerTest {
 		signalDoneInvesting(null, gameId).expectStatus().isUnauthorized
 		signalDoneInvesting(signIn("investing-stranger@example.com"), gameId).expectStatus().isForbidden
 		signalDoneInvesting("token-$first", "no-such-game").expectStatus().isNotFound
+	}
+
+	@Test
+	fun shouldRefuseBackingFromOutsidersOrWhenNoReputationControlWaits() {
+		// R129: only a player asked by an open reputation control may answer
+		val (first, _, gameId) = orderedGame("backing-refused")
+
+		answerBacking("token-$first", gameId)
+			.expectStatus().isEqualTo(HttpStatus.CONFLICT)
+			.expectBody(String::class.java).isEqualTo("No reputation control is waiting for a backer.")
+		answerBacking(null, gameId).expectStatus().isUnauthorized
+		answerBacking(signIn("backing-stranger@example.com"), gameId).expectStatus().isForbidden
+		answerBacking("token-$first", "no-such-game").expectStatus().isNotFound
 	}
 
 	/**
@@ -2857,6 +2872,15 @@ class GameControllerTest {
 	/** Every player, in turn order, done with opportunities after collecting nothing if they have factories (R102). */
 	private fun passOpportunity(gameId: String) {
 		gameStore.update(gameId) { OpportunityPassed(it).byEveryone() }
+	}
+
+	private fun answerBacking(token: String?, gameId: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri(
+			"/api/games/{id}/control/backing",
+			gameId
+		).contentType(MediaType.APPLICATION_JSON).body("""{"back": true}""")
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.exchange()
 	}
 
 	private fun signalDoneInvesting(token: String?, gameId: String): RestTestClient.ResponseSpec {

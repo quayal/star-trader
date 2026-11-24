@@ -8,6 +8,7 @@ import dev.adriangrzebyk.trader.game.battle.Battle
 import dev.adriangrzebyk.trader.game.battle.BattleInterception
 import dev.adriangrzebyk.trader.game.battle.BattleReport
 import dev.adriangrzebyk.trader.game.battle.Interception
+import dev.adriangrzebyk.trader.game.control.ControlAudit
 import dev.adriangrzebyk.trader.game.sabotage.Sabotage
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
 
@@ -45,7 +46,8 @@ import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
  * who has signalled done with the news (R109), public like [doneBidding]. [reachedOffers] are the offers the counter
  * reached this Trading, each put to its player, who then traded or chose nothing (playtest, 2026-11-21): public, like the
  * resolution that asked. [hangarAsk] is the Parking Hangar question the jumping player has to answer first (R127), public so
- * everyone sees what the game waits for (D09).
+ * everyone sees what the game waits for (D09). [controlled] lists the players whose reputation Control has examined (R129), and
+ * [controlAudit] the control waiting for another player to back the one it examines; both public and empty outside Control.
  */
 data class Turn(
 	val number: Int,
@@ -80,7 +82,9 @@ data class Turn(
 	val limpyUsedBy: List<String>,
 	val doneNews: List<String> = emptyList(),
 	val reachedOffers: List<Offer> = emptyList(),
-	val hangarAsk: HangarAsk? = null
+	val hangarAsk: HangarAsk? = null,
+	val controlled: List<String> = emptyList(),
+	val controlAudit: ControlAudit? = null
 ) {
 
 	/** [email]'s own offers this turn: the only offers a player may be shown before Trading starts (R17, A05). */
@@ -443,6 +447,21 @@ data class Turn(
 		interestPaid = emptyList(),
 		agentOffers = emptyList()
 	)
+
+	/** Investment → Control (R128): nobody's reputation examined yet. */
+	fun toControl(): Turn = copy(phase = TurnPhase.CONTROL, controlled = emptyList(), controlAudit = null)
+
+	/** Whether [email]'s reputation has been examined this Control (R129). */
+	fun hasBeenControlled(email: String): Boolean = email in controlled
+
+	/** This turn once [email]'s reputation was examined (R129) with [audit] waiting for a backer, or none. */
+	fun withControlled(email: String, audit: ControlAudit?): Turn = copy(controlled = controlled + email, controlAudit = audit)
+
+	/** This turn with its reputation control [audit] changed, or none once it was resolved (R129). */
+	fun withControlAudit(audit: ControlAudit?): Turn = copy(controlAudit = audit)
+
+	/** The reputation control waiting for a backer (R129), refused when none is. */
+	fun controlAuditNow(): ControlAudit = controlAudit ?: throw InvalidGameOperationException("No reputation control is waiting for a backer.")
 
 	/** The players who owe a choice out of turn before Opportunity can close (R102): ship owners with sabotage hits to place. */
 	fun owedChoices(): List<String> = sabotages.filter { it.awaitsHits() }.map { it.target.ownerEmail }.distinct()
