@@ -1230,13 +1230,12 @@
 			<h2 class="system__title" id="opportunity-title" tabindex="-1">Opportunity</h2>
 			<p class="message" id="opportunity-screen-status" role="status"></p>
 			<!-- R102 (D24): the Opportunity phase, played in turn order; at the top of the screen since 2026-11-24 (creator). Static markup; lists are redrawn only when what they show changes. -->
-			<section class="panel" id="opportunity-panel" aria-labelledby="opportunity-turn-title" hidden>
-				<h2 id="opportunity-turn-title">Whose turn</h2>
-				<p id="opportunity-status" role="status" tabindex="-1"></p>
-				<div id="opportunity-done-row" hidden><button class="btn" id="opportunity-done-button" type="button">I'm done with opportunities</button></div>
-				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
-				<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
+			<!-- Creator, 2026-11-25: whose turn it is and "I'm done with opportunities" are in the top bar, as on the Deck. -->
+			<!-- R99: sabotage hits on the viewer's ship, placed at once, out of turn. -->
+			<section class="panel" id="owed-hits-panel" aria-labelledby="owed-hits-title" hidden>
+				<h3 id="owed-hits-title">Place the sabotage hits</h3>
 				<div id="owed-hits"></div>
+				<p class="message" id="opportunity-message" role="status" tabindex="-1"></p>
 			</section>
 			<!-- E06-S03, moved here by E06-S08: static markup, rows drawn once per game and turn, so typed amounts and focus survive the poll. -->
 			<section class="panel" id="collect-panel" aria-labelledby="collect-title" hidden>
@@ -1250,6 +1249,13 @@
 					<p class="message" id="collect-message" role="status"></p>
 				</form>
 			</section>
+			<!-- R125: passengers, in a box of their own above the opportunities (creator, 2026-11-25): 5 HT a group up front, 10 HT a
+			     group if not delivered by the next Opportunity. -->
+			<section class="panel" id="passengers-panel" aria-labelledby="passengers-title" hidden>
+				<h3 id="passengers-title">Passengers</h3>
+				<div id="passenger-forms"></div>
+				<p class="message" id="passengers-message" role="status" tabindex="-1"></p>
+			</section>
 			<!-- Playtest 2026-11-21: what can be taken first, right after the output to collect. -->
 			<!-- R111–R114: the opportunities the player has learned, taken on their Opportunity turn; sales of special goods; expeditions due back. -->
 			<!-- Creator, 2026-11-23: what the viewer took and is still carrying out, in every phase. -->
@@ -1261,8 +1267,6 @@
 				<h3 id="opportunities-title">Opportunities</h3>
 				<p class="muted" id="opportunities-note"></p>
 				<div id="opportunity-forms"></div>
-				<!-- R125: passengers, 5 HT a group up front, 10 HT a group if not delivered by the next Opportunity. -->
-				<div id="passenger-forms"></div>
 				<ul class="corporation__list" id="special-sales"></ul>
 				<ul class="corporation__list" id="expeditions-due"></ul>
 				<ul class="corporation__list" id="deliveries-due"></ul>
@@ -2609,8 +2613,10 @@
 		$('nav-news').hidden = false;
 		$('nav-over').href = gameOverLink(game.id);
 		$('nav-over').hidden = !isOver(game); // s09 (E05-S08)
-		if (view !== 'log' && view !== 'trading' && view !== 'opportunity' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide' && view !== 'news') {
-			updateDoneBar(game); // "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02; s10 has its own
+		if (view !== 'log' && view !== 'trading' && view !== 'infrastructure' && view !== 'fleet' && view !== 'assets' && view !== 'corporations' && view !== 'guide' && view !== 'news') {
+			// "I'm done bidding" (S04-1) and "I'm done investing" (creator, 2026-11-20) on s01 and s02, and on Opportunity whose
+			// turn it is and "I'm done with opportunities" (creator, 2026-11-25); s10 has its own.
+			updateDoneBar(game, view);
 		}
 		updateDecisionAlert(game, view);
 		updateLanding(game); // on every game screen: a reload or a later visit opens it again (S03-6)
@@ -5630,7 +5636,7 @@
 	 * Investment's done button is on the Infrastructure screen (E06-S08-4); here, on the screens that aren't it, a player
 	 * who still has to collect is told so, with a link there.
 	 */
-	function updateDoneBar(game) {
+	function updateDoneBar(game, view) {
 		const key = `${game.id}/${game.turn.number}/${game.turn.phase}/${game.status}`;
 		if (doneMessageKey === 'pending') {
 			doneMessageKey = key;
@@ -5651,7 +5657,7 @@
 		if ($('done-text').textContent !== text) {
 			$('done-text').textContent = text; // only on a change, so the live region isn't re-announced every poll
 		}
-		$('collect-link').hidden = !collecting;
+		$('collect-link').hidden = !collecting || view === 'opportunity'; // the output is collected on that screen
 		$('collect-link').href = opportunityLink(game.id);
 		if ($('collect-link').textContent !== OPPORTUNITY_LINK_TEXT) {
 			$('collect-link').textContent = OPPORTUNITY_LINK_TEXT;
@@ -5854,21 +5860,17 @@
 		const investing = isInvesting(game);
 		// Creator, 2026-11-23: sabotage and recruiting can be planned at any time while the game runs; acting waits for the turn.
 		const running = game.status === 'RUNNING';
-		$('opportunity-panel').hidden = !opportunity;
 		$('sabotage-panel').hidden = !running;
 		$('challenge-panel').hidden = !running;
 		$('agents-panel').hidden = !running && (game.you?.agents ?? []).length === 0;
 		$('loan-panel').hidden = !opportunity && !investing;
-		if (opportunity) {
-			showText('opportunity-status', opportunityStatusText(game, viewerId));
-			$('opportunity-done-row').hidden = !isMyOpportunityTurn(game, viewerId) || isCollecting(game);
-			renderOwedHits(game);
-		}
+		renderOwedHits(game, opportunity);
 		if (running) {
 			renderChallenge(game);
 			renderSabotage(game);
 		}
 		renderAgents(game, opportunity);
+		renderPassengers(game, opportunity);
 		renderOpportunities(game, opportunity);
 		renderInAction(game, running);
 		renderLoan(game, investing);
@@ -5876,8 +5878,9 @@
 
 	// R99: the sabotage hits on the viewer's own ships, placed as in battle, with what no longer fits thrown off (the
 	// server stores it in the warehouse there as far as it fits).
-	function renderOwedHits(game) {
-		const owed = (game.you?.sabotagesSuffered ?? []).filter(sabotage => sabotage.awaitingHits);
+	function renderOwedHits(game, opportunity) {
+		const owed = opportunity ? (game.you?.sabotagesSuffered ?? []).filter(sabotage => sabotage.awaitingHits) : [];
+		$('owed-hits-panel').hidden = owed.length === 0;
 		drawOnce('owed-hits', JSON.stringify([game.id, game.turn.number, owed]), () => owed.map(sabotage => {
 			const parts = hitParts(game, sabotage.ship);
 			const inputs = parts.map(part => element('div', { class: 'trade-ship' },
@@ -5988,7 +5991,6 @@
 		$('losses-goods').querySelectorAll('[data-goods]').forEach(input => { lots[input.dataset.goods] = Number(input.value) || 0; });
 		gameAction('sabotage/losses', { lots }, 'sabotage-message', 'Done: those units are gone.');
 	});
-	$('opportunity-done-button').addEventListener('click', () => gameAction('opportunity/done', null, 'opportunity-message'));
 	$('done-opportunity-button').addEventListener('click', () => gameAction('opportunity/done', null, 'done-message'));
 
 	// R104 (playtest, 2026-11-20): the viewer's agents with where each is and, at any time like cargo, where it can move; on
@@ -6231,14 +6233,35 @@
 			element('span', { class: 'muted' }, `Next: ${row.next}.`))));
 	}
 
+	/** R125: the viewer's ships in a Port with free seats, each a form to take passengers, in a box of their own (creator, 2026-11-25). */
+	function renderPassengers(game, opportunity) {
+		const passengers = opportunity ? passengerForms(game) : [];
+		$('passengers-panel').hidden = passengers.length === 0;
+		if (passengers.length === 0) {
+			return;
+		}
+		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		drawOnce('passenger-forms', JSON.stringify([passengers, myTurn]), () => passengers.map(form => {
+			const destination = element('select', { class: 'control', 'aria-label': 'Destination' },
+				...form.destinations.map(d => element('option', { value: d.id }, `${d.name} (${d.left} ${d.left === 1 ? 'group' : 'groups'} left)`)));
+			const groups = element('input', { class: 'control price-input', inputmode: 'numeric', value: '1', 'aria-label': `Groups (1–${form.seats})` });
+			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.destinations.length ? {} : { disabled: '' }) }, 'Take passengers');
+			take.addEventListener('click', () => gameAction('opportunity/passengers',
+				{ ship: form.ship, system: destination.value, groups: Number(groups.value) }, 'passengers-message', 'Passengers aboard.'));
+			return element('div', { class: 'offer-form opportunity-form' },
+				element('p', {}, element('strong', {}, `${form.ship}: passengers from ${form.systemName}`)),
+				element('p', { class: 'muted' }, `${form.seats} free ${form.seats === 1 ? 'seat' : 'seats'}, one per group. 5 HT a group now, and you need reputation 15. 10 HT a group for any group not delivered when the next Opportunity opens (as far as your cash goes): the ship must be in the destination's Port with its Passenger modules repaired. Booked seats can't be given up.`),
+				element('div', { class: 'agent-move' }, destination, groups, take));
+		}));
+	}
+
 	function renderOpportunities(game, opportunity) {
 		const forms = opportunityForms(game);
 		const sales = specialSales(game);
 		const due = expeditionsDue(game);
 		const deliveries = deliveriesDue(game);
-		const passengers = passengerForms(game);
 		$('opportunities-panel').hidden = !opportunity
-			|| (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0 && passengers.length === 0);
+			|| (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0);
 		if ($('opportunities-panel').hidden) {
 			return;
 		}
@@ -6329,18 +6352,6 @@
 			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
 				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), ...groups, room,
 				element('div', { class: 'opportunity-take' }, cost, take));
-		}));
-		drawOnce('passenger-forms', JSON.stringify([passengers, myTurn]), () => passengers.map(form => {
-			const destination = element('select', { class: 'control', 'aria-label': 'Destination' },
-				...form.destinations.map(d => element('option', { value: d.id }, `${d.name} (${d.left} ${d.left === 1 ? 'group' : 'groups'} left)`)));
-			const groups = element('input', { class: 'control price-input', inputmode: 'numeric', value: '1', 'aria-label': `Groups (1–${form.seats})` });
-			const take = element('button', { class: 'btn', type: 'button', ...(myTurn && form.destinations.length ? {} : { disabled: '' }) }, 'Take passengers');
-			take.addEventListener('click', () => gameAction('opportunity/passengers',
-				{ ship: form.ship, system: destination.value, groups: Number(groups.value) }, 'opportunities-message', 'Passengers aboard.'));
-			return element('div', { class: 'offer-form opportunity-form' },
-				element('p', {}, element('strong', {}, `${form.ship}: passengers from ${form.systemName}`)),
-				element('p', { class: 'muted' }, `${form.seats} free ${form.seats === 1 ? 'seat' : 'seats'}, one per group. 5 HT a group now; Needs reputation 15. 10 HT a group for any group not delivered when the next Opportunity opens (as far as your cash goes): the ship must be in the destination's Port with its Passenger modules repaired. Booked seats can't be given up.`),
-				element('div', { class: 'agent-move' }, destination, groups, take));
 		}));
 		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
