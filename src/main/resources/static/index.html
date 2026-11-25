@@ -1253,6 +1253,8 @@
 			     group if not delivered by the next Opportunity. -->
 			<section class="panel" id="passengers-panel" aria-labelledby="passengers-title" hidden>
 				<h3 id="passengers-title">Passengers</h3>
+				<!-- The groups aboard, in every phase, then the ships that can take more, in Opportunity. -->
+				<ul class="corporation__list" id="passengers-aboard"></ul>
 				<div id="passenger-forms"></div>
 				<p class="message" id="passengers-message" role="status" tabindex="-1"></p>
 			</section>
@@ -1929,7 +1931,7 @@
 	import { ACCOUNT_SHOWN, NO_MOVEMENTS_TEXT, accountLines } from './js/account.js';
 	import { corporationName, statusItems } from './js/status.js';
 	import { NO_TIP_OFFS_TEXT, isNews, newsAnnouncements, tipOffGroups } from './js/news.js';
-	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityCost, opportunityForms, passengerForms, specialSales } from './js/opportunities.js';
+	import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityCost, opportunityForms, passengerForms, passengersAboard, specialSales } from './js/opportunities.js';
 	import { bonusFrom, crewBonusText, crewLabel, guideSections, jumpModifierLines } from './js/guide.js';
 	import { TOAST_MS, cardsFrom, evasionFirst, moveCard, noticeCards, toasts, untradedCards } from './js/notices.js';
 	import { forgetGame, gameRow, latestGame, rememberGame, rememberedGames } from './js/your-games.js';
@@ -6225,21 +6227,29 @@
 
 	// R111–R114: one form per learned, untaken opportunity; the sales of special goods where a ship holds them; expeditions due.
 	/** Creator, 2026-11-23: the viewer's goods, deliveries and expeditions from opportunities, while any is under way. */
+	/** One row of what's under way: "Wayfarer (Tau Ceti Port) — 4 weapons (illegal). Next: …". */
+	function inActionItem(row) {
+		return element('li', {},
+			element('strong', {}, row.ship), row.where ? ` (${row.where})` : '', ` \u2014 ${row.what}. `,
+			element('span', { class: 'muted' }, `Next: ${row.next}.`));
+	}
+
 	function renderInAction(game, running) {
 		const rows = running ? opportunitiesInAction(game) : [];
 		$('in-action-panel').hidden = rows.length === 0;
-		drawOnce('in-action-list', JSON.stringify(rows), () => rows.map(row => element('li', {},
-			element('strong', {}, row.ship), row.where ? ` (${row.where})` : '', ` \u2014 ${row.what}. `,
-			element('span', { class: 'muted' }, `Next: ${row.next}.`))));
+		drawOnce('in-action-list', JSON.stringify(rows), () => rows.map(inActionItem));
 	}
 
-	/** R125: the viewer's ships in a Port with free seats, each a form to take passengers, in a box of their own (creator, 2026-11-25). */
+	/**
+	 * R125, in a box of their own (creator, 2026-11-25): the passenger groups aboard in every phase, then in Opportunity the
+	 * viewer's ships in a Port with free seats, each a form to take more.
+	 */
 	function renderPassengers(game, opportunity) {
+		const aboard = game.status === 'RUNNING' ? passengersAboard(game) : [];
 		const passengers = opportunity ? passengerForms(game) : [];
-		$('passengers-panel').hidden = passengers.length === 0;
-		if (passengers.length === 0) {
-			return;
-		}
+		$('passengers-panel').hidden = aboard.length === 0 && passengers.length === 0;
+		drawOnce('passengers-aboard', JSON.stringify(aboard), () => aboard.map(inActionItem));
+		$('passengers-aboard').hidden = aboard.length === 0;
 		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
 		drawOnce('passenger-forms', JSON.stringify([passengers, myTurn]), () => passengers.map(form => {
 			const destination = element('select', { class: 'control', 'aria-label': 'Destination' },
