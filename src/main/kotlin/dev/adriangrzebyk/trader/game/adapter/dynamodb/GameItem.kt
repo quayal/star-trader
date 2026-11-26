@@ -32,7 +32,7 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 			TURN to (game.turn?.let { AttributeValue.fromM(TurnItem(it).attributes) } ?: AttributeValue.fromNul(true)),
 			PRICES to AttributeValue.fromL(
 				game.prices.prices.map { (good, price) ->
-					AttributeValue.fromM(MarketPriceItem(good, price).attributes)
+					AttributeValue.fromM(MarketPriceItem(good, price, game.prices.changeOf(good)).attributes)
 				}
 			),
 			LOG_TURNS to AttributeValue.fromL(game.log.map { it.turn }.distinct().map { number(it) }),
@@ -67,9 +67,12 @@ internal class GameItem(val attributes: Map<String, AttributeValue>) {
 		joinRequests = attributes[JOIN_REQUESTS]?.l().orEmpty().map { PlayerItem(it.m()).toPlayer() },
 		turn = attributes.attribute(TURN).takeUnless { it.nul() == true }?.let { TurnItem(it.m()).toTurn() },
 		// Absent on games saved before E05-S05, when prices never changed: they're the board's.
-		prices = MarketPrices(
-			MarketPrices.board().prices + attributes[PRICES]?.l().orEmpty().map { MarketPriceItem(it.m()) }.associate { it.good() to it.price() }
-		),
+		prices = attributes[PRICES]?.l().orEmpty().map { MarketPriceItem(it.m()) }.let { items ->
+			MarketPrices(
+				MarketPrices.board().prices + items.associate { it.good() to it.price() },
+				items.filter { it.change() != 0 }.associate { it.good() to it.change() }
+			)
+		},
 		log = attributes[INLINE_LOG]?.l().orEmpty().map { LogEntryItem(it).toLogEntry() } + storedLog,
 		// Absent from items saved before agents (R107): none had died.
 		deadAgents = attributes[DEAD_AGENTS]?.l().orEmpty().map { Agent.valueOf(it.s()) },

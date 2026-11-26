@@ -14,7 +14,8 @@ class PlayerAssetsTest {
 			MarketGood(StarSystem.TAU_CETI, Goods.ISO) to 4,
 			MarketGood(StarSystem.MU_HERCULIS, Goods.ISO) to 9,
 			MarketGood(StarSystem.TAU_CETI, Goods.POLY) to 6
-		)
+		),
+		emptyMap()
 	)
 	private val wayfarer = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT).load(Goods.ISO, 3).load(Goods.FOOD, 2)
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer), 0).copy(

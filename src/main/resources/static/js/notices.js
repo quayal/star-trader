@@ -6,7 +6,7 @@
  */
 
 import { battleStep, interceptors } from './battle.js';
-import { deckLink, tradingLink } from './game.js';
+import { deckLink, jumpsLink, tradingLink } from './game.js';
 import { jumper } from './ship-jumps.js';
 import { awaitingDictator, awaitingTrade, awaitingWholesaler, priceNote, resolution } from './trading.js';
 import { picker } from './turn-order.js';
@@ -273,7 +273,7 @@ export function moveCard(game, myId) {
 		return { key: `${base}/pick`, title: 'Your move: turn order', lead: 'Choose your place in the turn order.', link: deck, focus: 'turn-order-title' };
 	}
 	if (!game.turn.interception && !game.turn.battle && jumper(game) === myId) {
-		return { key: `${base}/jump`, title: 'Your move: jump', lead: 'It’s your turn to jump ships.', link: deck, focus: 'jump-title' };
+		return { key: `${base}/jump`, title: 'Your move: jump', lead: 'It’s your turn to jump ships.', link: jumpsLink(game.id), focus: 'jumps-title' }; // R139: jumps are made on the Jumps screen
 	}
 	const good = resolution(game)?.good;
 	const at = good ? `${good.goods} at ${good.systemName}` : '';

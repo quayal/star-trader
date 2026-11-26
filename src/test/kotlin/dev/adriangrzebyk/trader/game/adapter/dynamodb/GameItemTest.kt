@@ -206,9 +206,26 @@ class GameItemTest {
 				it.getValue("goods").s() == "ISO"
 		}
 
-		assertThat(muHerculisIso.keys).containsExactlyInAnyOrder("system", "goods", "price")
+		assertThat(muHerculisIso.keys).containsExactlyInAnyOrder("system", "goods", "price", "change")
 		assertThat(muHerculisIso.getValue("price")).isEqualTo(AttributeValue.fromN("10"))
+		assertThat(muHerculisIso.getValue("change")).isEqualTo(AttributeValue.fromN("-1"))
 		assertThat(GameItem(item - "prices").toGame(startedGame.log).prices).isEqualTo(MarketPrices.board())
+	}
+
+	@Test
+	fun shouldReadAPriceSavedBeforeItsLastMoveWasKeptAsNotMoved() {
+		// R140: items saved before `change` existed read as no move
+		val item = GameItem(startedGame, version = 0).attributes
+		val withoutChanges = item + (
+			"prices" to AttributeValue.fromL(
+				item.getValue("prices").l().map { AttributeValue.fromM(it.m() - "change") }
+			)
+			)
+
+		val prices = GameItem(withoutChanges).toGame(startedGame.log).prices
+
+		assertThat(prices.prices).isEqualTo(startedGame.prices.prices)
+		assertThat(prices.changes).isEmpty()
 	}
 
 	@Test

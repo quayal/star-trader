@@ -100,6 +100,14 @@ describe('moveCard', () => {
 		});
 	});
 
+	it('takes the player whose slot it is to the Jumps screen (R139)', () => {
+		const jumping = game([], { turn: { number: 2, phase: 'JUMPS', turnOrder: ['p1', 'p2'], doneJumping: [] }, you: { id: 'p1' } });
+
+		const card = moveCard(jumping, 'p1');
+		assert.equal(card.link, '#game/g1/jumps');
+		assert.equal(card.focus, 'jumps-title');
+	});
+
 	it('says how much the trader can trade', () => {
 		const good = { system: 'TAU_CETI', systemName: 'Tau Ceti', goods: 'ISO' };
 		const trading = game([], {

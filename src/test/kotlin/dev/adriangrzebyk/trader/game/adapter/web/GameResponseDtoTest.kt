@@ -52,7 +52,7 @@ class GameResponseDtoTest {
 				legalSystem = 2,
 				police = 5,
 				security = 7,
-				market = listOf(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 6, -10)),
+				market = listOf(MarketEntryResponseDto("ISO", 4, -9, 0, 11, null), MarketEntryResponseDto("POLY", 6, -10, 0, 13, null)),
 				producibleGoods = listOf("ISO"),
 				// R68: the base chance of a jump from Tau Ceti to each other system.
 				jumpChances = mapOf(
@@ -374,7 +374,7 @@ class GameResponseDtoTest {
 		assertThat(hostView.passengerRoutes).hasSize(30)
 		assertThat(hostView.passengerRoutes).contains(PassengerRouteResponseDto("TAU_CETI", "BETA_HYDRI", 7, 5))
 		assertThat(guestView.passengerRoutes).isEqualTo(hostView.passengerRoutes)
-		assertThat(hostView.you!!.passengerGroups).containsExactly(PassengerGroupResponseDto("Wayfarer", "BETA_HYDRI", "Beta Hydri", 2))
+		assertThat(hostView.you!!.passengerGroups).containsExactly(PassengerGroupResponseDto("Wayfarer", "BETA_HYDRI", "Beta Hydri", 2, 20))
 		assertThat(guestView.you!!.passengerGroups).isEmpty()
 	}
 
@@ -541,7 +541,9 @@ class GameResponseDtoTest {
 
 		val tauCeti = GameResponseDto(moved, "guest@example.com").board.single { it.id == "TAU_CETI" }
 
-		assertThat(tauCeti.market).containsExactly(MarketEntryResponseDto("ISO", 4, -9), MarketEntryResponseDto("POLY", 7, -10))
+		assertThat(
+			tauCeti.market
+		).containsExactly(MarketEntryResponseDto("ISO", 4, -9, 0, 11, null), MarketEntryResponseDto("POLY", 7, -10, 1, 14, null))
 	}
 
 	// E05-S05: Grace's buy traded 4 at Mu Herculis ISO (11 HT), counter 3 → -1, so the price is 11 + modifier(-1) = 11;

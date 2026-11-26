@@ -1,5 +1,6 @@
 package dev.adriangrzebyk.trader.game
 
+import dev.adriangrzebyk.trader.board.StarSystem
 import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.board.StarSystem.EPSILON_ERIDANI
 import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
@@ -9,10 +10,12 @@ import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
 import dev.adriangrzebyk.trader.game.agent.Agent
 import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
+import dev.adriangrzebyk.trader.game.control.PoliceOdds
 import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.news.SpecialLot
 import dev.adriangrzebyk.trader.game.news.TipOff
 import dev.adriangrzebyk.trader.game.news.TurnConditions
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -166,5 +169,28 @@ class GameSmugglingTest {
 
 		assertThat(grace(landed).ship("Meridian")!!.deliveryJob).isEqualTo(TipOff.O9)
 		assertThat(grace(landed).money).isEqualTo(grace(carrying).money)
+	}
+
+	@Test
+	fun shouldShowTheShipsOwnerWhatWaitsAtEveryDestinationThisTurn() {
+		// R139: an E10-like turn (security +1, police +1); Meridian has a Battle comm (military, +3 landing, +2 police)
+		val armed = withGrace(jumping) { player ->
+			player.copy(ships = player.ships.map { if (it.name == "Meridian") it.copy(modules = it.modules.drop(1) + Module.BATTLE_COMM) else it })
+		}.let { it.copy(news = it.news.withConditions(TurnConditions.calm(1).withSecurityChange(1).withPoliceChange(1))) }
+
+		val destinations = armed.viewFor("grace@example.com")!!.destinations.getValue("Meridian").associateBy { it.system }
+
+		assertThat(destinations.keys).containsExactlyElementsOf(StarSystem.entries)
+		// Beta Hydri: security 10 + 1, police 8 + 1, legal system 4 refuses military parts
+		val betaHydri = destinations.getValue(BETA_HYDRI)
+		assertThat(betaHydri.landing).isEqualTo(LandingOdds(3, 11))
+		assertThat(betaHydri.police).isEqualTo(PoliceOdds(2, 9))
+		assertThat(betaHydri.portRefused).isTrue()
+		// Tau Ceti: security 7 + 1, police 5 + 1, legal system 2 admits it
+		val tauCeti = destinations.getValue(TAU_CETI)
+		assertThat(tauCeti.landing).isEqualTo(LandingOdds(3, 8))
+		assertThat(tauCeti.police.caughtPercent()).isEqualTo(PoliceOdds(2, 6).caughtPercent())
+		assertThat(tauCeti.portRefused).isFalse()
+		assertThat(armed.viewFor("ada@example.com")!!.destinations.keys).doesNotContain("Meridian")
 	}
 }

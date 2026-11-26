@@ -242,8 +242,11 @@ data class Ship(
 	/** What it adds to its roll when police controls Space (R128): a working Battle comm module's +2. */
 	fun policeBonus(): Int = if (hasWorkingBattleComm()) BATTLE_COMM_POLICE_BONUS else 0
 
-	/** Whether the Port of its system admits it (R56): not with a military part where the legal system is 3 or 4. */
-	fun mayEnterPort(): Boolean = !isMilitary() || system.locations.admitsMilitaryShips()
+	/**
+	 * Whether the Port of [at] admits it (R56, R131): not with a military part where the legal system is 3 or 4. By default
+	 * its own system's; the Jumps screen asks about each destination (R139).
+	 */
+	fun mayEnterPort(at: StarSystem = system): Boolean = !isMilitary() || at.locations.admitsMilitaryShips()
 
 	/** Whether it has a military hull or module (R56): forced into a Port, it's confiscated (R117). */
 	fun isMilitary(): Boolean = hull.military || modules.any { it.military }

@@ -25,7 +25,8 @@ import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
  * (R99); [agentOffers] the agent offers they made or were made (R106); [limpyAsk] the good Limpy may let them dictate
  * (R108); [agentPool] how many agents are left to recruit (R103). [tipOffs] are the tip-offs in play, as they may see them
  * (R109–R111), and [landingOdds] each of their ships' chances on its system's Planet this turn (R118). [jumpChances] are
- * each ship's chances to jump to each other system with everything the roll adds (R68, Novak, this turn's news). [backingAsk] is
+ * each ship's chances to jump to each other system with everything the roll adds (R68, Novak, this turn's news), and
+ * [destinations] what waits for each ship at every system this turn (R139). [backingAsk] is
  * the reputation control they are asked to back (R129), or null.
  */
 data class PlayerView(
@@ -53,6 +54,7 @@ data class PlayerView(
 	val landingOdds: Map<String, LandingOdds> = emptyMap(),
 	val jumpChances: Map<String, Map<StarSystem, JumpChance>> = emptyMap(),
 	val moduleMoves: Map<String, ModuleMoves> = emptyMap(),
+	val destinations: Map<String, List<ShipDestination>> = emptyMap(),
 	val turnNumber: Int = 0,
 	val backingAsk: ControlAudit? = null
 )

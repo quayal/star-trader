@@ -34,6 +34,7 @@ import dev.adriangrzebyk.trader.game.ProductionCost
 import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Resolution
 import dev.adriangrzebyk.trader.game.Ship
+import dev.adriangrzebyk.trader.game.ShipDestination
 import dev.adriangrzebyk.trader.game.ShipLoad
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.SupplyDemandShifts
@@ -113,10 +114,13 @@ data class PassengerRouteResponseDto(val from: String, val to: String, val group
 	constructor(route: PassengerRoute, left: Int) : this(route.from.name, route.to.name, route.groups(), left)
 }
 
-/** Passengers the viewer took this turn (R125): [groups] aboard [ship], bound for [to] ([toName]). */
-data class PassengerGroupResponseDto(val ship: String, val to: String, val toName: String, val groups: Int) {
+/**
+ * Passengers the viewer took this turn (R125): [groups] aboard [ship], bound for [to] ([toName]), and the [penalty] they
+ * pay if the groups aren't delivered.
+ */
+data class PassengerGroupResponseDto(val ship: String, val to: String, val toName: String, val groups: Int, val penalty: Int) {
 
-	constructor(group: PassengerGroup) : this(group.ship, group.to.name, group.to.displayName, group.groups)
+	constructor(group: PassengerGroup) : this(group.ship, group.to.name, group.to.displayName, group.groups, group.penalty())
 }
 
 /**
@@ -300,12 +304,26 @@ data class SystemResponseDto(
 
 /**
  * [price] is this game's (R35); [indicator] is the S/D number, the board's with any event's permanent shift (R115); the client
- * steps it into a market label (D08).
+ * steps it into a market label (D08). [lastChange] is how far the price moved when it last resolved, signed, and
+ * [buyCeiling] / [sellFloor] the R15 limits beyond which an offer moves no further, null when the 1–20 range ends first (R140).
  */
-data class MarketEntryResponseDto(val goods: String, val price: Int, val indicator: Int) {
+data class MarketEntryResponseDto(
+	val goods: String,
+	val price: Int,
+	val indicator: Int,
+	val lastChange: Int,
+	val buyCeiling: Int?,
+	val sellFloor: Int?
+) {
 
-	constructor(good: MarketGood, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) :
-		this(good.goods.name, prices.priceOf(good), shifts.indicatorOf(good))
+	constructor(good: MarketGood, prices: MarketPrices, shifts: SupplyDemandShifts = SupplyDemandShifts.NONE) : this(
+		good.goods.name,
+		prices.priceOf(good),
+		shifts.indicatorOf(good),
+		prices.changeOf(good),
+		prices.buyCeilingOf(good),
+		prices.sellFloorOf(good)
+	)
 }
 
 /**
@@ -687,7 +705,8 @@ data class YouResponseDto(
 				view.landingOdds.getValue(it.name),
 				view.jumpChances.getValue(it.name),
 				view.moduleMoves.getValue(it.name),
-				player.freeSeatsOn(it)
+				player.freeSeatsOn(it),
+				view.destinations.getValue(it.name)
 			)
 		},
 		view.offers.map { YourOfferResponseDto(it) },
@@ -1291,14 +1310,24 @@ data class YourShipResponseDto(
 	val canDeliver: Boolean,
 	val moduleMoves: ModuleMovesResponseDto,
 	val freeSeats: Int,
-	val portRefused: Boolean
+	val portRefused: Boolean,
+	val deliveryTo: String?,
+	val destinations: Map<String, ShipDestinationResponseDto>
 ) {
 
 	/**
 	 * [odds] are its chances on its system's Planet this turn (R118), [chances] its jump chances as the roll counts them,
-	 * [moves] what it can do with its modules where it is (R122, R123), and [freeSeats] the passenger seats not booked (R125).
+	 * [moves] what it can do with its modules where it is (R122, R123), [freeSeats] the passenger seats not booked (R125), and
+	 * [destinations] what waits for it at every system this turn (R139), keyed by `StarSystem` constant.
 	 */
-	constructor(ship: Ship, odds: LandingOdds, chances: Map<StarSystem, JumpChance>, moves: ModuleMoves, freeSeats: Int) : this(
+	constructor(
+		ship: Ship,
+		odds: LandingOdds,
+		chances: Map<StarSystem, JumpChance>,
+		moves: ModuleMoves,
+		freeSeats: Int,
+		destinations: List<ShipDestination>
+	) : this(
 		ship.name,
 		ship.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		ship.cargoSpacesUsed(),
@@ -1322,7 +1351,22 @@ data class YourShipResponseDto(
 		ship.canDeliver(),
 		ModuleMovesResponseDto(moves),
 		freeSeats,
-		!ship.mayEnterPort()
+		!ship.mayEnterPort(),
+		ship.deliveryDestination()?.name,
+		destinations.associate { it.system.name to ShipDestinationResponseDto(it) }
+	)
+}
+
+/**
+ * What waits for one of the viewer's ships at one system this turn (R139): its [landing] odds on the Planet, the chance
+ * [policePercent] that police catches it in Space there in Control (R128), and whether the Port refuses it (R131).
+ */
+data class ShipDestinationResponseDto(val landing: LandingOddsResponseDto, val policePercent: Int, val portRefused: Boolean) {
+
+	constructor(destination: ShipDestination) : this(
+		LandingOddsResponseDto(destination.landing),
+		destination.police.caughtPercent(),
+		destination.portRefused
 	)
 }
 
