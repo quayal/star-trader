@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, specialSales } from '../../main/resources/static/js/opportunities.js';
+import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, passengersAboard, specialSales } from '../../main/resources/static/js/opportunities.js';
 
 const ME = 'me';
 
@@ -167,9 +167,11 @@ describe('passengers (R125)', () => {
 		assert.deepEqual(passengerForms({ players: [], you: { ships: [] } }), []);
 	});
 
-	it('lists passengers aboard among the opportunities in action, with what is owed if they are not delivered', () => {
-		assert.deepEqual(opportunitiesInAction(game), [
+	it('lists passengers aboard in their own box, with what is owed if they are not delivered, not among the opportunities in action (creator, 2026-11-25)', () => {
+		assert.deepEqual(passengersAboard(game), [
 			{ ship: 'Corvid', where: 'Beta Hydri Space', what: '2 passenger groups for Tau Ceti', next: "The ship must be in Tau Ceti's Port, seats in working order, when the next Opportunity opens, or you pay 20 HT" },
 		]);
+		assert.deepEqual(opportunitiesInAction(game), []);
+		assert.deepEqual(passengersAboard({ players: [], you: {} }), []);
 	});
 });

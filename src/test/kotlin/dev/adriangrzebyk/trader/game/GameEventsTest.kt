@@ -139,8 +139,23 @@ class GameEventsTest {
 		assertThat(player(game, "ada@example.com").money).isEqualTo(player(initiative, "ada@example.com").money - 10)
 		// Playtest 2026-11-21: what the event did is part of its pop-up, after its announcement.
 		val announced = game.log.indexOfFirst { it.text.startsWith("News: ") && it.notice?.kind == NoticeKind.NEWS_EVENT }
-		assertThat(game.log[announced + 1].text).startsWith("Special tax paid by:")
+		assertThat(game.log[announced + 1].text).isEqualTo("Special tax paid in full by: Orion Freight, Vega Lines")
 		assertThat(game.log[announced + 1].notice).isEqualTo(game.log[announced].notice)
+	}
+
+	@Test
+	fun shouldTakeWhatAShortPlayerHasAndWaiveTheRest() {
+		// Creator, 2026-11-25: Grace's two ships owe 10 HT; with 4 HT she pays 4 and the other 6 are waived.
+		val short = initiative.copy(players = initiative.players.map { if (it.email == "grace@example.com") it.copy(money = 4) else it })
+
+		val game = takingPlace(TipOff.E13, from = short)
+
+		assertThat(player(game, "grace@example.com").money).isZero()
+		assertThat(player(game, "ada@example.com").money).isEqualTo(player(initiative, "ada@example.com").money - 10)
+		assertThat(game.log.map { it.text }).contains(
+			"Special tax paid in full by: Orion Freight",
+			"Special tax paid in part, the rest waived, by: Vega Lines"
+		)
 	}
 
 	@Test

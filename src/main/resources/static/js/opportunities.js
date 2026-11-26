@@ -204,14 +204,11 @@ export function expeditionsDue(game) {
 /**
  * The viewer's opportunities in action (creator, 2026-11-23), shown on the Opportunity screen in every phase: goods bought
  * through one and still aboard (R112), delivery jobs under way (R114) and ships away on the expedition (R114), each
- * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way.
+ * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way. Passengers aboard are [passengersAboard]'s,
+ * in a box of their own (creator, 2026-11-25).
  */
 export function opportunitiesInAction(game) {
-	const where = Object.fromEntries(positions(game).map(s => [s.name, s]));
-	const at = name => {
-		const place = where[name];
-		return place ? `${systemName(game, place.system)} ${place.location === 'PLANET' ? 'Planet' : place.location === 'SPACE' ? 'Space' : 'Port'}` : '';
-	};
+	const at = shipPlace(game);
 	const rows = [];
 	for (const ship of game.you?.ships ?? []) {
 		for (const lot of ship.specialLots ?? []) {
@@ -226,14 +223,6 @@ export function opportunitiesInAction(game) {
 			rows.push({ ship: ship.name, where: at(ship.name), what: `Delivery: ${ship.deliveryJob}`, next: 'Deliver in the destination Port' });
 		}
 	}
-	for (const group of game.you?.passengerGroups ?? []) {
-		rows.push({
-			ship: group.ship,
-			where: at(group.ship) || 'ship lost',
-			what: `${group.groups} passenger ${group.groups === 1 ? 'group' : 'groups'} for ${group.toName}`,
-			next: `The ship must be in ${group.toName}'s Port, seats in working order, when the next Opportunity opens, or you pay ${group.groups * 10} HT`,
-		});
-	}
 	for (const expedition of game.you?.expeditions ?? []) {
 		rows.push({
 			ship: expedition.ship,
@@ -243,4 +232,27 @@ export function opportunitiesInAction(game) {
 		});
 	}
 	return rows;
+}
+
+/** Where each of the viewer's ships is now, as "Tau Ceti Port"; '' for a ship that's gone. */
+function shipPlace(game) {
+	const where = Object.fromEntries(positions(game).map(s => [s.name, s]));
+	return name => {
+		const place = where[name];
+		return place ? `${systemName(game, place.system)} ${place.location === 'PLANET' ? 'Planet' : place.location === 'SPACE' ? 'Space' : 'Port'}` : '';
+	};
+}
+
+/**
+ * The viewer's passenger groups aboard (R125), for the Passengers box in every phase (creator, 2026-11-25): `{ ship, where,
+ * what, next }`, as [opportunitiesInAction]'s rows. Empty when none are aboard.
+ */
+export function passengersAboard(game) {
+	const at = shipPlace(game);
+	return (game.you?.passengerGroups ?? []).map(group => ({
+		ship: group.ship,
+		where: at(group.ship) || 'ship lost',
+		what: `${group.groups} passenger ${group.groups === 1 ? 'group' : 'groups'} for ${group.toName}`,
+		next: `The ship must be in ${group.toName}'s Port, seats in working order, when the next Opportunity opens, or you pay ${group.groups * 10} HT`,
+	}));
 }

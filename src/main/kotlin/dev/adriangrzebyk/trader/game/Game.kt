@@ -1452,9 +1452,13 @@ data class Game(
 				dice
 			).withConditions(conditions.withSecurityChange(2).withPoliceChange(2))
 			NewsEvent.SPECIAL_TAX -> {
-				val paying = players.filter { it.money >= it.specialTax() }.map { it.corporationName }
-				copy(players = players.map { it.afterSpecialTax() })
-					.withLogged(number, listOf("Special tax paid by: ${paying.joinToString(", ").ifEmpty { "nobody" }}"))
+				// Creator, 2026-11-25: everyone pays; a player whose cash falls short pays what they have, the rest waived.
+				val (full, short) = activePlayers().partition { it.paysSpecialTaxInFull() }
+				val lines = listOfNotNull(
+					"Special tax paid in full by: ${full.joinToString(", ") { it.corporationName }}".takeIf { full.isNotEmpty() },
+					"Special tax paid in part, the rest waived, by: ${short.joinToString(", ") { it.corporationName }}".takeIf { short.isNotEmpty() }
+				)
+				copy(players = players.map { it.afterSpecialTax() }).withLogged(number, lines)
 			}
 			NewsEvent.NEW_POLYMER_SYSTEM ->
 				withPricesShifted(-5) { it.goods == Goods.POLY }.withPricesShifted(2) { it.goods == Goods.ISO || it.goods == Goods.CHIPS }

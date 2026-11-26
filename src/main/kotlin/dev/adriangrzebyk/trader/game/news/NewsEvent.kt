@@ -74,7 +74,7 @@ enum class NewsEvent(val headline: String, val oneTimeOnly: Boolean) {
 	),
 	SPECIAL_TAX(
 		"The treasury is empty, and the government decrees a one-off levy on everything a corporation owns (1 HT per " +
-			"warehouse block, 2 HT per factory unit, 5 HT per ship; waived for a player who can't pay it all).",
+			"warehouse block, 2 HT per factory unit, 5 HT per ship; a player who can't pay it all pays what they have, and the rest is waived).",
 		false
 	),
 	NEW_POLYMER_SYSTEM(
