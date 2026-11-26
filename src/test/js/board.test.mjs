@@ -198,6 +198,19 @@ describe('Your fleet (S02-5)', () => {
 		]);
 	});
 
+	it('names my agents riding a ship, and only mine (R103)', () => {
+		const withAgents = { ...game, you: { ...game.you, agents: [
+			{ name: 'Silent', effect: 'Foils sabotage', ship: 'Wayfarer' },
+			{ name: 'Novak', effect: '+1 to jumps', ship: 'Wayfarer' },
+			{ name: 'Shorty', effect: '+4 to sabotage', ship: null, system: 'TAU_CETI', location: 'PORT' },
+		] } };
+
+		assert.deepEqual(fleet(withAgents, 'ada').map(fleetLine), [
+			'Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used · aboard: Silent, Novak',
+			'Lantern — Beta Hydri · Space — Empty · cargo 0 / 10 used',
+		]);
+	});
+
 	it('links each entry to its system', () => {
 		assert.deepEqual(fleet(game, 'ada').map(entry => entry.systemId), ['TAU_CETI', 'BETA_HYDRI']);
 	});

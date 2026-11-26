@@ -67,6 +67,15 @@ describe('fleetShips', () => {
 		assert.equal(fleetShips({ ...yard, turns: 2 }, 'ada')[0].where, 'Tau Ceti · in the shipyard until the game ends');
 	});
 
+	it('lists my agents aboard each ship with what they do (R103)', () => {
+		const withAgents = { ...game, you: { ...game.you, agents: [{ name: 'Silent', effect: 'Foils sabotage', ship: 'Lantern' }] } };
+
+		assert.deepEqual(fleetShips(withAgents, 'ada').map(ship => [ship.name, ship.agents]), [
+			['Wayfarer', []],
+			['Lantern', [{ name: 'Silent', effect: 'Foils sabotage' }]],
+		]);
+	});
+
 	it('lists only my ships, each with its hull, modules, stats, position and cargo (S03-2, S03-3, S03-5)', () => {
 		const ships = fleetShips(game, 'ada');
 
@@ -89,6 +98,7 @@ describe('fleetShips', () => {
 				{ label: 'Passengers', value: '0' },
 				{ label: 'Modules', value: '5 / 5' },
 			],
+			agents: [],
 			cargo: {
 				used: 7,
 				spaces: 8,

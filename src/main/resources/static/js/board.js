@@ -4,6 +4,8 @@
  * and data; index.html turns them into DOM with textContent only, since corporation names are player-typed.
  */
 
+import { agentsAboard } from './fleet.js';
+
 /**
  * D08: buy chances at or above this split are "moderate demand", below it "high demand". The brief leaves the
  * split open; 20% is the prototype's pick (S02-3), kept here as the one place to change it.
@@ -307,13 +309,19 @@ export function fleet(game, myId) {
 			location: LOCATION_NAMES[ship.location] ?? ship.location,
 			cargo: cargoText(own.cargo),
 			cargoUsed: cargoUsedText(own),
+			agents: agentsAboard(game, ship.name).map(agent => agent.name),
 		};
 	});
 }
 
-/** "Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used". */
+/** "Wayfarer — Tau Ceti · Port — POLY 4, ISO 3, CHIPS 12 · cargo 7 / 10 used", then " · aboard: Silent, Novak" (R103). */
 export function fleetLine(entry) {
-	return `${entry.name} — ${entry.systemName} · ${entry.location} — ${entry.cargo} · ${entry.cargoUsed}`;
+	return `${entry.name} — ${entry.systemName} · ${entry.location} — ${entry.cargo} · ${entry.cargoUsed}${aboardText(entry.agents)}`;
+}
+
+/** " · aboard: Silent, Novak" for the viewer's agents riding a ship (R103); '' for none. */
+function aboardText(agents) {
+	return agents?.length ? ` · aboard: ${agents.join(', ')}` : '';
 }
 
 /** R31: the statistics line of a location, with this turn's event change if any (R115: `game.conditions`). */
