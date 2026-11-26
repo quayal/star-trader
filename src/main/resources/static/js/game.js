@@ -18,7 +18,8 @@ const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYAR
  * Screen routes: '' (or '#') → home; `#new` → create (s11); `#game/{id}` → the lobby or the Deck (s12/s01);
  * `#game/{id}/system/{SYSTEM}` → System details (s02); `#game/{id}/log` → the Game log (s04); `#game/{id}/trading` → Trading
  * (s03); `#game/{id}/infrastructure` → Infrastructure (s10, E06-S08); `#game/{id}/fleet` → Fleet (E07-S03);
- * `#game/{id}/corporations` → Corporations (E11-S01); `#game/{id}/guide` → the Guide (playtest, 2026-11-20); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
+ * `#game/{id}/corporations` → Corporations (E11-S01); `#game/{id}/jumps` → Jumps and `#game/{id}/market` → the Market
+ * (D34, R139, R140); `#game/{id}/guide` → the Guide (playtest, 2026-11-20); `#game/{id}/game-over` → Game over (s09). Any other fragment is an unknown screen (s08), carrying
  * the game id when there is one so its "back to the Deck" link stays in that game.
  */
 export function parseRoute(hash) {
@@ -64,6 +65,14 @@ export function parseRoute(hash) {
 	const opportunity = /^#game\/([^/]+)\/opportunity$/.exec(text);
 	if (opportunity) {
 		return { view: 'opportunity', id: decodeURIComponent(opportunity[1]) };
+	}
+	const jumps = /^#game\/([^/]+)\/jumps$/.exec(text);
+	if (jumps) {
+		return { view: 'jumps', id: decodeURIComponent(jumps[1]) };
+	}
+	const market = /^#game\/([^/]+)\/market$/.exec(text);
+	if (market) {
+		return { view: 'market', id: decodeURIComponent(market[1]) };
 	}
 	const news = /^#game\/([^/]+)\/news$/.exec(text);
 	if (news) {
@@ -138,6 +147,16 @@ export function newsLink(id) {
 	return `#game/${encodeURIComponent(id)}/news`;
 }
 
+/** The Jumps screen of game [id] (R139, D34): every ship's obligations and what waits at each destination. */
+export function jumpsLink(id) {
+	return `#game/${encodeURIComponent(id)}/jumps`;
+}
+
+/** The Market screen of game [id] (R140, D34): Bidding's screen, every market at a glance. */
+export function marketLink(id) {
+	return `#game/${encodeURIComponent(id)}/market`;
+}
+
 /** The Guide tab of game [id] (playtest, 2026-11-20): each phase, every agent and the key modifiers. */
 export function guideLink(id) {
 	return `#game/${encodeURIComponent(id)}/guide`;
@@ -155,7 +174,8 @@ export function gameOverLink(id) {
 
 /**
  * D15 (E08-S03): the screen to open because [game] has moved on since [previous], the last state this page drew of it,
- * or null when it hasn't. A new phase or turn is played on 'game' (the Deck: Bidding and Ship-jumps), 'trading',
+ * or null when it hasn't. A new phase or turn is played on 'market' (Bidding, R140), 'game' (the Deck: Initiative), 'news',
+ * 'jumps' (R139), 'trading',
  * 'opportunity' (its own tab since the 2026-11-21 playtest) or 'infrastructure' (Investment), and a game that has just ended opens 'over'. The names are [parseRoute]'s views. A first
  * load (no previous, or another game's) never counts, so a reload doesn't pull the player away from where they opened.
  */
@@ -169,7 +189,7 @@ export function screenForPhaseChange(previous, game) {
 	if (game.status === 'FINISHED') {
 		return 'over';
 	}
-	return { NEWS: 'news', TRADING: 'trading', OPPORTUNITY: 'opportunity', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
+	return { BIDDING: 'market', NEWS: 'news', JUMPS: 'jumps', TRADING: 'trading', OPPORTUNITY: 'opportunity', INVESTMENT: 'infrastructure' }[game.turn?.phase] ?? 'game';
 }
 
 /**
@@ -177,18 +197,18 @@ export function screenForPhaseChange(previous, game) {
  * once had none, so the page threw instead of opening it (playtest, 2026-11-21).
  */
 export function phaseScreenLink(screen, id) {
-	return { game: deckLink, news: newsLink, trading: tradingLink, opportunity: opportunityLink, infrastructure: infrastructureLink, over: gameOverLink }[screen](id);
+	return { game: deckLink, market: marketLink, news: newsLink, jumps: jumpsLink, trading: tradingLink, opportunity: opportunityLink, infrastructure: infrastructureLink, over: gameOverLink }[screen](id);
 }
 
 /**
- * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the bid's in Bidding, the
- * turn order's in Initiative and Jumps; null in any other phase.
+ * E08-S03-4: the id of the Deck heading that takes focus when a phase change opens the Deck: the turn order's in
+ * Initiative; null in any other phase, which opens a screen of its own (D34).
  */
 export function deckHeadingFor(game) {
 	if (game.status !== 'RUNNING') {
 		return null;
 	}
-	return { BIDDING: 'bid-title', INITIATIVE: 'turn-order-title', JUMPS: 'turn-order-title' }[game.turn?.phase] ?? null;
+	return { INITIATIVE: 'turn-order-title' }[game.turn?.phase] ?? null;
 }
 
 /** The length as a number, or the error the server would give (GameCreationService). */

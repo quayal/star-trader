@@ -208,12 +208,18 @@ describe('shipLine', () => {
 describe('the screen follows the phase (D15, E08-S03)', () => {
 	const at = (phase, { number = 3, status = 'RUNNING', id = 'g-1' } = {}) => ({ id, status, turn: { number, phase } });
 
-	it('opens the Deck when Ship-jumps starts (S03-1)', () => {
-		assert.equal(screenForPhaseChange(at('BIDDING'), at('JUMPS')), 'game');
+	it('opens the Jumps screen when Jumps starts (R139)', () => {
+		assert.equal(screenForPhaseChange(at('NEWS'), at('JUMPS')), 'jumps');
+		assert.equal(phaseScreenLink('jumps', 'g-1'), '#game/g-1/jumps');
 	});
 
-	it("opens the Deck when Investment closes and the next turn's Bidding starts (S03-2)", () => {
-		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('BIDDING', { number: 4 })), 'game');
+	it("opens the Market when Investment closes and the next turn's Bidding starts (R140)", () => {
+		assert.equal(screenForPhaseChange(at('INVESTMENT'), at('BIDDING', { number: 4 })), 'market');
+		assert.equal(phaseScreenLink('market', 'g-1'), '#game/g-1/market');
+	});
+
+	it('opens the Deck for Initiative', () => {
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('INITIATIVE')), 'game');
 	});
 
 	it('opens Trading, Infrastructure and Game over as before (S03-3)', () => {
@@ -237,15 +243,15 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 
 	it('follows a change that skipped a state between two polls', () => {
 		assert.equal(screenForPhaseChange(at('BIDDING'), at('TRADING')), 'trading');
-		assert.equal(screenForPhaseChange(at('TRADING'), at('BIDDING', { number: 4 })), 'game');
+		assert.equal(screenForPhaseChange(at('TRADING'), at('BIDDING', { number: 4 })), 'market');
 	});
 
 	it('counts the same phase of a later turn as a change', () => {
-		assert.equal(screenForPhaseChange(at('BIDDING'), at('BIDDING', { number: 4 })), 'game');
+		assert.equal(screenForPhaseChange(at('BIDDING'), at('BIDDING', { number: 4 })), 'market');
 	});
 
-	it('opens the Deck when the game starts', () => {
-		assert.equal(screenForPhaseChange({ id: 'g-1', status: 'LOBBY', turn: null }, at('BIDDING', { number: 1 })), 'game');
+	it('opens the Market when the game starts', () => {
+		assert.equal(screenForPhaseChange({ id: 'g-1', status: 'LOBBY', turn: null }, at('BIDDING', { number: 1 })), 'market');
 	});
 
 	it('opens nothing while the phase goes on, or once the game stays over (S03-5)', () => {
@@ -260,8 +266,9 @@ describe('the screen follows the phase (D15, E08-S03)', () => {
 	});
 
 	it('names the Deck heading the phase needs (S03-4)', () => {
-		assert.equal(deckHeadingFor(at('BIDDING')), 'bid-title');
-		assert.equal(deckHeadingFor(at('JUMPS')), 'turn-order-title');
+		assert.equal(deckHeadingFor(at('INITIATIVE')), 'turn-order-title');
+		assert.equal(deckHeadingFor(at('BIDDING')), null);
+		assert.equal(deckHeadingFor(at('JUMPS')), null);
 		assert.equal(deckHeadingFor(at('TRADING')), null);
 		assert.equal(deckHeadingFor(at('INVESTMENT', { status: 'FINISHED' })), null);
 	});

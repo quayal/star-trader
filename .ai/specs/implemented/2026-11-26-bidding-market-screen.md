@@ -127,3 +127,18 @@ is a ship already there, or how likely is one to get there?
 - Planning tools across turns (routes, saved plans). The notepad covers that for now.
 - A Market screen of its own for Trading. Trading keeps its screen; this one is read-only after Bidding.
 - Screens for Initiative and Control. Initiative keeps the Deck's turn-order panel, and Control stays a label on the rail.
+
+## Implementation notes (2026-11-26)
+
+- **Rule number.** R138 was taken before this spec merged (the special tax, PR 191), so this rule is **R140** in the
+  brief and the code.
+- **`lastChange`** is kept on `MarketPrices.changes`, written by `withPrice` (each resolution's move) and stored on
+  each `MarketPriceItem` as `change` (absent on older items: 0). Every good resolves every turn (R36), so the value is
+  always last Trading's move; nothing clears it.
+- **The R15 hint comes from the server**, not JS arithmetic (standards §13 row 9): `board[].market[]` also gains
+  `buyCeiling` and `sellFloor` (`MarketPrices.buyCeilingOf` / `sellFloorOf`, from `SupplyDemand`'s saturation limits),
+  null when 1–20 HT ends first. This adds to criterion 15's "nothing else new".
+- **Offers check, "too many places"** counts only places a ship could reach: a place nothing can reach already has its
+  own warning, so it isn't repeated.
+- **News in the inspector** lists learned tip-offs and this turn's announcements whose text names the system or the good.
+- **Phone:** the inspector opens as a bottom sheet once a market is selected, and stays out of the way before.

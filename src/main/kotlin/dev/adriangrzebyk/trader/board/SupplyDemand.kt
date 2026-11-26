@@ -74,6 +74,12 @@ internal value class SupplyDemand(val indicator: Int) {
 		 */
 		fun priceModifierAt(indicator: Int): Int = checkNotNull(SupplyDemand(indicator.coerceIn(MIN_INDICATOR, MAX_INDICATOR)).priceModifier())
 
+		/** R15: the highest buy price over [startPrice] that still counts in full; a dearer buy counts as this one. */
+		fun highestBuyThatCounts(startPrice: Int): Int = startPrice + MAX_PRICE_MODIFIER
+
+		/** R15: the lowest sell price under [startPrice] that still counts in full; a cheaper sell counts as this one. */
+		fun lowestSellThatCounts(startPrice: Int): Int = startPrice + MIN_PRICE_MODIFIER
+
 		/** The lowest indicator with [priceModifier]: what a buy is measured against. */
 		fun lowestFor(priceModifier: Int): SupplyDemand = SupplyDemand(indicatorsFor(priceModifier).min())
 

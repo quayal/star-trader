@@ -1173,6 +1173,11 @@ data class Game(
 			landingOdds = player.ships.associate { it.name to LandingOdds(player.landingBonusFor(it.name), planetSecurity(it.system)) },
 			jumpChances = player.ships.associate { it.name to it.jumpChances(jumpBonusOf(player, it)) },
 			moduleMoves = player.ships.associate { it.name to player.moduleMoves(it.name) },
+			destinations = StarSystem.entries.let { systems ->
+				val security = systems.associateWith { planetSecurity(it) }
+				val police = systems.associateWith { policeAt(it) }
+				player.ships.associate { it.name to player.destinationsOf(it.name, security, police) }
+			},
 			turnNumber = turn?.number ?: 0,
 			backingAsk = turn?.controlAudit?.takeIf { it.asks(email) }
 		)

@@ -168,6 +168,9 @@ class GameControlTest {
 		assertThat(ship.mayEnterPort()).isFalse()
 		assertThat(ship.copy(system = TAU_CETI).mayEnterPort()).isTrue()
 		assertThat(ship.copy(modules = listOf(Module.CARGO)).mayEnterPort()).isTrue()
+		// R139: asked about a destination, its Port decides
+		assertThat(ship.mayEnterPort(TAU_CETI)).isTrue()
+		assertThat(ship.copy(system = TAU_CETI).mayEnterPort(BETA_HYDRI)).isFalse()
 	}
 
 	@Test

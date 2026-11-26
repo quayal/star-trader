@@ -131,6 +131,108 @@
 			.deck { grid-template-columns: minmax(0, 1fr); }
 			.deck__center { order: -1; }
 		}
+		/* D34: the phase rail, a stepper of the turn's phases under the title. */
+		.phase-rail { flex-basis: 100%; }
+		.phase-rail[hidden] { display: none; }
+		.phase-rail__list { display: flex; flex-wrap: wrap; gap: var(--space-hairline) var(--space-group); margin: 0; padding: 0; list-style: none; font-size: var(--text-body); }
+		.phase-rail__item { display: flex; align-items: center; gap: var(--space-group); }
+		.phase-rail__item + .phase-rail__item::before { content: '\203A'; color: var(--text-muted); }
+		.phase-rail__item > a, .phase-rail__item > span { padding: var(--space-hairline) var(--space-group); border: var(--border-width) solid transparent; border-radius: var(--radius-control); }
+		.phase-rail__link { color: var(--text-primary); text-decoration: none; }
+		.phase-rail__link:hover { border-color: var(--border-control); }
+		.phase-rail__link[aria-current="page"] { border-color: var(--border-control); background: var(--surface-raised); }
+		.phase-rail__item--done .phase-rail__tick { color: var(--status-live); }
+		.phase-rail__item--later > a, .phase-rail__item--later > span { color: var(--text-muted); }
+		.phase-rail__item--now > a, .phase-rail__item--now > span { border-color: var(--accent-selected); box-shadow: var(--glow-selected); font-weight: 700; }
+		/* R139, R140: a phase's own screen, wider than the reference tabs. */
+		.phase-screen { display: grid; gap: var(--space-panel); }
+		.phase-screen[hidden] { display: none; }
+		.phase-screen > h2, .phase-screen p { margin: 0; }
+		.phase-screen h2:focus, .phase-screen h3:focus { outline: none; }
+		.phase-screen .panel { display: grid; gap: var(--space-related); align-content: start; }
+		.phase-screen .panel[hidden], .phase-screen [hidden] { display: none; }
+		.phase-screen h3 { margin: 0; font-size: var(--text-value); }
+		.phase-screen p:empty { display: none; }
+		.jumps-order { margin: 0; padding-left: var(--space-between-groups); display: grid; gap: var(--space-hairline); }
+		.jumps__body { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr); gap: var(--space-panel); align-items: start; }
+		.ship-cards { display: grid; gap: var(--space-group); }
+		.ship-card { display: flex; gap: var(--space-group); padding: var(--space-related); border: var(--border-width) solid var(--border-control); border-radius: var(--radius-control); cursor: pointer; }
+		.ship-card:has(input:checked) { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
+		.ship-card:has(input:focus-visible) { outline: var(--focus-ring-width) solid var(--accent-selected); }
+		.ship-card input { accent-color: var(--accent-selected); }
+		.ship-card--done { cursor: default; border-color: var(--border-subtle); color: var(--text-muted); }
+		.ship-card__body { display: grid; gap: var(--space-hairline); min-width: 0; }
+		.ship-card__name { font-family: var(--font-display); }
+		.ship-card__owes { margin: 0; padding-left: var(--space-panel); display: grid; gap: var(--space-hairline); }
+		.ship-card__owes .is-due { color: var(--text-primary); }
+		.jumps-table td, .jumps-table th { vertical-align: top; }
+		.jumps-table__sub { display: block; font-size: var(--text-caption); }
+		.jumps-table__business > span { display: block; }
+		.jumps-table__business > span + span { margin-top: var(--space-hairline); }
+		.jumps-table tbody th { text-transform: none; letter-spacing: normal; font-size: var(--text-body); }
+		.jumps-table tr.is-owed th { box-shadow: inset var(--space-hairline) 0 0 var(--status-warn); }
+		.jumps-table tr.is-selected { background: var(--surface-raised); }
+		.jump-here { white-space: nowrap; }
+		@media (hover: hover) {
+			.jumps-table .jump-here { opacity: 0; }
+			.jumps-table tr:hover .jump-here, .jumps-table tr:focus-within .jump-here { opacity: 1; }
+		}
+		.jump-confirm { display: grid; gap: var(--space-related); padding: var(--space-panel); border: var(--border-width) solid var(--accent-selected); border-radius: var(--radius-panel); }
+		/* Phone: each table row becomes a card (the stacked-table pattern). */
+		@media (max-width: 900px) {
+			.jumps__body { grid-template-columns: minmax(0, 1fr); }
+			.stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+			.stack-table tr { display: grid; gap: var(--space-hairline); padding: var(--space-related) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+			.stack-table th, .stack-table td { display: block; border: 0; padding: 0; text-align: left; }
+			.stack-table td[data-label]:not([data-label=""])::before { content: attr(data-label) ': '; color: var(--text-muted); }
+		}
+		/* R140: the Market screen. */
+		.holdings { display: flex; flex-wrap: wrap; gap: var(--space-group); margin: 0; padding: 0; list-style: none; }
+		.holding { padding: var(--space-group) var(--space-related); border: var(--border-width) solid var(--border-control); border-radius: var(--radius-control); background: var(--surface-page); color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+		.holding[aria-pressed="true"], .market-filters [aria-pressed="true"] { border-color: var(--accent-selected); box-shadow: var(--glow-selected); }
+		.market__body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr); gap: var(--space-panel); align-items: start; }
+		.market__main { display: grid; gap: var(--space-panel); min-width: 0; }
+		.market__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-group); }
+		.market-filters { display: flex; flex-wrap: wrap; gap: var(--space-group); }
+		.market-grid__scroll { overflow-x: auto; }
+		.market-grid { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+		.market-grid th, .market-grid td { padding: var(--space-group); border: var(--border-width) solid var(--border-subtle); vertical-align: top; text-align: left; }
+		.market-grid thead th { font-weight: 600; }
+		.market-grid th.is-selected { background: var(--surface-raised); }
+		.market-grid__sub { display: block; font-size: var(--text-caption); font-weight: 400; }
+		.market-cell { display: table-cell; cursor: pointer; min-width: 120px; }
+		.market-cell > span { display: block; }
+		.market-cell:focus-visible { outline: var(--focus-ring-width) solid var(--accent-selected); outline-offset: calc(-1 * var(--focus-ring-width)); }
+		.market-cell.is-selected { outline: var(--focus-ring-width) solid var(--accent-selected); outline-offset: calc(-1 * var(--focus-ring-width)); box-shadow: var(--glow-selected); }
+		.market-cell.is-dim > * { opacity: 0.35; }
+		.market-cell__price { font-family: var(--font-display); font-size: var(--text-title); color: var(--text-primary); }
+		.market-cell__move { font-size: var(--text-caption); color: var(--text-muted); }
+		.market-cell__extreme { font-size: var(--text-caption); color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
+		.market-cell.is-cheapest .market-cell__price, .market-cell.is-dearest .market-cell__price { text-decoration: underline; text-underline-offset: var(--space-hairline); }
+		.market-cell .market-level { font-size: var(--text-caption); font-weight: 400; }
+		/* Two flat segments: the buyers' share in the level's colour, the rest the empty track (no gradient, A02). */
+		.lean__bar { position: relative; display: block; height: var(--space-hairline); margin-bottom: var(--space-hairline); background: var(--surface-raised); }
+		.lean__bar::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--lean); background: currentColor; }
+		.market-cell__you, .market-cell__offer { font-size: var(--text-caption); }
+		.market-cell .trade { display: inline-block; padding: 0 var(--space-hairline); border-radius: var(--radius-control); }
+		.market-spreads { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); font-size: var(--text-caption); }
+		.market-inspector { position: sticky; top: var(--space-panel); }
+		.market-detail { display: grid; gap: var(--space-group); }
+		.market-detail .facts { margin: 0; }
+		.market-detail .field-label { margin: var(--space-group) 0 0; }
+		@media (max-width: 900px) {
+			.market__body { grid-template-columns: minmax(0, 1fr); }
+			/* the inspector as a bottom sheet */
+			.market-inspector { position: sticky; bottom: 0; top: auto; max-height: 60vh; overflow-y: auto; border-top: var(--border-width) solid var(--accent-selected); }
+			.market-inspector.is-empty { display: none; } /* the sheet opens once a market is selected */
+		}
+		@media (max-width: 700px) {
+			/* one card per good: its six markets stacked */
+			.market-grid thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+			.market-grid tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: var(--space-related); }
+			.market-grid tbody th { grid-column: 1 / -1; }
+			.market-grid td::before { content: attr(data-label); display: block; font-size: var(--text-caption); color: var(--text-muted); }
+		}
 		/* Playtest 2026-11-21: the bid box stands out and shows the placed bid large. */
 		.bid-panel { display: grid; gap: var(--space-group); }
 		.bid-panel[hidden] { display: none; } /* after the rule above, which sets display */
@@ -589,10 +691,8 @@
 <aside class="sidebar">
 	<div class="brand">STAR TRADER</div>
 	<a class="nav-item" id="nav-home" href="/">Command deck</a>
-	<!-- s03 (E05-S01): only while a started game is open; its href is that game's Trading screen. -->
-	<a class="nav-item" id="nav-trading" href="/" hidden>Trading</a>
-	<!-- Playtest 2026-11-21: the Opportunity phase's own tab. -->
-	<a class="nav-item" id="nav-opportunity" href="/" hidden>Opportunity</a>
+	<!-- D34 (2026-11-26): Trading and Opportunity are reached through the phase rail in the top bar; the sidebar keeps the
+	     reference tabs. -->
 	<!-- s10 (E06-S08, D12): only while a started game is open; its href is that game's Infrastructure screen. -->
 	<a class="nav-item" id="nav-infrastructure" href="/" hidden>Infrastructure</a>
 	<!-- E07-S03: only while a started game is open; its href is that game's Fleet tab. -->
@@ -616,6 +716,10 @@
 		<h1 id="page-title">Command Deck</h1>
 		<p id="page-subtitle">Live prices and supply/demand across all six star systems.</p>
 	</div>
+	<!-- D34: the turn's phases (R44), done / now / later, each with a screen a link to it. Redrawn only when it changes. -->
+	<nav class="phase-rail" id="phase-rail" aria-label="Phases of this turn" hidden>
+		<ol class="phase-rail__list" id="phase-rail-list"></ol>
+	</nav>
 	<!-- E03-S04: on s01 and s02 during Bidding. Static markup, toggled on render, so focus survives the poll. -->
 	<div class="topbar__done" id="done-bar" hidden>
 		<button class="btn" id="done-button" type="button" hidden>I'm done bidding</button>
@@ -749,23 +853,6 @@
 		     of it. A panel waiting on the viewer goes to the top of its column (.is-blocking). -->
 		<div class="deck" id="deck-panel" hidden>
 			<div class="deck__side">
-				<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. Playtest 2026-11-21:
-				     compact, at the top of the left column, the placed bid beside the title so it's clear one has been made. -->
-				<section class="panel bid-panel" id="bid-panel" aria-labelledby="bid-title" hidden>
-					<div class="bid-head">
-						<h2 id="bid-title" tabindex="-1">Initiative bid</h2>
-						<strong class="bid-head__value" id="bid-current-value" role="status">None yet</strong>
-					</div>
-					<p class="muted bid-note"><span id="bid-hint"></span> <span id="bid-current-note"></span></p>
-					<form class="bid-form" id="bid-form" novalidate>
-						<label class="visually-hidden" for="bid-amount">Bid (HT)</label>
-						<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
-							aria-describedby="bid-hint bid-current-note bid-error">
-						<button class="btn" id="bid-button" type="submit">Place bid</button>
-					</form>
-					<p class="message message--error field-error" id="bid-error"></p>
-					<p class="message" id="bid-message" role="status"></p>
-				</section>
 				<section class="panel" aria-labelledby="fleet-title">
 					<h2 id="fleet-title">Your fleet</h2>
 					<ul class="fleet-list" id="fleet-list"></ul>
@@ -798,7 +885,6 @@
 						<div><button class="btn" id="pick-button" type="submit"></button></div>
 					</form>
 					<p class="message" id="pick-message" role="status" tabindex="-1"></p>
-					<p class="message" id="jump-message" role="status" tabindex="-1"></p>
 				</section>
 			</div>
 			<div class="deck__center">
@@ -823,26 +909,6 @@
 					<h2 id="fight-summary-title"></h2>
 					<p class="muted" id="fight-summary-waiting"></p>
 					<div><button class="btn" id="fight-open" type="button"></button></div>
-				</section>
-				<!-- E04-S02: static markup, updated on render, so the chosen ship and destination survive the poll. -->
-				<section class="panel" id="jump-panel" aria-labelledby="jump-title" hidden>
-					<h2 id="jump-title" tabindex="-1"></h2>
-					<form class="offer-form" id="jump-form" novalidate>
-						<div>
-							<label class="field-label" for="jump-ship">Ship</label>
-							<select class="control" id="jump-ship"></select>
-						</div>
-						<div>
-							<label class="field-label" for="jump-destination">Destination</label>
-							<select class="control" id="jump-destination" aria-describedby="jump-chance jump-error"></select>
-							<p class="message muted" id="jump-chance"></p>
-							<p class="message message--error field-error" id="jump-error"></p>
-						</div>
-						<div class="jump-actions">
-							<button class="btn" id="jump-button" type="submit"></button>
-							<button class="text-action" id="finish-button" type="button"></button>
-						</div>
-					</form>
 				</section>
 				<!-- E12-S01: static markup, so the typed levels and focus survive the poll; only while points are left to place. -->
 				<section class="panel" id="placement-panel" aria-labelledby="placement-title" hidden>
@@ -1223,6 +1289,108 @@
 				<p class="muted" id="game-over-note"></p>
 			</section>
 			<p><a class="link" id="game-over-log" href="/">See how it happened in the Game log</a></p>
+		</div>
+
+		<!-- R139 (D34): the Jumps screen. For every ship of the viewer, what it owes and where; for the selected ship, what waits
+		     at each destination. Static frame; the cards and rows are redrawn only when the game or the selection changes. -->
+		<div class="phase-screen" id="jumps-panel" hidden>
+			<h2 class="system__title" id="jumps-title" tabindex="-1">Jumps</h2>
+			<p class="message" id="jumps-status" role="status"></p>
+			<section class="panel" aria-labelledby="jumps-order-title">
+				<h3 id="jumps-order-title">Jumps order</h3>
+				<ol class="jumps-order" id="jumps-order"></ol>
+			</section>
+			<section class="panel" id="jumps-offers-panel" aria-labelledby="jumps-offers-title" hidden>
+				<h3 id="jumps-offers-title">Your offers this turn, by system</h3>
+				<ul class="corporation__list" id="jumps-offers"></ul>
+			</section>
+			<div class="jumps__body">
+				<section class="panel" aria-labelledby="jumps-ships-title">
+					<h3 id="jumps-ships-title">Your ships</h3>
+					<div class="ship-cards" id="jumps-ships" role="radiogroup" aria-labelledby="jumps-ships-title"></div>
+					<div><button class="text-action" id="finish-button" type="button" hidden>Finish jumping</button></div>
+				</section>
+				<section class="panel" aria-labelledby="jumps-table-title">
+					<h3 id="jumps-table-title">Destinations</h3>
+					<table class="data-table stack-table jumps-table">
+						<thead>
+							<tr>
+								<th scope="col">Destination</th>
+								<th scope="col">Chance</th>
+								<th scope="col">In Space</th>
+								<th scope="col">Planet</th>
+								<th scope="col">Port</th>
+								<th scope="col">Police in Space</th>
+								<th scope="col">Your business</th>
+								<th scope="col"><span class="visually-hidden">Jump</span></th>
+							</tr>
+						</thead>
+						<tbody id="jumps-rows"></tbody>
+					</table>
+					<div class="jump-confirm" id="jump-confirm" hidden>
+						<p id="jump-confirm-text"></p>
+						<div class="notice__actions">
+							<button class="btn" id="jump-button" type="button">Confirm jump</button>
+							<button class="quiet-button" id="jump-cancel" type="button">Cancel</button>
+						</div>
+					</div>
+					<p class="message" id="jump-message" role="status" tabindex="-1"></p>
+				</section>
+			</div>
+		</div>
+
+		<!-- R140 (D34): the Market screen, Bidding's own: every market in a goods × systems grid, the holdings and reach around
+		     it, and the inspector with the offer form for the selected market. Read-only after Bidding. -->
+		<div class="phase-screen" id="market-panel" hidden>
+			<h2 class="system__title" id="market-title" tabindex="-1">Market</h2>
+			<p class="message" id="market-status" role="status"></p>
+			<!-- E03-S05: static markup, updated on render, so the typed bid and focus survive the poll. Playtest 2026-11-21:
+			     compact; on the Market since R140, the placed bid beside the title so it's clear one has been made. -->
+			<section class="panel bid-panel" id="bid-panel" aria-labelledby="bid-title" hidden>
+				<div class="bid-head">
+					<h2 id="bid-title" tabindex="-1">Initiative bid</h2>
+					<strong class="bid-head__value" id="bid-current-value" role="status">None yet</strong>
+				</div>
+				<p class="muted bid-note"><span id="bid-hint"></span> <span id="bid-current-note"></span></p>
+				<form class="bid-form" id="bid-form" novalidate>
+					<label class="visually-hidden" for="bid-amount">Bid (HT)</label>
+					<input class="control price-input" id="bid-amount" inputmode="numeric" placeholder="0"
+						aria-describedby="bid-hint bid-current-note bid-error">
+					<button class="btn" id="bid-button" type="submit">Place bid</button>
+				</form>
+				<p class="message message--error field-error" id="bid-error"></p>
+				<p class="message" id="bid-message" role="status"></p>
+			</section>
+			<section class="panel" aria-labelledby="market-holdings-title">
+				<h3 id="market-holdings-title">What you have, where</h3>
+				<ul class="holdings" id="market-holdings"></ul>
+			</section>
+			<div class="market__body">
+				<div class="market__main">
+					<section class="panel" aria-labelledby="market-grid-title">
+						<div class="market__head">
+							<h3 id="market-grid-title">Markets</h3>
+							<div class="market-filters" id="market-filters" role="group" aria-label="Show"></div>
+						</div>
+						<div class="market-grid__scroll">
+							<table class="market-grid" id="market-grid" role="grid" aria-labelledby="market-grid-title"></table>
+						</div>
+						<ul class="market-spreads muted" id="market-spreads"></ul>
+					</section>
+					<section class="panel" id="market-check-panel" aria-labelledby="market-check-title">
+						<h3 id="market-check-title">Offers check</h3>
+						<ul class="corporation__list" id="market-check"></ul>
+					</section>
+				</div>
+				<aside class="panel market-inspector" id="market-inspector" aria-labelledby="market-inspector-title">
+					<h3 id="market-inspector-title" tabindex="-1">Select a market</h3>
+					<div class="market-detail" id="market-detail"></div>
+					<div id="market-offer-panel" hidden>
+						<p class="muted" id="market-offer-hint"></p>
+						<div id="market-offer"></div>
+					</div>
+				</aside>
+			</div>
 		</div>
 
 		<!-- s10 Infrastructure (E06-S08, D12): the whole Investment phase. -->
@@ -1642,6 +1810,8 @@
 		newsLink,
 		opportunityLink,
 		infrastructureLink,
+		jumpsLink,
+		marketLink,
 		validateTurns,
 		screenForPhaseChange,
 		phaseScreenLink,
@@ -1737,19 +1907,36 @@
 	} from './js/shipyard.js';
 	import { PICK_BUTTON, PICK_LEGEND, TURN_ORDER_NOTE, freePlaces, ordinal, turnOrderRows, youActText } from './js/turn-order.js';
 	import {
-		FINISH_BUTTON,
 		GO_TO_DECK,
 		deckDecisionText,
-		JUMP_BUTTON,
-		JUMP_TITLE,
 		JUMPING_NOW,
 		JUMPS_DONE_TEXT,
 		failedJumpText,
-		jumpChanceText,
-		shipOptionText,
-		shipsToJump,
+		jumper,
 		slotStatuses,
 	} from './js/ship-jumps.js';
+	import {
+		JUMP_HERE,
+		confirmText,
+		defaultShip,
+		destinationRows,
+		inSpaceText,
+		jumpOrder,
+		jumpState,
+		offersBySystem,
+		shipCards,
+		uncoveredText,
+	} from './js/jumps.js';
+	import {
+		FILTERS,
+		cellMatches,
+		holdings,
+		marketColumns,
+		marketDetail,
+		marketMatrix,
+		offersCheck,
+	} from './js/market.js';
+	import { phaseRail, railItemLabel } from './js/phase-rail.js';
 	import {
 		BREAK_AWAY,
 		HITS_BUTTON,
@@ -1939,7 +2126,7 @@
 	keepGoodsColoured(document.body); // every goods name in its colour, wherever a render puts it (creator, 2026-11-20)
 	const views = { new: $('new-view'), game: $('game-view'), unknown: $('unknown-view') };
 	const gamePanels = ['game-loading', 'missing-panel', 'join-panel', 'lobby-panel', 'players-panel', 'join-requests-panel', 'start-panel',
-		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'opportunity-screen', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
+		'waiting-panel', 'deck-panel', 'system-panel', 'log-panel', 'trading-panel', 'jumps-panel', 'market-panel', 'opportunity-screen', 'infrastructure-panel', 'fleet-panel', 'assets-panel', 'corporations-panel', 'guide-panel', 'news-panel', 'game-over-panel'];
 	let session = null;
 	// The id the signed-in player goes by in the game on screen (`you.id`: p1, p2, …); the server never sends an email.
 	let viewerId = null;
@@ -1975,6 +2162,9 @@
 	let focusGuideTitle = false;
 	let focusNewsTitle = false;
 	let focusOpportunityTitle = false;
+	// Set when the player opens Jumps or the Market (R139, R140), so the heading takes focus once.
+	let focusJumpsTitle = false;
+	let focusMarketTitle = false;
 	/** The game's fixed rules from /api/rules (playtest, 2026-11-20), for the Guide, the map's jump modifiers and reputation notes. */
 	let rules = null;
 	// The cards last drawn on Corporations, so a poll that changed nothing there leaves them (and the scroll) alone.
@@ -2050,12 +2240,10 @@
 			$('done-confirm-dialog').close('stale'); // asked about the game being left: never signals done
 		}
 		const { view, id, ship } = parseRoute(location.hash);
-		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'opportunity' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
+		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'jumps' || view === 'market' || view === 'opportunity' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
 		$('nav-home').toggleAttribute('aria-current', view === 'home');
 		$('nav-new').toggleAttribute('aria-current', view === 'new');
 		$('nav-log').toggleAttribute('aria-current', view === 'log');
-		$('nav-trading').toggleAttribute('aria-current', view === 'trading');
-		$('nav-opportunity').toggleAttribute('aria-current', view === 'opportunity');
 		$('nav-infrastructure').toggleAttribute('aria-current', view === 'infrastructure');
 		$('nav-fleet').toggleAttribute('aria-current', view === 'fleet');
 		$('nav-assets').toggleAttribute('aria-current', view === 'assets');
@@ -2064,8 +2252,6 @@
 		$('nav-news').toggleAttribute('aria-current', view === 'news');
 		$('nav-over').toggleAttribute('aria-current', view === 'over');
 		$('nav-log').hidden = true; // shown again once a started game renders (renderRunning)
-		$('nav-trading').hidden = true;
-		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -2088,11 +2274,16 @@
 		} else if (view === 'unknown') {
 			showUnknown(id);
 		} else {
-			$({ log: 'nav-log', trading: 'nav-trading', opportunity: 'nav-opportunity', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', news: 'nav-news', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			// D34: the phase screens (Jumps, Market) are on the rail, not the sidebar, so no sidebar item is current there.
+			if (view !== 'jumps' && view !== 'market') {
+				$({ log: 'nav-log', infrastructure: 'nav-infrastructure', fleet: 'nav-fleet', assets: 'nav-assets', corporations: 'nav-corporations', guide: 'nav-guide', news: 'nav-news', over: 'nav-over' }[view] ?? 'nav-home').setAttribute('aria-current', 'page');
+			}
 			focusSystemTitle = view === 'system';
 			focusLogTitle = view === 'log';
 			focusTradingTitle = view === 'trading';
 			focusOpportunityTitle = view === 'opportunity';
+			focusJumpsTitle = view === 'jumps';
+			focusMarketTitle = view === 'market';
 			focusInfrastructureTitle = view === 'infrastructure';
 			focusFleetTitle = view === 'fleet';
 			focusFleetShip = view === 'fleet' ? ship ?? null : null;
@@ -2111,8 +2302,6 @@
 		currentGameId = null; // a poll that called this must not schedule the next one (it would refocus every 2 s)
 		showView('unknown');
 		$('nav-log').hidden = true;
-		$('nav-trading').hidden = true;
-		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -2558,8 +2747,6 @@
 		focusInfrastructureTitle = false;
 		focusOverTitle = false;
 		$('nav-log').hidden = true;
-		$('nav-trading').hidden = true;
-		$('nav-opportunity').hidden = true;
 		$('nav-infrastructure').hidden = true;
 		$('nav-fleet').hidden = true;
 		$('nav-assets').hidden = true;
@@ -2592,12 +2779,9 @@
 		const order = initiativeText(game);
 		setTitle(phaseText(game, viewerId), order ?? ''); // money is in the status strip now
 		renderStatusStrip(game);
+		renderPhaseRail(game, view);
 		$('nav-log').href = logLink(game.id);
 		$('nav-log').hidden = false;
-		$('nav-trading').href = tradingLink(game.id);
-		$('nav-trading').hidden = false;
-		$('nav-opportunity').href = opportunityLink(game.id);
-		$('nav-opportunity').hidden = false;
 		$('nav-infrastructure').href = infrastructureLink(game.id);
 		$('nav-infrastructure').hidden = false;
 		$('nav-fleet').href = fleetLink(game.id);
@@ -2659,6 +2843,30 @@
 			return;
 		}
 		focusTradingTitle = false;
+		if (view === 'jumps') {
+			renderJumps(game);
+			showPanels('jumps-panel');
+			if (focusJumpsTitle) {
+				focusJumpsTitle = false;
+				$('jumps-title').focus();
+			}
+			return;
+		}
+		focusJumpsTitle = false;
+		if (view === 'market') {
+			if (changed) {
+				renderYourOffers(game);
+			}
+			placeYourOffers(view);
+			renderMarket(game);
+			showPanels('market-panel');
+			if (focusMarketTitle) {
+				focusMarketTitle = false;
+				$('market-title').focus();
+			}
+			return;
+		}
+		focusMarketTitle = false;
 		if (view === 'opportunity') {
 			renderOpportunityScreen(game);
 			showPanels('opportunity-screen');
@@ -2770,10 +2978,11 @@
 		updateOfferForm(deckOfferForm, game, deckOfferForm.system.value);
 		updatePlacementForm(game);
 		updateStartingShipForm(game);
-		updateBidForm(game);
 		updateTurnOrder(game);
-		updateJumpForm(game);
-		placeYourOffers(game);
+		if (changed) {
+			renderYourOffers(game); // it may have been drawn on the Market last
+		}
+		placeYourOffers(view);
 		showPanels('deck-panel');
 		if (focusDeckHeading) {
 			focusDeckHeading = false;
@@ -2825,15 +3034,41 @@
 	}
 
 	/**
-	 * Playtest 2026-11-21: in Jumps, "Your offers this turn" sits just below the jump panel, so the player sees where their
-	 * offers need ships; otherwise it's with the offer form. Moved only when its place changes, so focus inside survives.
+	 * "Your offers this turn" sits above the offers check on the Market (R140) and after the offer form on the Deck. Moved
+	 * only when its place changes, so focus inside survives. (In Jumps the Jumps screen lists them by system, R139.)
 	 */
-	function placeYourOffers(game) {
+	function placeYourOffers(view) {
 		const offers = $('your-offers-panel');
-		const anchor = game.turn?.phase === 'JUMPS' ? $('jump-panel') : $('deck-offer-panel');
-		if (anchor.nextElementSibling !== offers) {
-			anchor.after(offers);
+		const anchor = view === 'market' ? $('market-check-panel') : $('deck-offer-panel');
+		if (view === 'market' ? anchor.previousElementSibling !== offers : anchor.nextElementSibling !== offers) {
+			if (view === 'market') {
+				anchor.before(offers);
+			} else {
+				anchor.after(offers);
+			}
 		}
+	}
+
+	// What the rail was last drawn from, so an unchanged poll leaves it (and focus on it) alone.
+	let shownRailKey = null;
+
+	/** D34: the turn's phases in the top bar, done / now / later, each with a screen a link to it. */
+	function renderPhaseRail(game, view) {
+		const rail = phaseRail(game, view);
+		$('phase-rail').hidden = rail.length === 0;
+		const key = JSON.stringify([game.id, rail]);
+		if (key === shownRailKey) {
+			return;
+		}
+		shownRailKey = key;
+		$('phase-rail-list').replaceChildren(...rail.map(item => {
+			const attributes = { class: `phase-rail__item phase-rail__item--${item.state}`, 'aria-label': railItemLabel(item) };
+			const mark = item.state === 'done' ? [element('span', { class: 'phase-rail__tick', 'aria-hidden': 'true' }, '\u2713'), ' '] : [];
+			const content = item.screen
+				? element('a', { class: 'phase-rail__link', href: phaseScreenLink(item.screen, game.id), ...(item.current ? { 'aria-current': 'page' } : {}) }, ...mark, item.name)
+				: element('span', {}, ...mark, item.name);
+			return element('li', { ...attributes, ...(item.state === 'now' ? { 'aria-current': 'step' } : {}) }, content);
+		}));
 	}
 
 	/** The status strip (playtest, 2026-11-21): money, reputation and its effect, connections; redrawn only on a change. */
@@ -3947,10 +4182,12 @@
 	 */
 	function updateDecisionAlert(game, view) {
 		const trading = view === 'trading' ? '' : decisionText(game, viewerId);
-		const deck = view === 'game' ? '' : deckDecisionText(game, viewerId) || fightDecisionText(game, viewerId);
+		// R139: a jump slot is played on the Jumps screen; the turn-order pick and a fight on the Deck.
+		const jumping = jumper(game) === viewerId && !isFighting(game);
+		const deck = view === (jumping ? 'jumps' : 'game') ? '' : deckDecisionText(game, viewerId) || fightDecisionText(game, viewerId);
 		const text = trading || deck;
-		$('decision-link').href = trading ? tradingLink(game.id) : deckLink(game.id);
-		$('decision-link').textContent = trading ? GO_TO_TRADING : GO_TO_DECK;
+		$('decision-link').href = trading ? tradingLink(game.id) : jumping ? jumpsLink(game.id) : deckLink(game.id);
+		$('decision-link').textContent = trading ? GO_TO_TRADING : jumping ? 'Go to Jumps' : GO_TO_DECK;
 		if (text) {
 			$('decision-alert').hidden = false; // shown before its text changes, so the alert is announced
 		}
@@ -4128,8 +4365,11 @@
 
 	const deckOfferForm = buildOfferForm('deck-offer', true);
 	const systemOfferForm = buildOfferForm('system-offer', false);
+	const marketOfferForm = buildOfferForm('market-offer', false); // R140: the inspector's form for the selected market
 	$('deck-offer').replaceChildren(deckOfferForm.element);
 	$('system-offer').replaceChildren(systemOfferForm.element);
+	$('market-offer').replaceChildren(marketOfferForm.element);
+	$('market-grid').addEventListener('keydown', moveInMarketGrid);
 
 	function setControlsDisabled(form, disabled) {
 		for (const control of [form.system, form.goods, form.price, ...form.types, form.button].filter(Boolean)) {
@@ -4676,11 +4916,12 @@
 		return [' ', status === JUMPING_NOW ? element('span', { class: 'badge badge--live' }, status) : element('span', { class: 'muted' }, `— ${status}`)];
 	}
 
-	// What the ship and destination lists were last drawn from, so an unchanged poll keeps the player's choice.
-	let jumpShipsKey = null;
-	let jumpDestinationsKey = null;
-	// The game and turn the ship and destination were last chosen in.
-	let jumpFormKey = null;
+	// ── R139: the Jumps screen ──
+
+	// The ship the player selected and the destination they're confirming, for the game and turn they belong to.
+	let jumpsChoice = { key: null, ship: null, destination: null };
+	// What the screen was last drawn from, the selection included (lesson 2026-11-17: local state needs its own key).
+	let shownJumpsKey = null;
 	// The game and turn the jump message belongs to (lesson 2026-11-04: keyed by game, not just turn).
 	let jumpMessageKey = null;
 
@@ -4691,68 +4932,109 @@
 		$('jump-message').className = error ? 'message message--error' : 'message';
 	}
 
-	function setJumpError(text) {
-		$('jump-error').textContent = text;
-		$('jump-destination').setAttribute('aria-invalid', text ? 'true' : 'false');
+	/** The selected ship, kept across polls of one game and turn; the default once it can't be chosen any more (criterion 2). */
+	function selectedJumpShip(game, cards) {
+		const key = `${game.id}/${game.turn?.number}`;
+		if (jumpsChoice.key !== key) {
+			jumpsChoice = { key, ship: null, destination: null };
+			setJumpMessage('', false);
+		}
+		if (!cards.some(card => card.name === jumpsChoice.ship && card.canJump)) {
+			jumpsChoice.ship = defaultShip(cards);
+			jumpsChoice.destination = null;
+		}
+		return jumpsChoice.ship;
 	}
 
-	/** S02-2: during your slot, the ships you can still jump (with where each is) and the six systems. */
-	function updateJumpForm(game) {
+	/** Criteria 1–8: the order strip, the offers box, the ship cards, the destination table and the confirmation. */
+	function renderJumps(game) {
 		const messageKey = `${game.id}/${game.turn?.number}`;
 		if (messageKey !== jumpMessageKey) {
 			jumpMessageKey = messageKey;
 			setJumpMessage('', false); // another game's or turn's message doesn't belong here
-			setJumpError('');
 		}
-		const ships = game.status === 'RUNNING' ? shipsToJump(game, viewerId) : [];
-		$('jump-panel').hidden = ships.length === 0;
-		if (!ships.length) {
+		const cards = shipCards(game, viewerId);
+		const ship = selectedJumpShip(game, cards);
+		const state = jumpState(game, viewerId);
+		const rows = ship ? destinationRows(game, viewerId, ship, rules?.hangarFee ?? null) : [];
+		const offers = offersBySystem(game, viewerId);
+		const order = jumpOrder(game);
+		const key = JSON.stringify([game.id, cards, ship, state, rows, offers, order, jumpsChoice.destination, game.conditions]);
+		if (key === shownJumpsKey) {
 			return;
 		}
-		$('jump-title').textContent = JUMP_TITLE;
-		$('jump-button').textContent = JUMP_BUTTON;
-		$('finish-button').textContent = FINISH_BUTTON;
-		// A choice is kept across polls of the same game and turn only: ship names and the board repeat between games.
-		const formKey = `${game.id}/${game.turn.number}`;
-		const sameTurn = jumpFormKey === formKey;
-		jumpFormKey = formKey;
-		const shipsKey = JSON.stringify([formKey, ships]);
-		if (shipsKey !== jumpShipsKey) {
-			jumpShipsKey = shipsKey;
-			const chosen = sameTurn ? $('jump-ship').value : null;
-			$('jump-ship').replaceChildren(...ships.map(ship => element('option', { value: ship.name }, shipOptionText(ship))));
-			if (ships.some(ship => ship.name === chosen)) {
-				$('jump-ship').value = chosen;
-			}
-		}
-		const destinationsKey = JSON.stringify([formKey, game.board.map(system => [system.id, system.name])]);
-		if (destinationsKey !== jumpDestinationsKey) {
-			jumpDestinationsKey = destinationsKey;
-			const chosen = sameTurn ? $('jump-destination').value : null;
-			$('jump-destination').replaceChildren(...game.board.map(system => element('option', { value: system.id }, system.name)));
-			if (game.board.some(system => system.id === chosen)) {
-				$('jump-destination').value = chosen;
-			}
-		}
-		updateJumpChance(game);
-	}
-
-	/** R68: the chosen ship's chance to reach the chosen destination, under the destination. */
-	function updateJumpChance(game = lastGame) {
-		const text = game ? jumpChanceText(game, $('jump-ship').value, $('jump-destination').value) : '';
-		if ($('jump-chance').textContent !== text) {
-			$('jump-chance').textContent = text; // only on a change, so a screen reader isn't told it again every poll
-		}
+		shownJumpsKey = key;
+		showText('jumps-status', state.text);
+		$('finish-button').hidden = !state.canAct;
+		$('jumps-order').replaceChildren(...order.map(slot => element('li', {},
+			element('strong', {}, slot.corporation), ' ',
+			slot.state === 'now' ? element('span', { class: 'badge badge--live' }, 'jumping now') : element('span', { class: 'muted' }, `— ${slot.state}`),
+			...(slot.jumps.length ? [' · ', slot.jumps.join(', ')] : []))));
+		$('jumps-offers-panel').hidden = offers.length === 0;
+		$('jumps-offers').replaceChildren(...offers.map(row => element('li', {},
+			element('strong', {}, row.systemName), `: ${row.offers.join(', ')}`,
+			element('span', { class: 'muted' }, ` · needs ${row.needs.join(', ')}`),
+			...(row.uncovered ? [element('br'), element('span', { class: 'tone tone--alert' }, uncoveredText(row))] : []))));
+		$('jumps-ships').replaceChildren(...cards.map(card => {
+			const radio = element('input', { type: 'radio', name: 'jumps-ship', value: card.name, ...(card.canJump ? {} : { disabled: '' }) });
+			radio.checked = card.name === ship;
+			radio.addEventListener('change', () => {
+				jumpsChoice.ship = card.name;
+				jumpsChoice.destination = null;
+				setJumpMessage('', false);
+				renderJumps(lastGame);
+			});
+			return element('label', { class: `ship-card${card.canJump ? '' : ' ship-card--done'}` }, radio,
+				element('span', { class: 'ship-card__body' },
+					element('strong', { class: 'ship-card__name' }, card.name),
+					element('span', {}, card.where),
+					...(card.reason ? [element('span', { class: 'muted' }, card.reason)] : []),
+					element('span', { class: 'muted' }, [card.cargo, card.goods.join(', '), card.seats].filter(Boolean).join(' · ')),
+					...(card.damage.length ? [element('span', { class: 'tone tone--alert' }, `Damaged: ${card.damage.join(', ')}`)] : []),
+					...(card.agents.length ? [element('span', {}, `Aboard: ${card.agents.join(', ')}`)] : []),
+					...(card.obligations.length ? [element('ul', { class: 'ship-card__owes' }, ...card.obligations.map(o =>
+						element('li', o.due ? { class: 'is-due' } : {}, ...(o.due ? [element('span', { class: 'badge badge--warn' }, 'Due this turn'), ' '] : []), o.text)))] : [])));
+		}));
+		$('jumps-table-title').textContent = ship ? `Destinations for ${ship}` : 'Destinations';
+		const selected = cards.find(card => card.name === ship);
+		const canJump = state.canAct && Boolean(selected?.canJump);
+		const why = !state.canAct ? state.text : selected?.reason ?? '';
+		$('jumps-rows').replaceChildren(...rows.map(row => {
+			const button = element('button', { class: 'quiet-button jump-here', type: 'button', ...(canJump ? {} : { disabled: '', title: why }) }, JUMP_HERE);
+			button.addEventListener('click', () => {
+				jumpsChoice.destination = row.system;
+				renderJumps(lastGame);
+				$('jump-button').focus();
+			});
+			const business = row.business.length
+				? row.business.map(item => element('span', { class: item.due ? 'tone tone--alert' : '' }, item.text))
+				: [element('span', { class: 'muted' }, '—')];
+			return element('tr', { class: [row.owes ? 'is-owed' : '', row.system === jumpsChoice.destination ? 'is-selected' : ''].filter(Boolean).join(' ') },
+				element('th', { scope: 'row', 'data-label': 'Destination' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.name), row.here ? element('span', { class: 'muted' }, ' (here)') : ''),
+				element('td', { class: 'num', 'data-label': 'Chance' }, row.chance),
+				element('td', { 'data-label': 'In Space' }, inSpaceText(row),
+					...row.inSpace.map(name => element('span', { class: 'muted jumps-table__sub' }, name)),
+					...(row.ownInSpace.length ? [element('span', { class: 'muted jumps-table__sub' }, `yours: ${row.ownInSpace.join(', ')}`)] : [])),
+				element('td', { 'data-label': 'Planet' }, row.planet),
+				element('td', { 'data-label': 'Port' }, row.port, ...row.facilities.map(f => element('span', { class: 'muted jumps-table__sub' }, f))),
+				element('td', { class: 'num', 'data-label': 'Police in Space' }, row.police),
+				element('td', { class: 'jumps-table__business', 'data-label': 'Your business' }, ...business),
+				element('td', { 'data-label': '' }, button));
+		}));
+		const confirming = canJump && jumpsChoice.destination;
+		$('jump-confirm').hidden = !confirming;
+		$('jump-confirm-text').textContent = confirming ? confirmText(game, viewerId, ship, jumpsChoice.destination) : '';
 	}
 
 	/**
-	 * After a jump, a landing or a finish: the landing dialog takes focus after a jump (S03-1); otherwise the next ship
-	 * takes focus (S03-4), or "Your jumps are done." once the slot has ended (S02-6). [announce] is said either way.
+	 * After a jump, a landing or a finish: the landing dialog takes focus after a jump (S03-1); otherwise the next ship's
+	 * table takes focus (S03-4), or "Your jumps are done." once the slot has ended (S02-6). [announce] is said either way.
 	 */
 	function afterJumpStep(game, announce = '') {
+		jumpsChoice.destination = null;
 		render(game);
-		if ($('landing-dialog').open || $('hangar-dialog').open || $('backing-dialog').open || $('notice-dialog').open || $('deck-panel').hidden) {
-			return; // showModal() has put focus in the dialog (the evaded card comes before the landing); off the Deck there's no form to return to
+		if ($('landing-dialog').open || $('hangar-dialog').open || $('backing-dialog').open || $('notice-dialog').open || $('jumps-panel').hidden) {
+			return; // showModal() has put focus in the dialog (the evaded card comes before the landing); off the screen there's nothing to return to
 		}
 		if (isFighting(game)) {
 			setJumpMessage('', false);
@@ -4760,16 +5042,12 @@
 			$($('fight-dialog').open ? 'fight-title' : 'fight-open').focus();
 			return;
 		}
-		if (!$('jump-panel').hidden) {
-			setJumpMessage(announce, false);
-			$('jump-ship').focus();
-			return;
-		}
-		setJumpMessage(announce ? `${announce} ${JUMPS_DONE_TEXT}` : JUMPS_DONE_TEXT, false);
-		$('jump-message').focus(); // the form is gone, so focus goes to what replaced it
+		const state = jumpState(game, viewerId);
+		setJumpMessage(state.canAct ? announce : announce ? `${announce} ${JUMPS_DONE_TEXT}` : JUMPS_DONE_TEXT, false);
+		$('jump-message').focus();
 	}
 
-	/** POSTs a jump step; a refusal goes under Turn order, which stays on screen even if the slot has moved on. */
+	/** POSTs a jump step; a refusal goes under the table, which stays on screen even if the slot has moved on. */
 	async function sendJumpStep(path, body) {
 		const gameId = currentGameId;
 		setJumpMessage('', false);
@@ -4805,10 +5083,181 @@
 		}
 	}
 
-	function submitJump(event) {
+	function confirmJump() {
+		if (jumpsChoice.ship && jumpsChoice.destination) {
+			sendJumpStep('jumps', { ship: jumpsChoice.ship, destination: jumpsChoice.destination });
+		}
+	}
+
+	// ── R140: the Market screen ──
+
+	// The selected market, filter and place, for one game: kept across polls and turns of that game.
+	let marketChoice = { gameId: null, system: null, goods: null, filter: 'all', place: null };
+	// What the grid and the inspector were last drawn from, the choice included.
+	let shownMarketKey = null;
+
+	function marketChoiceFor(game) {
+		if (marketChoice.gameId !== game.id) {
+			marketChoice = { gameId: game.id, system: null, goods: null, filter: 'all', place: null };
+		}
+		return marketChoice;
+	}
+
+	function chooseMarket(change) {
+		Object.assign(marketChoice, change);
+		if (lastGame) {
+			renderMarket(lastGame);
+		}
+	}
+
+	/** One cell of the grid: price and move, the lean, the viewer's stock and tier, their offer (criterion 3). */
+	function marketCell(cell, goods, column, choice) {
+		if (!cell.traded) {
+			return element('td', { role: 'gridcell', class: 'market-cell is-dim', 'data-label': column.name }, element('span', { class: 'muted' }, 'not traded'));
+		}
+		const selected = choice.system === cell.system && choice.goods === goods;
+		const dim = !cellMatches(choice.filter, cell, column) || (choice.place !== null && choice.place !== cell.system);
+		const classes = ['market-cell', selected ? 'is-selected' : '', dim ? 'is-dim' : '', cell.cheapest ? 'is-cheapest' : '', cell.dearest ? 'is-dearest' : ''];
+		const td = element('td', {
+			role: 'gridcell',
+			class: classes.filter(Boolean).join(' '),
+			tabindex: selected ? '0' : '-1',
+			'aria-selected': selected ? 'true' : 'false',
+			'data-system': cell.system,
+			'data-goods': goods,
+			'data-label': column.name,
+		},
+		element('span', { class: 'market-cell__price' }, String(cell.price),
+			element('span', { class: 'market-cell__move' }, ` ${cell.change}`)),
+		...(cell.cheapest ? [element('span', { class: 'market-cell__extreme' }, 'cheapest')] : []),
+		...(cell.dearest ? [element('span', { class: 'market-cell__extreme' }, 'dearest')] : []),
+		element('span', { class: 'market-level lean', 'data-level': cell.level.key, style: `--lean: ${cell.buyPercent}%` },
+			element('span', { class: 'lean__bar', 'aria-hidden': 'true' }), ` buyers ${cell.buyPercent}%`),
+		...(cell.held || cell.tier ? [element('span', { class: 'market-cell__you' },
+			cell.held ? `you ${cell.held}` : '', ...(cell.tier ? [' ', element('span', { class: 'badge', title: { R: 'Retailer', W: 'Wholesaler', D: 'Dictator' }[cell.tier] }, cell.tier)] : []))] : []),
+		...(cell.dictator ? [element('span', { class: 'market-cell__offer muted' }, 'Dictator: you offer in Trading')]
+			: cell.offer ? [element('span', { class: `trade trade--${cell.offerType.toLowerCase()} market-cell__offer` }, cell.offer)] : []));
+		td.addEventListener('click', () => chooseMarket({ system: cell.system, goods }));
+		return td;
+	}
+
+	/** Criteria 1–12: the bid, holdings, filters, the grid, the spreads, the inspector and the offers check. */
+	function renderMarket(game) {
+		const choice = marketChoiceFor(game);
+		updateBidForm(game);
+		updateOfferForm(marketOfferForm, game, choice.system ?? game.board[0]?.id);
+		if (choice.goods && [...marketOfferForm.goods.options].some(option => option.value === choice.goods) && marketOfferForm.goods.value !== choice.goods
+			&& marketOfferForm.goods.dataset.chosenFor !== `${choice.system}/${choice.goods}`) {
+			marketOfferForm.goods.value = choice.goods; // the selected market's good, once per selection
+			marketOfferForm.goods.dataset.chosenFor = `${choice.system}/${choice.goods}`;
+		}
+		$('market-offer-panel').hidden = !isBidding(game) || !choice.system;
+		const chips = holdings(game, viewerId);
+		const columns = marketColumns(game, viewerId);
+		const rows = marketMatrix(game, viewerId);
+		const detail = choice.system ? marketDetail(game, viewerId, choice.system, choice.goods) : null;
+		const check = offersCheck(game, viewerId);
+		const status = isBidding(game) ? '' : 'Bidding is over: a read-only overview of the markets.';
+		const key = JSON.stringify([game.id, chips, columns, rows, detail, check, status, choice]);
+		if (key === shownMarketKey) {
+			return;
+		}
+		shownMarketKey = key;
+		const focused = document.activeElement?.closest?.('#market-grid td, #market-filters button, #market-holdings button');
+		const focusKey = focused ? [focused.dataset.system, focused.dataset.goods, focused.dataset.filter, focused.dataset.place].join('/') : null;
+		showText('market-status', status);
+		$('market-holdings').replaceChildren(...chips.map(chip => {
+			const pressed = choice.place === chip.system;
+			const button = element('button', { class: 'holding', type: 'button', 'aria-pressed': String(pressed), 'data-place': chip.system, 'data-goods': chip.name },
+				chip.text, element('span', { class: 'muted' }, chip.kind === 'ship' ? (chip.canJump ? ' · can jump' : ' · stays') : ''));
+			button.addEventListener('click', () => chooseMarket({ place: pressed ? null : chip.system }));
+			return element('li', {}, button);
+		}));
+		$('market-filters').replaceChildren(...FILTERS.map(filter => {
+			const button = element('button', { class: 'quiet-button', type: 'button', 'aria-pressed': String(choice.filter === filter.id), 'data-filter': filter.id }, filter.label);
+			button.addEventListener('click', () => chooseMarket({ filter: filter.id, place: null }));
+			return button;
+		}));
+		$('market-grid').replaceChildren(
+			element('thead', {}, element('tr', {},
+				element('td', {}),
+				...columns.map(column => element('th', { scope: 'col', class: choice.system === column.id ? 'is-selected' : '' },
+					element('a', { class: 'link', href: systemLink(game.id, column.id) }, column.name),
+					element('span', { class: 'market-grid__sub' }, column.presence || '\u00a0'),
+					element('span', { class: 'market-grid__sub muted' }, column.reach))))),
+			element('tbody', {}, ...rows.map(row => element('tr', {},
+				element('th', { scope: 'row', class: choice.goods === row.goods ? 'is-selected' : '' }, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
+				...row.cells.map((cell, index) => marketCell(cell, row.goods, columns[index], choice))))));
+		if (!$('market-grid').querySelector('td[tabindex="0"]')) {
+			$('market-grid').querySelector('td[data-system]')?.setAttribute('tabindex', '0'); // the grid's one tab stop
+		}
+		$('market-spreads').replaceChildren(...rows.filter(row => row.spread).map(row => element('li', {}, row.spread)));
+		$('market-inspector').classList.toggle('is-empty', !detail);
+		$('market-inspector-title').textContent = detail ? detail.title : 'Select a market';
+		$('market-detail').replaceChildren(...(detail ? marketDetailNodes(detail) : [element('p', { class: 'muted' }, 'Pick a cell in the grid (or move with the arrow keys and press Enter) to see the market and place an offer.')]));
+		showText('market-offer-hint', detail?.hint ?? '');
+		$('market-check').replaceChildren(...(check.length
+			? check.map(warning => element('li', {}, ...(warning.offer ? [element('strong', {}, warning.offer), ': '] : []), element('span', { class: 'tone tone--alert' }, warning.text)))
+			: [element('li', { class: 'muted' }, (game.you?.offers ?? []).length ? 'Every offer can be carried out as things stand.' : 'No offers to check yet.')]));
+		if (focusKey) {
+			const again = [...document.querySelectorAll('#market-grid td, #market-filters button, #market-holdings button')]
+				.find(node => [node.dataset.system, node.dataset.goods, node.dataset.filter, node.dataset.place].join('/') === focusKey);
+			again?.focus();
+		}
+	}
+
+	/** The inspector's detail (criteria 8, 9) as nodes. */
+	function marketDetailNodes(detail) {
+		const facts = element('dl', { class: 'facts' },
+			element('div', {}, element('dt', {}, 'Price'), element('dd', {}, `${detail.price} HT ${detail.lastMove}`)),
+			element('div', {}, element('dt', {}, 'S/D'), element('dd', {}, detail.indicator)),
+			element('div', {}, element('dt', {}, 'Lean'), element('dd', {}, levelLabel(detail.level), ` · buyers ${detail.buyPercent}%`)));
+		const list = (title, items) => (items.length
+			? [element('p', { class: 'field-label' }, title), element('ul', { class: 'corporation__list' }, ...items.map(item => element('li', {}, item)))]
+			: []);
+		return [
+			facts,
+			...list('Last Trading here', detail.lastTrades),
+			...list('Positions', [
+				...(detail.dictator.length ? [`Dictator: ${detail.dictator.join(', ')}`] : []),
+				...(detail.wholesalers.length ? [`Wholesalers: ${detail.wholesalers.join(', ')}`] : []),
+			]),
+			...list('News', detail.news),
+			...list('Your side', [
+				`Here: ${detail.held} held${detail.free === null ? '' : `, ${detail.free} free space`}`,
+				...detail.reachable.map(text => `Can reach: ${text}`),
+				...detail.elsewhere,
+				`Cash: ${detail.cash} HT`,
+			]),
+		];
+	}
+
+	/** Arrow keys move through the grid's cells (roving focus); Enter or Space selects the cell (criterion 7). */
+	function moveInMarketGrid(event) {
+		const cell = event.target.closest('td[data-system]');
+		if (!cell) {
+			return;
+		}
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			chooseMarket({ system: cell.dataset.system, goods: cell.dataset.goods });
+			return;
+		}
+		const moves = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
+		const move = moves[event.key];
+		if (!move) {
+			return;
+		}
 		event.preventDefault();
-		setJumpError(''); // R69: any system will do, the ship's own included
-		sendJumpStep('jumps', { ship: $('jump-ship').value, destination: $('jump-destination').value });
+		const rows = [...$('market-grid').querySelectorAll('tbody tr')];
+		const row = rows.indexOf(cell.closest('tr'));
+		const col = [...cell.parentElement.children].indexOf(cell);
+		const next = rows[row + move[0]]?.children[col + move[1]];
+		if (next?.matches('td[data-system]')) {
+			cell.tabIndex = -1;
+			next.tabIndex = 0;
+			next.focus();
+		}
 	}
 
 	// ── E10: interception and battle ──
@@ -5565,7 +6014,13 @@
 
 	$('bid-form').addEventListener('submit', submitBid);
 	$('pick-form').addEventListener('submit', submitPick);
-	$('jump-form').addEventListener('submit', submitJump);
+	$('jump-button').addEventListener('click', confirmJump);
+	$('jump-cancel').addEventListener('click', () => {
+		jumpsChoice.destination = null;
+		if (lastGame) {
+			renderJumps(lastGame);
+		}
+	});
 	$('fight-form').addEventListener('submit', submitFight);
 	$('fight-hide').addEventListener('click', hideFight);
 	$('fight-dialog').addEventListener('cancel', event => {
@@ -5617,14 +6072,6 @@
 	$('landing-dialog').addEventListener('cancel', event => {
 		event.preventDefault(); // stays open until the landing is confirmed (S03-6)
 		submitLanding(ESCAPE_LOCATION); // Escape counts as "Stay in space" (S03-2, proto-A21)
-	});
-	$('jump-ship').addEventListener('change', () => {
-		setJumpError('');
-		updateJumpChance();
-	});
-	$('jump-destination').addEventListener('change', () => {
-		setJumpError('');
-		updateJumpChance();
 	});
 
 	// ── E03-S04: "I'm done bidding" in the top bar ──

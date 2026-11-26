@@ -10,6 +10,7 @@ import dev.adriangrzebyk.trader.game.agent.AgentPosition
 import dev.adriangrzebyk.trader.game.agent.InvalidAgentException
 import dev.adriangrzebyk.trader.game.agent.RecruitedAgent
 import dev.adriangrzebyk.trader.game.control.ControlResult
+import dev.adriangrzebyk.trader.game.control.PoliceOdds
 import dev.adriangrzebyk.trader.game.ledger.MoneyLedger
 import dev.adriangrzebyk.trader.game.loan.Loan
 import dev.adriangrzebyk.trader.game.loan.LoanCollection
@@ -22,6 +23,7 @@ import dev.adriangrzebyk.trader.game.news.TipOff
 import dev.adriangrzebyk.trader.game.news.TipOffNeed
 import dev.adriangrzebyk.trader.game.sabotage.InvalidSabotageException
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTarget
+import dev.adriangrzebyk.trader.game.smuggling.LandingOdds
 
 /**
  * A player's membership in one game; [email] is the membership key. [money] is private to its owner (R29);
@@ -1195,6 +1197,23 @@ data class Player(
 	 * and Badger's +3 when he's aboard (R108: −3 to the security he faces).
 	 */
 	fun landingBonusFor(shipName: String): Int = checkNotNull(ship(shipName)).landingBonus() + badgerBonusFor(shipName)
+
+	/**
+	 * What waits for this player's ship [shipName] at every system if it jumps there this turn (R139), in map order: the
+	 * Planet's landing odds against [security], the police odds in Space against [police] (each system's value this turn,
+	 * events included) and whether the Port refuses it (R131).
+	 */
+	fun destinationsOf(shipName: String, security: Map<StarSystem, Int>, police: Map<StarSystem, Int>): List<ShipDestination> {
+		val ship = checkNotNull(ship(shipName))
+		return StarSystem.entries.map { system ->
+			ShipDestination(
+				system,
+				LandingOdds(landingBonusFor(shipName), security.getValue(system)),
+				PoliceOdds(ship.policeBonus(), police.getValue(system)),
+				!ship.mayEnterPort(system)
+			)
+		}
+	}
 
 	/** Badger (R108): +3 on the landing roll of the ship carrying him, [shipName]; 0 otherwise. */
 	fun badgerBonusFor(shipName: String): Int = if (isAgentAboard(Agent.BADGER, shipName)) Agent.BADGER_SECURITY_REDUCTION else 0

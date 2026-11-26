@@ -562,6 +562,32 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldSendWhatWaitsAtEachDestinationOnlyToTheShipsOwnerAndEachMarketsLastMove() {
+		// R139, R57: per-destination odds are the owner's; R140: every market's last move is public
+		val (creatorToken, joinerToken, gameId) = startedGame("destinations")
+
+		val seenByCreator = pollGame(creatorToken, gameId).expectStatus().isOk
+			.expectBody(String::class.java).returnResult().responseBody!!
+		val seenByJoiner = pollGame(joinerToken, gameId).expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		// the creator's own two ships, and nobody else's
+		assertThat(Regex("\"destinations\":\\{\"GAMMA_LEPORIS\"").findAll(seenByCreator).count()).isEqualTo(2)
+		val ship = seenByJoiner.you!!.ships.first()
+		assertThat(ship.destinations.keys).containsExactly(
+			"GAMMA_LEPORIS",
+			"TAU_CETI",
+			"EPSILON_ERIDANI",
+			"BETA_HYDRI",
+			"MU_HERCULIS",
+			"SIGMA_DRACONIS"
+		)
+		assertThat(ship.destinations.getValue("BETA_HYDRI").landing.security).isEqualTo(10)
+		assertThat(ship.destinations.getValue("BETA_HYDRI").policePercent).isEqualTo(72)
+		assertThat(seenByJoiner.board.flatMap { it.market }.map { it.lastChange }).containsOnly(0)
+	}
+
+	@Test
 	fun shouldNeverSendAnotherPlayersCargo() {
 		val (creatorToken, joinerToken, gameId) = startedGame("cargo")
 		// The joiner's first ship carries goods; only the joiner may see them (S02-7, A05).

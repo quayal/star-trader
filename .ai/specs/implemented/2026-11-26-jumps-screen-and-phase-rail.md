@@ -167,3 +167,22 @@ and their sidebar items go (criterion 12).
 - Any estimate of another player's interception or weapons.
 - Market prices at the destination. They are on the Deck and System details; a link per row goes there.
 - Changes to jump, landing, interception or police rules.
+
+## Implementation notes (2026-11-26)
+
+- **Rule number.** R137 was taken before this spec merged (learned opportunities, PR 190), so this rule is **R139** in the
+  brief and the code.
+- **Placement** (engineering standards §13): the police odds are `PoliceOdds` in `game.control`, beside `PoliceRoll`
+  (row 6); the Port ban at a destination is `Ship.mayEnterPort(at)` (row 4); each ship's destinations are
+  `Player.destinationsOf(shipName, security, police)` returning `ShipDestination` (rows 5, 8), with `Game.viewFor`
+  passing this turn's security and police per system, events included (row 7), and `PlayerView.destinations` keeping
+  them the owner's (row 0).
+- **Extra fields** the screen needed, so no rule sits in JS: `you.ships[].deliveryTo` (a delivery's destination) and
+  `you.passengerGroups[].penalty` (R125's penalty from `PassengerGroup.penalty()`).
+- **Presence** counts a warehouse as well as a ship for the "no ship at X" flag (R23, R49), so a warehouse doesn't raise
+  a false alarm.
+- **Row order:** rows where the selected ship owes something come first, then the board's order.
+- A ship that has jumped says `Jumped this turn · now at X`: the client can't tell a failed jump from a move within the
+  system once the turn moves on. When all of the viewer's ships have jumped, `Jump here` is disabled and the status line
+  points to Finish jumping.
+- The "Your move: jump" card and the decision alert now take the player to the Jumps screen.
