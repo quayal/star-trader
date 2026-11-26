@@ -28,6 +28,15 @@ class PlayerTest {
 	}
 
 	@Test
+	fun shouldPayTheSpecialTaxAsFarAsCashGoesAndNeverGoBelowZero() {
+		// E13 (creator, 2026-11-25): two ships owe 10 HT
+		assertThat(player.afterSpecialTax().money).isEqualTo(290)
+		assertThat(player.copy(money = 6).afterSpecialTax().money).isZero()
+		assertThat(player.copy(money = 6).paysSpecialTaxInFull()).isFalse()
+		assertThat(player.copy(money = -5).afterSpecialTax().money).isEqualTo(-5)
+	}
+
+	@Test
 	fun shouldMoveOnlyTheShipThatJumped() {
 		val moved = player.jumpShip(wayfarer, StarSystem.MU_HERCULIS)
 

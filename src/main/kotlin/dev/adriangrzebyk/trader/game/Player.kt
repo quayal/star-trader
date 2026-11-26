@@ -272,8 +272,14 @@ data class Player(
 	/** The special tax (E13): 1 HT per warehouse block, 2 HT per factory unit, 5 HT per ship. */
 	fun specialTax(): Int = warehouses.sumOf { it.blocks } * 1 + factoryUnits() * 2 + ships.size * 5
 
-	/** This player after the special tax (E13): paid when their cash covers it, waived otherwise. */
-	fun afterSpecialTax(): Player = if (money >= specialTax()) pay(specialTax(), "Special tax") else this
+	/**
+	 * This player after the special tax (E13, creator 2026-11-25): everyone pays it, as far as their cash goes; whatever it
+	 * leaves short is waived, and money never goes below 0.
+	 */
+	fun afterSpecialTax(): Player = pay(minOf(specialTax(), money.coerceAtLeast(0)), "Special tax")
+
+	/** Whether this player's cash covers the whole special tax (E13): if not, they pay what they have and the rest is waived. */
+	fun paysSpecialTaxInFull(): Boolean = money >= specialTax()
 
 	/**
 	 * This player after the civil war at [system] (E5): their ships in its Port, their factories and warehouse there are
