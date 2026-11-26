@@ -3216,6 +3216,9 @@
 			if (row.details) {
 				parts.push(element('br'), element('span', {}, row.details));
 			}
+			if (row.facts.length) {
+				parts.push(element('ul', { class: 'corporation__list' }, ...row.facts.map(fact => element('li', {}, fact))));
+			}
 			if (row.taken) {
 				parts.push(' ', element('span', { class: 'muted' }, row.taken));
 			}

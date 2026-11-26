@@ -35,25 +35,17 @@ function roomOf(game, names) {
 	}));
 }
 
-const HOLD_TEXT = { CARGO_SPACE: 'Each unit takes a cargo space.', PASSENGER_SEAT: 'Each unit takes a passenger seat.' };
-
 /**
- * What a goods opportunity's form says besides its title (playtest, 2026-11-21: all a player needs): how many units and
- * what they cost against the viewer's money, what each takes aboard, and where and how they sell. Empty for the others.
+ * What an opportunity's form says besides its title (playtest, 2026-11-21; creator, 2026-11-25: all a player needs to decide):
+ * every term as the server writes it out, after, for goods, how many units the viewer's money buys.
  */
-function goodsFacts(game, terms) {
+function formFacts(game, terms) {
+	const facts = terms.facts ?? [];
 	if (!terms.maxUnits) {
-		return [];
+		return facts;
 	}
 	const affordable = Math.min(terms.maxUnits, Math.floor((game.you?.money ?? 0) / terms.price));
-	const sellAt = systemName(game, terms.sellAt);
-	return [
-		`Buy 1 to ${terms.maxUnits} units at ${terms.price} HT each: you can afford ${affordable} (${affordable * terms.price} HT).`,
-		terms.kind === 'FURS' && terms.hold === 'NONE' ? 'Furs need no cargo space.' : HOLD_TEXT[terms.hold] ?? 'They need no cargo space.',
-		terms.kind === 'FURS'
-			? `Sell them for ${terms.salePrice} HT each in ${sellAt}'s Port, on your Opportunity turn there.`
-			: `Sell them on ${sellAt}'s black market (on its Planet), at a price rolled on a d6.`,
-	];
+	return [`You can afford ${affordable} ${affordable === 1 ? 'unit' : 'units'} (${affordable * terms.price} HT).`, ...facts];
 }
 
 /** The units field's start: as many as the viewer can afford, at least 1 (the server refuses 0). */
@@ -120,8 +112,8 @@ function opportunityFormsWithoutTakeable(game) {
 		const terms = tipOff.terms;
 		const at = systemName(game, terms.buyAt);
 		const base = {
-			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
-			facts: goodsFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
+			slot: tipOff.slot, title: terms.summary, kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
+			facts: formFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
 			room: {},
 		};
 		switch (terms.kind) {
