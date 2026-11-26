@@ -755,7 +755,8 @@ data class TipOffResponseDto(
  * MILITARY_MODULES, DELIVERY, EXPEDITION), where to [buyAt] or pick up, where it [sellAt] or delivers, the [price] per unit,
  * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space]. For goods,
  * at most [maxUnits], what each unit takes aboard ([hold]: CARGO_SPACE, PASSENGER_SEAT or NONE) and furs' fixed
- * [salePrice] (playtest, 2026-11-21: the form says all a player needs to decide).
+ * [salePrice] (playtest, 2026-11-21: the form says all a player needs to decide). [summary] is its one-line name, and [facts]
+ * every term written out (creator, 2026-11-25: the player gets all the information to decide).
  */
 data class OpportunityTermsResponseDto(
 	val kind: String,
@@ -772,7 +773,9 @@ data class OpportunityTermsResponseDto(
 	val minReputation: Int?,
 	val maxUnits: Int?,
 	val hold: String?,
-	val salePrice: Int?
+	val salePrice: Int?,
+	val summary: String,
+	val facts: List<String>
 ) {
 
 	constructor(terms: OpportunityTerms) : this(
@@ -813,7 +816,9 @@ data class OpportunityTermsResponseDto(
 		(terms as? OpportunityTerms.Delivery)?.minReputation,
 		terms.maxUnits(),
 		terms.specialGoods()?.hold?.name,
-		(terms as? OpportunityTerms.Furs)?.salePrice
+		(terms as? OpportunityTerms.Furs)?.salePrice,
+		terms.description().replaceFirstChar { it.uppercase() },
+		terms.facts()
 	)
 }
 

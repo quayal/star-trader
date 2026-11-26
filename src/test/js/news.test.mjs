@@ -41,6 +41,14 @@ describe('the News screen (R109–R110)', () => {
 		assert.equal(row.learn, null);
 	});
 
+	it('lists every term of a learned opportunity, and none of one not learned (creator, 2026-11-25)', () => {
+		const facts = ['Pick up exotic animals in Mu Herculis\'s Port and carry them to Epsilon Eridani\'s Port.', 'Legal: everyone is told you took it.'];
+		const learned = { ...hidden, learned: true, kind: 'OPPORTUNITY', details: 'Opportunity: transport exotic animals …', terms: { facts } };
+
+		assert.deepEqual(tipOffRows(game({ tipOffs: [learned] }))[0].facts, facts);
+		assert.deepEqual(tipOffRows(game({ tipOffs: [hidden] }))[0].facts, []);
+	});
+
 	it('waits for the players not yet done, and lists this turn’s announcements', () => {
 		assert.deepEqual(waitingForNews(game({ doneNews: ['vega'] }), ME), ['you']);
 		assert.deepEqual(waitingForNews(game({ phase: 'JUMPS' }), ME), []);

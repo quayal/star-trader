@@ -35,25 +35,17 @@ function roomOf(game, names) {
 	}));
 }
 
-const HOLD_TEXT = { CARGO_SPACE: 'Each unit takes a cargo space.', PASSENGER_SEAT: 'Each unit takes a passenger seat.' };
-
 /**
- * What a goods opportunity's form says besides its title (playtest, 2026-11-21: all a player needs): how many units and
- * what they cost against the viewer's money, what each takes aboard, and where and how they sell. Empty for the others.
+ * What an opportunity's form says besides its title (playtest, 2026-11-21; creator, 2026-11-25: all a player needs to decide):
+ * every term as the server writes it out, after, for goods, how many units the viewer's money buys.
  */
-function goodsFacts(game, terms) {
+function formFacts(game, terms) {
+	const facts = terms.facts ?? [];
 	if (!terms.maxUnits) {
-		return [];
+		return facts;
 	}
 	const affordable = Math.min(terms.maxUnits, Math.floor((game.you?.money ?? 0) / terms.price));
-	const sellAt = systemName(game, terms.sellAt);
-	return [
-		`Buy 1 to ${terms.maxUnits} units at ${terms.price} HT each: you can afford ${affordable} (${affordable * terms.price} HT).`,
-		terms.kind === 'FURS' && terms.hold === 'NONE' ? 'Furs need no cargo space.' : HOLD_TEXT[terms.hold] ?? 'They need no cargo space.',
-		terms.kind === 'FURS'
-			? `Sell them for ${terms.salePrice} HT each in ${sellAt}'s Port, on your Opportunity turn there.`
-			: `Sell them on ${sellAt}'s black market (on its Planet), at a price rolled on a d6.`,
-	];
+	return [`You can afford ${affordable} ${affordable === 1 ? 'unit' : 'units'} (${affordable * terms.price} HT).`, ...facts];
 }
 
 /** The units field's start: as many as the viewer can afford, at least 1 (the server refuses 0). */
@@ -120,8 +112,8 @@ function opportunityFormsWithoutTakeable(game) {
 		const terms = tipOff.terms;
 		const at = systemName(game, terms.buyAt);
 		const base = {
-			slot: tipOff.slot, title: tipOff.details.replace(/^Opportunity: /, ''), kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
-			facts: goodsFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
+			slot: tipOff.slot, title: terms.summary, kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
+			facts: formFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
 			room: {},
 		};
 		switch (terms.kind) {
@@ -212,14 +204,11 @@ export function expeditionsDue(game) {
 /**
  * The viewer's opportunities in action (creator, 2026-11-23), shown on the Opportunity screen in every phase: goods bought
  * through one and still aboard (R112), delivery jobs under way (R114) and ships away on the expedition (R114), each
- * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way.
+ * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way. Passengers aboard are [passengersAboard]'s,
+ * in a box of their own (creator, 2026-11-25).
  */
 export function opportunitiesInAction(game) {
-	const where = Object.fromEntries(positions(game).map(s => [s.name, s]));
-	const at = name => {
-		const place = where[name];
-		return place ? `${systemName(game, place.system)} ${place.location === 'PLANET' ? 'Planet' : place.location === 'SPACE' ? 'Space' : 'Port'}` : '';
-	};
+	const at = shipPlace(game);
 	const rows = [];
 	for (const ship of game.you?.ships ?? []) {
 		for (const lot of ship.specialLots ?? []) {
@@ -234,14 +223,6 @@ export function opportunitiesInAction(game) {
 			rows.push({ ship: ship.name, where: at(ship.name), what: `Delivery: ${ship.deliveryJob}`, next: 'Deliver in the destination Port' });
 		}
 	}
-	for (const group of game.you?.passengerGroups ?? []) {
-		rows.push({
-			ship: group.ship,
-			where: at(group.ship) || 'ship lost',
-			what: `${group.groups} passenger ${group.groups === 1 ? 'group' : 'groups'} for ${group.toName}`,
-			next: `The ship must be in ${group.toName}'s Port, seats in working order, when the next Opportunity opens, or you pay ${group.groups * 10} HT`,
-		});
-	}
 	for (const expedition of game.you?.expeditions ?? []) {
 		rows.push({
 			ship: expedition.ship,
@@ -251,4 +232,27 @@ export function opportunitiesInAction(game) {
 		});
 	}
 	return rows;
+}
+
+/** Where each of the viewer's ships is now, as "Tau Ceti Port"; '' for a ship that's gone. */
+function shipPlace(game) {
+	const where = Object.fromEntries(positions(game).map(s => [s.name, s]));
+	return name => {
+		const place = where[name];
+		return place ? `${systemName(game, place.system)} ${place.location === 'PLANET' ? 'Planet' : place.location === 'SPACE' ? 'Space' : 'Port'}` : '';
+	};
+}
+
+/**
+ * The viewer's passenger groups aboard (R125), for the Passengers box in every phase (creator, 2026-11-25): `{ ship, where,
+ * what, next }`, as [opportunitiesInAction]'s rows. Empty when none are aboard.
+ */
+export function passengersAboard(game) {
+	const at = shipPlace(game);
+	return (game.you?.passengerGroups ?? []).map(group => ({
+		ship: group.ship,
+		where: at(group.ship) || 'ship lost',
+		what: `${group.groups} passenger ${group.groups === 1 ? 'group' : 'groups'} for ${group.toName}`,
+		next: `The ship must be in ${group.toName}'s Port, seats in working order, when the next Opportunity opens, or you pay ${group.groups * 10} HT`,
+	}));
 }

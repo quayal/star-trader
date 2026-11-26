@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, specialSales } from '../../main/resources/static/js/opportunities.js';
+import { deliveriesDue, expeditionsDue, opportunitiesInAction, opportunityForms, passengerForms, passengersAboard, specialSales } from '../../main/resources/static/js/opportunities.js';
 
 const ME = 'me';
 
@@ -16,14 +16,14 @@ function game(tipOffs, ships = [], positions = []) {
 describe('the Opportunities card (R111–R114)', () => {
 	const weapons = {
 		slot: 2, learned: true, taken: false, details: 'Opportunity: buy weapons on Tau Ceti\'s Planet (10 HT) for sale on Gamma Leporis\'s Planet.',
-		terms: { kind: 'ILLEGAL_GOODS', buyAt: 'TAU_CETI', hulls: [], modules: [], hullOptional: false },
+		terms: { kind: 'ILLEGAL_GOODS', buyAt: 'TAU_CETI', hulls: [], modules: [], hullOptional: false, summary: 'Buy weapons on Tau Ceti\'s Planet (10 HT) for sale on Gamma Leporis\'s Planet', facts: [] },
 	};
 
 	it('offers a learned, untaken opportunity to the ships that can take it', () => {
 		const positions = [{ name: 'Wayfarer', system: 'TAU_CETI', location: 'PLANET' }, { name: 'Lantern', system: 'TAU_CETI', location: 'PORT' }];
 		const [form] = opportunityForms(game([weapons], [], positions));
 
-		assert.equal(form.title, 'buy weapons on Tau Ceti\'s Planet (10 HT) for sale on Gamma Leporis\'s Planet.');
+		assert.equal(form.title, 'Buy weapons on Tau Ceti\'s Planet (10 HT) for sale on Gamma Leporis\'s Planet');
 		assert.deepEqual(form.ships, ['Wayfarer']);
 		assert.equal(form.units, true);
 		assert.equal(form.takeable, true);
@@ -43,36 +43,37 @@ describe('the Opportunities card (R111–R114)', () => {
 		assert.deepEqual(expeditionsDue(game([])).map(e => e.ship), ['Lantern']);
 	});
 
-	it('says all a player needs to take furs: how many, the cost, no cargo space and the sale (playtest, 2026-11-21)', () => {
+	it('says what the viewer can afford, then every term the server wrote out (creator, 2026-11-25)', () => {
 		const furs = {
 			slot: 5, learned: true, taken: false, details: 'Opportunity: buy furs in Tau Ceti\'s Port (10 HT) for sale in Gamma Leporis\'s Port (30 HT).',
-			terms: { kind: 'FURS', price: 10, buyAt: 'TAU_CETI', sellAt: 'GAMMA_LEPORIS', hulls: [], modules: [], hullOptional: false, maxUnits: 10, hold: 'NONE', salePrice: 30 },
+			terms: {
+				kind: 'FURS', price: 10, buyAt: 'TAU_CETI', sellAt: 'GAMMA_LEPORIS', hulls: [], modules: [], hullOptional: false, maxUnits: 10, hold: 'NONE', salePrice: 30,
+				summary: 'Buy furs in Tau Ceti\'s Port (10 HT) for sale in Gamma Leporis\'s Port (30 HT)',
+				facts: ['Buy 1 to 10 units of furs at 10 HT each, with a ship of yours in Tau Ceti\'s Port.', 'Furs take no space aboard.'],
+			},
 		};
 		const rich = { ...game([furs]), you: { ...game([furs]).you, money: 300 } };
 		const [form] = opportunityForms(rich);
-		assert.deepEqual(form.facts, [
-			'Buy 1 to 10 units at 10 HT each: you can afford 10 (100 HT).',
-			'Furs need no cargo space.',
-			'Sell them for 30 HT each in Gamma Leporis\'s Port, on your Opportunity turn there.',
-		]);
+		assert.deepEqual(form.facts, ['You can afford 10 units (100 HT).', ...furs.terms.facts]);
 		assert.equal(form.maxUnits, 10);
 		assert.equal(form.defaultUnits, 10);
-		const poor = { ...rich, you: { ...rich.you, money: 45 } };
-		assert.equal(opportunityForms(poor)[0].facts[0], 'Buy 1 to 10 units at 10 HT each: you can afford 4 (40 HT).');
+		const poor = { ...rich, you: { ...rich.you, money: 15 } };
+		assert.equal(opportunityForms(poor)[0].facts[0], 'You can afford 1 unit (10 HT).');
 	});
 
-	it('says what each unit of illegal goods takes aboard, and where it sells', () => {
-		const withTerms = terms => ({ ...weapons, terms: { ...weapons.terms, price: 10, sellAt: 'GAMMA_LEPORIS', maxUnits: 10, ...terms } });
-		const facts = terms => opportunityForms({ ...game([withTerms(terms)]), you: { ...game([]).you, tipOffs: [withTerms(terms)], money: 100 } })[0].facts;
-		assert.equal(facts({ hold: 'CARGO_SPACE' })[1], 'Each unit takes a cargo space.');
-		assert.equal(facts({ hold: 'PASSENGER_SEAT' })[1], 'Each unit takes a passenger seat.');
-		assert.equal(facts({ hold: 'CARGO_SPACE' })[2], 'Sell them on Gamma Leporis\'s black market (on its Planet), at a price rolled on a d6.');
+	it('lists a delivery\'s terms as they are, with nothing to afford', () => {
+		const animals = {
+			slot: 3, learned: true, taken: false, details: 'Opportunity: transport exotic animals from Mu Herculis to Epsilon Eridani (150 HT).',
+			terms: { kind: 'DELIVERY', buyAt: 'TAU_CETI', hulls: [], modules: [], hullOptional: false, space: 'PASSENGER', summary: 'Transport exotic animals', facts: ['Pick up exotic animals in Mu Herculis\'s Port and carry them to Epsilon Eridani\'s Port.'] },
+		};
+
+		assert.deepEqual(opportunityForms(game([animals]))[0].facts, animals.terms.facts);
 	});
 
 	it('shows each ship\'s free module room and the modules that could come off to make it (creator, 2026-11-21)', () => {
 		const comm = {
 			slot: 1, learned: true, taken: false, details: 'Opportunity: Battle comm on Gamma Leporis\'s Planet.',
-			terms: { kind: 'MILITARY_MODULES', buyAt: 'GAMMA_LEPORIS', hulls: [], modules: ['BATTLE_COMM'], hullOptional: false },
+			terms: { kind: 'MILITARY_MODULES', buyAt: 'GAMMA_LEPORIS', hulls: [], modules: ['BATTLE_COMM'], hullOptional: false, summary: 'Buy a Battle comm module', facts: [] },
 		};
 		const ships = [{
 			name: 'Wayfarer',
@@ -166,9 +167,11 @@ describe('passengers (R125)', () => {
 		assert.deepEqual(passengerForms({ players: [], you: { ships: [] } }), []);
 	});
 
-	it('lists passengers aboard among the opportunities in action, with what is owed if they are not delivered', () => {
-		assert.deepEqual(opportunitiesInAction(game), [
+	it('lists passengers aboard in their own box, with what is owed if they are not delivered, not among the opportunities in action (creator, 2026-11-25)', () => {
+		assert.deepEqual(passengersAboard(game), [
 			{ ship: 'Corvid', where: 'Beta Hydri Space', what: '2 passenger groups for Tau Ceti', next: "The ship must be in Tau Ceti's Port, seats in working order, when the next Opportunity opens, or you pay 20 HT" },
 		]);
+		assert.deepEqual(opportunitiesInAction(game), []);
+		assert.deepEqual(passengersAboard({ players: [], you: {} }), []);
 	});
 });

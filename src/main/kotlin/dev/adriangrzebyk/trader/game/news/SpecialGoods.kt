@@ -11,6 +11,17 @@ enum class SpecialGoods(val displayName: String, val illegal: Boolean, val hold:
 	DRUGS("drugs", true, Hold.NONE, listOf(12, 15, 25, 35, 50, 70)),
 	FURS("furs", false, Hold.NONE, emptyList());
 
+	/** What one unit takes aboard, as a sentence (R112): "Each unit takes a passenger seat aboard." */
+	fun holdText(): String = when (hold) {
+		Hold.CARGO_SPACE -> "Each unit takes a cargo space aboard, and can't be kept in a warehouse."
+		Hold.PASSENGER_SEAT -> "Each unit takes a passenger seat aboard, and can't be kept in a warehouse."
+		Hold.NONE -> "${displayName.replaceFirstChar { it.uppercase() }} take no space aboard, and can't be kept in a warehouse."
+	}
+
+	/** The black-market table as a sentence (R112): "5, 8, 10, 15, 20 or 25 HT each for a d6 of 1 to 6". */
+	fun blackMarketText(): String =
+		"${blackMarket.dropLast(1).joinToString(", ")} or ${blackMarket.last()} HT each for a d6 of 1 to ${blackMarket.size}"
+
 	/** The black-market price per unit for [roll] (1 to 6, R112). */
 	fun blackMarketPrice(roll: Int): Int = blackMarket[roll.coerceIn(1, blackMarket.size) - 1]
 
