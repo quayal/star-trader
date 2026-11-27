@@ -63,7 +63,7 @@ describe('the Port refusing a military ship (R56)', () => {
 		const port = landingOptions(system, { portRefused: true, landing: null }).find(o => o.value === 'PORT');
 
 		assert.equal(port.disabled, true);
-		assert.match(port.label, /refused, military parts aboard \(legal system 4\)/);
+		assert.match(port.label, /refused, military parts or illegal goods aboard \(legal system 4\)/);
 	});
 
 	it('leaves the Port open for any other ship', () => {

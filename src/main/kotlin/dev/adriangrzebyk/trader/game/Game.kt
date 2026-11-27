@@ -1885,7 +1885,8 @@ data class Game(
 		val ship = checkNotNull(playerOf(email).ship(shipName))
 		if (location == ShipLocation.PORT && !ship.mayEnterPort()) {
 			throw InvalidLandingException(
-				"$shipName has a military part: ${ship.system.displayName}'s Port refuses it (legal system 3 or 4). Choose the Planet or Space."
+				"$shipName has military parts or illegal goods: ${ship.system.displayName}'s Port refuses it (legal system 3 or 4). " +
+					"Choose the Planet or Space."
 			)
 		}
 		if (location == ShipLocation.PLANET) {

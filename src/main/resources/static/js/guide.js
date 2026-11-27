@@ -13,7 +13,7 @@ const PHASE_TEXT = {
 	Trading: 'Goods resolve one at a time, in the order the first player sets. A winning offer trades; Wholesalers and the Dictator may trade at the new price.',
 	Opportunity: 'In turn order: collect your factories’ output, then sabotage, challenge a market position, recruit an agent or offer one for sale. Agents move at any time.',
 	Investment: 'Everyone at once: buy warehouses, factories and ships; refit, repair or sell; raise a connection, buy reputation, take or repay a loan.',
-	Control: 'Closes the turn. Police rolls 2d6 for every ship in Space (+2 with a Battle comm): at or below the police level it is forced into the Port, or onto the Planet with a military part where the Port refuses it, and you lose 2d6 reputation. Then each player at reputation 5 or below rolls a d6: above their reputation, another player may back them, a second d6 (less political connections) is read on a table of fines and elimination. Then +3 reputation from 1 to 17, and the reputation bonus.',
+	Control: 'Closes the turn. Police rolls 2d6 for every ship in Space (+2 with a Battle comm): at or below the police level it is forced into the Port, or onto the Planet with military parts or illegal goods where the Port refuses them (legal system 3 or 4), and you lose 2d6 reputation. Then each player at reputation 5 or below rolls a d6: above their reputation, another player may back them, a second d6 (less political connections) is read on a table of fines and elimination. Then +3 reputation from 1 to 17, and the reputation bonus.',
 };
 
 const signed = n => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '+0');

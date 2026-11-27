@@ -153,27 +153,30 @@ data class Ship(
 	fun repairCost(): Int = (if (hullDamage > 0) hull.repairCost else 0) + damagedModules.sumOf { it.repairCost() }
 
 	/**
-	 * Whether the hull can be repaired where this ship is (R133): only in a shipyard, and a military hull only in Tau Ceti's.
-	 * Damaged modules need no shipyard.
+	 * Whether the hull can be repaired where this ship is (R133): only in a shipyard, and a ship with any military part only
+	 * in Tau Ceti's (creator, 2026-11-27). Damaged modules of a legal ship need no shipyard.
 	 */
-	fun canRepairHull(): Boolean {
-		val atShipyard = isInShipyard() || (isInPort() && system.hasShipyard())
-		return atShipyard && (!hull.military || system.repairsMilitaryHulls())
-	}
+	fun canRepairHull(): Boolean = isAtShipyard() && (!isMilitary() || system.repairsMilitaryShips())
 
-	/** What repairing this ship's damage costs where it is (R133): each damaged module's, and the hull's only where it can be repaired. */
-	fun repairCostHere(): Int = damagedModules.sumOf { it.repairCost() } + if (hullDamage > 0 && canRepairHull()) hull.repairCost else 0
+	/** Whether its damaged modules can be repaired where it is (R133): anywhere, but a military ship's only at Tau Ceti's shipyard. */
+	private fun canRepairModules(): Boolean = !isMilitary() || (isAtShipyard() && system.repairsMilitaryShips())
 
-	/** Why the hull stays damaged where this ship is (R133), or null when it isn't damaged or can be repaired here. */
+	private fun isAtShipyard(): Boolean = isInShipyard() || (isInPort() && system.hasShipyard())
+
+	/** What repairing this ship's damage costs where it is (R133): what [canRepairModules] and [canRepairHull] allow. */
+	fun repairCostHere(): Int = (if (canRepairModules()) damagedModules.sumOf { it.repairCost() } else 0) +
+		if (hullDamage > 0 && canRepairHull()) hull.repairCost else 0
+
+	/** Why damage stays where this ship is (R133), or null when there is none or all of it can be repaired here. */
 	fun hullRepairNote(): String? = when {
-		hullDamage == 0 || canRepairHull() -> null
-		hull.military -> "A military hull is repaired only at the Tau Ceti shipyard."
+		!isDamaged() || (canRepairModules() && (hullDamage == 0 || canRepairHull())) -> null
+		isMilitary() -> "A ship with military parts is repaired only at the Tau Ceti shipyard."
 		else -> "The hull is repaired at a shipyard: in port at Beta Hydri, Epsilon Eridani or Tau Ceti."
 	}
 
 	/**
 	 * This ship with the damage repaired that can be where it is (R133): every damaged module, and the hull where
-	 * [canRepairHull]. Refused when there is nothing to repair here.
+	 * [canRepairHull]. Refused when there is nothing to repair here (a military ship away from Tau Ceti's shipyard).
 	 */
 	fun repaired(): Ship {
 		if (!isDamaged()) {
@@ -243,10 +246,10 @@ data class Ship(
 	fun policeBonus(): Int = if (hasWorkingBattleComm()) BATTLE_COMM_POLICE_BONUS else 0
 
 	/**
-	 * Whether the Port of [at] admits it (R56, R131): not with a military part where the legal system is 3 or 4. By default
-	 * its own system's; the Jumps screen asks about each destination (R139).
+	 * Whether the Port of [at] admits it (R56, R131): not with a military part or illegal goods (creator, 2026-11-27) where the
+	 * legal system is 3 or 4. By default its own system's; the Jumps screen asks about each destination (R139).
 	 */
-	fun mayEnterPort(at: StarSystem = system): Boolean = !isMilitary() || at.locations.admitsMilitaryShips()
+	fun mayEnterPort(at: StarSystem = system): Boolean = !isContraband() || at.locations.admitsMilitaryShips()
 
 	/** Whether it has a military hull or module (R56): forced into a Port, it's confiscated (R117). */
 	fun isMilitary(): Boolean = hull.military || modules.any { it.military }

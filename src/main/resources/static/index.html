@@ -3397,7 +3397,7 @@
 			}));
 		const { add, remove, crew } = refitOptions(shipyard, own);
 		const refit = [];
-		// R79, R133: one action repairs every damaged module anywhere, and the hull only where it can be (a shipyard; a military hull, Tau Ceti's).
+		// R79, R133: one action repairs every damaged module anywhere, and the hull only where it can be (a shipyard); a ship with military parts, only at Tau Ceti's shipyard.
 		if (own.canRepair) {
 			refit.push(element('div', { class: 'fleet-ship__row' },
 				shipButton('quiet-button', `${own.hullRepairNote ? 'Repair modules' : 'Repair all damage'} (${own.repairCost} HT)`, () => repairShip(game, own))));

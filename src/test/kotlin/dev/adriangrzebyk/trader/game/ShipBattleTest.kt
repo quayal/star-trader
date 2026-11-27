@@ -175,6 +175,29 @@ class ShipBattleTest {
 	}
 
 	@Test
+	fun shouldRepairAMilitaryShipOnlyAtTauCetisShipyard() {
+		// R133 (creator, 2026-11-27): a ship with any military part is repaired, modules too, only at Tau Ceti's shipyard
+		val military = wayfarer.copy(
+			modules = listOf(Module.DOGFIGHT, Module.CARGO),
+			location = ShipLocation.PORT,
+			hullDamage = 1,
+			damagedModules = listOf(Module.CARGO)
+		)
+		val away = military.copy(system = StarSystem.SIGMA_DRACONIS)
+
+		assertThat(away.repairCostHere()).isEqualTo(0)
+		assertThat(away.canBeRepaired()).isFalse()
+		assertThat(away.hullRepairNote()).isEqualTo("A ship with military parts is repaired only at the Tau Ceti shipyard.")
+		assertThatThrownBy { away.repaired() }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("Wayfarer: A ship with military parts is repaired only at the Tau Ceti shipyard.")
+		val tauCeti = military.copy(system = StarSystem.TAU_CETI)
+		assertThat(tauCeti.repairCostHere()).isEqualTo(24)
+		assertThat(tauCeti.repaired().isDamaged()).isFalse()
+		assertThat(military.copy(system = StarSystem.TAU_CETI, location = ShipLocation.SPACE).canBeRepaired()).isFalse()
+	}
+
+	@Test
 	fun shouldRepairAMilitaryHullOnlyAtTauCetisShipyard() {
 		// R133: Beta Hydri and Epsilon Eridani have shipyards too, but their Ports refuse military ships (R56)
 		val military = wayfarer.copy(hull = Hull.DAGGER, modules = emptyList(), location = ShipLocation.PORT, hullDamage = 1)
@@ -184,7 +207,7 @@ class ShipBattleTest {
 		assertThat(military.copy(system = StarSystem.EPSILON_ERIDANI).canRepairHull()).isFalse()
 		assertThat(
 			military.copy(system = StarSystem.BETA_HYDRI).hullRepairNote()
-		).isEqualTo("A military hull is repaired only at the Tau Ceti shipyard.")
+		).isEqualTo("A ship with military parts is repaired only at the Tau Ceti shipyard.")
 		assertThat(military.copy(system = StarSystem.TAU_CETI).hullRepairNote()).isNull()
 		assertThat(military.copy(system = StarSystem.BETA_HYDRI, hull = Hull.CLARINET).canRepairHull()).isTrue()
 	}
