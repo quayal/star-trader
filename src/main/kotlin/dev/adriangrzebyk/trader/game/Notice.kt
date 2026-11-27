@@ -27,6 +27,12 @@ data class Notice(
 			Notice(NoticeKind.POSITION_GAINED, system, listOf(trader) + demoted, null, null)
 
 		/**
+		 * A sale on [system]'s black market by [seller] (R112, creator 2026-11-26): a card for them with the roll and the
+		 * result, read from their own ledger (private, R29). Everyone else reads the line in the log.
+		 */
+		fun blackMarketSold(system: StarSystem, seller: String): Notice = Notice(NoticeKind.BLACK_MARKET_SOLD, system, listOf(seller), null, null)
+
+		/**
 		 * A roll or a penalty that went against [players] (R124, R136, creator 2026-11-23/24), at [system] when it happened in
 		 * one: each of them gets a card of its own, everyone else the line as a toast. [kind] is one of [NoticeKind.SETBACKS].
 		 */
@@ -62,6 +68,7 @@ enum class NoticeKind(val ledgerReason: String? = null) {
 	CHALLENGE_FAILED,
 	POLICE_CONTROL,
 	POSITION_GAINED,
+	BLACK_MARKET_SOLD,
 	PASSENGERS_UNDELIVERED(Player.PASSENGER_PENALTY_REASON),
 	CONTROL_CLEARED,
 	CONTROL_FINED(Player.FINE_REASON),

@@ -494,7 +494,8 @@ class GameController(idGenerator: GameIdGenerator, private val gameStore: GameSt
 	}
 
 	/**
-	 * The player fits one module to their ship at a shipyard (R65, E09-S04): `{ module }`. `400` for an unknown or military
+	 * The player fits modules to their ship at a shipyard (R65, E09-S04): `{ module }` for one, or `{ modules: [...] }` for
+	 * several in one go, all or none (creator, 2026-11-26). `400` for an unknown or military
 	 * module, a ship that isn't theirs or isn't at a shipyard, one the hull can't take, too little money; `409` outside
 	 * Investment or before they have collected.
 	 */
@@ -505,8 +506,8 @@ class GameController(idGenerator: GameIdGenerator, private val gameStore: GameSt
 		@RequestBody(required = false) request: FitModuleRequestDto?,
 		session: Session
 	): GameResponseDto {
-		val module = request?.moduleConstant() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
-		return GameResponseDto(investmentService.addModule(id, session.email, ship, module), session.email)
+		val modules = request?.moduleConstants() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a module.")
+		return GameResponseDto(investmentService.addModules(id, session.email, ship, modules), session.email)
 	}
 
 	/**

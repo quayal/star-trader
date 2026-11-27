@@ -118,6 +118,13 @@ h1, h2, h3 {
 	box-shadow: var(--glow-selected);
 }
 .choice input { accent-color: var(--accent-selected); }
+/* Creator, 2026-11-26: the Buy/Sell tiles of a trade carry the Buy/Sell colours (R04.1), the chosen one filled with its tint. */
+.choice--buy { color: var(--trade-buy); border-color: var(--trade-buy); }
+.choice--sell { color: var(--trade-sell); border-color: var(--trade-sell); }
+.choice--buy input { accent-color: var(--trade-buy); }
+.choice--sell input { accent-color: var(--trade-sell); }
+.choice--buy:has(input:checked) { border-color: var(--trade-buy); background: var(--tint-buy); box-shadow: none; font-weight: 600; }
+.choice--sell:has(input:checked) { border-color: var(--trade-sell); background: var(--tint-sell); box-shadow: none; font-weight: 600; }
 
 /* ── Navigation item (R03.1 rail; selected = accent + glow, R01.1) ── */
 .nav-item {

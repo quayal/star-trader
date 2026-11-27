@@ -239,7 +239,12 @@ export function refitOptions(shipyard, ship) {
 	const hasSafeJump = ship.modules.some(module => module.id === 'SAFE_JUMP');
 	const add = shipyard.modules
 		.filter(module => (module.takesModuleCapacity ? roomLeft > 0 : !hasSafeJump))
-		.map(module => ({ id: module.id, name: module.name, cost: module.price + module.crew * pricePerCrew }));
+		.map(module => ({
+			id: module.id, name: module.name, cost: module.price + module.crew * pricePerCrew,
+			// Creator, 2026-11-26: several of a kind can be chosen at once, up to the free slots (Safe jump: one, outside them).
+			takesCapacity: module.takesModuleCapacity !== false,
+			max: module.takesModuleCapacity !== false ? roomLeft : 1,
+		}));
 	const remove = ship.modules.map(fitted => ({ id: fitted.id, name: fitted.name, refund: fitted.resaleValue }));
 	// R89: a whole new crew of another class, at that class's price for every crew member the ship needs; the old one isn't paid back.
 	const crew = shipyard.crewClasses
@@ -252,6 +257,28 @@ export function refitOptions(shipyard, ship) {
 			interceptModifier: entry.interceptModifier,
 		}));
 	return { add, remove, crew };
+}
+
+/**
+ * The modules the viewer has chosen to fit to [ship] in one go (creator, 2026-11-26), from [add] ([refitOptions]) and
+ * [counts] (`{ [moduleId]: n }`), with the [money] they have: `{ modules, cost, text, problem }`. [modules] lists each id
+ * once per unit, [text] is the projected line ("3 modules · 2 of 4 free slots · 58 HT") and [problem] why they can't be
+ * fitted ('' when they can). The server still checks.
+ */
+export function fitPlan(ship, add, counts, money) {
+	const roomLeft = ship.stats.moduleCapacity - ship.stats.modulesUsed;
+	const chosen = add.flatMap(option => Array(Math.max(0, Math.floor(Number(counts[option.id]) || 0))).fill(option));
+	const slots = chosen.filter(option => option.takesCapacity).length;
+	const cost = chosen.reduce((sum, option) => sum + option.cost, 0);
+	if (chosen.length === 0) {
+		return { modules: [], cost: 0, text: 'Choose how many of each module to fit.', problem: 'Choose a module.' };
+	}
+	const over = add.find(option => (counts[option.id] ?? 0) > option.max);
+	const problem = slots > roomLeft ? `Only ${roomLeft} free ${roomLeft === 1 ? 'slot' : 'slots'}.`
+		: over ? `At most ${over.max} ${over.name}.`
+			: cost > money ? `You have ${money} HT.` : '';
+	const count = `${chosen.length} ${chosen.length === 1 ? 'module' : 'modules'}`;
+	return { modules: chosen.map(option => option.id), cost, text: `${count} \u00b7 ${slots} of ${roomLeft} free slots \u00b7 ${cost} HT`, problem };
 }
 
 /**

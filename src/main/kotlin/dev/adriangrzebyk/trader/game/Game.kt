@@ -515,7 +515,7 @@ data class Game(
 			is OpportunityTerms.IllegalGoods -> buyIllegalGoods(email, slot, order.ship, order.units)
 			is OpportunityTerms.Furs -> buyFurs(email, slot, order.ship, order.units)
 			is OpportunityTerms.MilitaryShip ->
-				if (order.hull == null && terms.hullOptional) {
+				if (order.hull == null) {
 					buyMilitaryModules(email, slot, order.ship, order.modules, order.removed)
 				} else {
 					buyMilitaryShip(email, slot, order.name, order.hull, order.modules, order.crewClass)
@@ -598,8 +598,8 @@ data class Game(
 		if (crewClass == null) {
 			throw InvalidGameOperationException("Choose a crew class.")
 		}
-		if (modules.count { it.military } > terms.maxModules) {
-			throw InvalidGameOperationException("At most ${terms.maxModules} military modules come with this hull.")
+		if (!terms.acceptsWithHull(modules)) {
+			throw InvalidGameOperationException("At most ${terms.moduleLimit()} military modules come with this hull, one of each kind.")
 		}
 		val ship = Ship.militaryOnPlanet(name, terms.at, hull, modules, crewClass)
 		if (isShipNameTaken(ship.name)) {
@@ -614,17 +614,11 @@ data class Game(
 	 */
 	fun buyMilitaryModules(email: String, slot: Int?, shipName: String?, modules: List<Module>, removed: List<Module> = emptyList()): Game {
 		val tipOff = opportunityToTake(email, slot)
-		val (allowed, at, max) = when (val terms = tipOff.tipOff.opportunity) {
-			is OpportunityTerms.MilitaryModules -> Triple(terms.modules, terms.at, terms.modules.size)
-			is OpportunityTerms.MilitaryShip -> Triple(Module.military(), terms.at, terms.maxModules).takeIf { terms.hullOptional }
-			else -> null
-		} ?: throw InvalidGameOperationException("This opportunity isn't for modules alone.")
-		val oneEach = (tipOff.tipOff.opportunity as? OpportunityTerms.MilitaryModules) != null
-		if (modules.isEmpty() || modules.any { it !in allowed } || modules.size > max || (oneEach && modules.distinct().size != modules.size)) {
+		val terms = tipOff.tipOff.opportunity
+		val at = terms?.modulesAt() ?: throw InvalidGameOperationException("This opportunity isn't for modules alone.")
+		if (!terms.acceptsModulesAlone(modules)) {
 			throw InvalidGameOperationException(
-				"Choose up to $max of: ${allowed.joinToString(", ") {
-					it.displayName
-				}}${if (oneEach) ", each once" else ""}."
+				"Choose 1 to ${terms.moduleLimit()} of: ${terms.modulesOnOffer().joinToString(", ") { it.displayName }}, each once."
 			)
 		}
 		val ship = playerOf(email).ship(shipName)
@@ -735,18 +729,18 @@ data class Game(
 			throw InvalidGameOperationException("Choose illegal goods and the system they're for.")
 		}
 		val player = playerOf(email)
-		val roll = minOf(dice.d6() + player.blackMarketBonusAt(system), SpecialGoods.MAX_ROLL)
-		val price =
-			goods.blackMarketPrice(roll) * (if (goods == SpecialGoods.WEAPONS) news.conditions.weaponsMultiplierAt(system, current.number) else 1)
-		val sold = player.sellSpecialAt(goods, system, ShipLocation.PLANET, price)
+		val multiplier = if (goods == SpecialGoods.WEAPONS) news.conditions.weaponsMultiplierAt(system, current.number) else 1
+		val sold = player.sellOnBlackMarket(goods, system, dice.d6(), multiplier)
 		val frank = player.blackMarketBonusAt(system).takeIf {
 			it > 0
 		}?.let { Agent.FRANK.actedLog(player.corporationName, ": +$it on the black market roll") }
-		return withPlayerChanged(
-			sold,
-			listOfNotNull(frank, "${player.corporationName} sold on the black market at ${system.displayName}"),
-			current.number
-		)
+		// Creator, 2026-11-26: the seller gets a card per sale with the roll and the result, read from their own ledger.
+		return withPlayerChanged(sold, listOfNotNull(frank), current.number)
+			.withNoticed(
+				current.number,
+				"${player.corporationName} sold on the black market at ${system.displayName}",
+				Notice.blackMarketSold(system, email)
+			)
 	}
 
 	/** [email] sells every fur aboard their ships in [system]'s Port that's bound there (R112, O5), at its fixed price. */
@@ -1091,6 +1085,10 @@ data class Game(
 
 	/** [email] fits one more [module] to their ship [shipName] at a shipyard (R65): see [Player.addModule]. Private, not logged. */
 	fun addModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.addModule(shipName, module) }
+
+	/** [email] fits every one of [modules] to their ship [shipName] in one go (R65; creator, 2026-11-26), or none of them. */
+	fun addModules(email: String, shipName: String, modules: List<Module>): Game =
+		withInvestment(email, null) { it.addModules(shipName, modules) }
 
 	/** [email] removes one [module] from their ship [shipName] at a shipyard (R65): see [Player.removeModule]. Private, not logged. */
 	fun removeModule(email: String, shipName: String, module: Module): Game = withInvestment(email, null) { it.removeModule(shipName, module) }
@@ -1887,7 +1885,8 @@ data class Game(
 		val ship = checkNotNull(playerOf(email).ship(shipName))
 		if (location == ShipLocation.PORT && !ship.mayEnterPort()) {
 			throw InvalidLandingException(
-				"$shipName has a military part: ${ship.system.displayName}'s Port refuses it (legal system 3 or 4). Choose the Planet or Space."
+				"$shipName has military parts or illegal goods: ${ship.system.displayName}'s Port refuses it (legal system 3 or 4). " +
+					"Choose the Planet or Space."
 			)
 		}
 		if (location == ShipLocation.PLANET) {

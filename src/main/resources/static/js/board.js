@@ -347,10 +347,12 @@ export function locations(game, system, myId) {
 	const yours = Object.fromEntries(fleet(game, myId).map(entry => [entry.name, entry]));
 	// R60: the shipyard is listed only while a ship waits in it.
 	const shown = ships.some(ship => ship.location === SHIPYARD.id) ? [...LOCATIONS, SHIPYARD] : LOCATIONS;
+	const agents = agentsHere(game, system.id, myId);
 	return shown.map(location => ({
 		id: location.id,
 		name: location.name,
 		stats: locationStats(system, location.id, game.conditions),
+		agents: agents.filter(agent => agent.location === location.id).map(({ name, effect, ship }) => ({ name, effect, ship })),
 		ships: ships.filter(ship => ship.location === location.id).map(ship => ({
 			mine: ship.mine,
 			// R127: a ship in the Parking Hangar says so, since it can't be sabotaged.
@@ -359,6 +361,19 @@ export function locations(game, system, myId) {
 				: `□ ${ship.name} — ${ship.corporationName}`) + (ship.hangar ? ' · parked' : ''),
 		})),
 	}));
+}
+
+/**
+ * The viewer's own agents at [systemId] (creator, 2026-11-26: see them in the System view, with their effect), from `you.agents`:
+ * `{ name, effect, ship, location }`, [ship] the ship they ride or null when on their own; an agent aboard is where its ship
+ * is. Only the viewer's: who another player's agents are is private (R105).
+ */
+function agentsHere(game, systemId, myId) {
+	const ships = Object.fromEntries((game.players.find(player => player.id === myId)?.ships ?? []).map(ship => [ship.name, ship]));
+	return (game.you?.agents ?? []).flatMap(agent => {
+		const place = agent.ship ? ships[agent.ship] : agent;
+		return place?.system === systemId ? [{ name: agent.name, effect: agent.effect, ship: agent.ship ?? null, location: place.location }] : [];
+	});
 }
 
 /** S02-7/8: per good at [system], the corporations holding each tier; players without a position are left out. */

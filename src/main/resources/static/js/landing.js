@@ -47,7 +47,7 @@ export function landingOptions(system, own = null, conditions = null) {
 	return [
 		{
 			value: 'PORT',
-			label: closed ? 'Land at the port: closed this turn (epidemics)' : refused ? `Land at the port: refused, military parts aboard (legal system ${system.legalSystem})` : `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})`,
+			label: closed ? 'Land at the port: closed this turn (epidemics)' : refused ? `Land at the port: refused, military parts or illegal goods aboard (legal system ${system.legalSystem})` : `Land at the port (class ${system.portClass}, legal system ${system.legalSystem})`,
 			disabled: closed || refused,
 		},
 		{ value: 'PLANET', label: planet, warning: own?.contraband ? 'Illegal goods or military parts aboard: if security stops you, they’re confiscated.' : '' },

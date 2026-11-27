@@ -172,7 +172,7 @@ describe('Jumps screen: destination table (criterion 5)', () => {
 		assert.deepEqual(tau.facilities, ['Hangar 5 HT']);
 		const own = rows.find(row => row.system === 'GAMMA_LEPORIS');
 		assert.equal(own.chance, '100%, no roll');
-		assert.equal(rows.find(row => row.system === 'SIGMA_DRACONIS').port, 'Refused: military parts');
+		assert.equal(rows.find(row => row.system === 'SIGMA_DRACONIS').port, 'Refused: military parts or illegal goods');
 	});
 
 	it('closes every Port on a turn of epidemics', () => {

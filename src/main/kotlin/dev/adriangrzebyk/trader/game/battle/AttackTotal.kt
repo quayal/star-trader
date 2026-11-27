@@ -10,9 +10,12 @@ value class AttackTotal(val value: Int) {
 		return row.second[shields.coerceIn(1, 4) - 1]
 	}
 
-	private companion object {
+	companion object {
+		/** The battle table for the Guide (creator, 2026-11-26): each row's lowest total and its hits against shields 1–4. */
+		fun table(): List<Pair<Int, List<Int>>> = ROWS
+
 		/** Each row's lowest total and its hits against shields 1, 2, 3 and 4. */
-		val ROWS = listOf(
+		private val ROWS = listOf(
 			2 to listOf(0, 0, 0, 0),
 			5 to listOf(1, 0, 0, 0),
 			7 to listOf(1, 1, 0, 0),

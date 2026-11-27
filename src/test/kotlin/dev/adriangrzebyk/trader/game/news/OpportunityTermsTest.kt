@@ -2,6 +2,7 @@ package dev.adriangrzebyk.trader.game.news
 
 import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
+import dev.adriangrzebyk.trader.game.Module
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -38,24 +39,33 @@ class OpportunityTermsTest {
 	}
 
 	@Test
-	fun shouldGiveTheBlackMarketTableAndSayAnIllegalOneStaysSecret() {
+	fun shouldPointToTheGuidesBlackMarketTableAndSayAnIllegalOneStaysSecret() {
+		// Creator, 2026-11-26: where to buy, the price, where to sell and what it takes aboard; the price table is in the Guide
 		assertThat(TipOff.O1.opportunity!!.facts()).containsExactly(
 			"Buy 1 to 10 units of slaves at 1 HT each, with a ship of yours on Mu Herculis's Planet.",
-			"Each unit takes a passenger seat aboard, and can't be kept in a warehouse.",
+			"Each unit takes a passenger seat (Passenger module) aboard, and can't be kept in a warehouse.",
 			"Sell them on Epsilon Eridani's Planet, on the black market, in a later Opportunity: every unit aboard at once, " +
-				"at 5, 8, 10, 15, 20 or 25 HT each for a d6 of 1 to 6.",
+				"at a d6 roll on the black market table in the Guide.",
 			"Illegal: nobody is told you took it."
 		)
 	}
 
 	@Test
-	fun shouldPriceEveryHullAndModuleOnOfferAndSayTheyAreMilitary() {
-		val facts = TipOff.O20.opportunity!!.facts()
+	fun shouldOfferEveryMilitaryHullAndOrItsModulesOneOfEachKind() {
+		// Creator, 2026-11-26: always "hull and/or modules", from one item to everything on offer
+		val o13 = TipOff.O13.opportunity!!
+		val o20 = TipOff.O20.opportunity!!
 
-		assertThat(facts.first()).contains("Dagger 250 HT", "Sword 500 HT", "Spear 600 HT")
-		assertThat(facts).anyMatch { it.startsWith("Add up to 5 military modules") && it.contains("Battle comm 50 HT") }
-		assertThat(facts).contains("Illegal: nobody is told you took it.")
-		assertThat(TipOff.O13.opportunity!!.facts()[1]).startsWith("Or skip the hull")
+		assertThat(o13.description()).isEqualTo("buy a Spear hull and/or up to 4 military modules, one of each kind, on Beta Hydri's Planet")
+		assertThat(TipOff.O16.opportunity!!.description()).isEqualTo("buy a Dagger hull and/or 1 military module, on Tau Ceti's Planet")
+		assertThat(o20.facts()[1]).contains("Dagger 250 HT", "Sword 500 HT", "Spear 600 HT")
+		assertThat(o20.facts()[2]).contains("Battle comm 50 HT")
+		assertThat(o20.facts()).contains("Illegal: nobody is told you took it.")
+		assertThat(o13.acceptsModulesAlone(Module.military())).isTrue()
+		assertThat(o13.acceptsModulesAlone(listOf(Module.ARSENAL, Module.ARSENAL))).isFalse()
+		assertThat(o13.acceptsModulesAlone(emptyList())).isFalse()
+		assertThat(TipOff.O16.opportunity!!.acceptsModulesAlone(listOf(Module.ARSENAL, Module.DOGFIGHT))).isFalse()
+		assertThat(TipOff.O4.opportunity!!.acceptsModulesAlone(listOf(Module.DOGFIGHT))).isFalse()
 	}
 
 	@Test

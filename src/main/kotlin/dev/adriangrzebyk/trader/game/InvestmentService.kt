@@ -65,9 +65,9 @@ class InvestmentService(private val gameStore: GameStore, private val dice: Dice
 	/** [callerEmail] buys reputation inside [GameStore.update], so two presses can't both pass the once-per-Investment check (A04, R87). */
 	fun buyReputation(gameId: String, callerEmail: String): Game = gameStore.update(gameId) { it.buyReputation(callerEmail, dice) }
 
-	/** [callerEmail] fits [module] to their ship [shipName] inside [GameStore.update] (A04, R65). */
-	fun addModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =
-		gameStore.update(gameId) { it.addModule(callerEmail, shipName, module) }
+	/** [callerEmail] fits [modules] to their ship [shipName] in one go inside [GameStore.update] (A04, R65). */
+	fun addModules(gameId: String, callerEmail: String, shipName: String, modules: List<Module>): Game =
+		gameStore.update(gameId) { it.addModules(callerEmail, shipName, modules) }
 
 	/** [callerEmail] removes [module] from their ship [shipName] inside [GameStore.update] (A04, R65). */
 	fun removeModule(gameId: String, callerEmail: String, shipName: String, module: Module): Game =

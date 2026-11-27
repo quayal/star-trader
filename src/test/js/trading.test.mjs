@@ -17,6 +17,7 @@ import {
 	tradeForm,
 	validateTrade,
 	decisionText,
+	dictatorFacts,
 	dictatorFormKey,
 	dictatorLine,
 	dictatorQuestion,
@@ -37,6 +38,7 @@ import {
 	sameOrder,
 	queueOffersNote,
 	isDictatorOf,
+	limpyBriefing,
 	queueOffers,
 	OFFERS_NOTE,
 	NO_OFFERS_LEFT_NOTE,
@@ -190,11 +192,35 @@ describe('a good resolving (E05-S02)', () => {
 		assert.equal(dictatorQuestion(asking, VEGA), '');
 	});
 
+	it('tells the Dictator the price, their units in port and warehouse there, and the S/D with its direction (creator, 2026-11-26)', () => {
+		const board = [{ id: 'MU_HERCULIS', market: [{ goods: 'ISO', price: 9, indicator: 3 }] }];
+		const asked = {
+			...asking,
+			board,
+			players: [...asking.players.filter(p => p.id !== ALTAIR), { id: ALTAIR, corporationName: 'Altair Trade Co.', ships: [
+				{ name: 'Kestrel', system: 'MU_HERCULIS', location: 'PORT' },
+				{ name: 'Heron', system: 'MU_HERCULIS', location: 'PLANET' },
+			] }],
+			you: {
+				ships: [{ name: 'Kestrel', cargo: { ISO: 4 }, cargoSpaces: 8, cargoUsed: 4 }, { name: 'Heron', cargo: { ISO: 5 }, cargoSpaces: 8, cargoUsed: 5 }],
+				warehouses: [{ system: 'MU_HERCULIS', cargo: { ISO: 2 }, cargoSpaces: 10, cargoUsed: 2 }],
+			},
+		};
+
+		const facts = dictatorFacts(asked, ALTAIR);
+
+		assert.deepEqual({ ...facts, level: facts.level.key }, {
+			goods: 'ISO', price: 9, units: 6, holding: 'in port and warehouse', indicator: 'S/D +3', level: 'high-supply',
+		});
+		assert.equal(facts.level.hint, 'price likely to fall');
+		assert.equal(dictatorQuestion(asked, ALTAIR), "You're Dictator of ISO here. Place an offer before the roll?");
+		assert.equal(dictatorFacts(asked, VEGA), null);
+	});
+
 	it('gives the market price of the good with the question, when the board lists it (creator, 2026-11-20)', () => {
 		const priced = { ...asking, board: [{ id: 'MU_HERCULIS', market: [{ goods: 'POLY', price: 5 }, { goods: 'ISO', price: 12 }] }] };
 
 		assert.equal(resolvingPrice(priced), 12);
-		assert.equal(dictatorQuestion(priced, ALTAIR), "You're Dictator of ISO here (market price 12 HT). Place an offer before the roll?");
 		assert.equal(waitingText(priced, ALTAIR), "You're Dictator of ISO here (market price 12 HT): place an offer before the roll, or pass.");
 		assert.equal(decisionText(priced, ALTAIR), "Your decision is needed: you're Dictator of ISO at Mu Herculis (market price 12 HT). Place an offer or pass.");
 		assert.equal(resolvingPrice(asking), null);
@@ -763,5 +789,43 @@ describe('a trader with a warehouse there (E06-S06)', () => {
 		assert.deepEqual(sell.ships.map(place => place.name), ['Wayfarer', 'Lantern', 'Warehouse']);
 		assert.equal(sell.shipsLegend, 'Your ships in port and warehouse at Mu Herculis');
 		assert.deepEqual(validateTrade(sell, '4', ['0', '0', '4']).body, { amount: 4, ships: [{ name: 'Wayfarer', units: 0 }, { name: 'Lantern', units: 0 }], warehouse: 4 });
+	});
+});
+
+describe('the Limpy ask (R108; creator, 2026-11-26: decide with everything in view)', () => {
+	const FOOD = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'FOOD' };
+	const MU_POLY = { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'POLY' };
+	const asked = {
+		...game({ queue: [ISO, POLY, FOOD, MU_POLY] }),
+		board: [{ id: 'MU_HERCULIS', market: [{ goods: 'ISO', price: 9, indicator: -9 }, { goods: 'FOOD', price: 4, indicator: 0 }, { goods: 'POLY', price: 6, indicator: 2 }] }],
+		you: {
+			limpyAsk: { system: 'MU_HERCULIS', systemName: 'Mu Herculis', goods: 'ISO' },
+			ships: [{ name: 'Kestrel', cargo: { ISO: 3, FOOD: 7 }, cargoSpaces: 8, cargoUsed: 3 }],
+			warehouses: [],
+		},
+	};
+	asked.turn.publicOffers = [
+		{ playerId: VEGA, system: 'MU_HERCULIS', goods: 'ISO', type: 'BUY', price: 11 },
+		{ playerId: VEGA, system: 'MU_HERCULIS', goods: 'FOOD', type: 'SELL', price: 3 },
+		{ playerId: VEGA, system: 'TAU_CETI', goods: 'POLY', type: 'SELL', price: 5 },
+	];
+	asked.players = asked.players.map(p => (p.id === ME ? { ...p, ships: [{ name: 'Kestrel', system: 'MU_HERCULIS', location: 'PORT' }] }
+		: p.id === ALTAIR ? { ...p, marketPositions: [{ system: 'MU_HERCULIS', goods: 'POLY', tier: 'DICTATOR' }] } : p));
+
+	it('lists the good asked about, then the other goods still to resolve at his system, each with price, S/D, units and offers', () => {
+		const briefing = limpyBriefing(asked, ME);
+
+		assert.equal(briefing.systemName, 'Mu Herculis');
+		assert.deepEqual(briefing.goods.map(g => [g.goods, g.now, g.price, g.indicator, g.units, g.limpyCan]), [
+			['ISO', true, 9, 'S/D −9', 3, true],
+			['FOOD', false, 4, 'S/D 0', 7, true],
+			['POLY', false, 6, 'S/D +2', 0, false],
+		]);
+		assert.deepEqual(briefing.goods[0].offers, [{ who: 'Vega Lines', type: 'BUY', typeName: 'Buy', price: 11 }]);
+		assert.deepEqual(briefing.goods[2].offers, []);
+	});
+
+	it('is nothing when the viewer isn\'t asked', () => {
+		assert.equal(limpyBriefing({ ...asked, you: { ...asked.you, limpyAsk: null } }, ME), null);
 	});
 });

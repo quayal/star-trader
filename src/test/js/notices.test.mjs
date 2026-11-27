@@ -87,6 +87,36 @@ describe('noticeCards (creator, 2026-11-18)', () => {
 	});
 });
 
+describe('the black-market card (creator, 2026-11-26)', () => {
+	const sold = { kind: 'BLACK_MARKET_SOLD', system: 'GAMMA_LEPORIS', systemName: 'Gamma Leporis', playerIds: ['p1'], round: null, interception: null };
+	// Two sales at the same place in one turn, Frank's line (a plain toast) before the first.
+	const twoSales = [
+		{ turn: 2, text: 'Frank (Orion Freight): +2 on the black market roll' },
+		{ turn: 2, text: 'Orion Freight sold on the black market at Gamma Leporis', notice: sold },
+		{ turn: 2, text: 'Orion Freight sold on the black market at Gamma Leporis', notice: sold },
+	];
+	const ledger = [
+		{ turn: 2, reason: 'Black market at Gamma Leporis: d6 3; 4 weapons at 15 HT each', amount: 60, credit: true },
+		{ turn: 2, reason: 'Black market at Gamma Leporis: d6 2 +2 Frank = 4; 10 slaves at 15 HT each', amount: 150, credit: true },
+	]; // newest first, as the server sends it
+
+	it('gives the seller the roll and the result from their own ledger, the right sale for each card', () => {
+		const cards = noticeCards(game(twoSales, { you: { id: 'p1', ledger } }), 0, 'p1');
+
+		assert.equal(cards.length, 2);
+		assert.equal(cards[0].title, 'Black market at Gamma Leporis: you rolled 2 +2 Frank = 4');
+		assert.equal(cards[0].lead, '10 slaves at 15 HT each: you received 150 HT.');
+		assert.equal(cards[0].tone, 'rise');
+		assert.equal(cards[1].title, 'Black market at Gamma Leporis: you rolled 3');
+		assert.equal(noticeCards(game(twoSales, { you: { id: 'p1', ledger } }), 2, 'p1')[0].lead, '4 weapons at 15 HT each: you received 60 HT.');
+	});
+
+	it('leaves the other players the log line as a toast', () => {
+		assert.deepEqual(noticeCards(game(twoSales), 0, 'p2'), []);
+		assert.equal(toasts(twoSales, 0, 'p2').shown.length, 3);
+	});
+});
+
 describe('moveCard', () => {
 	it('asks once per step, keyed by it, and takes the player where it is done', () => {
 		const asked = game([], { turn: { number: 2, phase: 'JUMPS', interception: { ship: 'Wayfarer' } }, you: { id: 'p2', interception: { answered: false, ships: ['Meridian'] } } });

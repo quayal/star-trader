@@ -179,7 +179,7 @@ export function destinationRows(game, viewerId, shipName, hangarFee = null) {
 			.map(s => ({ name: s.name, corporation: player.corporationName, playerId: player.id })));
 		const mine = (me(game, viewerId)?.ships ?? []).filter(s => s.system === system.id && s.location === 'SPACE' && s.name !== shipName).map(s => s.name);
 		const shipsToCome = pending.filter(id => game.players.find(p => p.id === id)?.ships.length).length;
-		const port = game.conditions?.portsClosed ? 'Closed this turn' : odds?.portRefused ? 'Refused: military parts' : 'Open';
+		const port = game.conditions?.portsClosed ? 'Closed this turn' : odds?.portRefused ? 'Refused: military parts or illegal goods' : 'Open';
 		const facilities = [...(system.hangar ? [hangarFee ? `Hangar ${hangarFee} HT` : 'Hangar'] : []), ...(system.shipyard ? ['Shipyard'] : [])];
 		const obligationsHere = owed.filter(o => o.system === system.id);
 		const offersHere = offers.find(row => row.system === system.id);

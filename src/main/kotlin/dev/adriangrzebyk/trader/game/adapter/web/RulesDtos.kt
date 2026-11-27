@@ -8,6 +8,8 @@ import dev.adriangrzebyk.trader.game.Reputation
 import dev.adriangrzebyk.trader.game.Ship
 import dev.adriangrzebyk.trader.game.TurnPhase
 import dev.adriangrzebyk.trader.game.agent.Agent
+import dev.adriangrzebyk.trader.game.battle.AttackTotal
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
 import dev.adriangrzebyk.trader.game.sabotage.SabotageTable
 
 /**
@@ -30,6 +32,9 @@ data class RulesResponseDto(
 	val reputation: ReputationRulesResponseDto,
 	val hulls: List<HullRuleResponseDto>,
 	val modules: List<ModuleRuleResponseDto>,
+	val blackMarket: List<BlackMarketRuleResponseDto>,
+	val frankBlackMarketBonus: Int,
+	val battle: List<BattleRowResponseDto>,
 	val hangarFee: Int = Ship.HANGAR_FEE
 ) {
 
@@ -48,8 +53,20 @@ data class RulesResponseDto(
 		ChallengeRulesResponseDto(),
 		ReputationRulesResponseDto(),
 		Hull.entries.map { HullRuleResponseDto(it) },
-		Module.entries.map { ModuleRuleResponseDto(it) }
+		Module.entries.map { ModuleRuleResponseDto(it) },
+		SpecialGoods.illegal().map { BlackMarketRuleResponseDto(it) },
+		Agent.FRANK_BLACK_MARKET_BONUS,
+		AttackTotal.table().map { BattleRowResponseDto(it) }
 	)
+}
+
+/**
+ * One illegal good's black-market prices (R112), by d6 roll 1 to 6, for the Guide's table (creator, 2026-11-26: the tip-offs
+ * point there instead of repeating it).
+ */
+data class BlackMarketRuleResponseDto(val goods: String, val name: String, val prices: List<Int>) {
+
+	constructor(goods: SpecialGoods) : this(goods.name, goods.displayName, goods.blackMarket)
 }
 
 /**
@@ -127,6 +144,12 @@ data class AgentRuleResponseDto(val name: String, val effect: String, val inGame
 data class CrewRuleResponseDto(val id: String, val pricePerCrew: Int, val jumpModifier: Int, val interceptModifier: Int) {
 
 	constructor(crewClass: CrewClass) : this(crewClass.name, crewClass.pricePerCrew, crewClass.jumpModifier, crewClass.interceptModifier)
+}
+
+/** One row of the battle table (R75) for the Guide: a salvo's weapons + d6 from [from] scores [hits] against shields 1–4. */
+data class BattleRowResponseDto(val from: Int, val hits: List<Int>) {
+
+	constructor(row: Pair<Int, List<Int>>) : this(row.first, row.second)
 }
 
 /** One row of the sabotage table (R98): a total from [from] gives [effect], and the saboteur loses [reputationLoss] (null: blame). */

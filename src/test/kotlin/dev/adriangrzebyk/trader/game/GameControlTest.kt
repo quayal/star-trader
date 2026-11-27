@@ -4,6 +4,8 @@ import dev.adriangrzebyk.trader.board.StarSystem.BETA_HYDRI
 import dev.adriangrzebyk.trader.board.StarSystem.GAMMA_LEPORIS
 import dev.adriangrzebyk.trader.board.StarSystem.MU_HERCULIS
 import dev.adriangrzebyk.trader.board.StarSystem.TAU_CETI
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -171,6 +173,17 @@ class GameControlTest {
 		// R139: asked about a destination, its Port decides
 		assertThat(ship.mayEnterPort(TAU_CETI)).isTrue()
 		assertThat(ship.copy(system = TAU_CETI).mayEnterPort(BETA_HYDRI)).isFalse()
+	}
+
+	@Test
+	fun shouldRefuseAShipWithIllegalGoodsInAPortWithLegalSystemThreeOrFour() {
+		// R56 extended (creator, 2026-11-27): slaves, drugs or weapons aboard keep a ship out of the three lawful Ports
+		val drugs = SpecialLot(SpecialGoods.DRUGS, 3, MU_HERCULIS)
+		val ship = emptyShip("Test", BETA_HYDRI, ShipLocation.SPACE).copy(specialLots = listOf(drugs))
+
+		assertThat(ship.mayEnterPort()).isFalse()
+		assertThat(ship.mayEnterPort(TAU_CETI)).isTrue()
+		assertThat(ship.copy(specialLots = listOf(SpecialLot(SpecialGoods.FURS, 10, BETA_HYDRI))).mayEnterPort()).isTrue()
 	}
 
 	@Test

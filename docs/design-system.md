@@ -39,7 +39,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `--text-on-accent` | Text on a cyan button | — |
 | `--accent-selected` | Selected nav item, primary button, selected node/row, focus ring | Decoration (A02, R01.1) |
 | `--status-live / -warn / -danger` | Live/your turn · waiting/pending · outbid/error | The S/D scale |
-| `--trade-buy / -sell` (+ `--tint-*`) | The Buy/Sell column only (R04.1) | Anywhere else |
+| `--trade-buy / -sell` (+ `--tint-*`) | The Buy/Sell column (R04.1) and the Buy/Sell choice tiles of a trade, `.choice--buy/--sell` (creator, 2026-11-26) | Anywhere else |
 | `--tone-buy / -sell / -rise / -fall / -alert` | One word coloured inside a sentence, through `.tone--…`: "buyers"/"sellers" first in Trading's market lines, a price that "rises"/"falls", a battle's "1 hit to place" and "ship destroyed" | Whole lines, cells or badges |
 | `--good-poly / -chips / -food / -iso` | Every goods name, wherever it's written (creator, 2026-11-20, widening R04.1) | Anything that isn't a goods name |
 | `--sd-easy / -fair / -hard / -bad` | The S/D value only (R03.5) | Buy/Sell column |
@@ -68,6 +68,7 @@ Use these, never the raw `--navy-*`, `--cyan-*` etc.
 | `.control` | `<input>` and `<select>` | — |
 | `.field-label` | The always-visible label of a control (`<label for>`) | As a placeholder substitute — placeholders are examples, not names |
 | `.choice` | Radio/checkbox as a tile (e.g. BUY / SELL) | More than ~4 options (use a `<select>`) |
+| `.choice .choice--buy/--sell` | The Buy and Sell tiles of a trade (offer, Dictator, wholesale): green and red, the chosen one tinted (creator, 2026-11-26) | Buttons that buy things (a ship, an agent): those stay `.btn` |
 | `.nav-item` + `aria-current="page"` | Rail/sidebar destinations (R03.1) | In-page actions |
 | `.link` | Inline navigation in text | Actions that change state (use a button) |
 | `.badge .badge--live/--warn/--danger` | A status with a word: "Your turn", "Waiting", "Outbid" | Decoration, counts |

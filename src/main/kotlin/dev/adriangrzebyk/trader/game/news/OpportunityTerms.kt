@@ -26,6 +26,24 @@ sealed interface OpportunityTerms {
 	/** The most units one taker may buy (R112), or null for one that sells no goods. */
 	fun maxUnits(): Int? = specialGoods()?.let { MAX_UNITS }
 
+	/** R113: the military modules it sells, each kind at most once (creator, 2026-11-26), or none. */
+	fun modulesOnOffer(): List<Module> = emptyList()
+
+	/** R113: the most of [modulesOnOffer] one taker may buy. */
+	fun moduleLimit(): Int = modulesOnOffer().size
+
+	/** R113: the system on whose Planet modules bought alone are fitted to the buyer's ship, or null for one that sells none. */
+	fun modulesAt(): StarSystem? = null
+
+	/**
+	 * R113 (creator, 2026-11-26): whether [modules] alone are a purchase it allows, from one module to everything on offer, each
+	 * kind once.
+	 */
+	fun acceptsModulesAlone(modules: List<Module>): Boolean = modules.isNotEmpty() &&
+		modules.size <= moduleLimit() &&
+		modules.all { it in modulesOnOffer() } &&
+		modules.distinct().size == modules.size
+
 	/** R112: up to [MAX_UNITS] of illegal [goods] at [price] HT each, bought on [buyAt]'s Planet, sold on [sellAt]'s Planet. */
 	data class IllegalGoods(val goods: SpecialGoods, val price: Int, val buyAt: StarSystem, val sellAt: StarSystem) : OpportunityTerms {
 		override val legal = false
@@ -38,8 +56,9 @@ sealed interface OpportunityTerms {
 		override fun facts(): List<String> = listOf(
 			"Buy 1 to $MAX_UNITS units of ${goods.displayName} at $price HT each, with a ship of yours on ${buyAt.displayName}'s Planet.",
 			goods.holdText(),
+			// Creator, 2026-11-26: the price table is the same for every lot, so it lives in the Guide, not in each tip-off.
 			"Sell them on ${sellAt.displayName}'s Planet, on the black market, in a later Opportunity: every unit aboard at once, " +
-				"at ${goods.blackMarketText()}.",
+				"at a d6 roll on the black market table in the Guide.",
 			SECRET
 		)
 	}
@@ -62,35 +81,59 @@ sealed interface OpportunityTerms {
 	}
 
 	/**
-	 * R113: a military hull from [hulls] (optional when [hullOptional]) with up to [maxModules] military modules, appearing
-	 * on [at]'s Planet; with no hull, the modules go to the buyer's ship there.
+	 * R113: a military hull from [hulls] and/or up to [maxModules] military modules, one of each kind, on [at]'s Planet. The
+	 * buyer takes anything from one item to all of it (creator, 2026-11-26): with no hull, the modules go to their ship there.
 	 */
-	data class MilitaryShip(val hulls: List<Hull>, val maxModules: Int, val at: StarSystem, val hullOptional: Boolean) : OpportunityTerms {
+	data class MilitaryShip(val hulls: List<Hull>, val maxModules: Int, val at: StarSystem) : OpportunityTerms {
 		override val legal = false
 
-		override fun description(): String {
-			val hull = if (hulls.size == 1) "a ${hulls.single().displayName} hull" else "a military hull"
-			val modules = if (maxModules == 1) "a military module" else "up to $maxModules military modules"
-			return "buy $hull ${if (hullOptional) "and/or" else "with"} $modules on ${at.displayName}'s Planet"
+		override fun modulesOnOffer(): List<Module> = Module.military()
+
+		override fun moduleLimit(): Int = minOf(maxModules, modulesOnOffer().size)
+
+		override fun modulesAt(): StarSystem = at
+
+		/** Whether [modules] may come with the hull: its military ones within [moduleLimit], each kind once. */
+		fun acceptsWithHull(modules: List<Module>): Boolean {
+			val military = modules.filter { it.military }
+			return military.size <= moduleLimit() && military.distinct().size == military.size
 		}
 
-		override fun facts(): List<String> = listOfNotNull(
+		override fun description(): String = "buy ${hullText()} and/or ${modulesText()}, on ${at.displayName}'s Planet"
+
+		override fun facts(): List<String> = listOf(
+			"Buy ${hullText()} and/or ${modulesText()}: anything from one of them to all of it.",
 			if (hulls.size == 1) {
-				"A ${hulls.single().displayName} hull (${hulls.single().price} HT plus crew) appears on ${at.displayName}'s Planet: no ship of yours is needed."
+				"The ${hulls.single().displayName} hull (${hulls.single().price} HT plus crew) appears on ${at.displayName}'s Planet: " +
+					"no ship of yours is needed."
 			} else {
-				"Choose a military hull, which appears on ${at.displayName}'s Planet: ${hullPrices(hulls)}, plus crew. No ship of yours is needed."
+				"Hulls: ${hullPrices(hulls)}, plus crew. It appears on ${at.displayName}'s Planet: no ship of yours is needed."
 			},
-			"Or skip the hull and fit the modules to a ship of yours on ${at.displayName}'s Planet that has room.".takeIf { hullOptional },
-			"Add ${if (maxModules == 1) "1 military module" else "up to $maxModules military modules"}, each plus its crew: " +
-				"${modulePrices(Module.military())}.",
+			"Modules, each plus its crew: ${modulePrices(modulesOnOffer())}. They're fitted to the new hull, or without one to a ship " +
+				"of yours on ${at.displayName}'s Planet that has room.",
 			MILITARY,
 			SECRET
 		)
+
+		/** "a Spear hull" or "a military hull (Dagger, Sword or Spear)". */
+		private fun hullText(): String = if (hulls.size == 1) {
+			"a ${hulls.single().displayName} hull"
+		} else {
+			"a military hull (${hulls.dropLast(1).joinToString(", ") { it.displayName }} or ${hulls.last().displayName})"
+		}
+
+		/** "1 military module" or "up to 4 military modules, one of each kind". */
+		private fun modulesText(): String =
+			if (moduleLimit() == 1) "1 military module" else "up to ${moduleLimit()} military modules, one of each kind"
 	}
 
 	/** R113: military modules for a ship of the buyer's on [at]'s Planet: [modules], each at most once. */
 	data class MilitaryModules(val modules: List<Module>, val at: StarSystem) : OpportunityTerms {
 		override val legal = false
+
+		override fun modulesOnOffer(): List<Module> = modules
+
+		override fun modulesAt(): StarSystem = at
 
 		override fun description(): String = if (modules.size == 1) {
 			"buy a ${modules.single().displayName} module on ${at.displayName}'s Planet"
