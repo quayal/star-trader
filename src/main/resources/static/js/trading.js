@@ -87,7 +87,7 @@ function verb(type) {
 	return type === 'SELL' ? 'sell' : 'buy';
 }
 
-/** "Mu Herculis · ISO": a good at a system, as the queue lists it. */
+/** "Mu Herculis · ISO": a good at a system, as a move announces it. */
 export function goodLabel(good) {
 	return `${good.systemName} · ${good.goods}`;
 }
@@ -604,8 +604,19 @@ export function validateTrade(form, amountText, splitTexts) {
  */
 export function resolvingPrice(game) {
 	const good = resolution(game)?.good;
-	const system = good ? (game.board ?? []).find(entry => entry.id === good.system) : null;
+	return good ? marketPrice(game, good) : null;
+}
+
+/** [good]'s current market price at its system, from the board; null when the board doesn't list it. */
+export function marketPrice(game, good) {
+	const system = (game.board ?? []).find(entry => entry.id === good.system);
 	return system?.market?.find(entry => entry.goods === good.goods)?.price ?? null;
+}
+
+/** The line under the resolution panel's heading (playtest, 2026-11-27): "Market price: 13 HT"; "" when not known. */
+export function resolutionPriceText(game) {
+	const price = resolvingPrice(game);
+	return price === null ? '' : `Market price: ${price} HT`;
 }
 
 /** " (market price 12 HT)" after the good a decision is about, or nothing when the price isn't known. */

@@ -7,6 +7,7 @@ import dev.adriangrzebyk.trader.game.ConnectionKind
 import dev.adriangrzebyk.trader.game.Factory
 import dev.adriangrzebyk.trader.game.LoanView
 import dev.adriangrzebyk.trader.game.MarketPrices
+import dev.adriangrzebyk.trader.game.Module
 import dev.adriangrzebyk.trader.game.OpportunityView
 import dev.adriangrzebyk.trader.game.ShipLocation
 import dev.adriangrzebyk.trader.game.agent.Agent
@@ -101,6 +102,30 @@ data class FactorySaleResponseDto(val system: String, val goods: String, val uni
 		factory.size,
 		factory.salePricePerUnit(prices)
 	)
+}
+
+/**
+ * `{ system, blocks, dropGoods, dropModules }`: sell [blocks] blocks of the warehouse at [system] (R141), throwing away
+ * [dropGoods] (units per good) and [dropModules] (how many of each stored module) so the rest fits. Each parse is null
+ * when something in it isn't readable.
+ */
+data class SellWarehouseRequestDto(
+	val system: String? = null,
+	val blocks: BigDecimal? = null,
+	val dropGoods: Map<String, BigDecimal>? = null,
+	val dropModules: Map<String, BigDecimal>? = null
+) {
+
+	fun starSystem(): StarSystem? = StarSystem.entries.firstOrNull { it.name == system }
+
+	fun wholeBlocks(): Int? = whole(blocks)
+
+	fun droppedGoods(): Map<Goods, Int>? = parsed(dropGoods) { name -> Goods.entries.firstOrNull { it.name == name } }
+
+	fun droppedModules(): Map<Module, Int>? = parsed(dropModules) { name -> Module.entries.firstOrNull { it.name == name } }
+
+	private fun <K> parsed(entries: Map<String, BigDecimal>?, key: (String) -> K?): Map<K, Int>? =
+		entries.orEmpty().map { (name, number) -> Pair(key(name) ?: return null, whole(number) ?: return null) }.toMap()
 }
 
 /** `{ system, goods, units }`: sell [units] of the factory for [goods] at [system] (R96). */

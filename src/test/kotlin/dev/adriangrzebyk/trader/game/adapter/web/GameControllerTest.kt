@@ -1480,6 +1480,30 @@ class GameControllerTest {
 	}
 
 	@Test
+	fun shouldSellWarehouseBlocksForHalfTheirPriceAndLogItWithoutTheAmount() {
+		// R141: 2 of 3 blocks bought at 20 HT sell for 20 HT; the price is the viewer's alone, the log names no amount
+		val (_, other, gameId, _) = investingWithAFactoryCollected("sell-warehouse")
+		val otherEmail = other.removePrefix("token-")
+		val corporation = gameStore.find(gameId)!!.players.first { it.email == otherEmail }.corporationName
+		val system = pollGame(other, gameId).expectBody(GameResponseDto::class.java).returnResult().responseBody!!.you!!.invest!!.systems.first()
+		val bought = buyBlocks(other, gameId, """{"system": "${system.system}", "blocks": 3}""").expectStatus().isOk
+			.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+		assertThat(bought.you!!.warehouses.single().sales.map { it.blocks to it.price }).containsExactly(1 to 10, 2 to 20, 3 to 30)
+
+		val sold = sellWarehouse(other, gameId, """{"system": "${system.system}", "blocks": 2, "dropGoods": {}, "dropModules": {}}""")
+			.expectStatus().isOk.expectBody(GameResponseDto::class.java).returnResult().responseBody!!
+
+		assertThat(sold.you!!.money).isEqualTo(bought.you!!.money + 20)
+		assertThat(sold.you!!.warehouses.single().blocks).isEqualTo(1)
+		assertThat(sold.log.last().text).isEqualTo("$corporation sold 2 warehouse blocks at ${system.systemName}")
+		sellWarehouse(other, gameId, """{"system": "${system.system}", "blocks": 2}""").expectStatus().isBadRequest
+		sellWarehouse(other, gameId, """{"system": "${system.system}", "blocks": 1, "dropGoods": {"GOLD": 1}}""").expectStatus().isBadRequest
+		sellWarehouse(other, gameId, """{"system": "NOWHERE", "blocks": 1}""").expectStatus().isBadRequest
+		sellWarehouse(other, gameId, """{"system": "${system.system}", "blocks": 1}""").expectStatus().isOk
+		assertThat(gameStore.find(gameId)!!.players.first { it.email == otherEmail }.warehouses).isEmpty()
+	}
+
+	@Test
 	fun shouldRecruitAnAgentShowingOthersOnlyWhereItIsThenBorrowPrivately() {
 		// R103, R105, R102, R90: paying 60 HT always recruits; the other player sees a count aboard the ship, never the agent
 		val (owner, other, gameId, ship) = investingWithAFactory("agents")
@@ -2259,7 +2283,18 @@ class GameControllerTest {
 
 		assertThat(seenByCreator).doesNotContain("\"ISO\":17").doesNotContain("\"CHIPS\":23")
 		assertThat(seenByJoiner.you!!.warehouses)
-			.containsExactly(YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 2, 20, mapOf("CHIPS" to 23, "ISO" to 17), 17, emptyList()))
+			.containsExactly(
+				YourWarehouseResponseDto(
+					"TAU_CETI",
+					"Tau Ceti",
+					2,
+					20,
+					mapOf("CHIPS" to 23, "ISO" to 17),
+					17,
+					emptyList(),
+					listOf(WarehouseSaleResponseDto(1, 10, 7), WarehouseSaleResponseDto(2, 20, 0))
+				)
+			)
 	}
 
 	@Test
@@ -2301,7 +2336,18 @@ class GameControllerTest {
 		assertThat(traded.you!!.money).isEqualTo(245)
 		assertThat(
 			traded.you!!.warehouses
-		).containsExactly(YourWarehouseResponseDto("GAMMA_LEPORIS", "Gamma Leporis", 1, 10, mapOf("POLY" to 5), 5, emptyList()))
+		).containsExactly(
+			YourWarehouseResponseDto(
+				"GAMMA_LEPORIS",
+				"Gamma Leporis",
+				1,
+				10,
+				mapOf("POLY" to 5),
+				5,
+				emptyList(),
+				listOf(WarehouseSaleResponseDto(1, 10, 0))
+			)
+		)
 		assertThat(
 			traded.log.map {
 				it.text
@@ -2878,6 +2924,12 @@ class GameControllerTest {
 
 	private fun buyBlocks(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
 		val request = restTestClient.post().uri("/api/games/{id}/investment/warehouse-blocks", gameId).contentType(MediaType.APPLICATION_JSON)
+		token?.let { request.header("Authorization", "Bearer $it") }
+		return request.body(body).exchange()
+	}
+
+	private fun sellWarehouse(token: String?, gameId: String, body: String): RestTestClient.ResponseSpec {
+		val request = restTestClient.post().uri("/api/games/{id}/warehouses/sell", gameId).contentType(MediaType.APPLICATION_JSON)
 		token?.let { request.header("Authorization", "Bearer $it") }
 		return request.body(body).exchange()
 	}

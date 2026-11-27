@@ -54,6 +54,62 @@ data class Warehouse(
 		return copy(modules = modules - module)
 	}
 
+	/** What selling [count] of this warehouse's blocks pays (R141): half what they cost, [BLOCK_COST] each (R45), rounded down. */
+	fun salePrice(count: Int = blocks): Int = count * BLOCK_COST / 2
+
+	/**
+	 * The cargo spaces the owner must free before selling [count] of this warehouse's blocks (R141): what it uses beyond
+	 * what the remaining blocks hold. 0 when it all fits, or when every block goes (everything is lost then).
+	 */
+	fun spacesToFree(count: Int): Int {
+		if (count >= blocks) {
+			return 0
+		}
+		return (cargoSpacesUsed() - (blocks - count) * CARGO_SPACES_PER_BLOCK).coerceAtLeast(0)
+	}
+
+	/**
+	 * This warehouse after selling [count] of its blocks (R141), or null when that's all of them and it's gone with all it
+	 * held. Otherwise the owner chooses what's lost: [droppedGoods] (units per good) and [droppedModules] (how many of each
+	 * stored module) are thrown away, and what's left must fit the remaining blocks. Refused outside 1 to [blocks], for
+	 * more than it holds, or when what's left doesn't fit.
+	 */
+	fun withBlocksSold(count: Int, droppedGoods: Map<Goods, Int>, droppedModules: Map<Module, Int>): Warehouse? {
+		if (count !in 1..blocks) {
+			throw InvalidInvestmentException("Enter a whole number of blocks from 1 to $blocks.")
+		}
+		if (count == blocks) {
+			return null
+		}
+		val afterGoods = droppedGoods.entries.fold(this) { warehouse, (goods, units) -> warehouse.dropped(goods, units) }
+		val after = droppedModules.entries.fold(afterGoods) { warehouse, (module, number) -> warehouse.droppedModules(module, number) }
+			.withBlocks(blocks - count)
+		if (after.cargoSpacesUsed() > after.cargoSpaces()) {
+			throw InvalidInvestmentException(
+				"${blocks - count} ${if (blocks - count == 1) "block holds" else "blocks hold"} ${after.cargoSpaces()} cargo spaces: " +
+					"drop goods or modules to free ${after.cargoSpacesUsed() - after.cargoSpaces()} more."
+			)
+		}
+		return after
+	}
+
+	private fun dropped(goods: Goods, units: Int): Warehouse {
+		if (units < 0 || units > holding(goods)) {
+			throw InvalidInvestmentException("${cargoName()} holds ${holding(goods)} ${goods.name}: drop from 0 to ${holding(goods)}.")
+		}
+		return withCargo(goods, holding(goods) - units)
+	}
+
+	private fun withBlocks(count: Int): Warehouse = copy(blocks = count)
+
+	private fun droppedModules(module: Module, number: Int): Warehouse {
+		val held = modules.count { it == module }
+		if (number < 0 || number > held) {
+			throw InvalidInvestmentException("${cargoName()} holds $held ${module.displayName}: drop from 0 to $held.")
+		}
+		return copy(modules = (1..number).fold(modules) { left, _ -> left - module })
+	}
+
 	/** This warehouse with [count] more blocks (R45): what it holds stays. */
 	fun addBlocks(count: Int): Warehouse = copy(blocks = blocks + count)
 

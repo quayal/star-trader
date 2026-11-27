@@ -74,6 +74,34 @@ class GameBuyWarehouseBlocksTest {
 	}
 
 	@Test
+	fun shouldSellWarehouseBlocksAndLogItPubliclyWithoutTheAmount() {
+		// R141: half the blocks' price; the log, like R96's, names no amount
+		val bought = investing.buyWarehouseBlocks("ada@example.com", TAU_CETI, 3)
+
+		val game = bought.sellWarehouseBlocks("ada@example.com", TAU_CETI, 2, emptyMap(), emptyMap())
+
+		assertThat(playerOf(game, "ada@example.com").warehouseAt(TAU_CETI)!!.blocks).isEqualTo(1)
+		assertThat(playerOf(game, "ada@example.com").money).isEqualTo(playerOf(bought, "ada@example.com").money + 20)
+		assertThat(game.log.last()).isEqualTo(LogEntry.event(game.turn!!.number, "Orion Freight sold 2 warehouse blocks at Tau Ceti"))
+	}
+
+	@Test
+	fun shouldRefuseToSellAWarehouseThePlayerDoesNotHave() {
+		assertThatThrownBy { investing.sellWarehouseBlocks("ada@example.com", TAU_CETI, 1, emptyMap(), emptyMap()) }
+			.isInstanceOf(InvalidInvestmentException::class.java)
+			.hasMessage("You have no warehouse at Tau Ceti.")
+	}
+
+	@Test
+	fun shouldRefuseToSellOutsideInvestment() {
+		// Investment is checked before the warehouse, so this refusal holds whatever the player owns
+
+		assertThatThrownBy { started.sellWarehouseBlocks("ada@example.com", TAU_CETI, 1, emptyMap(), emptyMap()) }
+			.isInstanceOf(InvalidGameOperationException::class.java)
+			.hasMessage("Investment isn't open.")
+	}
+
+	@Test
 	fun shouldRefuseOutsideInvestment() {
 		assertThatThrownBy { started.buyWarehouseBlocks("ada@example.com", TAU_CETI, 1) }
 			.isInstanceOf(InvalidGameOperationException::class.java)

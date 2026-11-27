@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
 	cellMatches,
 	changeText,
+	changeTone,
 	holdings,
 	marketColumns,
 	marketDetail,
@@ -119,6 +120,10 @@ describe('Market: the matrix (criteria 3, 4, 6)', () => {
 
 	it('writes a move as a triangle and a number', () => {
 		assert.deepEqual([changeText(2), changeText(-1), changeText(0)], ['▲2', '▼1', '—']);
+	});
+
+	it('colours a rise green and a fall red (playtest, 2026-11-27)', () => {
+		assert.deepEqual([changeTone(2), changeTone(-1), changeTone(0)], ['rise', 'fall', '']);
 	});
 });
 

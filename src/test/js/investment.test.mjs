@@ -38,6 +38,8 @@ import {
 	maxBlocks,
 	ownFactoryRows,
 	ownWarehouseRows,
+	warehouseSale,
+	warehouseSaleSummary,
 	systemInvestActions,
 	parseBlocks,
 	parseUnits,
@@ -289,6 +291,52 @@ describe('the Infrastructure screen (E06-S08)', () => {
 			assert.equal(infrastructureStatusText(withYou({ you: { collect: null } }), ME), '');
 			assert.equal(infrastructureStatusText(withYou({ you: { collect: { factories: [] } } }), ME), '');
 			assert.equal(infrastructureStatusText(withYou({}, { phase: 'TRADING' }), ME), '');
+		});
+	});
+
+	describe('warehouseSale (R141)', () => {
+		// 3 blocks: 12 ISO + 8 POLY + a Cargo module (5) use 25 of 30 spaces; CHIPS take none
+		const stocked = {
+			system: 'TAU_CETI', systemName: 'Tau Ceti', blocks: 3, cargo: { CHIPS: 9, ISO: 12, POLY: 8 },
+			modules: [{ id: 'CARGO', name: 'Cargo', count: 1 }],
+			sales: [{ blocks: 1, price: 10, spacesToFree: 5 }, { blocks: 2, price: 20, spacesToFree: 15 }, { blocks: 3, price: 30, spacesToFree: 0 }],
+		};
+		const sale = warehouseSale(withYou({ you: { warehouses: [stocked] } }), 'TAU_CETI');
+
+		it('offers POLY, ISO and stored modules to drop, never CHIPS or FOOD', () => {
+			assert.deepEqual(sale.droppable.map(item => [item.key, item.held, item.spaces]), [['ISO', 12, 1], ['POLY', 8, 1], ['CARGO', 1, 5]]);
+		});
+
+		it('counts what is still to free as the player chooses, the module or goods alike', () => {
+			const none = warehouseSaleSummary(sale, 1, {});
+			assert.equal(none.left, 5);
+			assert.equal(none.text, 'You get 10 HT for 1 block, half what they cost. The rest holds less: choose what to drop to free 5 cargo spaces (5 still to free).');
+
+			const module = warehouseSaleSummary(sale, 1, { modules: { CARGO: 1 } });
+			assert.equal(module.left, 0);
+			assert.deepEqual(module.body, { system: 'TAU_CETI', blocks: 1, dropGoods: {}, dropModules: { CARGO: 1 } });
+			assert.match(module.text, /Lost: 1 Cargo module\.$/);
+
+			const goods = warehouseSaleSummary(sale, 1, { goods: { ISO: 3, POLY: 2 } });
+			assert.equal(goods.left, 0);
+			assert.deepEqual(goods.body.dropGoods, { ISO: 3, POLY: 2 });
+		});
+
+		it('caps a drop at what is held and ignores what is not a whole number', () => {
+			assert.equal(warehouseSaleSummary(sale, 2, { goods: { ISO: 99, POLY: 'x' } }).left, 3);
+		});
+
+		it('loses everything, with nothing to choose, when every block goes', () => {
+			const all = warehouseSaleSummary(sale, 3, { goods: { ISO: 2 } });
+			assert.equal(all.left, 0);
+			assert.equal(all.button, 'Sell for 30 HT');
+			assert.deepEqual(all.body, { system: 'TAU_CETI', blocks: 3, dropGoods: {}, dropModules: {} });
+			assert.equal(all.text, 'You get 30 HT for all 3 blocks, half what they cost. The warehouse goes, and everything in it is lost.');
+		});
+
+		it('is null outside Investment or with no warehouse there', () => {
+			assert.equal(warehouseSale({ ...withYou({ you: { warehouses: [stocked] } }), turn: { number: 4, phase: 'TRADING' } }, 'TAU_CETI'), null);
+			assert.equal(warehouseSale(withYou({ you: { warehouses: [stocked] } }), 'BETA_HYDRI'), null);
 		});
 	});
 
