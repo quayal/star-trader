@@ -100,7 +100,7 @@ export function opportunityCost(game, rules, form, choice) {
 
 /**
  * One form per learned, untaken opportunity: `{ slot, title, kind, ships, units, maxUnits, facts, hulls, modules,
- * maxModules, crewClasses, hullOptional, room, note, takeable }`; [room] is each ship's room for modules alone ([roomOf]). [ships] are those that can take it now; an empty list says why in [note].
+ * maxModules, crewClasses, hullOptional, blackMarketGuide, room, note, takeable }`; [room] is each ship's room for modules alone ([roomOf]). [ships] are those that can take it now; an empty list says why in [note].
  */
 export function opportunityForms(game) {
 	// Playtest 2026-11-21: [takeable] says a ship can take it now (a military ship's hull appears on the Planet by itself).
@@ -113,7 +113,11 @@ function opportunityFormsWithoutTakeable(game) {
 		const at = systemName(game, terms.buyAt);
 		const base = {
 			slot: tipOff.slot, title: terms.summary, kind: terms.kind, units: false, maxUnits: terms.maxUnits ?? 0, price: terms.price ?? 0,
-			facts: formFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0, hullOptional: terms.hullOptional,
+			facts: formFacts(game, terms), defaultUnits: defaultUnits(game, terms), hulls: [], modules: [], maxModules: terms.maxModules ?? 0,
+			// Creator, 2026-11-26: every military hull opportunity can be taken as its modules alone, with a ship on that Planet.
+			hullOptional: terms.kind === 'MILITARY_SHIP',
+			// Creator, 2026-11-26: illegal goods sell at the Guide's black-market table, linked rather than repeated.
+			blackMarketGuide: terms.kind === 'ILLEGAL_GOODS',
 			room: {},
 		};
 		switch (terms.kind) {
@@ -126,9 +130,9 @@ function opportunityFormsWithoutTakeable(game) {
 				...base,
 				hulls: terms.hulls.map(id => ({ id, name: HULL_NAMES[id] ?? id })),
 				modules: terms.modules.map(id => ({ id, name: MODULE_NAMES[id] ?? id })),
-				ships: terms.hullOptional ? shipsAt(game, terms.buyAt, 'PLANET') : [],
-				room: terms.hullOptional ? roomOf(game, shipsAt(game, terms.buyAt, 'PLANET')) : {},
-				note: `The ship appears on ${at}'s Planet.`,
+				ships: shipsAt(game, terms.buyAt, 'PLANET'),
+				room: roomOf(game, shipsAt(game, terms.buyAt, 'PLANET')),
+				note: `A hull appears on ${at}'s Planet; modules alone need a ship of yours there.`,
 			};
 		case 'MILITARY_MODULES': {
 			const ships = shipsAt(game, terms.buyAt, 'PLANET');
@@ -204,19 +208,23 @@ export function expeditionsDue(game) {
 /**
  * The viewer's opportunities in action (creator, 2026-11-23), shown on the Opportunity screen in every phase: goods bought
  * through one and still aboard (R112), delivery jobs under way (R114) and ships away on the expedition (R114), each
- * `{ ship, what, next }` with where the ship is now. Empty when nothing is under way. Passengers aboard are [passengersAboard]'s,
+ * `{ ship, what, next }` with where the ship is now; a lot also says whether its ship is where it sells ([sellNow], creator,
+ * 2026-11-26: a sale ready to make stands out). Empty when nothing is under way. Passengers aboard are [passengersAboard]'s,
  * in a box of their own (creator, 2026-11-25).
  */
 export function opportunitiesInAction(game) {
 	const at = shipPlace(game);
+	const position = Object.fromEntries(positions(game).map(s => [s.name, s]));
 	const rows = [];
 	for (const ship of game.you?.ships ?? []) {
 		for (const lot of ship.specialLots ?? []) {
+			const place = position[ship.name];
 			rows.push({
 				ship: ship.name,
 				where: at(ship.name),
 				what: `${lot.units} ${lot.name}${lot.illegal ? ' (illegal)' : ''}`,
 				next: lot.illegal ? `Sell on ${lot.sellAtName}'s Planet, on the black market` : `Sell in ${lot.sellAtName}'s Port`,
+				sellNow: place?.system === lot.sellAt && place.location === (lot.illegal ? 'PLANET' : 'PORT'),
 			});
 		}
 		if (ship.deliveryJob) {

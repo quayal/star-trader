@@ -231,6 +231,20 @@ describe('System details locations (S02-7)', () => {
 		assert.deepEqual(space.ships, []);
 	});
 
+	it('lists the viewer\'s agents where they are, with their effect: aboard a ship there or on their own (creator, 2026-11-26)', () => {
+		const withAgents = { ...game, you: { ...game.you, agents: [
+			{ name: 'Novak', effect: '+4 to the jump result of the ship he travels on', ship: 'Wayfarer', system: null, location: null },
+			{ name: 'Frank', effect: '+2 to Black Market rolls on the planet he\'s on', ship: null, system: 'TAU_CETI', location: 'PLANET' },
+			{ name: 'Wolf', effect: '+4 to initiative', ship: 'Lantern', system: null, location: null },
+		] } };
+
+		const [port, space, planet] = locations(withAgents, tauCeti, 'ada');
+
+		assert.deepEqual(port.agents, [{ name: 'Novak', effect: '+4 to the jump result of the ship he travels on', ship: 'Wayfarer' }]);
+		assert.deepEqual(space.agents, []);
+		assert.deepEqual(planet.agents.map(agent => [agent.name, agent.ship]), [['Frank', null]]);
+	});
+
 	it("names another player's ship and its owner, never its cargo", () => {
 		const planet = locations(game, tauCeti, 'ada')[2];
 		assert.deepEqual(planet.ships.map(ship => ship.text), ['□ Meridian — Vega Lines']);

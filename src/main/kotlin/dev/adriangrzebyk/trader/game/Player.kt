@@ -101,13 +101,36 @@ data class Player(
 		ships.filter { it.isAt(system, location) }.sumOf { it.specialUnits(goods, system) }
 
 	/** This player after selling every unit of [goods] bound for [system] at [location] there for [price] HT each (R112). */
-	fun sellSpecialAt(goods: SpecialGoods, system: StarSystem, location: ShipLocation, price: Int): Player {
+	fun sellSpecialAt(
+		goods: SpecialGoods,
+		system: StarSystem,
+		location: ShipLocation,
+		price: Int,
+		reason: (Int) -> String = { units -> "Sold $units ${goods.displayName} at ${system.displayName}" }
+	): Player {
 		val units = specialUnitsAt(goods, system, location)
 		if (units == 0) {
 			throw InvalidGameOperationException("You have no ${goods.displayName} for ${system.displayName} here.")
 		}
 		val emptied = copy(ships = ships.map { if (it.isAt(system, location)) it.withoutSpecial(goods, system) else it })
-		return emptied.receive(units * price, "Sold $units ${goods.displayName} at ${system.displayName}")
+		return emptied.receive(units * price, reason(units))
+	}
+
+	/**
+	 * This player after selling on [system]'s black market every unit of illegal [goods] bound there aboard their ships on
+	 * that Planet (R112): [rolled] on a d6, +2 with Frank there, capped at 6, read on the table, times [multiplier] (weapons
+	 * in the civil war, E5). The ledger line says the roll and the price, for the seller's card (creator, 2026-11-26); both
+	 * stay private (R29).
+	 */
+	fun sellOnBlackMarket(goods: SpecialGoods, system: StarSystem, rolled: Int, multiplier: Int): Player {
+		val bonus = blackMarketBonusAt(system)
+		val roll = minOf(rolled + bonus, SpecialGoods.MAX_ROLL)
+		val price = goods.blackMarketPrice(roll) * multiplier
+		val dice = if (bonus > 0) "d6 $rolled +$bonus Frank = $roll" else "d6 $roll"
+		val civilWar = if (multiplier > 1) " (×$multiplier in the civil war)" else ""
+		return sellSpecialAt(goods, system, ShipLocation.PLANET, price) { units ->
+			"$BLACK_MARKET_REASON ${system.displayName}: $dice; $units ${goods.displayName} at $price HT each$civilWar"
+		}
 	}
 
 	/** Whether Frank is on [system]'s Planet with this player (R108): +2 on their black-market roll there. */
@@ -763,6 +786,22 @@ data class Player(
 			throw InvalidInvestmentException("A ${module.displayName} module costs $cost HT; you have $money HT.")
 		}
 		return pay(cost, "${module.displayName} module for ${ship.name}").withShip(refitted)
+	}
+
+	/**
+	 * This player after fitting every one of [modules] to their ship [shipName] at once (R65; creator, 2026-11-26: choose them
+	 * all, then fit them in one go), refused as a whole when they don't all fit or the total is more than their money.
+	 */
+	fun addModules(shipName: String, modules: List<Module>): Player {
+		if (modules.isEmpty()) {
+			throw InvalidInvestmentException("Choose a module.")
+		}
+		val crewClass = shipToRefit(shipName).crewClass
+		val cost = modules.sumOf { it.fittingCost(crewClass) }
+		if (cost > money) {
+			throw InvalidInvestmentException("These modules cost $cost HT; you have $money HT.")
+		}
+		return modules.fold(this) { player, module -> player.addModule(shipName, module) }
 	}
 
 	/** This player after removing one [module] from their ship [shipName] in port or in the yard (R65), paid half its price back. */
@@ -1564,6 +1603,12 @@ data class Player(
 		/** R90: what each ship and each warehouse block adds to the borrowing cap. */
 		const val LOAN_PER_SHIP = 100
 		const val LOAN_PER_BLOCK = 20
+
+		/**
+		 * How a black-market sale's ledger line starts, "Black market at Gamma Leporis: d6 4; 10 slaves at 15 HT each": the
+		 * seller's card reads the roll and the price from it (creator, 2026-11-26).
+		 */
+		const val BLACK_MARKET_REASON = "Black market at"
 
 		/** The ledger's reasons for the money penalties whose cards show the amount (R29, R136). */
 		const val PASSENGER_PENALTY_REASON = "Passengers not delivered"

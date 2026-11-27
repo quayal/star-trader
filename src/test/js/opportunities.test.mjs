@@ -70,6 +70,19 @@ describe('the Opportunities card (R111–R114)', () => {
 		assert.deepEqual(opportunityForms(game([animals]))[0].facts, animals.terms.facts);
 	});
 
+	it('lets every military hull opportunity be taken as its modules alone, by a ship on that Planet (creator, 2026-11-26)', () => {
+		const dagger = {
+			slot: 1, learned: true, taken: false, details: 'Opportunity: a Dagger hull and/or 1 military module.',
+			terms: { kind: 'MILITARY_SHIP', buyAt: 'TAU_CETI', hulls: ['DAGGER'], modules: ['ARSENAL', 'DOGFIGHT'], maxModules: 1, summary: 'Buy a Dagger hull', facts: [] },
+		};
+		const ships = [{ name: 'Wayfarer', stats: { modulesUsed: 4, moduleCapacity: 5 }, modules: [] }];
+		const [form] = opportunityForms(game([dagger], ships, [{ name: 'Wayfarer', system: 'TAU_CETI', location: 'PLANET' }]));
+
+		assert.equal(form.hullOptional, true);
+		assert.deepEqual(form.ships, ['Wayfarer']);
+		assert.equal(form.maxModules, 1);
+	});
+
 	it('shows each ship\'s free module room and the modules that could come off to make it (creator, 2026-11-21)', () => {
 		const comm = {
 			slot: 1, learned: true, taken: false, details: 'Opportunity: Battle comm on Gamma Leporis\'s Planet.',
@@ -116,12 +129,25 @@ describe('opportunities in action (creator, 2026-11-23)', () => {
 		};
 
 		assert.deepEqual(opportunitiesInAction(game), [
-			{ ship: 'Wayfarer', where: 'Mu Herculis Port', what: '6 furs', next: 'Sell in Beta Hydri\'s Port' },
-			{ ship: 'Lantern', where: 'Tau Ceti Planet', what: '4 weapons (illegal)', next: 'Sell on Gamma Leporis\'s Planet, on the black market' },
+			{ ship: 'Wayfarer', where: 'Mu Herculis Port', what: '6 furs', next: 'Sell in Beta Hydri\'s Port', sellNow: false },
+			{ ship: 'Lantern', where: 'Tau Ceti Planet', what: '4 weapons (illegal)', next: 'Sell on Gamma Leporis\'s Planet, on the black market', sellNow: false },
 			{ ship: 'Lantern', where: 'Tau Ceti Planet', what: 'Delivery: transport exotic plants from Gamma Leporis to Epsilon Eridani (150 HT)', next: 'Deliver in the destination Port' },
 			{ ship: 'Corvid', where: 'on the expedition', what: 'Scientific expedition', next: 'Back in turn 7' },
 		]);
 		assert.deepEqual(opportunitiesInAction({ players: [], you: { ships: [] } }), []);
+	});
+
+	it('marks goods whose ship is where they sell: illegal ones on the Planet, furs in the Port (creator, 2026-11-26)', () => {
+		const lots = [{ goods: 'SLAVES', name: 'slaves', units: 10, sellAt: 'GAMMA_LEPORIS', sellAtName: 'Gamma Leporis', illegal: true },
+			{ goods: 'FURS', name: 'furs', units: 10, sellAt: 'BETA_HYDRI', sellAtName: 'Beta Hydri', illegal: false }];
+		const at = location => ({
+			board: [{ id: 'GAMMA_LEPORIS', name: 'Gamma Leporis' }],
+			players: [{ id: 'p1', ships: [{ name: 'Sphinx', system: 'GAMMA_LEPORIS', location }] }],
+			you: { id: 'p1', ships: [{ name: 'Sphinx', specialLots: lots, deliveryJob: null }] },
+		});
+
+		assert.deepEqual(opportunitiesInAction(at('PLANET')).map(row => row.sellNow), [true, false]);
+		assert.deepEqual(opportunitiesInAction(at('PORT')).map(row => row.sellNow), [false, false]);
 	});
 });
 

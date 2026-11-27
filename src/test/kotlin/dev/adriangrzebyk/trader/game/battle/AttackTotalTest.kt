@@ -1,6 +1,7 @@
 package dev.adriangrzebyk.trader.game.battle
 
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
@@ -32,5 +33,15 @@ class AttackTotalTest {
 		val attack = AttackTotal(total)
 
 		assertThat(listOf(1, 2, 3, 4).map { attack.hitsAgainst(it) }).containsExactly(shields1, shields2, shields3, shields4)
+	}
+
+	@Test
+	fun shouldGiveTheWholeTableForTheGuide() {
+		// Creator, 2026-11-26: the Guide shows the table the battle reads
+		val table = AttackTotal.table()
+
+		assertThat(table).hasSize(9)
+		assertThat(table.first()).isEqualTo(2 to listOf(0, 0, 0, 0))
+		assertThat(table.last()).isEqualTo(31 to listOf(6, 5, 4, 3))
 	}
 }

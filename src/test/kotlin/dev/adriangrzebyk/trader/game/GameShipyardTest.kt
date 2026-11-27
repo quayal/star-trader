@@ -250,6 +250,23 @@ class GameShipyardTest {
 	}
 
 	@Test
+	fun shouldFitSeveralModulesInOneGoOrNoneOfThem() {
+		// Creator, 2026-11-26: choose all the modules, fit them with one click. Spiral is a Phoenix (6 module slots) with a class D crew.
+		val yard = investing.buyShip("ada@example.com", "Spiral", TAU_CETI, Hull.PHOENIX, emptyList(), CrewClass.D)
+		val fitted = yard.addModules("ada@example.com", "Spiral", listOf(Module.CARGO, Module.CARGO, Module.PASSENGER))
+
+		assertThat(shipOf(fitted, "Spiral").modules).containsExactlyInAnyOrder(Module.CARGO, Module.CARGO, Module.PASSENGER)
+		assertThat(playerOf(fitted, "ada@example.com").money).isEqualTo(
+			playerOf(yard, "ada@example.com").money - listOf(Module.CARGO, Module.CARGO, Module.PASSENGER).sumOf { it.fittingCost(CrewClass.D) }
+		)
+		val tooMany = List(7) { Module.CARGO }
+		assertThatThrownBy { yard.addModules("ada@example.com", "Spiral", tooMany) }.isInstanceOf(InvalidFittingException::class.java)
+		val broke = yard.copy(players = yard.players.map { if (it.email == "ada@example.com") it.pay(it.money - 5, "Test") else it })
+		assertThatThrownBy { broke.addModules("ada@example.com", "Spiral", listOf(Module.CARGO, Module.PASSENGER)) }
+			.hasMessage("These modules cost ${Module.CARGO.fittingCost(CrewClass.D) + Module.PASSENGER.fittingCost(CrewClass.D)} HT; you have 5 HT.")
+	}
+
+	@Test
 	fun shouldRefitInPortAtASystemWithoutAShipyard() {
 		// R65 (creator, 2026-11-17): modules are fitted in any port. Grace's Meridian is in port at Gamma Leporis, which has no shipyard.
 		val game = investing.removeModule("grace@example.com", "Meridian", Module.LIGHT_WEAPONS)

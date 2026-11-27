@@ -451,6 +451,8 @@
 		.place h3 { font-size: var(--text-value); margin-bottom: var(--space-hairline); }
 		.place p { margin: 0 0 var(--space-group); }
 		.place ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-group); }
+		/* Creator, 2026-11-26: the viewer's agents at a place, under its ships. */
+		.place__agents-title { margin: var(--space-related) 0 var(--space-hairline); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
 		.table-wrap { overflow-x: auto; }
 		/* s03 (E05-S01): the current resolution left, the queue right; one column on a narrow screen, queue last. */
 		.trading { display: grid; gap: var(--space-panel); }
@@ -466,6 +468,10 @@
 		.resolution-panel h2:focus { outline: none; }
 		.counter-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-related); }
 		.dictator-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
+		.dictator-facts { margin: 0; font-size: var(--text-value); }
+		/* Creator, 2026-11-26: the Limpy ask's table; the good asked about stands out. */
+		.limpy-table { margin: var(--space-group) 0 var(--space-related); }
+		.limpy-table tr.limpy-now { background: var(--surface-raised); }
 		.dictator-actions { display: flex; gap: var(--space-related); align-items: center; flex-wrap: wrap; }
 		/* E05-S04: the trader's amount and, per ship there, how many units it loads or unloads. */
 		.trade-form { border-top: 1px solid var(--border-subtle); padding-top: var(--space-related); }
@@ -498,6 +504,11 @@
 		.fleet-ship__agents { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); }
 		.fleet-ship__modules { overflow-x: auto; } /* focusable, so the keyboard can scroll it */
 		.fleet[hidden] { display: none; }
+		/* Creator, 2026-11-26: modules chosen by count, fitted in one go. */
+		.fit-modules { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-group); }
+		.fit-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-group); }
+		.fit-option { display: flex; align-items: center; gap: var(--space-group); }
+		.fit-count { width: 6ch; }
 		/* Corporations (E11-S01, D20): one panel per corporation; two columns when there's room, one on a phone. */
 		.corporations { display: grid; gap: var(--space-panel); max-width: 1200px; }
 		.corporations > h2, .corporations > p { margin: 0; }
@@ -509,8 +520,12 @@
 		.corporation h4 { margin: 0; font-size: var(--text-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 		.corporation p { margin: 0; }
 		/* Playtest 2026-11-21: the tip-offs grouped by the turn they take place or expire. */
-		.news-turns { display: grid; gap: var(--space-group); }
-		.news-turn { display: grid; gap: var(--space-related); }
+		/* Playtest 2026-11-26: each turn plainly marked — a rule above it and a large heading, not a muted caption. */
+		.news-turns { display: grid; gap: var(--space-between-groups); }
+		.news-turn { display: grid; gap: var(--space-related); padding-top: var(--space-related); border-top: var(--border-width) solid var(--border-control); }
+		.corporation .news-turn > h4 { font-family: var(--font-display); font-size: var(--text-title); color: var(--text-primary); text-transform: none; letter-spacing: 0.02em; }
+		/* Playtest 2026-11-26: a taken opportunity stands out (red badge), so no one plans around it. */
+		.news-taken { margin-left: var(--space-group); vertical-align: middle; }
 		/* Playtest 2026-11-21: each Guide card as tall as its own lines, not stretched to the tallest card in its row. */
 		.guide-cards { align-items: start; }
 		.guide-table { grid-column: 1 / -1; } /* the hull and module tables take the whole width */
@@ -522,6 +537,10 @@
 		.recruit-row .price-input { width: 7ch; }
 		.agent-actions { display: flex; gap: var(--space-group); flex-wrap: wrap; align-items: center; margin-top: var(--space-hairline); }
 		.opportunity-form p { margin: 0; }
+		/* Creator, 2026-11-26: sales ready to make, as primary buttons above the list. */
+		.in-action-sales { display: grid; gap: var(--space-group); margin-bottom: var(--space-related); }
+		.in-action-sales[hidden] { display: none; }
+		.in-action-sale { display: flex; align-items: center; gap: var(--space-related); flex-wrap: wrap; }
 		/* Playtest 2026-11-24: an opportunity's fields in labelled groups: ship, where, modules, then Take on its own row. */
 		.opportunity-form { display: grid; padding: var(--space-related); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-control); }
 		.opportunity-form > .opportunity-group + .opportunity-group { margin-top: var(--space-hairline); }
@@ -627,6 +646,9 @@
 		.ship-hulls__name { display: grid; justify-items: start; gap: var(--space-hairline); }
 		.collect-factories .trade-ship { flex-wrap: nowrap; } /* a long destination name wraps in its label, so every row reads the same */
 		.trade-form .btn[hidden] { display: none; }
+		/* Playtest 2026-11-26: Finish jumping is the panel's one primary action, a full blue button. */
+		.jumps-finish { margin-top: var(--space-related); }
+		#finish-button[hidden] { display: none; }
 		.offer-form .trade-ship .price-input { max-width: 96px; }
 		.trading__body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-panel); align-items: start; }
 		@media (max-width: 900px) {
@@ -1308,7 +1330,7 @@
 				<section class="panel" aria-labelledby="jumps-ships-title">
 					<h3 id="jumps-ships-title">Your ships</h3>
 					<div class="ship-cards" id="jumps-ships" role="radiogroup" aria-labelledby="jumps-ships-title"></div>
-					<div><button class="text-action" id="finish-button" type="button" hidden>Finish jumping</button></div>
+					<div class="jumps-finish"><button class="btn" id="finish-button" type="button" hidden>Finish jumping</button></div>
 				</section>
 				<section class="panel" aria-labelledby="jumps-table-title">
 					<h3 id="jumps-table-title">Destinations</h3>
@@ -1432,13 +1454,15 @@
 			<!-- Creator, 2026-11-23: what the viewer took and is still carrying out, in every phase. -->
 			<section class="panel" id="in-action-panel" aria-labelledby="in-action-title" hidden>
 				<h3 id="in-action-title">Your opportunities in action</h3>
+				<!-- Creator, 2026-11-26: a sale ready to make is the panel's main action, not a small button further down. -->
+				<div class="in-action-sales" id="in-action-sales"></div>
 				<ul class="corporation__list" id="in-action-list"></ul>
+				<p class="message" id="in-action-message" role="status" tabindex="-1"></p>
 			</section>
 			<section class="panel" id="opportunities-panel" aria-labelledby="opportunities-title" hidden>
 				<h3 id="opportunities-title">Opportunities</h3>
 				<p class="muted" id="opportunities-note"></p>
 				<div id="opportunity-forms"></div>
-				<ul class="corporation__list" id="special-sales"></ul>
 				<ul class="corporation__list" id="expeditions-due"></ul>
 				<ul class="corporation__list" id="deliveries-due"></ul>
 				<p class="message" id="opportunities-message" role="status" tabindex="-1"></p>
@@ -1597,6 +1621,11 @@
 					<!-- R108: Limpy's owner is asked whether to act as Dictator of the next good. -->
 					<div id="limpy-row" hidden>
 						<p id="limpy-text"></p>
+						<!-- Creator, 2026-11-26: everything the choice needs here: this good and the others still to resolve at that system. -->
+						<div class="table-wrap"><table class="data-table limpy-table">
+							<thead><tr><th scope="col">Good</th><th scope="col">Price</th><th scope="col">S/D</th><th scope="col">You have</th><th scope="col">Offers</th></tr></thead>
+							<tbody id="limpy-goods"></tbody>
+						</table></div>
 						<button class="btn" id="limpy-act-button" type="button">Act as Dictator (Limpy)</button>
 						<button class="btn btn--danger" id="limpy-pass-button" type="button">Pass</button>
 					</div>
@@ -1620,12 +1649,14 @@
 					<ul class="counter-lines" id="resolution-counter" aria-labelledby="resolution-counter-title" hidden></ul>
 					<form class="offer-form dictator-form" id="dictator-form" novalidate hidden>
 						<h3 id="dictator-question"></h3>
+						<!-- Creator, 2026-11-26: what the Dictator weighs, the price, their units here and the S/D with its direction. -->
+						<p class="dictator-facts" id="dictator-facts"></p>
 						<p class="muted" id="dictator-help"></p>
 						<fieldset class="offer-type">
 							<legend class="field-label">Buy or sell</legend>
 							<div class="choices">
-								<label class="choice"><input type="radio" name="dictator-type" value="BUY" checked>Buy</label>
-								<label class="choice"><input type="radio" name="dictator-type" value="SELL">Sell</label>
+								<label class="choice choice--buy"><input type="radio" name="dictator-type" value="BUY" checked>Buy</label>
+								<label class="choice choice--sell"><input type="radio" name="dictator-type" value="SELL">Sell</label>
 							</div>
 						</fieldset>
 						<div>
@@ -1647,8 +1678,8 @@
 						<fieldset class="offer-type" id="trade-type-field" hidden>
 							<legend class="field-label">Buy or sell</legend>
 							<div class="choices">
-								<label class="choice"><input type="radio" name="wholesale-type" value="BUY" checked>Buy</label>
-								<label class="choice"><input type="radio" name="wholesale-type" value="SELL">Sell</label>
+								<label class="choice choice--buy"><input type="radio" name="wholesale-type" value="BUY" checked>Buy</label>
+								<label class="choice choice--sell"><input type="radio" name="wholesale-type" value="SELL">Sell</label>
 							</div>
 						</fieldset>
 						<p id="trade-cannot"></p>
@@ -1846,6 +1877,8 @@
 		lossWarning,
 		dictatorFormKey,
 		dictatorLine,
+		dictatorFacts,
+		limpyBriefing,
 		dictatorQuestion,
 		disclosedOffers,
 		goodLabel,
@@ -1895,6 +1928,7 @@
 		moduleList,
 		moduleMoveActions,
 		refitOptions,
+		fitPlan,
 		canSuggest,
 		saleConfirmText,
 		saleResult,
@@ -3027,6 +3061,41 @@
 		return node;
 	}
 
+	/** Creator, 2026-11-26: the Limpy ask's goods at his system, the one asked first, each with its price, S/D, units and offers. */
+	function renderLimpyBriefing(game) {
+		const briefing = limpyBriefing(game, viewerId);
+		drawOnce('limpy-goods', JSON.stringify(briefing), () => (briefing?.goods ?? []).map(good => element('tr', { class: good.now ? 'limpy-now' : '' },
+			element('th', { scope: 'row' }, element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods),
+				good.now ? element('span', { class: 'muted' }, ' (now)') : good.limpyCan ? '' : element('span', { class: 'muted' }, ' (another player is Dictator: not for Limpy)')),
+			element('td', { class: 'num' }, good.price === null ? '\u2014' : `${good.price} HT`),
+			element('td', {}, ...(good.level ? [`${good.indicator.replace('S/D ', '')} `, levelLabel(good.level)] : ['\u2014'])),
+			element('td', { class: 'num' }, `${good.units} u`),
+			element('td', {}, ...(good.offers.length
+				? good.offers.flatMap((offer, i) => [i ? ' \u00b7 ' : '', `${offer.who} `,
+					element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` ${offer.price} HT`])
+				: [element('span', { class: 'muted' }, 'none')])))));
+	}
+
+	/** Creator, 2026-11-26: "Market price 9 HT · You have 6 ISO in port here · S/D +3 ▼ high supply: price likely to fall". */
+	function renderDictatorFacts(game) {
+		const facts = dictatorFacts(game, viewerId);
+		const key = JSON.stringify(facts);
+		if ($('dictator-facts').dataset.key === key) {
+			return;
+		}
+		$('dictator-facts').dataset.key = key;
+		if (facts === null) {
+			$('dictator-facts').replaceChildren();
+			return;
+		}
+		const parts = [
+			...(facts.price === null ? [] : [element('span', {}, 'Market price ', element('strong', {}, `${facts.price} HT`))]),
+			element('span', {}, 'You have ', element('strong', {}, `${facts.units} ${facts.goods}`), ` ${facts.holding} here`),
+			...(facts.level === null ? [] : [element('span', {}, `${facts.indicator} `, levelLabel(facts.level), `: ${facts.level.hint}`)]),
+		];
+		$('dictator-facts').replaceChildren(...parts.flatMap((part, i) => (i ? [' \u00b7 ', part] : [part])));
+	}
+
 	/** "▲ high demand" (just "in balance"): the triangle and the word, so colour is never the only cue. */
 	function levelLabel(level) {
 		const triangle = level.symbol ? [element('span', { class: 'market-level__triangle' }, level.symbol), ' '] : [];
@@ -3293,12 +3362,17 @@
 	let pendingSale = null;
 	let shownFleetKey = null;
 	let fleetMessageKey = null;
+	// Creator, 2026-11-26: a ship's own result line, shown in its panel so the page doesn't jump to the top: `{ ship, text, error }`.
+	let fleetShipMessage = null;
+	// The modules chosen to fit per ship, `{ [ship]: { [moduleId]: n } }`, kept across redraws until they're fitted.
+	const fitChoices = {};
 	let fleetBusy = false;
 
-	function setFleetMessage(text, error, key) {
-		$('fleet-message').textContent = text;
+	function setFleetMessage(text, error, key, ship = null) {
+		fleetShipMessage = text && ship ? { ship, text, error } : null;
+		$('fleet-message').textContent = ship ? '' : text;
 		$('fleet-message').className = error ? 'message message--error' : 'message message--success';
-		$('fleet-message').hidden = !text;
+		$('fleet-message').hidden = !text || Boolean(ship);
 		fleetMessageKey = text ? key : null;
 	}
 
@@ -3335,13 +3409,30 @@
 			refit.push(element('p', { class: 'muted' }, REFIT_NOTE));
 		} else {
 			if (add.length) {
-				const id = `fleet-add-${index}`; // the ship's place, not its name: two names can't collide
-				const select = element('select', { class: 'control', id },
-					...add.map(option => element('option', { value: option.id }, `${option.name} \u2014 ${option.cost} HT`)));
-				refit.push(element('div', { class: 'fleet-ship__row' },
-					element('label', { class: 'field-label', for: id }, 'Add a module'), select,
-					shipButton('quiet-button', 'Fit', () => refitShip(game, own, 'POST', select.value,
-						add.find(option => option.id === select.value)))));
+				// Creator, 2026-11-26: choose how many of each, see the projected cost, fit them all with one click.
+				const counts = fitChoices[own.name] ?? (fitChoices[own.name] = {});
+				const projected = element('span', { class: 'muted' });
+				const fit = shipButton('btn', 'Fit modules', () => fitModules(game, own, fitPlan(own, add, counts, game.you.money)));
+				const update = () => {
+					const plan = fitPlan(own, add, counts, game.you.money);
+					projected.textContent = plan.problem && plan.modules.length ? `${plan.text} \u2014 ${plan.problem}` : plan.text;
+					projected.className = plan.problem && plan.modules.length ? 'message message--warn' : 'muted';
+					fit.disabled = fleetBusy || plan.problem !== '';
+				};
+				const inputs = add.map(option => {
+					const id = `fleet-add-${index}-${option.id}`; // the ship's place, not its name: two names can't collide
+					const input = element('input', { class: 'control fit-count', id, type: 'number', min: '0', max: String(option.max), inputmode: 'numeric', value: String(counts[option.id] ?? 0) });
+					input.addEventListener('input', () => {
+						counts[option.id] = Math.max(0, Math.floor(Number(input.value) || 0));
+						update();
+					});
+					return element('label', { class: 'fit-option', for: id }, input, element('span', {}, `${option.name} \u2014 ${option.cost} HT`));
+				});
+				update();
+				refit.push(element('fieldset', { class: 'fit-modules' },
+					element('legend', { class: 'field-label' }, 'Add modules'),
+					element('div', { class: 'fit-options' }, ...inputs),
+					element('div', { class: 'fleet-ship__row' }, fit, projected)));
 			} else {
 				refit.push(element('p', { class: 'muted' }, 'No room for another module.'));
 			}
@@ -3360,7 +3451,10 @@
 					shipButton('quiet-button', 'Replace', () => replaceCrew(game, own, crew.find(option => option.id === select.value)))));
 			}
 		}
-		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Sell or refit'), sale, ...refit)];
+		const message = fleetShipMessage?.ship === own.name
+			? [element('p', { class: `message ${fleetShipMessage.error ? 'message--error' : 'message--success'}`, role: 'status', tabindex: '-1', 'data-ship-message': own.name }, fleetShipMessage.text)]
+			: [];
+		return [element('div', { class: 'fleet-ship__actions' }, element('h4', { class: 'field-label' }, 'Sell or refit'), ...message, sale, ...refit)];
 	}
 
 	function shipButton(className, text, onClick) {
@@ -3374,14 +3468,25 @@
 	async function repairShip(game, ship) {
 		const gameId = currentGameId;
 		const request = api(`/api/games/${encodeURIComponent(gameId)}/investment/ships/${encodeURIComponent(ship.name)}/repair`, { method: 'POST' });
-		await fleetAction(game, request, () => `Repaired ${ship.name} for ${ship.repairCost} HT.`);
+		await fleetAction(game, request, () => `Repaired ${ship.name} for ${ship.repairCost} HT.`, ship.name);
 	}
 
 	/** R89: the ship's whole crew replaced by one of [option]'s class; the answer redraws Fleet with the new class and balance. */
 	async function replaceCrew(game, ship, option) {
 		const request = api(`/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}/crew`,
 			{ method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ crewClass: option.id }) });
-		await fleetAction(game, request, () => `${ship.name} has a new class ${option.id} crew, for ${option.cost} HT.`);
+		await fleetAction(game, request, () => `${ship.name} has a new class ${option.id} crew, for ${option.cost} HT.`, ship.name);
+	}
+
+	/** Creator, 2026-11-26: every chosen module fitted in one request, all or none; the choice is cleared once they're on. */
+	async function fitModules(game, ship, plan) {
+		const url = `/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}/modules`;
+		const request = api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modules: plan.modules }) });
+		const count = plan.modules.length;
+		await fleetAction(game, request, () => {
+			delete fitChoices[ship.name];
+			return `Fitted ${count} ${count === 1 ? 'module' : 'modules'} to ${ship.name} for ${plan.cost} HT.`;
+		}, ship.name);
 	}
 
 	/** S04-1: one module added or removed; the answer redraws Fleet with the new modules and balance. */
@@ -3394,14 +3499,14 @@
 		const done = method === 'POST'
 			? `Fitted a ${option.name} module to ${ship.name} for ${option.cost} HT.`
 			: `Removed a ${option.name} module from ${ship.name}; ${option.refund} HT back.`;
-		await fleetAction(game, request, () => done);
+		await fleetAction(game, request, () => done, ship.name);
 	}
 
 	/** R122, R123: one module stored, fitted from the warehouse or moved to another ship; free, so only Fleet changes. */
 	async function moveModule(game, ship, action) {
 		const url = `/api/games/${encodeURIComponent(currentGameId)}/investment/ships/${encodeURIComponent(ship.name)}/modules/${action.path}`;
 		const request = api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action.body ?? {}) });
-		await fleetAction(game, request, () => action.done);
+		await fleetAction(game, request, () => action.done, ship.name);
 	}
 
 	/** S05-1: the sale, confirmed; the line after it says again what went to the warehouse and what was lost (R66). */
@@ -3412,8 +3517,11 @@
 		await fleetAction(game, request, updated => soldText(saleResult(game, updated, viewerId, ship.name), ship.name, ship.saleValue));
 	}
 
-	/** [doneText] makes the success line from the server's answer. */
-	async function fleetAction(game, request, doneText) {
+	/**
+	 * [doneText] makes the success line from the server's answer. With [shipName] the line shows in that ship's panel and takes
+	 * focus there, so the page stays where the player was (creator, 2026-11-26); without it (a sale: the ship is gone), at the top.
+	 */
+	async function fleetAction(game, request, doneText, shipName = null) {
 		const gameId = currentGameId;
 		const turnKey = `${gameId}/${game.turn.number}`;
 		fleetBusy = true;
@@ -3432,32 +3540,51 @@
 		}
 		if (response?.ok) {
 			const updated = await response.json();
-			setFleetMessage(doneText(updated), false, turnKey);
+			setFleetMessage(doneText(updated), false, turnKey, shipName);
 			render(updated);
 		} else {
-			setFleetMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey);
+			setFleetMessage(response ? await errorText(response, UNREACHABLE) : UNREACHABLE, true, turnKey, shipName);
 			render(lastGame, false);
 			if (response && response.status !== 400) {
 				repollNow();
 			}
 		}
-		$('fleet-message').focus(); // the button pressed may be gone; keep focus with what happened
+		// The button pressed may be gone; keep focus with what happened, in the ship's panel when it's still there.
+		const own = shipName ? [...document.querySelectorAll('[data-ship-message]')].find(node => node.dataset.shipMessage === shipName) : null;
+		if (own) {
+			own.focus();
+		} else {
+			$('fleet-message').hidden = !$('fleet-message').textContent && !fleetShipMessage;
+			if (fleetShipMessage) {
+				$('fleet-message').textContent = fleetShipMessage.text; // the ship's panel is gone: say it at the top
+				$('fleet-message').hidden = false;
+			}
+			$('fleet-message').focus();
+		}
 	}
 
 	/** S03-2 to S03-5: one panel per ship of the player's; "You have no ships" when there are none (S03-8). */
+	/** Creator, 2026-11-26: an illegal-goods tip-off links to the Guide's black-market table instead of repeating it. */
+	function blackMarketGuideLink(game) {
+		return element('p', {}, element('a', { class: 'link', href: guideLink(game.id) }, 'Black market prices: see the Guide'));
+	}
+
 	/** News (R109–R110): the tip-offs in play with Learn while News is open, this turn's announcements, and done. */
 	function renderNews(game) {
 		const groups = tipOffGroups(game);
 		const tipOffItem = row => {
 			const parts = [element('strong', {}, row.title), ` \u2014 ${row.need}`];
+			if (row.taken) {
+				parts.push(element('span', { class: 'badge badge--danger news-taken' }, row.taken));
+			}
 			if (row.details) {
 				parts.push(element('br'), element('span', {}, row.details));
 			}
 			if (row.facts.length) {
 				parts.push(element('ul', { class: 'corporation__list' }, ...row.facts.map(fact => element('li', {}, fact))));
 			}
-			if (row.taken) {
-				parts.push(' ', element('span', { class: 'muted' }, row.taken));
+			if (row.blackMarketGuide) {
+				parts.push(blackMarketGuideLink(game));
 			}
 			if (row.learn) {
 				const button = element('button', { class: 'quiet-button', type: 'button', ...(row.learn.enabled ? {} : { disabled: '' }) }, row.learn.label);
@@ -3496,7 +3623,8 @@
 				...(agent.note ? [element('span', { class: 'muted' }, ` (${agent.note})`)] : [])]))),
 			...guide.modifiers.map(section => card(section.title, list(section.lines))),
 			// Playtest 2026-11-21: every hull and module, to plan a ship while waiting on others.
-			...[['Hulls', guide.ships.hulls], ['Modules', guide.ships.modules]].map(([title, table]) => element('section', { class: 'panel corporation guide-table' },
+			// Creator, 2026-11-26: the battle table, and the black-market prices, which illegal-goods tip-offs link to.
+			...[['Hulls', guide.ships.hulls], ['Modules', guide.ships.modules], ['Battle', guide.battle], ['Black market', guide.blackMarket]].map(([title, table]) => element('section', { class: 'panel corporation guide-table' },
 				element('h3', {}, title),
 				element('div', { class: 'table-wrap' }, element('table', { class: 'data-table' },
 					element('thead', {}, element('tr', {}, ...table.columns.map(column => element('th', { scope: 'col' }, column)))),
@@ -3681,6 +3809,7 @@
 		const limpy = game.you?.limpyAsk;
 		$('limpy-row').hidden = !limpy;
 		showText('limpy-text', limpy ? `Limpy is in Port at ${limpy.systemName}: act as Dictator of ${limpy.goods} there for this resolution, or pass and keep him for another good this turn.` : '');
+		renderLimpyBriefing(game);
 		if (queueDraft !== null && queueDraft.key !== tradingKey(game)) {
 			queueDraft = null;
 		}
@@ -3755,6 +3884,7 @@
 		}
 		$('dictator-form').hidden = question === '';
 		$('dictator-question').textContent = question;
+		renderDictatorFacts(game);
 		$('dictator-help').textContent = DICTATOR_HELP;
 		$('dictator-offer-button').disabled = deciding;
 		$('dictator-pass-button').disabled = deciding;
@@ -4340,7 +4470,7 @@
 				element('p', { class: 'message muted', id: id('price-hint') }, 'A whole number from 1 to 20. One offer per good per system.'),
 				form.priceError),
 			element('fieldset', { class: 'offer-type' }, element('legend', { class: 'field-label' }, 'Buy or sell'),
-				element('div', { class: 'choices' }, ...form.types.map(radio => element('label', { class: 'choice' }, radio, TYPE_NAMES[radio.value])))),
+				element('div', { class: 'choices' }, ...form.types.map(radio => element('label', { class: `choice choice--${radio.value.toLowerCase()}` }, radio, TYPE_NAMES[radio.value])))),
 			element('div', {}, form.button));
 		form.element = element('form', { class: 'offer-form', novalidate: '' },
 			...(form.warning ? [form.warning] : []),
@@ -6313,7 +6443,7 @@
 		renderAgents(game, opportunity);
 		renderPassengers(game, opportunity);
 		renderOpportunities(game, opportunity);
-		renderInAction(game, running);
+		renderInAction(game, running, opportunity);
 		renderLoan(game, investing);
 	}
 
@@ -6670,13 +6800,24 @@
 	function inActionItem(row) {
 		return element('li', {},
 			element('strong', {}, row.ship), row.where ? ` (${row.where})` : '', ` \u2014 ${row.what}. `,
+			...(row.sellNow ? [element('span', { class: 'badge badge--live' }, 'Can sell here'), ' '] : []),
 			element('span', { class: 'muted' }, `Next: ${row.next}.`));
 	}
 
-	function renderInAction(game, running) {
+	/** Creator, 2026-11-26: the sales ready to make (R112) as the panel's primary buttons, in Opportunity. */
+	function renderInAction(game, running, opportunity) {
 		const rows = running ? opportunitiesInAction(game) : [];
 		$('in-action-panel').hidden = rows.length === 0;
 		drawOnce('in-action-list', JSON.stringify(rows), () => rows.map(inActionItem));
+		const sales = opportunity ? specialSales(game) : [];
+		const myTurn = isMyOpportunityTurn(game, viewerId) && !isCollecting(game);
+		$('in-action-sales').hidden = sales.length === 0;
+		drawOnce('in-action-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
+			const button = element('button', { class: 'btn', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
+			button.addEventListener('click', () => gameAction(sale.kind === 'FURS' ? 'opportunity/furs' : 'opportunity/black-market',
+				{ system: sale.system, goods: sale.goods }, 'in-action-message', 'Sold.'));
+			return element('div', { class: 'in-action-sale' }, button, ...(myTurn ? [] : [element('span', { class: 'muted' }, 'On your Opportunity turn.')]));
+		}));
 	}
 
 	/**
@@ -6706,11 +6847,10 @@
 
 	function renderOpportunities(game, opportunity) {
 		const forms = opportunityForms(game);
-		const sales = specialSales(game);
 		const due = expeditionsDue(game);
 		const deliveries = deliveriesDue(game);
 		$('opportunities-panel').hidden = !opportunity
-			|| (forms.length === 0 && sales.length === 0 && due.length === 0 && deliveries.length === 0);
+			|| (forms.length === 0 && due.length === 0 && deliveries.length === 0);
 		if ($('opportunities-panel').hidden) {
 			return;
 		}
@@ -6796,17 +6936,14 @@
 				remove: removeBoxes().filter(input => input.checked).map(input => input.value),
 			}, 'opportunities-message', 'Taken.'));
 			// Playtest 2026-11-21: what a player needs to decide (units, cost, cargo, the sale), before the fields.
-			const facts = form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : [];
+			const facts = [
+				...(form.facts.length ? [element('ul', { class: 'corporation__list' }, ...form.facts.map(fact => element('li', {}, fact)))] : []),
+				...(form.blackMarketGuide ? [blackMarketGuideLink(game)] : []),
+			];
 			refreshCost();
 			return element('div', { class: 'offer-form opportunity-form' }, element('p', {}, element('strong', {}, `#${form.slot}: ${form.title}`)),
 				...facts, element('p', { class: form.takeable ? 'muted' : 'message message--warn' }, form.note), ...groups, room,
 				element('div', { class: 'opportunity-take' }, cost, take));
-		}));
-		drawOnce('special-sales', JSON.stringify([sales, myTurn]), () => sales.map(sale => {
-			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, sale.label);
-			button.addEventListener('click', () => gameAction(sale.kind === 'FURS' ? 'opportunity/furs' : 'opportunity/black-market',
-				{ system: sale.system, goods: sale.goods }, 'opportunities-message', 'Sold.'));
-			return element('li', {}, button);
 		}));
 		drawOnce('deliveries-due', JSON.stringify([deliveries, myTurn]), () => deliveries.map(delivery => {
 			const button = element('button', { class: 'quiet-button', type: 'button', ...(myTurn ? {} : { disabled: '' }) }, delivery.label);
@@ -7680,7 +7817,11 @@
 			element('p', { class: 'muted' }, place.stats),
 			element('ul', {}, ...(place.ships.length
 				? place.ships.map(ship => element('li', {}, ship.text))
-				: [element('li', { class: 'muted' }, 'No ships')])))));
+				: [element('li', { class: 'muted' }, 'No ships')])),
+			// Creator, 2026-11-26: the viewer's own agents here, with what each does.
+			...(place.agents.length ? [element('p', { class: 'place__agents-title' }, 'Your agents'), element('ul', { class: 'place__agents' },
+				...place.agents.map(agent => element('li', {}, element('strong', {}, agent.name), ` \u2014 ${agent.effect}`,
+					element('span', { class: 'muted' }, agent.ship ? ` (aboard ${agent.ship})` : ' (on his own)'))))] : []))));
 		$('system-market').replaceChildren(...system.market.map(entry => {
 			const level = marketLevel(entry.indicator);
 			return element('tr', {},

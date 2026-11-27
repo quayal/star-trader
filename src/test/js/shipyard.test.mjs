@@ -12,6 +12,7 @@ import {
 	buyClosedText,
 	canSuggest,
 	fitCheck,
+	fitPlan,
 	hullRows,
 	lateBuyWarning,
 	moduleList,
@@ -264,6 +265,21 @@ describe('refitOptions (R65)', () => {
 
 	it('offers nothing away from a shipyard', () => {
 		assert.deepEqual(refitOptions(SHIPYARD, { ...ship, canRefit: false }), { add: [], remove: [], crew: [] });
+	});
+
+	it('projects the cost of every module chosen, and says why they can\'t be fitted (creator, 2026-11-26)', () => {
+		const roomy = { ...ship, stats: { ...ship.stats, modulesUsed: 1 } }; // 4 free slots
+		const { add } = refitOptions(SHIPYARD, roomy);
+
+		const plan = fitPlan(roomy, add, { CARGO: 2, PASSENGER: 1, SAFE_JUMP: 1 }, 300);
+		assert.deepEqual(plan.modules, ['SAFE_JUMP', 'CARGO', 'CARGO', 'PASSENGER']);
+		assert.equal(plan.cost, 10 + 4 + 4 + 25);
+		assert.equal(plan.text, '4 modules \u00b7 3 of 4 free slots \u00b7 43 HT');
+		assert.equal(plan.problem, '');
+		assert.equal(fitPlan(roomy, add, { CARGO: 5 }, 300).problem, 'Only 4 free slots.');
+		assert.equal(fitPlan(roomy, add, { SAFE_JUMP: 2 }, 300).problem, 'At most 1 Safe jump.');
+		assert.equal(fitPlan(roomy, add, { PASSENGER: 2 }, 30).problem, 'You have 30 HT.');
+		assert.equal(fitPlan(roomy, add, {}, 300).modules.length, 0);
 	});
 });
 

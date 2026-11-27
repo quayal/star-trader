@@ -88,6 +88,32 @@ function paidNote(game, notice, entry) {
 	return paid > 0 ? ` You paid ${paid} HT.` : '';
 }
 
+/**
+ * The seller's black-market card (R112, creator 2026-11-26): the roll and the result, from their own ledger line ("Black market
+ * at Gamma Leporis: d6 4; 10 slaves at 15 HT each"), the [ordinal]-th sale there in [entry]'s turn. Both stay private (R29):
+ * the log line says neither.
+ */
+function blackMarketCard(game, notice, entry, ordinal) {
+	const prefix = `Black market at ${notice.systemName}: `;
+	const sales = (game.you?.ledger ?? []).filter(movement => movement.turn === entry?.turn && movement.reason.startsWith(prefix)).reverse();
+	const sale = sales[ordinal];
+	if (!sale) {
+		return { title: 'You sold on the black market', lead: `At ${notice.systemName}.`, tone: 'rise', lines: [] };
+	}
+	const [roll, result] = sale.reason.slice(prefix.length).split('; ');
+	return {
+		title: `Black market at ${notice.systemName}: you rolled ${roll.replace(/^d6 /, '')}`,
+		lead: `${result.charAt(0).toUpperCase()}${result.slice(1)}: you received ${sale.amount} HT.`,
+		tone: 'rise',
+		lines: [],
+	};
+}
+
+/** Whether [notice] is someone else's black-market sale: then [myId] gets its line as a toast; the card is the seller's. */
+function someoneElsesSale(notice, myId) {
+	return Boolean(notice && notice.kind === 'BLACK_MARKET_SOLD' && !notice.playerIds.includes(myId));
+}
+
 /** Whether [notice] is a position gained (R43) by someone other than [myId] or a Dictator they replaced: then [myId] gets its line as a toast. */
 function someoneElsesGain(notice, myId) {
 	return Boolean(notice && notice.kind === 'POSITION_GAINED' && !notice.playerIds.includes(myId));
@@ -155,8 +181,11 @@ function newsLead(texts) {
 	return texts.map(text => text.replace(/^News: (.)/, (_, first) => first.toUpperCase())).join(' ');
 }
 
-/** A card's heading and opening line for [notice]; [texts] are its log lines, [entry] the group's first log entry. */
-function cardFor(game, notice, texts, myId, entry) {
+/**
+ * A card's heading and opening line for [notice]; [texts] are its log lines, [entry] the group's first log entry, [ordinal]
+ * how many cards of the same kind and place came before it in that turn.
+ */
+function cardFor(game, notice, texts, myId, entry, ordinal) {
 	const where = notice.systemName;
 	if (SETBACKS[notice.kind]) {
 		const card = { tone: 'alert', ...SETBACKS[notice.kind](where, notice, myId, game) };
@@ -165,6 +194,8 @@ function cardFor(game, notice, texts, myId, entry) {
 	switch (notice.kind) {
 	case 'POSITION_GAINED':
 		return { ...positionGainedCard(where, notice, myId), lines: texts };
+	case 'BLACK_MARKET_SOLD':
+		return blackMarketCard(game, notice, entry, ordinal);
 	case 'INTERCEPTION': {
 		const card = interceptionCard(game, notice, myId);
 		return { ...card, lines: [`Rolls: ${notice.interception.interceptorRoll} vs ${notice.interception.arrivingRoll}`, ...texts.slice(1)] };
@@ -228,12 +259,24 @@ export function noticeCards(game, from, myId) {
 		.filter(group => !someoneElsesSetback(group.notice, myId))
 		// A gained position's card is for the trader and the Dictators it replaced; everyone else reads the line in the log.
 		.filter(group => group.notice.kind !== 'POSITION_GAINED' || group.notice.playerIds.includes(myId))
+		// A black-market sale's card is for the seller; everyone else reads the line in the log (creator, 2026-11-26).
+		.filter(group => !someoneElsesSale(group.notice, myId))
 		.map(group => ({
 			key: `${game.id}/log/${group.start}`,
 			end: group.end,
 			evaded: group.notice.kind === 'INTERCEPTION' && group.notice.interception.arrivingId === myId && !group.notice.interception.success,
-			...cardFor(game, group.notice, group.texts, myId, log[group.start]),
+			...cardFor(game, group.notice, group.texts, myId, log[group.start], sameBefore(log, group.start)),
 		}));
+}
+
+/**
+ * How many log lines before [start] carry the same kind of notice at the same place, for the same players, in the same turn:
+ * the whole log, cards already seen included, so a second sale at a place reads the second ledger line.
+ */
+function sameBefore(log, start) {
+	const { notice, turn } = log[start];
+	return log.slice(0, start).filter(entry => entry.turn === turn && entry.notice?.kind === notice.kind
+		&& entry.notice.system === notice.system && entry.notice.playerIds.join(',') === notice.playerIds.join(',')).length;
 }
 
 /**
@@ -304,7 +347,7 @@ export function cardsFrom(remembered, logLength) {
  * many more there were.
  */
 export function toasts(log, from, myId) {
-	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice || someoneElsesSetback(entry.notice, myId) || someoneElsesGain(entry.notice, myId)).map(entry => entry.text);
+	const lines = (log ?? []).slice(Math.max(0, from)).filter(entry => !entry.notice || someoneElsesSetback(entry.notice, myId) || someoneElsesGain(entry.notice, myId) || someoneElsesSale(entry.notice, myId)).map(entry => entry.text);
 	return { shown: lines.slice(-MAX_TOASTS), more: Math.max(0, lines.length - MAX_TOASTS) };
 }
 

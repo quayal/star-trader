@@ -772,7 +772,7 @@ data class TipOffResponseDto(
 /**
  * A learned opportunity's terms for the form that takes it (R111–R114): [kind] (ILLEGAL_GOODS, FURS, MILITARY_SHIP,
  * MILITARY_MODULES, DELIVERY, EXPEDITION), where to [buyAt] or pick up, where it [sellAt] or delivers, the [price] per unit,
- * the [hulls] and [modules] on offer, at most [maxModules], whether the hull is optional, and the delivery's [space]. For goods,
+ * the [hulls] and [modules] on offer (each kind once), at most [maxModules], and the delivery's [space]. For goods,
  * at most [maxUnits], what each unit takes aboard ([hold]: CARGO_SPACE, PASSENGER_SEAT or NONE) and furs' fixed
  * [salePrice] (playtest, 2026-11-21: the form says all a player needs to decide). [summary] is its one-line name, and [facts]
  * every term written out (creator, 2026-11-25: the player gets all the information to decide).
@@ -786,8 +786,7 @@ data class OpportunityTermsResponseDto(
 	val sellAt: String?,
 	val hulls: List<String>,
 	val modules: List<String>,
-	val maxModules: Int?,
-	val hullOptional: Boolean,
+	val maxModules: Int,
 	val space: String?,
 	val minReputation: Int?,
 	val maxUnits: Int?,
@@ -824,13 +823,8 @@ data class OpportunityTermsResponseDto(
 			else -> null
 		},
 		(terms as? OpportunityTerms.MilitaryShip)?.hulls.orEmpty().map { it.name },
-		(
-			(terms as? OpportunityTerms.MilitaryModules)?.modules ?: Module.military().takeIf {
-				terms is OpportunityTerms.MilitaryShip
-			}
-			).orEmpty().map { it.name },
-		(terms as? OpportunityTerms.MilitaryShip)?.maxModules ?: (terms as? OpportunityTerms.MilitaryModules)?.modules?.size,
-		(terms as? OpportunityTerms.MilitaryShip)?.hullOptional == true,
+		terms.modulesOnOffer().map { it.name },
+		terms.moduleLimit(),
 		(terms as? OpportunityTerms.Delivery)?.space?.name,
 		(terms as? OpportunityTerms.Delivery)?.minReputation,
 		terms.maxUnits(),
@@ -1065,10 +1059,18 @@ data class BuyShipRequestDto(
 	fun crewClassConstant(): CrewClass? = CrewClass.entries.firstOrNull { it.name == crewClass }
 }
 
-/** A module to fit to a ship (R65): its `Module` constant. */
-data class FitModuleRequestDto(val module: String? = null) {
+/** The modules to fit to a ship (R65): one `Module` constant as [module], or several as [modules] (creator, 2026-11-26). */
+data class FitModuleRequestDto(val module: String? = null, val modules: List<String>? = null) {
 
+	/** The one module named as [module], or null. */
 	fun moduleConstant(): Module? = moduleNamed(module)
+
+	/** The modules named, or null when none is named or one isn't a module. */
+	fun moduleConstants(): List<Module>? {
+		val names = modules ?: listOfNotNull(module)
+		val found = names.mapNotNull { moduleNamed(it) }
+		return found.takeIf { names.isNotEmpty() && found.size == names.size }
+	}
 }
 
 /** R89: the crew class a ship's new crew is of, `A` to `D`. */

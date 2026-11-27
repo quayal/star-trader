@@ -3,6 +3,8 @@ package dev.adriangrzebyk.trader.game
 import dev.adriangrzebyk.trader.board.Goods
 import dev.adriangrzebyk.trader.board.OfferType
 import dev.adriangrzebyk.trader.board.StarSystem
+import dev.adriangrzebyk.trader.game.news.SpecialGoods
+import dev.adriangrzebyk.trader.game.news.SpecialLot
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -12,6 +14,26 @@ class PlayerTest {
 	private val wayfarer = emptyShip("Wayfarer", StarSystem.TAU_CETI, ShipLocation.PORT)
 	private val lantern = emptyShip("Lantern", StarSystem.BETA_HYDRI, ShipLocation.PORT)
 	private val player = Player.newcomer("ada@example.com", "Ada", "Orion Freight").startWith(300, listOf(wayfarer, lantern), 0)
+
+	@Test
+	fun shouldSellEveryUnitOnTheBlackMarketAndWriteTheRollAndPriceInTheLedger() {
+		// R112, E5: a d6 of 6 sells weapons at 40 HT, tripled in the civil war; the seller's card reads the ledger line (creator, 2026-11-26)
+		val smuggler = player.copy(
+			ships = listOf(
+				wayfarer.copy(
+					system = StarSystem.GAMMA_LEPORIS,
+					location = ShipLocation.PLANET,
+					specialLots = listOf(SpecialLot(SpecialGoods.WEAPONS, 2, StarSystem.GAMMA_LEPORIS))
+				)
+			)
+		)
+
+		val sold = smuggler.sellOnBlackMarket(SpecialGoods.WEAPONS, StarSystem.GAMMA_LEPORIS, 6, 3)
+
+		assertThat(sold.money).isEqualTo(smuggler.money + 240)
+		assertThat(sold.ledger.newestFirst().first().reason)
+			.isEqualTo("Black market at Gamma Leporis: d6 6; 2 weapons at 120 HT each (×3 in the civil war)")
+	}
 
 	@Test
 	fun shouldBeWorseOffForLessOfAnythingItOwnsButNotForMore() {

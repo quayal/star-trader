@@ -44,8 +44,39 @@ function shipTables(rules) {
 }
 
 /**
+ * The Guide's black-market table (R112; creator, 2026-11-26: tip-offs point here): `{ columns, rows, note }`, one row per d6
+ * roll with each illegal good's price per unit.
+ */
+function blackMarketTable(rules) {
+	const goods = rules.blackMarket ?? [];
+	const name = g => g.name.charAt(0).toUpperCase() + g.name.slice(1);
+	return {
+		columns: ['d6', ...goods.map(name)],
+		rows: (goods[0]?.prices ?? []).map((_, index) => [`${index + 1}`, ...goods.map(g => `${g.prices[index]} HT`)]),
+		note: `Sold on the lot's target Planet in a later Opportunity: one d6 roll sells every unit of that good aboard there at the rolled price. Frank on that Planet ${signed(rules.frankBlackMarketBonus)} (at most 6).`,
+	};
+}
+
+/**
+ * The Guide's battle table (R75, R76; creator, 2026-11-26): `{ columns, rows, note }`, one row per range of a salvo's weapons
+ * + d6 ("10–12", the last "31+"), with the hits it scores against each shields value.
+ */
+function battleTable(rules) {
+	const rows = rules.battle ?? [];
+	const shields = rows[0]?.hits.map((_, index) => `Shields ${index + 1}`) ?? [];
+	return {
+		columns: ['Weapons + d6', ...shields],
+		rows: rows.map((row, index) => {
+			const next = rows[index + 1]?.from;
+			return [next === undefined ? `${row.from}+` : next - 1 === row.from ? `${row.from}` : `${row.from}\u2013${next - 1}`, ...row.hits.map(String)];
+		}),
+		note: 'Weapons are the hull’s plus its working modules’. With rockets, only the working modules’ rocket values count, and after a rocket salvo with hits a d6 at or below the hits destroys the target. The target’s owner places the hits: the hull takes up to its shields and one more destroys the ship; a module is damaged by 1 hit and destroyed by 2.',
+	};
+}
+
+/**
  * The Guide's sections from [rules] (`/api/rules`), or null until they've loaded: `{ phases: [{ name, text }], agents:
- * [{ name, effect, note }], modifiers: [{ title, lines }], ships: { hulls, modules } }`.
+ * [{ name, effect, note }], modifiers: [{ title, lines }], ships: { hulls, modules }, blackMarket, battle }`.
  */
 export function guideSections(rules) {
 	if (!rules) {
@@ -56,6 +87,8 @@ export function guideSections(rules) {
 	const bonus = Object.entries(reputation.bonus).map(([level, ht]) => `${level}: ${ht} HT`).join(', ');
 	return {
 		ships: shipTables(rules),
+		blackMarket: blackMarketTable(rules),
+		battle: battleTable(rules),
 		phases: rules.phases.map(name => ({ name, text: PHASE_TEXT[name] ?? '' })),
 		agents: rules.agents.map(agent => ({ name: agent.name, effect: agent.effect, note: agent.inGame ? '' : 'Not in the game yet' })),
 		modifiers: [

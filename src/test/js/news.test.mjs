@@ -27,6 +27,12 @@ describe('the News screen (R109–R110)', () => {
 		assert.deepEqual(row.learn, { enabled: true, reason: '', label: 'Learn (5 HT)' });
 	});
 
+	it('links a learned illegal-goods tip-off to the Guide\'s black-market table (creator, 2026-11-26)', () => {
+		const goods = { ...hidden, learned: true, kind: 'OPPORTUNITY', details: 'Opportunity: buy drugs …', terms: { kind: 'ILLEGAL_GOODS', facts: [] } };
+		assert.equal(tipOffRows(game({ tipOffs: [goods] }))[0].blackMarketGuide, true);
+		assert.equal(tipOffRows(game({ tipOffs: [hidden] }))[0].blackMarketGuide, false);
+	});
+
 	it('says why it can’t be learned: the connection, or outside News', () => {
 		const short = { ...hidden, needRefusal: 'You need CRIM 5 to learn this (yours: 3).' };
 		assert.deepEqual(tipOffRows(game({ tipOffs: [short] }))[0].learn.reason, 'You need CRIM 5 to learn this (yours: 3).');
@@ -37,7 +43,8 @@ describe('the News screen (R109–R110)', () => {
 		const learned = { ...hidden, learned: true, kind: 'OPPORTUNITY', details: 'Opportunity: buy drugs …', taken: true };
 		const [row] = tipOffRows(game({ tipOffs: [learned] }));
 		assert.equal(row.details, 'Opportunity: buy drugs …');
-		assert.equal(row.taken, 'Already taken.');
+		assert.equal(row.taken, 'Already taken');
+		assert.equal(row.blackMarketGuide, false);
 		assert.equal(row.learn, null);
 	});
 

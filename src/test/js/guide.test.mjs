@@ -28,9 +28,29 @@ const rules = {
 		{ name: 'Safe jump', price: 10, crew: 0, weapons: 0, rocketWeapons: 0, cargoSpaces: 0, passengers: 0, military: false, takesModuleCapacity: false, jumpModifier: 2 },
 		{ name: 'Arsenal', price: 100, crew: 1, weapons: 7, rocketWeapons: 14, cargoSpaces: 0, passengers: 0, military: true, takesModuleCapacity: true, jumpModifier: 0 },
 	],
+	blackMarket: [
+		{ goods: 'SLAVES', name: 'slaves', prices: [5, 8, 10, 15, 20, 25] },
+		{ goods: 'WEAPONS', name: 'weapons', prices: [8, 10, 15, 25, 30, 40] },
+	],
+	frankBlackMarketBonus: 2,
+	battle: [{ from: 2, hits: [0, 0, 0, 0] }, { from: 5, hits: [1, 0, 0, 0] }, { from: 31, hits: [6, 5, 4, 3] }],
 };
 
 describe('the Guide (playtest, 2026-11-20)', () => {
+	it('gives the battle table: hits by weapons + d6 against each shields value (creator, 2026-11-26)', () => {
+		const table = guideSections(rules).battle;
+		assert.deepEqual(table.columns, ['Weapons + d6', 'Shields 1', 'Shields 2', 'Shields 3', 'Shields 4']);
+		assert.deepEqual(table.rows, [['2\u20134', '0', '0', '0', '0'], ['5\u201330', '1', '0', '0', '0'], ['31+', '6', '5', '4', '3']]);
+	});
+
+	it('gives the black-market prices by d6 roll, with Frank\'s bonus (creator, 2026-11-26)', () => {
+		const table = guideSections(rules).blackMarket;
+		assert.deepEqual(table.columns, ['d6', 'Slaves', 'Weapons']);
+		assert.deepEqual(table.rows[0], ['1', '5 HT', '8 HT']);
+		assert.deepEqual(table.rows[5], ['6', '25 HT', '40 HT']);
+		assert.match(table.note, /Frank on that Planet \+2/);
+	});
+
 	it('lists each phase with what a player does in it, and every agent, those not in the game yet marked', () => {
 		const guide = guideSections(rules);
 		assert.equal(guide.phases.length, 5);

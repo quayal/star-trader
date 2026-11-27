@@ -6,6 +6,8 @@
  * and the wholesale form (E05-S05) their `you.wholesaleMax`.
  */
 
+import { marketLevel, signedIndicator } from './board.js';
+
 export const BEFORE_TRADING_TEXT = 'Trading starts after Jumps. Results will appear here.';
 /** E05-S07-1: s03 once the last good has resolved and the next turn has started. */
 export const TURN_ENDED_TEXT = 'All goods resolved. The next turn starts with Bidding.';
@@ -613,7 +615,52 @@ export function priceNote(game) {
 }
 
 export function dictatorQuestion(game, playerId) {
-	return awaitingDictator(game) === playerId ? `You're Dictator of ${resolution(game).good.goods} here${priceNote(game)}. Place an offer before the roll?` : '';
+	return awaitingDictator(game) === playerId ? `You're Dictator of ${resolution(game).good.goods} here. Place an offer before the roll?` : '';
+}
+
+/**
+ * What the Dictator asked weighs before offering (creator, 2026-11-26), or null for anyone else: `{ goods, price, units,
+ * holding, indicator, level }`. [price] is the market price (null when the board doesn't list it), [units] what [playerId] holds of
+ * the good in port and in their warehouse there (what they could sell, R23, R49), [holding] where that is, [indicator] the
+ * S/D as "S/D +3" and [level] its market level (D08: the triangle, the word and whether the price may rise or fall).
+ */
+export function dictatorFacts(game, playerId) {
+	return awaitingDictator(game) === playerId ? goodFacts(game, playerId, resolution(game).good) : null;
+}
+
+/** [dictatorFacts]' shape for any [good]: its market price and S/D, and what [playerId] holds of it in port and warehouse there. */
+function goodFacts(game, playerId, good) {
+	const entry = (game.board ?? []).find(system => system.id === good.system)?.market?.find(e => e.goods === good.goods);
+	const places = shipsInPort(game, playerId, good);
+	return {
+		goods: good.goods,
+		price: entry?.price ?? null,
+		units: places.reduce((sum, place) => sum + place.holding, 0),
+		holding: hasWarehouse({ ships: places }) ? 'in port and warehouse' : 'in port',
+		indicator: entry ? `S/D ${signedIndicator(entry.indicator)}` : null,
+		level: entry ? marketLevel(entry.indicator) : null,
+	};
+}
+
+/**
+ * What the Limpy ask (R108) weighs (creator, 2026-11-26: decide without leaving the screen), or null when [playerId] isn't
+ * asked: `{ systemName, goods: [...] }`, the good asked about first (`now: true`), then the other goods still to resolve at
+ * that system, each as [goodFacts] with every offer on it ([queueOffers]) and whether Limpy could take it later ([limpyCan]:
+ * not when another player is its Dictator).
+ */
+export function limpyBriefing(game, playerId) {
+	const asked = game.you?.limpyAsk;
+	if (!asked) {
+		return null;
+	}
+	const later = queue(game).filter(good => good.system === asked.system && good.goods !== asked.goods);
+	const row = (good, now) => ({
+		...goodFacts(game, playerId, good),
+		now,
+		offers: queueOffers(game, good, playerId),
+		limpyCan: now || !game.players.some(player => player.id !== playerId && isDictatorOf(game, good, player.id)),
+	});
+	return { systemName: asked.systemName, goods: [row(asked, true), ...later.map(good => row(good, false))] };
 }
 
 /** The good a Dictator form belongs to, so what was typed is dropped when another good (or game, or turn) asks. */

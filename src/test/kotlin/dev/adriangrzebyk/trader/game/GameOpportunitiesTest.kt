@@ -90,6 +90,9 @@ class GameOpportunitiesTest {
 		assertThat(kim(sold).money).isEqualTo(kim(game).money + 60)
 		assertThat(kim(sold).ship("Bright Reach")!!.specialLots).isEmpty()
 		assertThat(sold.log.last().text).isEqualTo("Kessler Cargo sold on the black market at Gamma Leporis")
+		// Creator, 2026-11-26: a card for the seller alone, the roll and price in their own ledger (R29)
+		assertThat(sold.log.last().notice).isEqualTo(Notice.blackMarketSold(GAMMA_LEPORIS, KIM))
+		assertThat(kim(sold).ledger.newestFirst().first().reason).isEqualTo("Black market at Gamma Leporis: d6 3; 4 weapons at 15 HT each")
 	}
 
 	@Test
@@ -120,6 +123,27 @@ class GameOpportunitiesTest {
 		assertThat(stiletto.system).isEqualTo(TAU_CETI)
 		assertThat(stiletto.location).isEqualTo(ShipLocation.PLANET)
 		assertThat(kim(bought).money).isEqualTo(kim(game).money - stiletto.price())
+	}
+
+	@Test
+	fun shouldTakeAHullOpportunityAsItsModuleAloneOrRefuseTwoOfAKind() {
+		// Creator, 2026-11-26: O16 (a Dagger and one military module at Tau Ceti) can be just the module, for Kim's ship there
+		val game = fixture.with(with(TipOff.O16), KIM) { kim ->
+			kim.copy(ships = kim.ships.map { if (it.name == "Bright Reach") it.copy(modules = it.modules.drop(1)) else it })
+		}
+
+		val fitted = game.takeOpportunity(KIM, 1, TakeOrder(ship = "Bright Reach", modules = listOf(Module.DOGFIGHT)), FakeDice(emptyList()))
+
+		assertThat(kim(fitted).ship("Bright Reach")!!.modules).contains(Module.DOGFIGHT)
+		assertThat(fitted.news.inSlot(1).takenBy).isEqualTo(KIM)
+		assertThatThrownBy {
+			with(TipOff.O13, system = BETA_HYDRI).takeOpportunity(
+				KIM,
+				1,
+				TakeOrder(name = "Lance", hull = Hull.SPEAR, modules = listOf(Module.DOGFIGHT, Module.DOGFIGHT), crewClass = CrewClass.B),
+				FakeDice(emptyList())
+			)
+		}.hasMessage("At most 4 military modules come with this hull, one of each kind.")
 	}
 
 	@Test
