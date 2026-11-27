@@ -145,6 +145,11 @@ export function changeText(change) {
 	return change > 0 ? `▲${change}` : change < 0 ? `▼${-change}` : '—';
 }
 
+/** "rise", "fall" or "": the colour of a price's last move (playtest, 2026-11-27: green up, red down). */
+export function changeTone(change) {
+	return change > 0 ? 'rise' : change < 0 ? 'fall' : '';
+}
+
 /**
  * The matrix (criteria 3, 4): one row per good, one cell per system, `{ system, price, change, level, buyPercent, held,
  * tier, offer, dictator, cheapest, dearest }`, and each row's [spread] line naming its cheapest and dearest market.
@@ -167,6 +172,7 @@ export function marketMatrix(game, viewerId) {
 				traded: true,
 				price: entry.price,
 				change: changeText(entry.lastChange ?? 0),
+				changeTone: changeTone(entry.lastChange ?? 0),
 				level: marketLevel(entry.indicator),
 				buyPercent: Math.round(buyChance(entry.indicator) * 100),
 				held: heldAt(ships, stores, system.id, goods),
@@ -262,6 +268,7 @@ export function marketDetail(game, viewerId, systemId, goods) {
 		level: marketLevel(entry.indicator),
 		buyPercent: Math.round(buyChance(entry.indicator) * 100),
 		lastMove: changeText(entry.lastChange ?? 0),
+		lastMoveTone: changeTone(entry.lastChange ?? 0),
 		lastTrades: lastTrades(game, systemId, goods),
 		wholesalers: holders('WHOLESALER'),
 		dictator: holders('DICTATOR'),

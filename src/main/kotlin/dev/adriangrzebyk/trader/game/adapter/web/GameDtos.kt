@@ -844,7 +844,11 @@ data class MoneyMovementResponseDto(val turn: Int, val reason: String, val amoun
 	constructor(movement: MoneyMovement) : this(movement.turn, movement.reason, movement.amount, movement.isCredit())
 }
 
-/** What one of the viewer's own warehouses holds (R29): [cargoUsed] counts POLY and ISO only (R42), like a ship's. */
+/**
+ * What one of the viewer's own warehouses holds (R29): [cargoUsed] counts POLY and ISO only (R42), like a ship's.
+ * [sales] are what selling 1 to all of its blocks would pay and the cargo spaces the owner must free first (R141),
+ * private like money and cargo.
+ */
 data class YourWarehouseResponseDto(
 	val system: String,
 	val systemName: String,
@@ -852,7 +856,8 @@ data class YourWarehouseResponseDto(
 	val cargoSpaces: Int,
 	val cargo: Map<String, Int>,
 	val cargoUsed: Int,
-	val modules: List<StoredModuleResponseDto>
+	val modules: List<StoredModuleResponseDto>,
+	val sales: List<WarehouseSaleResponseDto>
 ) {
 
 	constructor(warehouse: Warehouse) : this(
@@ -862,9 +867,13 @@ data class YourWarehouseResponseDto(
 		warehouse.cargoSpaces(),
 		warehouse.cargo.filterValues { it > 0 }.entries.sortedBy { it.key.name }.associate { it.key.name to it.value },
 		warehouse.cargoSpacesUsed(),
-		warehouse.storedModules().map { (module, count) -> StoredModuleResponseDto(module, count) }
+		warehouse.storedModules().map { (module, count) -> StoredModuleResponseDto(module, count) },
+		(1..warehouse.blocks).map { WarehouseSaleResponseDto(it, warehouse.salePrice(it), warehouse.spacesToFree(it)) }
 	)
 }
+
+/** Selling [blocks] blocks of a warehouse (R141): what it pays, and the cargo spaces to free so the rest fits. */
+data class WarehouseSaleResponseDto(val blocks: Int, val price: Int, val spacesToFree: Int)
 
 /** A module kind stored in a warehouse (R122) and how many of it. */
 data class StoredModuleResponseDto(val id: String, val name: String, val count: Int) {

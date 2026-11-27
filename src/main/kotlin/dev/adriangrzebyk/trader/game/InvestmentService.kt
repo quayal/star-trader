@@ -27,6 +27,16 @@ class InvestmentService(private val gameStore: GameStore, private val dice: Dice
 	fun sellFactoryUnits(gameId: String, callerEmail: String, system: StarSystem, goods: Goods, units: Int): Game =
 		gameStore.update(gameId) { it.sellFactoryUnits(callerEmail, system, goods, units) }
 
+	/** [callerEmail] sells [blocks] warehouse blocks at [system] inside [GameStore.update], so a double press sells once (A04, R141). */
+	fun sellWarehouseBlocks(
+		gameId: String,
+		callerEmail: String,
+		system: StarSystem,
+		blocks: Int,
+		droppedGoods: Map<Goods, Int>,
+		droppedModules: Map<Module, Int>
+	): Game = gameStore.update(gameId) { it.sellWarehouseBlocks(callerEmail, system, blocks, droppedGoods, droppedModules) }
+
 	/**
 	 * [callerEmail] buys [blocks] warehouse blocks at [system] inside [GameStore.update], so the money is checked against the
 	 * saved balance and two purchases at once can't spend the same HT (A04, R45).

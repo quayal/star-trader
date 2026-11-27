@@ -222,6 +222,63 @@ export function ownWarehouseRows(game) {
 	return [...owned, ...build];
 }
 
+/** R122: the cargo spaces one stored module takes; the server checks it again (R141's dialog only adds up). */
+const MODULE_SPACES = 5;
+
+/**
+ * R141: selling blocks of the viewer's warehouse at [systemId], or null outside Investment or with no warehouse there:
+ * `{ system, systemName, sales, droppable }`. [sales] are the server's, one per number of blocks, with its price and the
+ * cargo spaces to free first; [droppable] is what the player may throw away to free them, POLY and ISO (1 space a unit)
+ * and stored modules (5 each); CHIPS and FOOD take no space.
+ */
+export function warehouseSale(game, systemId) {
+	const warehouse = (game.you?.warehouses ?? []).find(candidate => candidate.system === systemId);
+	if (!isInvesting(game) || !warehouse) {
+		return null;
+	}
+	const goods = Object.entries(warehouse.cargo ?? {}).filter(([name, units]) => units > 0 && (name === 'POLY' || name === 'ISO'))
+		.map(([name, units]) => ({ kind: 'goods', key: name, label: name, held: units, spaces: 1 }));
+	const modules = (warehouse.modules ?? []).map(module => ({ kind: 'module', key: module.id, label: `${module.name} module`, held: module.count, spaces: MODULE_SPACES }));
+	return { system: warehouse.system, systemName: warehouse.systemName, sales: warehouse.sales ?? [], droppable: [...goods, ...modules] };
+}
+
+function blocksWord(count) {
+	return `${count} ${count === 1 ? 'block' : 'blocks'}`;
+}
+
+/**
+ * What selling [blocks] blocks of [sale] comes to with [drops] (`{ goods: { ISO: 3 }, modules: { CARGO: 1 } }`, whole
+ * numbers): `{ price, all, toFree, left, text, button, body }`. [left] is the cargo spaces still to free (0 once enough is
+ * dropped, or when every block goes and everything is lost); [body] is POST /api/games/{id}/warehouses/sell's.
+ */
+export function warehouseSaleSummary(sale, blocks, drops) {
+	const chosen = sale.sales.find(entry => entry.blocks === blocks) ?? sale.sales[0];
+	const all = chosen.blocks === sale.sales.length;
+	const dropped = item => Math.min(item.held, Math.max(0, Math.floor(Number(drops[item.kind === 'goods' ? 'goods' : 'modules']?.[item.key] ?? 0)) || 0));
+	const freed = sale.droppable.reduce((sum, item) => sum + dropped(item) * item.spaces, 0);
+	const left = all ? 0 : Math.max(0, chosen.spacesToFree - freed);
+	const lost = sale.droppable.filter(item => dropped(item) > 0).map(item => `${dropped(item)} ${item.label}`);
+	let text;
+	if (all) {
+		text = `You get ${chosen.price} HT for all ${blocksWord(chosen.blocks)}, half what they cost. The warehouse goes, and everything in it is lost.`;
+	} else if (chosen.spacesToFree === 0) {
+		text = `You get ${chosen.price} HT for ${blocksWord(chosen.blocks)}, half what they cost. Everything it holds still fits.`;
+	} else {
+		text = `You get ${chosen.price} HT for ${blocksWord(chosen.blocks)}, half what they cost. The rest holds less: choose what to drop `
+			+ `to free ${chosen.spacesToFree} cargo spaces${left > 0 ? ` (${left} still to free)` : ''}.${lost.length ? ` Lost: ${lost.join(', ')}.` : ''}`;
+	}
+	const pick = kind => Object.fromEntries(sale.droppable.filter(item => item.kind === kind && dropped(item) > 0).map(item => [item.key, dropped(item)]));
+	return {
+		price: chosen.price,
+		all,
+		toFree: all ? 0 : chosen.spacesToFree,
+		left,
+		text,
+		button: `Sell for ${chosen.price} HT`,
+		body: { system: sale.system, blocks: chosen.blocks, dropGoods: all ? {} : pick('goods'), dropModules: all ? {} : pick('module') },
+	};
+}
+
 /**
  * The viewer's own factories for the screen (S08-6): where, which good, units a turn. Public data, picked out by
  * playerId. While the viewer may plan (creator, 2026-11-19, 2026-11-23), each row's `invest` is 'add', and every good a system can

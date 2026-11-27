@@ -414,6 +414,25 @@ class GameController(idGenerator: GameIdGenerator, private val gameStore: GameSt
 	fun repayLoan(@PathVariable id: String, session: Session): GameResponseDto =
 		GameResponseDto(investmentService.repayLoan(id, session.email), session.email)
 
+	/**
+	 * The player sells blocks of their warehouse at a system in Investment (R141): `{ system, blocks, dropGoods, dropModules }`,
+	 * the last two saying what they throw away so the rest fits (`{ "ISO": 3 }`, `{ "CARGO": 1 }`). Selling every block
+	 * removes the warehouse with all it held. `400` for anything unreadable, or when what's left doesn't fit.
+	 */
+	@PostMapping("/games/{id}/warehouses/sell")
+	fun sellWarehouseBlocks(
+		@PathVariable id: String,
+		@RequestBody(required = false) request: SellWarehouseRequestDto?,
+		session: Session
+	): GameResponseDto {
+		val body = request ?: SellWarehouseRequestDto()
+		val system = body.starSystem() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose one of your warehouses.")
+		val blocks = body.wholeBlocks() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of blocks.")
+		val goods = body.droppedGoods() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number of units for each good.")
+		val modules = body.droppedModules() ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a whole number for each module.")
+		return GameResponseDto(investmentService.sellWarehouseBlocks(id, session.email, system, blocks, goods, modules), session.email)
+	}
+
 	/** The player sells units of one of their factories in Investment (R96): `{ system, goods, units }`. */
 	@PostMapping("/games/{id}/factories/sell")
 	fun sellFactoryUnits(

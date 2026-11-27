@@ -226,7 +226,7 @@ class GameResponseDtoTest {
 		val seenByHost = GameResponseDto(collected, "host@example.com")
 
 		assertThat(seenByHost.you!!.warehouses).containsExactly(
-			YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 1, 10, mapOf("ISO" to 3), 3, emptyList())
+			YourWarehouseResponseDto("TAU_CETI", "Tau Ceti", 1, 10, mapOf("ISO" to 3), 3, emptyList(), listOf(WarehouseSaleResponseDto(1, 10, 0)))
 		)
 		assertThat(seenByGuest.you!!.warehouses).isEmpty()
 		assertThat(
@@ -415,7 +415,8 @@ class GameResponseDtoTest {
 					"POLY" to 7
 				),
 				7,
-				emptyList()
+				emptyList(),
+				listOf(WarehouseSaleResponseDto(1, 10, 0), WarehouseSaleResponseDto(2, 20, 0))
 			)
 		)
 		assertThat(seenByHost.players.single { it.id == "p2" }.warehouses)

@@ -315,7 +315,7 @@ data class Player(
 		val ships = ships.filter { it.isInPortAt(system) }
 		val warehouse = warehouseAt(system)
 		val factories = factories.filter { it.system == system }
-		val compensation = ships.sumOf { it.saleValue() } + (warehouse?.blocks ?: 0) * Warehouse.BLOCK_COST / 2 +
+		val compensation = ships.sumOf { it.saleValue() } + (warehouse?.salePrice() ?: 0) +
 			factories.sumOf { (ProductionCost(prices.priceOf(MarketGood(system, it.goods))).of(it.size) / 2).toInt() }
 		val stripped =
 			copy(warehouses = warehouses.filterNot { it.system == system }, factories = this.factories.filterNot { it.system == system })
@@ -571,6 +571,23 @@ data class Player(
 	}
 
 	/**
+	 * This player after selling [blocks] blocks of their warehouse at [system] (R141), for [Warehouse.salePrice]. They choose
+	 * what's lost so the rest fits, [droppedGoods] and [droppedModules] ([Warehouse.withBlocksSold]); selling every block
+	 * removes the warehouse with all it held. Refused when they have none there.
+	 */
+	fun sellWarehouseBlocks(system: StarSystem, blocks: Int, droppedGoods: Map<Goods, Int>, droppedModules: Map<Module, Int>): Player {
+		val warehouse = warehouseAt(system) ?: throw InvalidInvestmentException("You have no warehouse at ${system.displayName}.")
+		val left = warehouse.withBlocksSold(blocks, droppedGoods, droppedModules)
+		val paid = receive(
+			warehouse.salePrice(blocks),
+			"Sold $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
+		)
+		return if (left == null) paid.withoutWarehouse(warehouse) else paid.withWarehouse(left)
+	}
+
+	private fun withoutWarehouse(warehouse: Warehouse): Player = copy(warehouses = warehouses - warehouse)
+
+	/**
 	 * This player after buying [units] of production of [goods] at [system] (R46, E06-S05): added to their factory there,
 	 * or creating it, for [units] × (5 × the good's price in [prices] + 10) HT ([ProductionCost]). The system must be able to produce the
 	 * good ([StarSystem.producibleGoods]) and they need enough money; no ship and no factory there already (creator, 2026-11-16).
@@ -741,6 +758,10 @@ data class Player(
 	/** The public log line of [blocks] warehouse blocks bought at [system] (R50: without the price). */
 	fun warehouseBlocksLog(system: StarSystem, blocks: Int): String =
 		"$corporationName added $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
+
+	/** The public log line of [blocks] warehouse blocks sold at [system] (R141, R50: without the price). */
+	fun warehouseBlocksSoldLog(system: StarSystem, blocks: Int): String =
+		"$corporationName sold $blocks warehouse ${if (blocks == 1) "block" else "blocks"} at ${system.displayName}"
 
 	/** The public log line of [units] of [goods] production bought at [system] (R50: without the price). */
 	fun factoryUnitsLog(system: StarSystem, goods: Goods, units: Int): String =

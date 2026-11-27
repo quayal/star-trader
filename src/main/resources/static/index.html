@@ -207,6 +207,8 @@
 		.market-cell.is-dim > * { opacity: 0.35; }
 		.market-cell__price { font-family: var(--font-display); font-size: var(--text-title); color: var(--text-primary); }
 		.market-cell__move { font-size: var(--text-caption); color: var(--text-muted); }
+		.market-cell__move.tone--rise { color: var(--tone-rise); }
+		.market-cell__move.tone--fall { color: var(--tone-fall); }
 		.market-cell__extreme { font-size: var(--text-caption); color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
 		.market-cell.is-cheapest .market-cell__price, .market-cell.is-dearest .market-cell__price { text-decoration: underline; text-underline-offset: var(--space-hairline); }
 		.market-cell .market-level { font-size: var(--text-caption); font-weight: 400; }
@@ -315,6 +317,9 @@
 		.notice[data-tone=rise] { border-color: var(--status-live); box-shadow: var(--glow-live); }
 		.notice form { display: grid; gap: var(--space-related); max-width: none; }
 		.notice h2 { margin: 0; }
+		.warehouse-drops { border: 0; padding: 0; margin: 0; }
+		.warehouse-drops[hidden] { display: none; }
+		#warehouse-sell-drop-fields { display: grid; gap: var(--space-related); }
 		.notice p { margin: 0; }
 		.notice ul { margin: 0; padding-left: var(--space-panel); display: grid; gap: var(--space-group); color: var(--text-muted); }
 		.notice__count { font-family: var(--font-display); font-size: var(--text-caption); color: var(--text-muted); }
@@ -1077,6 +1082,26 @@
 				</div>
 			</form>
 		</dialog>
+		<!-- R141: selling warehouse blocks, opened by its row's Sell button. When the rest holds less, the player chooses what to drop. -->
+		<dialog class="notice" id="warehouse-sell-dialog" aria-labelledby="warehouse-sell-title" aria-describedby="warehouse-sell-text">
+			<form method="dialog" id="warehouse-sell-form" novalidate>
+				<h2 id="warehouse-sell-title"></h2>
+				<div>
+					<label class="field-label" for="warehouse-sell-blocks">Blocks to sell</label>
+					<select class="control" id="warehouse-sell-blocks"></select>
+				</div>
+				<p id="warehouse-sell-text" aria-live="polite"></p>
+				<fieldset class="warehouse-drops" id="warehouse-sell-drops" hidden>
+					<legend class="field-label">Drop</legend>
+					<div id="warehouse-sell-drop-fields"></div>
+				</fieldset>
+				<p class="message message--error" id="warehouse-sell-error"></p>
+				<div class="notice__actions">
+					<button class="btn btn--danger" id="warehouse-sell-confirm" type="submit" value="sell"></button>
+					<button class="quiet-button" type="submit" value="cancel">Keep it</button>
+				</div>
+			</form>
+		</dialog>
 		<!-- Playtest 2026-11-21: selling one of the viewer's agents (R106), opened by its Sell button. -->
 		<dialog class="notice" id="agent-sell-dialog" aria-labelledby="agent-sell-title">
 			<form id="agent-sell-form" method="dialog" novalidate>
@@ -1583,6 +1608,8 @@
 					</table>
 				</div>
 			</section>
+			<!-- R141: outside the panel, so "Warehouse sold." stays when the last warehouse goes and the panel hides. -->
+			<p class="message" id="warehouse-sale-message" role="status" tabindex="-1"></p>
 			<section class="panel" aria-labelledby="own-factories-title" id="own-factories-panel" hidden>
 				<h3 class="field-label" id="own-factories-title">Your factories</h3>
 				<!-- E12-S03-8 (R84): the factory cap, while the player may add units. -->
@@ -1637,6 +1664,7 @@
 				<!-- E05-S02: the good resolving now, or the last one; static markup, so a typed Dictator price survives the poll. -->
 				<section class="panel resolution-panel" id="resolution-panel" aria-labelledby="resolution-title" hidden>
 					<h2 id="resolution-title" tabindex="-1"></h2>
+					<p class="resolution-price" id="resolution-price"></p>
 					<h3 class="field-label">Offers</h3>
 					<table class="data-table" id="resolution-offers" hidden>
 						<thead><tr><th scope="col">Player</th><th scope="col">Offer</th></tr></thead>
@@ -1894,6 +1922,8 @@
 		DICTATOR_MARK,
 		GO_TO_TRADING,
 		resolutionTitle,
+		resolutionPriceText,
+		marketPrice,
 		resolver,
 		sameOrder,
 		tradeForm,
@@ -2112,7 +2142,9 @@
 		unitsText,
 		validateBlocks,
 		validateCollect,
-		validateUnits
+		validateUnits,
+		warehouseSale,
+		warehouseSaleSummary
 	} from './js/investment.js';
 	import { keepGoodsColoured } from './js/goods-colour.js';
 	import {
@@ -2272,6 +2304,9 @@
 		}
 		if ($('done-confirm-dialog').open) {
 			$('done-confirm-dialog').close('stale'); // asked about the game being left: never signals done
+		}
+		if ($('warehouse-sell-dialog').open) {
+			$('warehouse-sell-dialog').close('stale'); // asked about the game being left: never sells
 		}
 		const { view, id, ship } = parseRoute(location.hash);
 		showView(view === 'system' || view === 'log' || view === 'trading' || view === 'jumps' || view === 'market' || view === 'opportunity' || view === 'infrastructure' || view === 'fleet' || view === 'assets' || view === 'corporations' || view === 'guide' || view === 'news' || view === 'over' ? 'game' : view);
@@ -3865,6 +3900,7 @@
 				element('td', {}, offer.corporation, ...(offer.dictator ? [element('span', { class: 'muted' }, ' (Dictator)')] : [])),
 				element('td', {}, element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`))));
 		}
+		$('resolution-price').textContent = resolutionPriceText(game);
 		$('resolution-dictator').textContent = dictatorLine(game);
 		const lines = counterLines(game);
 		$('resolution-counter-title').hidden = lines.length === 0;
@@ -4165,8 +4201,11 @@
 				element('span', { class: `trade trade--${offer.type.toLowerCase()}` }, offer.typeName), ` at ${offer.price} HT`));
 			// A Dictator has no offer yet: they place it when the good resolves (R38), which matters for the order too.
 			const mark = [...offers, ...(isDictatorOf(game, good, viewerId) ? [element('span', { class: 'queue__offer' }, DICTATOR_MARK)] : [])];
+			// Playtest, 2026-11-27: each good's current market price, "Tau Ceti · POLY · 13".
+			const price = marketPrice(game, good);
 			const name = element('span', { class: 'queue__label' }, `${good.systemName} \u00b7 `,
-				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods), ...mark);
+				element('span', { class: `good good--${good.goods.toLowerCase()}` }, good.goods),
+				...(price === null ? [] : [` \u00b7 ${price}`]), ...mark);
 			if (!editable) {
 				return element('li', {}, name);
 			}
@@ -5258,7 +5297,7 @@
 			'data-label': column.name,
 		},
 		element('span', { class: 'market-cell__price' }, String(cell.price),
-			element('span', { class: 'market-cell__move' }, ` ${cell.change}`)),
+			element('span', { class: `market-cell__move${cell.changeTone ? ` tone tone--${cell.changeTone}` : ''}` }, ` ${cell.change}`)),
 		...(cell.cheapest ? [element('span', { class: 'market-cell__extreme' }, 'cheapest')] : []),
 		...(cell.dearest ? [element('span', { class: 'market-cell__extreme' }, 'dearest')] : []),
 		element('span', { class: 'market-level lean', 'data-level': cell.level.key, style: `--lean: ${cell.buyPercent}%` },
@@ -5339,7 +5378,8 @@
 	/** The inspector's detail (criteria 8, 9) as nodes. */
 	function marketDetailNodes(detail) {
 		const facts = element('dl', { class: 'facts' },
-			element('div', {}, element('dt', {}, 'Price'), element('dd', {}, `${detail.price} HT ${detail.lastMove}`)),
+			element('div', {}, element('dt', {}, 'Price'), element('dd', {}, `${detail.price} HT `,
+				element('span', { class: detail.lastMoveTone ? `tone tone--${detail.lastMoveTone}` : '' }, detail.lastMove))),
 			element('div', {}, element('dt', {}, 'S/D'), element('dd', {}, detail.indicator)),
 			element('div', {}, element('dt', {}, 'Lean'), element('dd', {}, levelLabel(detail.level), ` · buyers ${detail.buyPercent}%`)));
 		const list = (title, items) => (items.length
@@ -5474,7 +5514,7 @@
 			updateOverflowNotes();
 			$('fight-button').textContent = { INTERCEPT: INTERCEPT_BUTTON, ORDERS: ORDERS_BUTTON, HITS: HITS_BUTTON, LANDING: BATTLE_LANDING_BUTTON }[step] ?? '';
 		}
-		const otherDialog = ['landing-dialog', 'hangar-dialog', 'backing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog'].some(id => $(id).open);
+		const otherDialog = ['landing-dialog', 'hangar-dialog', 'backing-dialog', 'battle-report-dialog', 'notice-dialog', 'invest-dialog', 'done-confirm-dialog', 'warehouse-sell-dialog'].some(id => $(id).open);
 		if (involved && !dialog.open && !otherDialog && fightStepKey !== fightHiddenKey) {
 			dialog.showModal();
 			$('fight-title').focus();
@@ -6326,7 +6366,7 @@
 				element('td', { class: 'num' }, row.invest === 'build' ? '\u2014' : String(row.blocks)),
 				element('td', { class: 'num' }, row.invest === 'build' ? '\u2014' : `${row.cargoUsed} / ${row.cargoSpaces}`),
 				element('td', {}, row.invest === 'build' ? 'No warehouse yet' : row.held),
-				investCell(row.invest && investButton('blocks', row.invest, row.system)))));
+				investCell(row.invest && investButton('blocks', row.invest, row.system), sellWarehouseButton(game, row)))));
 			$('own-factories').replaceChildren(...factories.map(row => element('tr', row.invest === 'build' ? { class: 'invest-row' } : {},
 				element('th', { scope: 'row' }, element('a', { class: 'link', href: systemLink(game.id, row.system) }, row.systemName)),
 				element('td', {}, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
@@ -6791,6 +6831,27 @@
 		const [system, goods] = $('factory-sale-factory').value.split('|');
 		gameAction('factories/sell', { system, goods, units: Number($('factory-sale-units').value) }, 'factory-sale-message', 'Sold.');
 	});
+	$('warehouse-sell-blocks').addEventListener('change', updateWarehouseSale);
+	$('warehouse-sell-drop-fields').addEventListener('input', updateWarehouseSale);
+	$('warehouse-sell-form').addEventListener('submit', (event) => {
+		if (event.submitter?.value !== 'sell' || !warehouseSelling) {
+			return;
+		}
+		const summary = updateWarehouseSale();
+		if (summary.left > 0) {
+			event.preventDefault(); // the server would refuse it too; say so here and keep the dialog open
+			$('warehouse-sell-error').textContent = `Drop goods or modules to free ${summary.left} more cargo ${summary.left === 1 ? 'space' : 'spaces'}.`;
+			return;
+		}
+		$('warehouse-sell-dialog').dataset.body = JSON.stringify(summary.body);
+	});
+	$('warehouse-sell-dialog').addEventListener('close', () => {
+		const sold = $('warehouse-sell-dialog').returnValue === 'sell';
+		warehouseSelling = null;
+		if (sold) {
+			gameAction('warehouses/sell', JSON.parse($('warehouse-sell-dialog').dataset.body), 'warehouse-sale-message', 'Sold.');
+		}
+	});
 	$('limpy-act-button').addEventListener('click', () => gameAction('trading/limpy', { act: true }, 'trading-message'));
 	$('limpy-pass-button').addEventListener('click', () => gameAction('trading/limpy', { act: false }, 'trading-message'));
 
@@ -6997,6 +7058,60 @@
 			$('factory-sale-units').focus();
 		});
 		return button;
+	}
+
+	/**
+	 * R141: a warehouse row's Sell, beside its "Add blocks", in Investment. It asks first, naming the price and everything
+	 * lost with the warehouse ([warehouseSale]); only "Sell for … HT" sells.
+	 */
+	function sellWarehouseButton(game, row) {
+		if (row.invest === 'build' || !warehouseSale(game, row.system)) {
+			return null;
+		}
+		const button = element('button', { class: 'quiet-button', type: 'button' }, 'Sell');
+		button.addEventListener('click', () => {
+			warehouseSelling = warehouseSale(lastGame, row.system);
+			if (!warehouseSelling) {
+				return;
+			}
+			$('warehouse-sell-title').textContent = `Sell blocks of your warehouse at ${warehouseSelling.systemName}`;
+			fillSelect('warehouse-sell-blocks', warehouseSelling.sales.map(entry => ({
+				value: String(entry.blocks),
+				label: `${entry.blocks} ${entry.blocks === 1 ? 'block' : 'blocks'}${entry.blocks === warehouseSelling.sales.length ? ' (all)' : ''} \u2014 ${entry.price} HT`,
+			})));
+			$('warehouse-sell-blocks').value = '1';
+			$('warehouse-sell-drop-fields').replaceChildren(...warehouseSelling.droppable.map(item => element('div', {},
+				element('label', { class: 'field-label', for: `warehouse-drop-${item.key}` }, `${item.label} (you have ${item.held})`),
+				element('input', {
+					class: 'control price-input', id: `warehouse-drop-${item.key}`, inputmode: 'numeric', value: '0',
+					'data-kind': item.kind, 'data-key': item.key,
+				}))));
+			$('warehouse-sell-error').textContent = '';
+			updateWarehouseSale();
+			$('warehouse-sell-dialog').returnValue = '';
+			$('warehouse-sell-dialog').showModal();
+		});
+		return button;
+	}
+
+	/** R141: the sale the dialog is about, as [warehouseSale] gave it when it opened; null when closed. */
+	let warehouseSelling = null;
+
+	function warehouseDrops() {
+		const drops = { goods: {}, modules: {} };
+		for (const input of $('warehouse-sell-drop-fields').querySelectorAll('input')) {
+			drops[input.dataset.kind === 'goods' ? 'goods' : 'modules'][input.dataset.key] = input.value;
+		}
+		return drops;
+	}
+
+	/** Recounts the sale as the player picks blocks and drops (R141); returns the summary. */
+	function updateWarehouseSale() {
+		const summary = warehouseSaleSummary(warehouseSelling, Number($('warehouse-sell-blocks').value), warehouseDrops());
+		$('warehouse-sell-text').textContent = summary.text;
+		$('warehouse-sell-confirm').textContent = summary.button;
+		$('warehouse-sell-drops').hidden = summary.toFree === 0;
+		return summary;
 	}
 
 	/** Text set only on a change, so a live region isn't re-announced every poll. */

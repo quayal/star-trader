@@ -1038,6 +1038,21 @@ data class Game(
 		}
 	}
 
+	/**
+	 * [email] sells [blocks] blocks of their warehouse at [system] (R141): [Player.sellWarehouseBlocks] checks and applies
+	 * it at half the blocks' price, the player choosing what's lost ([droppedGoods], [droppedModules]). Only in Investment;
+	 * public without the amount or what was lost (R29).
+	 */
+	fun sellWarehouseBlocks(
+		email: String,
+		system: StarSystem,
+		blocks: Int,
+		droppedGoods: Map<Goods, Int>,
+		droppedModules: Map<Module, Int>
+	): Game = withInvestment(email, {
+		it.warehouseBlocksSoldLog(system, blocks)
+	}) { it.sellWarehouseBlocks(system, blocks, droppedGoods, droppedModules) }
+
 	/** [email] borrows [amount] HT over [term] in Investment (R90, R91): see [Player.takeLoan]. Private, not logged (R29). */
 	fun takeLoan(email: String, amount: Int?, term: LoanTerm?): Game {
 		val number = investing().number
