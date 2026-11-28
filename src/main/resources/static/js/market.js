@@ -13,15 +13,12 @@ export const MARKET_GOODS = ['CHIPS', 'FOOD', 'ISO', 'POLY'];
 const SPACE_GOODS = ['POLY', 'ISO'];
 const LOCATION_NAMES = { PORT: 'Port', PLANET: 'Planet', SPACE: 'Space', SHIPYARD: 'Shipyard' };
 const TIER_LETTERS = { RETAILER: 'R', WHOLESALER: 'W', DICTATOR: 'D' };
-/** "Where I can be": a ship or warehouse there now, or a ship with at least this jump chance (criterion 6). */
-export const LIKELY_REACH = 50;
-
-export const FILTERS = [
-	{ id: 'all', label: 'All' },
-	{ id: 'goods', label: 'Where I have goods' },
-	{ id: 'reach', label: 'Where I can be' },
-	{ id: 'offers', label: 'My offers' },
-];
+/**
+ * The grid's one filter (`2026-11-28-market-grid-ux.md` criterion 1): pressed, it dims the markets where the viewer
+ * holds none of the good. "Where I can be" and "My offers" went: nearly every system is in reach, and offers show on
+ * their cells anyway.
+ */
+export const HELD_FILTER = { id: 'goods', label: 'Where I have goods' };
 
 function me(game, viewerId) {
 	return game.players.find(player => player.id === viewerId) ?? null;
@@ -80,11 +77,12 @@ function goodsText(cargo) {
 }
 
 /**
- * The holdings strip (criterion 11): one chip per ship and warehouse, `{ kind, name, system, text, canJump }`, e.g.
- * "Wayfarer · Tau Ceti Port · FOOD 6, ISO 2 · free 0/8".
+ * The holdings strip (criterion 11): one chip per ship and warehouse, `{ id, kind, name, system, text, canJump }`, e.g.
+ * "Wayfarer · Tau Ceti Port · FOOD 6, ISO 2 · free 0/8". [id] is `ship:<name>` or `warehouse:<system>`.
  */
 export function holdings(game, viewerId) {
 	const ships = ownShips(game, viewerId).map(ship => ({
+		id: `ship:${ship.name}`,
 		kind: 'ship',
 		name: ship.name,
 		system: ship.system,
@@ -92,6 +90,7 @@ export function holdings(game, viewerId) {
 		canJump: ship.canJump,
 	}));
 	const stores = warehouses(game).map(warehouse => ({
+		id: `warehouse:${warehouse.system}`,
 		kind: 'warehouse',
 		name: 'Warehouse',
 		system: warehouse.system,
@@ -102,7 +101,7 @@ export function holdings(game, viewerId) {
 }
 
 /**
- * One column per system (criterion 5): `{ id, name, presence, here, reach, reachPercent }`. [presence] names what's
+ * One column per system (criterion 5): `{ id, name, presence, here, reach }`. [presence] names what's
  * there now ("Wayfarer (Port), warehouse 12/20"); [reach] is "here", the best jump chance of a ship that can still jump
  * ("reach 83% (Wayfarer)"), or "—".
  */
@@ -124,7 +123,6 @@ export function marketColumns(game, viewerId) {
 			presence,
 			here,
 			reach: here ? 'here' : best ? `reach ${best.percent}% (${best.ship.name})` : '—',
-			reachPercent: here ? 100 : best?.percent ?? 0,
 		};
 	});
 }
@@ -152,7 +150,9 @@ export function changeTone(change) {
 
 /**
  * The matrix (criteria 3, 4): one row per good, one cell per system, `{ system, price, change, level, buyPercent, held,
- * tier, offer, dictator, cheapest, dearest }`, and each row's [spread] line naming its cheapest and dearest market.
+ * tier, offer, dictator, cheapest, dearest, priceStep }`, and each row's [spread], `{ from, low, to, high, gap }` or
+ * null. [priceStep] is 0 (the row's cheapest) to 4 (its dearest), null when the row has one price
+ * (`2026-11-28-market-grid-ux.md` criteria 2, 3).
  */
 export function marketMatrix(game, viewerId) {
 	const ships = ownShips(game, viewerId);
@@ -188,27 +188,20 @@ export function marketMatrix(game, viewerId) {
 		for (const cell of traded) {
 			cell.cheapest = low !== high && cell.price === low;
 			cell.dearest = low !== high && cell.price === high;
+			cell.priceStep = low !== high ? Math.round(4 * (cell.price - low) / (high - low)) : null;
 		}
 		const cheapest = traded.find(cell => cell.price === low);
 		const dearest = traded.find(cell => cell.price === high);
-		const spread = traded.length > 1
-			? `${goods}: cheapest ${systemName(game, cheapest.system)} ${low}, dearest ${systemName(game, dearest.system)} ${high} (spread ${high - low})`
-			: '';
+		const spread = low < high
+			? { from: systemName(game, cheapest.system), low, to: systemName(game, dearest.system), high, gap: high - low }
+			: null;
 		return { goods, cells, spread };
 	});
 }
 
-/** Whether [cell] in [column] stays bright under filter [filter] (criterion 6); filtering dims, never removes. */
-export function cellMatches(filter, cell, column) {
-	if (!cell.traded) {
-		return false;
-	}
-	switch (filter) {
-		case 'goods': return cell.held > 0;
-		case 'reach': return column.here || column.reachPercent >= LIKELY_REACH;
-		case 'offers': return cell.offer !== '';
-		default: return true;
-	}
+/** Whether [cell] stays bright under filter [filter] ('all' or 'goods'); filtering dims, never removes. */
+export function cellMatches(filter, cell) {
+	return cell.traded && (filter !== HELD_FILTER.id || cell.held > 0);
 }
 
 /** "Buy above 11 or sell below 4 moves no further" (R15), from the server's limits; '' when neither applies. */
@@ -283,8 +276,8 @@ export function marketDetail(game, viewerId, systemId, goods) {
 }
 
 /**
- * The offers check (criterion 12): warnings for each of the viewer's offers, then for the set. `{ offer, text }` per
- * warning, [offer] null for the set's. Each is advice: a bid that looks impossible may be a bluff or part of a plan.
+ * The offers check (criterion 12): warnings for each of the viewer's offers, then for the set. `{ offer, system, goods,
+ * text }` per warning, [offer], [system] and [goods] null for the set's. Each is advice: a bid that looks impossible may be a bluff or part of a plan.
  */
 export function offersCheck(game, viewerId) {
 	const offers = game.you?.offers ?? [];
@@ -296,18 +289,19 @@ export function offersCheck(game, viewerId) {
 		const name = offer.systemName ?? systemName(game, offer.system);
 		const reach = reachers(ships, offer.system);
 		const tag = `${offer.type === 'BUY' ? 'Buy' : 'Sell'} ${offer.goods} at ${name}`;
+		const about = { offer: tag, system: offer.system, goods: offer.goods };
 		if (!present(offer.system)) {
-			warnings.push({ offer: tag, text: reach.length
+			warnings.push({ ...about, text: reach.length
 				? `Relies on ${reach[0].ship.name} reaching ${name} (${reach[0].percent}%).`
 				: `Nothing of yours can be there. A won buy is lost (R23).` });
 		}
 		if (offer.type === 'SELL' && heldAt(ships, stores, offer.system, offer.goods) === 0
 			&& !reach.some(r => (r.ship.cargo[offer.goods] ?? 0) > 0)) {
-			warnings.push({ offer: tag, text: `Nothing to sell: no ${offer.goods} at ${name}, and no ship with ${offer.goods} can reach it.` });
+			warnings.push({ ...about, text: `Nothing to sell: no ${offer.goods} at ${name}, and no ship with ${offer.goods} can reach it.` });
 		}
 		if (offer.type === 'BUY' && SPACE_GOODS.includes(offer.goods) && (present(offer.system) || reach.length)
 			&& freeAt(ships, stores, offer.system) === 0 && !reach.some(r => r.ship.free > 0)) {
-			warnings.push({ offer: tag, text: `No free space can reach ${name}; overflow is lost (R16).` });
+			warnings.push({ ...about, text: `No free space can reach ${name}; overflow is lost (R16).` });
 		}
 	}
 	const places = [...new Set(offers.map(offer => offer.system))];
@@ -317,7 +311,70 @@ export function offersCheck(game, viewerId) {
 	// Only places a ship could reach count: one nothing can reach already has its own warning.
 	const reachable = places.filter(place => !present(place) && reachers(ships, place).length);
 	if (reachable.length > movers.length) {
-		warnings.push({ offer: null, text: `Offers in ${places.length} systems, but you can cover at most ${most} this turn.` });
+		warnings.push({ offer: null, system: null, goods: null, text: `Offers in ${places.length} systems, but you can cover at most ${most} this turn.` });
 	}
 	return warnings;
+}
+
+/** The texts of the warnings in [warnings] (from offersCheck) about the offer at [systemId] for [goods]. */
+export function warningsFor(warnings, systemId, goods) {
+	return warnings.filter(warning => warning.system === systemId && warning.goods === goods).map(warning => warning.text);
+}
+
+/** The ship or warehouse a holdings chip stands for, `{ name, system, cargo, canJump, chances }`, or null. */
+function holdingFor(game, viewerId, holdingId) {
+	const ship = ownShips(game, viewerId).find(s => `ship:${s.name}` === holdingId);
+	if (ship) {
+		return ship;
+	}
+	const store = warehouses(game).find(w => `warehouse:${w.system}` === holdingId);
+	return store ? { name: `Warehouse at ${store.systemName}`, system: store.system, cargo: store.cargo, canJump: false, chances: {} } : null;
+}
+
+/**
+ * Where the holding [holdingId] could sell what it holds (`2026-11-28-market-grid-ux.md` criterion 6): every market of
+ * a good it holds at its own system, and for a ship that can still jump, at every system it can reach.
+ * `{ system, goods, units, price, percent, best }`, dearest first per good; [percent] is null at its own system, and
+ * [best] marks each good's dearest.
+ */
+export function outlets(game, viewerId, holdingId) {
+	const holding = holdingFor(game, viewerId, holdingId);
+	if (!holding) {
+		return [];
+	}
+	const places = [holding.system, ...(holding.canJump ? Object.keys(holding.chances).filter(id => id !== holding.system) : [])];
+	return MARKET_GOODS.filter(goods => holding.cargo[goods] > 0).flatMap(goods => {
+		const found = places.flatMap(systemId => {
+			const entry = game.board.find(system => system.id === systemId)?.market.find(m => m.goods === goods);
+			return entry ? [{
+				system: systemId,
+				goods,
+				units: holding.cargo[goods],
+				price: entry.price,
+				percent: systemId === holding.system ? null : holding.chances[systemId].percent,
+			}] : [];
+		}).sort((a, b) => b.price - a.price);
+		return found.map((outlet, index) => ({ ...outlet, best: index === 0 }));
+	});
+}
+
+/**
+ * The outlets of [holdingId] in words, for the line under the holdings strip: "Wayfarer: FOOD 6 sells best at Beta
+ * Hydri 14 (58%), then Tau Ceti 7 (here)." '' without a holding.
+ */
+export function outletsText(game, viewerId, holdingId) {
+	const holding = holdingFor(game, viewerId, holdingId);
+	if (!holding) {
+		return '';
+	}
+	const found = outlets(game, viewerId, holdingId);
+	if (!found.length) {
+		return `${holding.name} holds nothing to sell.`;
+	}
+	const where = outlet => `${systemName(game, outlet.system)} ${outlet.price} (${outlet.percent === null ? 'here' : `${outlet.percent}%`})`;
+	const parts = MARKET_GOODS.map(goods => found.filter(outlet => outlet.goods === goods)).filter(list => list.length).map(list => {
+		const [best, ...rest] = list;
+		return `${best.goods} ${best.units} sells best at ${where(best)}${rest.length ? `, then ${rest.map(where).join(', ')}` : ''}`;
+	});
+	return `${holding.name}: ${parts.join('; ')}.`;
 }
