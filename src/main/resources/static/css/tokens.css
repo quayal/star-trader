@@ -81,10 +81,10 @@
 	--market-supply-high: var(--red-400);          /* D08 — ▼ price likely to fall */
 
 	/* A price's place in its row on the Market grid (2026-11-28-market-grid-ux.md): cool for cheap, warm for dear, stepped, as a cell background only. Not green/red, which already mean buy/sell, rise/fall and D08 there. */
-	--price-cheap-strong: rgb(77 141 255 / 0.24);  /* step 0, the row's cheapest (blue-400) */
-	--price-cheap: rgb(77 141 255 / 0.11);         /* step 1 */
-	--price-dear: rgb(251 191 36 / 0.10);          /* step 3 (amber-400) */
-	--price-dear-strong: rgb(251 191 36 / 0.22);   /* step 4, the row's dearest */
+	--price-cheap-strong: rgb(77 141 255 / 0.32);  /* step 0, the row's cheapest (blue-400) */
+	--price-cheap: rgb(77 141 255 / 0.16);         /* step 1 */
+	--price-dear: rgb(255 115 20 / 0.36);          /* step 3: a saturated orange, as amber and orange-400 read as brown on navy (creator, 2026-11-28) */
+	--price-dear-strong: rgb(255 115 20 / 0.58);   /* step 4, the row's dearest; text on it stays ≥ 4.5:1 */
 
 	/* Base jump chances on the map (R68): green for the three highest values, red for the three lowest, grey between (creator, 2026-11-17). Only on the arrowhead numbers. */
 	--jump-high: var(--green-400);          /* R68 — one of the three highest base chances */

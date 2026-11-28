@@ -32,7 +32,7 @@ The grid is easier to scan, and the screen points at what to do:
    (`round(4 × (price − low) / (high − low))`). 0–1 get a cool tint, 3–4 a warm tint, stronger at the ends, and 2 none.
    A row where every price is the same is not tinted. Cells narrow from 120 to 96 px so the grid and the Spread
    column fit beside the inspector at 1440 px. The tints are new semantic tokens in `tokens.css`
-   (`--price-cheap`, `--price-cheap-strong`, `--price-dear`, `--price-dear-strong`), stepped and not blended (the
+   (`--price-cheap`, `--price-cheap-strong`, `--price-dear`, `--price-dear-strong`; the dear side a saturated orange, creator 2026-11-28), stepped and not blended (the
    design system's rule for scales). The colour is never the only signal: the prices are on the cells, and the legend names the scale.
 3. **Spread column.** The grid gains a last column, `Spread`. Per good it shows `<low> → <high>` and `spread <high −
    low>`, or `—` when the good trades in fewer than two systems, or at one price everywhere. The cheapest and dearest
@@ -73,8 +73,8 @@ Everything here is presentation of data the viewer already gets (`board`, `you`)
 
 ## Defaults I chose
 
-- **Cool cheap, warm dear**, not green and red: green and red already mean buy/sell, rise/fall and the D08 levels on
-  this very cell. Blue-ish and amber tints don't collide with them.
+- **Blue cheap, orange dear**, not green and red: green and red already mean buy/sell, rise/fall and the D08 levels on
+  this very cell. Blue and orange tints don’t collide with them. Amber was tried first and read as mud on navy (creator, 2026-11-28).
 - **Stepped tint by rank in the row, not by absolute price.** The question a row answers is "where is this good cheap
   compared with elsewhere", and FOOD at 14 and ISO at 14 mean different things.
 - **Outlets include the chip's own system** even for a ship that can jump: staying is a choice too.

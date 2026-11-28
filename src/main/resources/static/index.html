@@ -215,7 +215,7 @@
 		.market-cell.is-outlet { outline: 2px dashed var(--text-primary); outline-offset: -3px; }
 		.market-cell__best { font-size: var(--text-caption); color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
 		.market-cell .badge { margin-left: var(--space-hairline); }
-		.market-grid__spread { font-size: var(--text-caption); color: var(--text-muted); white-space: nowrap; }
+		.market-grid__spread { font-size: var(--text-caption); color: var(--text-muted); white-space: nowrap; cursor: help; }
 		.market-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-hairline); margin: var(--space-group) 0 0; font-size: var(--text-caption); }
 		.market-legend__step { width: var(--space-panel); height: var(--space-related); border: var(--border-width) solid var(--border-subtle); }
 		.market-grid__spread strong { display: block; color: var(--text-primary); font-weight: 600; }
@@ -5349,8 +5349,9 @@
 
 	/** A good's Spread cell (2026-11-28-market-grid-ux.md criterion 3): its cheapest and dearest market, and the gap. */
 	function marketSpreadCell(spread) {
-		return element('td', { role: 'gridcell', class: 'market-grid__spread', 'data-label': 'Spread' }, ...(spread
-			? [element('strong', { title: `cheapest ${spread.from}, dearest ${spread.to}` }, `${spread.low} → ${spread.high}`),
+		const title = spread ? { title: `Cheapest ${spread.from}, dearest ${spread.to}` } : {};
+		return element('td', { role: 'gridcell', class: 'market-grid__spread', 'data-label': 'Spread', ...title }, ...(spread
+			? [element('strong', {}, `${spread.low} → ${spread.high}`),
 				`spread ${spread.gap}`, element('span', { class: 'visually-hidden' }, `: cheapest ${spread.from}, dearest ${spread.to}`)]
 			: ['—']));
 	}
