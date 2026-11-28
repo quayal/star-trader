@@ -200,24 +200,37 @@
 		.market-grid thead th { font-weight: 600; }
 		.market-grid th.is-selected { background: var(--surface-raised); }
 		.market-grid__sub { display: block; font-size: var(--text-caption); font-weight: 400; }
-		.market-cell { display: table-cell; cursor: pointer; min-width: 120px; }
+		.market-cell { display: table-cell; cursor: pointer; min-width: 96px; }
 		.market-cell > span { display: block; }
 		.market-cell:focus-visible { outline: var(--focus-ring-width) solid var(--accent-selected); outline-offset: calc(-1 * var(--focus-ring-width)); }
-		.market-cell.is-selected { outline: var(--focus-ring-width) solid var(--accent-selected); outline-offset: calc(-1 * var(--focus-ring-width)); box-shadow: var(--glow-selected); }
+		.market-cell.is-selected, .market-cell.is-selected.is-outlet { outline: var(--focus-ring-width) solid var(--accent-selected); outline-offset: calc(-1 * var(--focus-ring-width)); box-shadow: var(--glow-selected); }
 		.market-cell.is-dim > * { opacity: 0.35; }
+		/* 2026-11-28-market-grid-ux.md: a price's place in its row, cool for cheap, warm for dear (criterion 2) */
+		.market-cell[data-price-step="0"], .market-legend__step[data-price-step="0"] { background: var(--price-cheap-strong); }
+		.market-cell[data-price-step="1"], .market-legend__step[data-price-step="1"] { background: var(--price-cheap); }
+		.market-cell[data-price-step="3"], .market-legend__step[data-price-step="3"] { background: var(--price-dear); }
+		.market-cell[data-price-step="4"], .market-legend__step[data-price-step="4"] { background: var(--price-dear-strong); }
+		.market-cell.is-dim { background: none; }
+		/* where a hovered or pinned holding could sell (criterion 6); the selected cell's outline wins */
+		.market-cell.is-outlet { outline: 2px dashed var(--text-primary); outline-offset: -3px; }
+		.market-cell__best { font-size: var(--text-caption); color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
+		.market-cell .badge { margin-left: var(--space-hairline); }
+		.market-grid__spread { font-size: var(--text-caption); color: var(--text-muted); white-space: nowrap; }
+		.market-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-hairline); margin: var(--space-group) 0 0; font-size: var(--text-caption); }
+		.market-legend__step { width: var(--space-panel); height: var(--space-related); border: var(--border-width) solid var(--border-subtle); }
+		.market-grid__spread strong { display: block; color: var(--text-primary); font-weight: 600; }
+		.market-outlets { margin: var(--space-group) 0 0; }
+		.market-outlets:empty { display: none; }
 		.market-cell__price { font-family: var(--font-display); font-size: var(--text-title); color: var(--text-primary); }
 		.market-cell__move { font-size: var(--text-caption); color: var(--text-muted); }
 		.market-cell__move.tone--rise { color: var(--tone-rise); }
 		.market-cell__move.tone--fall { color: var(--tone-fall); }
-		.market-cell__extreme { font-size: var(--text-caption); color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
-		.market-cell.is-cheapest .market-cell__price, .market-cell.is-dearest .market-cell__price { text-decoration: underline; text-underline-offset: var(--space-hairline); }
 		.market-cell .market-level { font-size: var(--text-caption); font-weight: 400; }
 		/* Two flat segments: the buyers' share in the level's colour, the rest the empty track (no gradient, A02). */
 		.lean__bar { position: relative; display: block; height: var(--space-hairline); margin-bottom: var(--space-hairline); background: var(--surface-raised); }
 		.lean__bar::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--lean); background: currentColor; }
 		.market-cell__you, .market-cell__offer { font-size: var(--text-caption); }
 		.market-cell .trade { display: inline-block; padding: 0 var(--space-hairline); border-radius: var(--radius-control); }
-		.market-spreads { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-hairline); font-size: var(--text-caption); }
 		.market-inspector { position: sticky; top: var(--space-panel); }
 		.market-detail { display: grid; gap: var(--space-group); }
 		.market-detail .facts { margin: 0; }
@@ -1411,21 +1424,28 @@
 			<section class="panel" aria-labelledby="market-holdings-title">
 				<h3 id="market-holdings-title">What you have, where</h3>
 				<ul class="holdings" id="market-holdings"></ul>
+				<p class="market-outlets muted" id="market-outlets" role="status"></p>
 			</section>
 			<div class="market__body">
 				<div class="market__main">
 					<section class="panel" aria-labelledby="market-grid-title">
 						<div class="market__head">
 							<h3 id="market-grid-title">Markets</h3>
-							<div class="market-filters" id="market-filters" role="group" aria-label="Show"></div>
+							<div class="market-filters">
+								<button class="quiet-button" id="market-warnings" type="button" hidden></button>
+								<button class="quiet-button" id="market-held-filter" type="button" aria-pressed="false"></button>
+							</div>
 						</div>
 						<div class="market-grid__scroll">
 							<table class="market-grid" id="market-grid" role="grid" aria-labelledby="market-grid-title"></table>
 						</div>
-						<ul class="market-spreads muted" id="market-spreads"></ul>
+						<!-- 2026-11-28-market-grid-ux.md criterion 2: what the cells' tint means -->
+						<p class="market-legend muted" aria-hidden="true">Price in its row: cheapest
+							<span class="market-legend__step" data-price-step="0"></span><span class="market-legend__step" data-price-step="1"></span><span class="market-legend__step" data-price-step="2"></span><span class="market-legend__step" data-price-step="3"></span><span class="market-legend__step" data-price-step="4"></span>
+							dearest</p>
 					</section>
 					<section class="panel" id="market-check-panel" aria-labelledby="market-check-title">
-						<h3 id="market-check-title">Offers check</h3>
+						<h3 id="market-check-title" tabindex="-1">Offers check</h3>
 						<ul class="corporation__list" id="market-check"></ul>
 					</section>
 				</div>
@@ -1992,13 +2012,16 @@
 		uncoveredText,
 	} from './js/jumps.js';
 	import {
-		FILTERS,
+		HELD_FILTER,
 		cellMatches,
 		holdings,
 		marketColumns,
 		marketDetail,
 		marketMatrix,
 		offersCheck,
+		outlets,
+		outletsText,
+		warningsFor,
 	} from './js/market.js';
 	import { phaseRail, railItemLabel } from './js/phase-rail.js';
 	import {
@@ -4539,6 +4562,12 @@
 	$('system-offer').replaceChildren(systemOfferForm.element);
 	$('market-offer').replaceChildren(marketOfferForm.element);
 	$('market-grid').addEventListener('keydown', moveInMarketGrid);
+	$('market-held-filter').textContent = HELD_FILTER.label;
+	$('market-held-filter').addEventListener('click', () => chooseMarket({ filter: marketChoice.filter === HELD_FILTER.id ? 'all' : HELD_FILTER.id }));
+	$('market-warnings').addEventListener('click', () => {
+		$('market-check-title').scrollIntoView({ block: 'center' });
+		$('market-check-title').focus({ preventScroll: true });
+	});
 
 	function setControlsDisabled(form, disabled) {
 		for (const control of [form.system, form.goods, form.price, ...form.types, form.button].filter(Boolean)) {
@@ -5260,14 +5289,17 @@
 
 	// ── R140: the Market screen ──
 
-	// The selected market, filter and place, for one game: kept across polls and turns of that game.
+	// The selected market, the filter and the pinned holding (`place`, a chip id), for one game: kept across polls and turns.
 	let marketChoice = { gameId: null, system: null, goods: null, filter: 'all', place: null };
+	// The holding chip under the pointer or focus, previewed over the pinned one (2026-11-28-market-grid-ux.md criterion 6).
+	let marketPreview = null;
 	// What the grid and the inspector were last drawn from, the choice included.
 	let shownMarketKey = null;
 
 	function marketChoiceFor(game) {
 		if (marketChoice.gameId !== game.id) {
 			marketChoice = { gameId: game.id, system: null, goods: null, filter: 'all', place: null };
+			marketPreview = null;
 		}
 		return marketChoice;
 	}
@@ -5279,14 +5311,17 @@
 		}
 	}
 
-	/** One cell of the grid: price and move, the lean, the viewer's stock and tier, their offer (criterion 3). */
-	function marketCell(cell, goods, column, choice) {
+	/**
+	 * One cell of the grid (criterion 3, and 2026-11-28-market-grid-ux.md criteria 2, 4, 5): price and move on a tint for
+	 * its place in the row, the lean bar, the viewer's stock and tier, their offer and its warnings.
+	 */
+	function marketCell(cell, goods, column, choice, warnings) {
 		if (!cell.traded) {
 			return element('td', { role: 'gridcell', class: 'market-cell is-dim', 'data-label': column.name }, element('span', { class: 'muted' }, 'not traded'));
 		}
 		const selected = choice.system === cell.system && choice.goods === goods;
-		const dim = !cellMatches(choice.filter, cell, column) || (choice.place !== null && choice.place !== cell.system);
-		const classes = ['market-cell', selected ? 'is-selected' : '', dim ? 'is-dim' : '', cell.cheapest ? 'is-cheapest' : '', cell.dearest ? 'is-dearest' : ''];
+		const dim = !cellMatches(choice.filter, cell);
+		const classes = ['market-cell', selected ? 'is-selected' : '', dim ? 'is-dim' : ''];
 		const td = element('td', {
 			role: 'gridcell',
 			class: classes.filter(Boolean).join(' '),
@@ -5295,22 +5330,65 @@
 			'data-system': cell.system,
 			'data-goods': goods,
 			'data-label': column.name,
+			...(cell.priceStep === null ? {} : { 'data-price-step': String(cell.priceStep) }),
 		},
 		element('span', { class: 'market-cell__price' }, String(cell.price),
 			element('span', { class: `market-cell__move${cell.changeTone ? ` tone tone--${cell.changeTone}` : ''}` }, ` ${cell.change}`)),
-		...(cell.cheapest ? [element('span', { class: 'market-cell__extreme' }, 'cheapest')] : []),
-		...(cell.dearest ? [element('span', { class: 'market-cell__extreme' }, 'dearest')] : []),
-		element('span', { class: 'market-level lean', 'data-level': cell.level.key, style: `--lean: ${cell.buyPercent}%` },
-			element('span', { class: 'lean__bar', 'aria-hidden': 'true' }), ` buyers ${cell.buyPercent}%`),
+		element('span', { class: 'market-level lean', 'data-level': cell.level.key, style: `--lean: ${cell.buyPercent}%`, title: `buyers ${cell.buyPercent}%` },
+			element('span', { class: 'lean__bar', 'aria-hidden': 'true' }), element('span', { class: 'visually-hidden' }, ` buyers ${cell.buyPercent}%`)),
 		...(cell.held || cell.tier ? [element('span', { class: 'market-cell__you' },
 			cell.held ? `you ${cell.held}` : '', ...(cell.tier ? [' ', element('span', { class: 'badge', title: { R: 'Retailer', W: 'Wholesaler', D: 'Dictator' }[cell.tier] }, cell.tier)] : []))] : []),
 		...(cell.dictator ? [element('span', { class: 'market-cell__offer muted' }, 'Dictator: you offer in Trading')]
-			: cell.offer ? [element('span', { class: `trade trade--${cell.offerType.toLowerCase()} market-cell__offer` }, cell.offer)] : []));
+			: cell.offer ? [element('span', { class: 'market-cell__offer' },
+				element('span', { class: `trade trade--${cell.offerType.toLowerCase()}` }, cell.offer),
+				...(warnings.length ? [element('span', { class: 'badge badge--warn', title: warnings.join(' ') }, 'Check'),
+					element('span', { class: 'visually-hidden' }, ` ${warnings.join(' ')}`)] : []))] : []));
 		td.addEventListener('click', () => chooseMarket({ system: cell.system, goods }));
 		return td;
 	}
 
-	/** Criteria 1–12: the bid, holdings, filters, the grid, the spreads, the inspector and the offers check. */
+	/** A good's Spread cell (2026-11-28-market-grid-ux.md criterion 3): its cheapest and dearest market, and the gap. */
+	function marketSpreadCell(spread) {
+		return element('td', { role: 'gridcell', class: 'market-grid__spread', 'data-label': 'Spread' }, ...(spread
+			? [element('strong', { title: `cheapest ${spread.from}, dearest ${spread.to}` }, `${spread.low} → ${spread.high}`),
+				`spread ${spread.gap}`, element('span', { class: 'visually-hidden' }, `: cheapest ${spread.from}, dearest ${spread.to}`)]
+			: ['—']));
+	}
+
+	/**
+	 * Outline where the previewed or pinned holding could sell, label each good's best, and say it under the strip
+	 * (2026-11-28-market-grid-ux.md criterion 6). Drawn over the grid without rebuilding it, so hovering costs nothing.
+	 */
+	function showOutlets(game) {
+		const holdingId = marketPreview ?? marketChoice.place;
+		const found = holdingId ? outlets(game, viewerId, holdingId) : [];
+		for (const node of $('market-grid').querySelectorAll('.is-outlet')) {
+			node.classList.remove('is-outlet');
+		}
+		for (const node of $('market-grid').querySelectorAll('.market-cell__best')) {
+			node.remove();
+		}
+		for (const outlet of found) {
+			const cell = $('market-grid').querySelector(`td[data-system="${outlet.system}"][data-goods="${outlet.goods}"]`);
+			cell?.classList.add('is-outlet');
+			if (cell && outlet.best) {
+				cell.append(element('span', { class: 'market-cell__best' }, 'best'));
+			}
+		}
+		const text = holdingId ? outletsText(game, viewerId, holdingId) : '';
+		if ($('market-outlets').textContent !== text) {
+			$('market-outlets').textContent = text;
+		}
+	}
+
+	function previewHolding(holdingId) {
+		marketPreview = holdingId;
+		if (lastGame) {
+			showOutlets(lastGame);
+		}
+	}
+
+	/** Criteria 1–12: the bid, holdings, the filter, the grid, the inspector and the offers check. */
 	function renderMarket(game) {
 		const choice = marketChoiceFor(game);
 		updateBidForm(game);
@@ -5332,51 +5410,57 @@
 			return;
 		}
 		shownMarketKey = key;
-		const focused = document.activeElement?.closest?.('#market-grid td, #market-filters button, #market-holdings button');
-		const focusKey = focused ? [focused.dataset.system, focused.dataset.goods, focused.dataset.filter, focused.dataset.place].join('/') : null;
+		const focused = document.activeElement?.closest?.('#market-grid td, #market-holdings button');
+		const focusKey = focused ? [focused.dataset.system, focused.dataset.goods, focused.dataset.place].join('/') : null;
 		showText('market-status', status);
 		$('market-holdings').replaceChildren(...chips.map(chip => {
-			const pressed = choice.place === chip.system;
-			const button = element('button', { class: 'holding', type: 'button', 'aria-pressed': String(pressed), 'data-place': chip.system, 'data-goods': chip.name },
+			const pressed = choice.place === chip.id;
+			const button = element('button', { class: 'holding', type: 'button', 'aria-pressed': String(pressed), 'data-place': chip.id, 'aria-describedby': 'market-outlets' },
 				chip.text, element('span', { class: 'muted' }, chip.kind === 'ship' ? (chip.canJump ? ' · can jump' : ' · stays') : ''));
-			button.addEventListener('click', () => chooseMarket({ place: pressed ? null : chip.system }));
+			button.addEventListener('click', () => chooseMarket({ place: pressed ? null : chip.id }));
+			button.addEventListener('mouseenter', () => previewHolding(chip.id));
+			button.addEventListener('focus', () => previewHolding(chip.id));
+			button.addEventListener('mouseleave', () => previewHolding(null));
+			button.addEventListener('blur', () => previewHolding(null));
 			return element('li', {}, button);
 		}));
-		$('market-filters').replaceChildren(...FILTERS.map(filter => {
-			const button = element('button', { class: 'quiet-button', type: 'button', 'aria-pressed': String(choice.filter === filter.id), 'data-filter': filter.id }, filter.label);
-			button.addEventListener('click', () => chooseMarket({ filter: filter.id, place: null }));
-			return button;
-		}));
+		$('market-held-filter').setAttribute('aria-pressed', String(choice.filter === HELD_FILTER.id));
+		$('market-warnings').hidden = check.length === 0;
+		$('market-warnings').replaceChildren(element('span', { class: 'badge badge--warn' }, `${check.length} ${check.length === 1 ? 'warning' : 'warnings'}`));
 		$('market-grid').replaceChildren(
 			element('thead', {}, element('tr', {},
 				element('td', {}),
 				...columns.map(column => element('th', { scope: 'col', class: choice.system === column.id ? 'is-selected' : '' },
 					element('a', { class: 'link', href: systemLink(game.id, column.id) }, column.name),
-					element('span', { class: 'market-grid__sub' }, column.presence || '\u00a0'),
-					element('span', { class: 'market-grid__sub muted' }, column.reach))))),
+					element('span', { class: 'market-grid__sub' }, column.presence || ' '),
+					element('span', { class: 'market-grid__sub muted' }, column.reach))),
+				element('th', { scope: 'col' }, 'Spread'))),
 			element('tbody', {}, ...rows.map(row => element('tr', {},
 				element('th', { scope: 'row', class: choice.goods === row.goods ? 'is-selected' : '' }, element('span', { class: `good good--${row.goods.toLowerCase()}` }, row.goods)),
-				...row.cells.map((cell, index) => marketCell(cell, row.goods, columns[index], choice))))));
+				...row.cells.map((cell, index) => marketCell(cell, row.goods, columns[index], choice, warningsFor(check, cell.system, row.goods))),
+				marketSpreadCell(row.spread)))));
 		if (!$('market-grid').querySelector('td[tabindex="0"]')) {
 			$('market-grid').querySelector('td[data-system]')?.setAttribute('tabindex', '0'); // the grid's one tab stop
 		}
-		$('market-spreads').replaceChildren(...rows.filter(row => row.spread).map(row => element('li', {}, row.spread)));
+		showOutlets(game);
 		$('market-inspector').classList.toggle('is-empty', !detail);
 		$('market-inspector-title').textContent = detail ? detail.title : 'Select a market';
-		$('market-detail').replaceChildren(...(detail ? marketDetailNodes(detail) : [element('p', { class: 'muted' }, 'Pick a cell in the grid (or move with the arrow keys and press Enter) to see the market and place an offer.')]));
+		$('market-detail').replaceChildren(...(detail
+			? marketDetailNodes(detail, warningsFor(check, choice.system, choice.goods))
+			: [element('p', { class: 'muted' }, 'Pick a cell in the grid (or move with the arrow keys and press Enter) to see the market and place an offer.')]));
 		showText('market-offer-hint', detail?.hint ?? '');
 		$('market-check').replaceChildren(...(check.length
 			? check.map(warning => element('li', {}, ...(warning.offer ? [element('strong', {}, warning.offer), ': '] : []), element('span', { class: 'tone tone--alert' }, warning.text)))
 			: [element('li', { class: 'muted' }, (game.you?.offers ?? []).length ? 'Every offer can be carried out as things stand.' : 'No offers to check yet.')]));
 		if (focusKey) {
-			const again = [...document.querySelectorAll('#market-grid td, #market-filters button, #market-holdings button')]
-				.find(node => [node.dataset.system, node.dataset.goods, node.dataset.filter, node.dataset.place].join('/') === focusKey);
+			const again = [...document.querySelectorAll('#market-grid td, #market-holdings button')]
+				.find(node => [node.dataset.system, node.dataset.goods, node.dataset.place].join('/') === focusKey);
 			again?.focus();
 		}
 	}
 
-	/** The inspector's detail (criteria 8, 9) as nodes. */
-	function marketDetailNodes(detail) {
+	/** The inspector's detail (criteria 8, 9) as nodes, with the offers check's warnings about this market. */
+	function marketDetailNodes(detail, warnings) {
 		const facts = element('dl', { class: 'facts' },
 			element('div', {}, element('dt', {}, 'Price'), element('dd', {}, `${detail.price} HT `,
 				element('span', { class: detail.lastMoveTone ? `tone tone--${detail.lastMoveTone}` : '' }, detail.lastMove))),
@@ -5387,6 +5471,8 @@
 			: []);
 		return [
 			facts,
+			...(warnings.length ? [element('p', { class: 'field-label' }, 'Check'),
+				element('ul', { class: 'corporation__list' }, ...warnings.map(text => element('li', {}, element('span', { class: 'tone tone--alert' }, text))))] : []),
 			...list('Last Trading here', detail.lastTrades),
 			...list('Positions', [
 				...(detail.dictator.length ? [`Dictator: ${detail.dictator.join(', ')}`] : []),

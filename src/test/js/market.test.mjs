@@ -10,7 +10,10 @@ import {
 	marketDetail,
 	marketMatrix,
 	offersCheck,
+	outlets,
+	outletsText,
 	saturationHint,
+	warningsFor,
 } from '../../main/resources/static/js/market.js';
 
 const ME = 'me';
@@ -71,6 +74,7 @@ describe('Market: holdings and columns (criteria 5, 11)', () => {
 			'Warehouse · Beta Hydri · POLY 10 · free 10/20',
 		]);
 		assert.equal(chips[0].canJump, true);
+		assert.deepEqual(chips.map(chip => chip.id), ['ship:Wayfarer', 'warehouse:BETA_HYDRI']);
 	});
 
 	it('says what is where now and the best reach elsewhere', () => {
@@ -97,10 +101,25 @@ describe('Market: the matrix (criteria 3, 4, 6)', () => {
 		assert.equal(rows.find(row => row.goods === 'CHIPS').cells.every(cell => !cell.traded), true);
 	});
 
-	it('marks the row\'s cheapest and dearest market and names the spread', () => {
-		const food = marketMatrix(game(), ME).find(row => row.goods === 'FOOD');
+	it('marks the row\'s cheapest and dearest market and gives the spread for its column', () => {
+		const rows = marketMatrix(game(), ME);
+		const food = rows.find(row => row.goods === 'FOOD');
 		assert.deepEqual(food.cells.map(cell => [cell.cheapest, cell.dearest]), [[true, false], [false, true], [false, false]]);
-		assert.equal(food.spread, 'FOOD: cheapest Tau Ceti 7, dearest Beta Hydri 14 (spread 7)');
+		assert.deepEqual(food.spread, { from: 'Tau Ceti', low: 7, to: 'Beta Hydri', high: 14, gap: 7 });
+		assert.equal(rows.find(row => row.goods === 'CHIPS').spread, null);
+	});
+
+	it('steps each price 0–4 by its place between the row\'s lowest and highest', () => {
+		const rows = marketMatrix(game(), ME);
+		assert.deepEqual(rows.find(row => row.goods === 'FOOD').cells.map(cell => cell.priceStep), [0, 4, 1]);
+		assert.deepEqual(rows.find(row => row.goods === 'ISO').cells.map(cell => cell.priceStep), [0, 3, 4]);
+	});
+
+	it('gives no step or spread when a good costs the same everywhere', () => {
+		const flat = { ...game(), board: BOARD.map(system => ({ ...system, market: [market('FOOD', 8, 0)] })) };
+		const food = marketMatrix(flat, ME).find(row => row.goods === 'FOOD');
+		assert.deepEqual(food.cells.map(cell => cell.priceStep), [null, null, null]);
+		assert.equal(food.spread, null);
 	});
 
 	it('says a Dictator offers in Trading', () => {
@@ -108,13 +127,12 @@ describe('Market: the matrix (criteria 3, 4, 6)', () => {
 		assert.equal(food.cells[0].dictator, true);
 	});
 
-	it('dims cells by filter, never removes them', () => {
-		const g = game({ offers: [offer('MU_HERCULIS', 'Mu Herculis', 'ISO', 'SELL', 12)] });
+	it('dims, never removes, the cells where the viewer holds none of the good', () => {
+		const g = game();
 		const columns = marketColumns(g, ME);
 		const iso = marketMatrix(g, ME).find(row => row.goods === 'ISO').cells;
 		assert.deepEqual(iso.map((cell, i) => cellMatches('goods', cell, columns[i])), [true, false, false]);
-		assert.deepEqual(iso.map((cell, i) => cellMatches('reach', cell, columns[i])), [true, true, true]);
-		assert.deepEqual(iso.map((cell, i) => cellMatches('offers', cell, columns[i])), [false, false, true]);
+		assert.deepEqual(iso.map((cell, i) => cellMatches('all', cell, columns[i])), [true, true, true]);
 		assert.equal(iso.length, 3);
 	});
 
@@ -169,5 +187,41 @@ describe('Market: the offers check (criterion 12)', () => {
 
 	it('says nothing about offers that can be carried out', () => {
 		assert.deepEqual(offersCheck(game({ offers: [offer('TAU_CETI', 'Tau Ceti', 'FOOD', 'SELL', 9)] }), ME), []);
+	});
+});
+
+describe('Market: warnings on the market they are about (2026-11-28 criterion 5)', () => {
+	it('keys each offer\'s warnings to its system and good, and the set\'s to none', () => {
+		const g = game({ offers: [offer('BETA_HYDRI', 'Beta Hydri', 'FOOD', 'SELL', 14), offer('MU_HERCULIS', 'Mu Herculis', 'FOOD', 'SELL', 9)] });
+		const check = offersCheck(g, ME);
+		assert.deepEqual(warningsFor(check, 'BETA_HYDRI', 'FOOD'), ['Relies on Wayfarer reaching Beta Hydri (58%).']);
+		assert.deepEqual(warningsFor(check, 'TAU_CETI', 'FOOD'), []);
+		assert.deepEqual([check.at(-1).system, check.at(-1).goods], [null, null]);
+	});
+});
+
+describe('Market: where a holding sells (2026-11-28 criterion 6)', () => {
+	it('lists a ship\'s goods at its system and every system it can reach, dearest first', () => {
+		const found = outlets(game(), ME, 'ship:Wayfarer');
+		assert.deepEqual(found.filter(o => o.goods === 'FOOD').map(o => [o.system, o.price, o.percent, o.best]), [
+			['BETA_HYDRI', 14, 58, true],
+			['MU_HERCULIS', 9, 92, false],
+			['TAU_CETI', 7, null, false],
+		]);
+		assert.deepEqual(found.filter(o => o.best).map(o => [o.goods, o.system]), [['FOOD', 'BETA_HYDRI'], ['ISO', 'MU_HERCULIS']]);
+	});
+
+	it('keeps a ship that can no longer jump, and a warehouse, to their own system', () => {
+		assert.deepEqual(outlets(game({ phase: 'TRADING' }), ME, 'ship:Wayfarer').map(o => o.system), ['TAU_CETI', 'TAU_CETI']);
+		const stored = game({ warehouses: [{ system: 'BETA_HYDRI', systemName: 'Beta Hydri', cargo: { ISO: 3 }, cargoUsed: 3, cargoSpaces: 20 }] });
+		assert.deepEqual(outlets(stored, ME, 'warehouse:BETA_HYDRI').map(o => [o.system, o.goods, o.percent]), [['BETA_HYDRI', 'ISO', null]]);
+	});
+
+	it('says it in a sentence, or that there is nothing to sell', () => {
+		assert.equal(outletsText(game(), ME, 'ship:Wayfarer'),
+			'Wayfarer: FOOD 6 sells best at Beta Hydri 14 (58%), then Mu Herculis 9 (92%), Tau Ceti 7 (here); '
+			+ 'ISO 2 sells best at Mu Herculis 11 (92%), then Beta Hydri 9 (58%), Tau Ceti 4 (here).');
+		assert.equal(outletsText(game({ cargo: {}, cargoUsed: 0 }), ME, 'ship:Wayfarer'), 'Wayfarer holds nothing to sell.');
+		assert.equal(outletsText(game(), ME, null), '');
 	});
 });
